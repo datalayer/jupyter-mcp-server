@@ -18,20 +18,6 @@ Jupyter MCP Server is a [Model Context Protocol](https://modelcontextprotocol.io
 
 ![Jupyter MCP Server](https://assets.datalayer.tech/jupyter-mcp/jupyter-mcp-server-claude-demo.gif)
 
-## Docker Image
-
-We recommend to run the MCP server in a Docker image. Prepull the MCP server Docker image.
-
-```bash
-make pull-docker
-```
-
-Optionally, you can build the Docker image it from source.
-
-```bash
-make build-docker
-```
-
 ## Start JupyterLab
 
 Make sure you have the following installed. The collaboration package is needed as the modifications made on the notebook can be seen thanks to [Jupyter Real Time Collaboration](https://jupyterlab.readthedocs.io/en/stable/user/rtc.html).
@@ -45,12 +31,12 @@ pip install datalayer_pycrdt
 Then, start JupyterLab with the following command.
 
 ```bash
-jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ServerApp.root_dir ./dev/content --ip 0.0.0.0
+jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
 You can also run `make jupyterlab`.
 
-> [!NOTE] 
+> [!NOTE]
 >
 > The `--ip` is set to `0.0.0.0` to allow the MCP server running in a Docker container to access your local JupyterLab.
 
@@ -71,7 +57,7 @@ NIXPKGS_ALLOW_UNFREE=1 nix run github:k3d3/claude-desktop-linux-flake \
 
 To use this with Claude Desktop, add the following to your `claude_desktop_config.json` (read more on the [MCP documentation website](https://modelcontextprotocol.io/quickstart/user#2-add-the-filesystem-mcp-server)).
 
-> [!IMPORTANT] 
+> [!IMPORTANT]
 >
 > Ensure the port of the `SERVER_URL`and `TOKEN` match those used in the `jupyter lab` command.
 >
@@ -140,33 +126,46 @@ EOF
 cat $CLAUDE_CONFIG
 ```
 
-### Prompt
+## Components
 
-You can now prompt via the Claude client, the result should be visible in your Jupyter notebook (confirm you accept to use the tools when asked by Claude). 
+### Tools
 
-```
-create matplolib examples with many variants in jupyter
-```
+The server currently offers 3 tools:
 
-![Jupyter MCP Server](https://assets.datalayer.tech/jupyter-mcp/jupyter-mcp-server-claude-demo.gif)
-
-## Tools
-
-The Jupyter MCP Server offers 2 tools.
-
-### `add_markdown_cell`
-
-- Add a markdown cell in a Jupyter notebook.
-- Input:
-  - `cell_content`(string): Markdown content
-- Returns: Success message
-
-### `add_execute_code_cell`
+1. `add_execute_code_cell`
 
 - Add and execute a code cell in a Jupyter notebook.
 - Input:
-  - `cell_content`(string): Code to be executed
-- Returns: Success message
+  - `cell_content`(string): Code to be executed.
+- Returns: Cell output.
+
+2. `add_markdown_cell`
+
+- Add a markdown cell in a Jupyter notebook.
+- Input:
+  - `cell_content`(string): Markdown content.
+- Returns: Success message.
+
+3. `download_earth_data_granules`
+
+   ⚠️ We plan to migrate this tool to a separate repository in the future as it is specific to Geospatial analysis.
+
+- Add a code cell in a Jupyter notebook to download Earth data granules from NASA Earth Data.
+- Input:
+  - `folder_name`(string): Local folder name to save the data.
+  - `short_name`(string): Short name of the Earth dataset to download.
+  - `count`(int): Number of data granules to download.
+  - `temporal` (tuple): (Optional) Temporal range in the format (date_from, date_to).
+  - `bounding_box` (tuple): (Optional) Bounding box in the format (lower_left_lon, lower_left_lat, upper_right_lon, upper_right_lat).
+- Returns: Cell output.
+
+## Building
+
+You can build the Docker image it from source.
+
+```bash
+make build-docker
+```
 
 ## Installing via Smithery
 

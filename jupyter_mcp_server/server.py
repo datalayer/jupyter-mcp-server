@@ -5,14 +5,12 @@
 import logging
 import os
 
-from mcp.server.fastmcp import FastMCP
-
 from jupyter_kernel_client import KernelClient
 from jupyter_nbmodel_client import (
-    get_jupyter_notebook_websocket_url,
     NbModelClient,
+    get_jupyter_notebook_websocket_url,
 )
-
+from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("jupyter")
 
@@ -31,17 +29,38 @@ kernel = KernelClient(server_url=SERVER_URL, token=TOKEN)
 kernel.start()
 
 
+def extract_output(output: dict) -> str:
+    """Extract output from a Jupyter notebook cell.
+    Args:
+        output: Output dictionary
+    Returns:
+        str: Output text
+    """
+    if output["output_type"] == "display_data":
+        return output["data"]["text/plain"]
+    elif output["output_type"] == "execute_result":
+        return output["data"]["text/plain"]
+    elif output["output_type"] == "stream":
+        return output["text"]
+    elif output["output_type"] == "error":
+        return output["traceback"]
+    else:
+        return ""
+
+
 @mcp.tool()
 async def add_markdown_cell(cell_content: str) -> str:
     """Add a markdown cell in a Jupyter notebook.
-    
+
     Args:
         cell_content: Markdown content
-        
+
     Returns:
         str: Success message
-    """    
-    notebook = NbModelClient(get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH))
+    """
+    notebook = NbModelClient(
+        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+    )
     await notebook.start()
     notebook.add_markdown_cell(cell_content)
     await notebook.stop()
@@ -51,20 +70,76 @@ async def add_markdown_cell(cell_content: str) -> str:
 @mcp.tool()
 async def add_execute_code_cell(cell_content: str) -> str:
     """Add and execute a code cell in a Jupyter notebook.
-    
+
     Args:
         cell_content: Code content
-        
+
     Returns:
-        str: Success message
+        str: Cell output
     """
-    notebook = NbModelClient(get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH))
+    notebook = NbModelClient(
+        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+    )
     await notebook.start()
     cell_index = notebook.add_code_cell(cell_content)
     notebook.execute_cell(cell_index, kernel)
+
+    ydoc = notebook._doc
+    outputs = ydoc._ycells[cell_index]["outputs"]
+    if len(outputs) == 0:
+        cell_output = ""
+    else:
+        cell_output = [extract_output(output) for output in outputs]
+
     await notebook.stop()
-    return "Jupyter Code Cell added and executed."
+    return cell_output
+
+
+@mcp.tool()
+async def download_earth_data_granules(
+    folder_name: str, short_name: str, count: int, temporal: tuple, bounding_box: tuple
+) -> str:
+    """Add a code cell in a Jupyter notebook to download Earth data granules from NASA Earth Data.
+
+    Args:
+        folder_name: Local folder name to save the data.
+        short_name: Short name of the Earth dataset to download.
+        count: Number of data granules to download.
+        temporal: (Optional) Temporal range in the format (date_from, date_to).
+        bounding_box: (Optional) Bounding box in the format (lower_left_lon, lower_left_lat,
+        upper_right_lon, upper_right_lat).
+
+    Returns:
+        str: Cell output
+    """
+    logger.info("Downloading Earth data granules")
+
+    search_params = {"short_name": short_name, "count": count, "cloud_hosted": True}
+
+    if temporal and len(temporal) == 2:
+        search_params["temporal"] = temporal
+    if bounding_box and len(bounding_box) == 4:
+        search_params["bounding_box"] = bounding_box
+
+    cell_content = f"""import earthaccess
+earthaccess.login()
+
+search_params = {search_params}  # Pass dictionary as a variable
+results = earthaccess.search_data(**search_params)
+files = earthaccess.download(results, "./{folder_name}")"""
+
+    notebook = NbModelClient(
+        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+    )
+    await notebook.start()
+
+    cell_index = notebook.add_code_cell(cell_content)
+    notebook.execute_cell(cell_index, kernel)
+
+    await notebook.stop()
+
+    return f"Data downloaded in folder {folder_name}"
 
 
 if __name__ == "__main__":
-    mcp.run(transport='stdio')
+    mcp.run(transport="stdio")
