@@ -30,22 +30,32 @@ kernel.start()
 
 
 def extract_output(output: dict) -> str:
-    """Extract output from a Jupyter notebook cell.
-    Args:
-        output: Output dictionary
-    Returns:
-        str: Output text
     """
-    if output["output_type"] == "display_data":
-        return output["data"]["text/plain"]
-    elif output["output_type"] == "execute_result":
-        return output["data"]["text/plain"]
-    elif output["output_type"] == "stream":
-        return output["text"]
-    elif output["output_type"] == "error":
+    Extracts readable output from a Jupyter cell output dictionary.
+
+    Args:
+        output (dict): The output dictionary from a Jupyter cell.
+
+    Returns:
+        str: A string representation of the output.
+    """
+    output_type = output.get("output_type")
+    if output_type == "stream":
+        return output.get("text", "")
+    elif output_type in ["display_data", "execute_result"]:
+        data = output.get("data", {})
+        if "text/plain" in data:
+            return data["text/plain"]
+        elif "text/html" in data:
+            return "[HTML Output]"
+        elif "image/png" in data:
+            return "[Image Output (PNG)]"
+        else:
+            return f"[{output_type} Data: keys={list(data.keys())}]"
+    elif output_type == "error":
         return output["traceback"]
     else:
-        return ""
+        return f"[Unknown output type: {output_type}]"
 
 
 @mcp.tool()
@@ -68,14 +78,14 @@ async def add_markdown_cell(cell_content: str) -> str:
 
 
 @mcp.tool()
-async def add_execute_code_cell(cell_content: str) -> str:
+async def add_execute_code_cell(cell_content: str) -> list[str]:
     """Add and execute a code cell in a Jupyter notebook.
 
     Args:
         cell_content: Code content
 
     Returns:
-        str: Cell output
+        list[str]: List of outputs from the executed cell
     """
     notebook = NbModelClient(
         get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
@@ -86,13 +96,10 @@ async def add_execute_code_cell(cell_content: str) -> str:
 
     ydoc = notebook._doc
     outputs = ydoc._ycells[cell_index]["outputs"]
-    if len(outputs) == 0:
-        cell_output = ""
-    else:
-        cell_output = [extract_output(output) for output in outputs]
+    str_outputs = [extract_output(output) for output in outputs]
 
     await notebook.stop()
-    return cell_output
+    return str_outputs
 
 
 if __name__ == "__main__":
