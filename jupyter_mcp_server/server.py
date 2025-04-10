@@ -99,6 +99,7 @@ async def add_execute_code_cell(cell_content: str) -> list[str]:
     str_outputs = [extract_output(output) for output in outputs]
 
     await notebook.stop()
+    
     return str_outputs
 
 
