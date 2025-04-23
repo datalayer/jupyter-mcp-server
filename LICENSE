@@ -1,6 +1,6 @@
 BSD 3-Clause License
 
-Copyright (c) 2024, Datalayer
+Copyright (c) 2025, Datalayer
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,11 +27,3 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
----
-
-This library reuse part of Jupyter Server code licensed under BSD 3-Clause License
-Source: https://github.com/jupyter-server/jupyter_server/blame/v2.12.0/jupyter_server/services/kernels/connection/base.py
-
-This library reuse part of traitlets code licensed under BSD 3-Clause License
-Source: https://github.com/ipython/traitlets/blob/v5.14.3/traitlets/log.py
