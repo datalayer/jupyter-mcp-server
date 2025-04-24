@@ -31,7 +31,7 @@ clean: ## clean
 	git clean -fdx
 
 build-docker:
-	docker build -t datalayer/jupyter-mcp-server:${VERSION} .
+	docker buildx build --platform linux/amd64,linux/arm64 -t datalayer/jupyter-mcp-server:${VERSION} .
 	docker image tag datalayer/jupyter-mcp-server:${VERSION} datalayer/jupyter-mcp-server:latest
 
 start-docker:
