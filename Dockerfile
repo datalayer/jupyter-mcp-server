@@ -14,6 +14,6 @@ COPY jupyter_mcp_server/* jupyter_mcp_server/
 RUN pip install -e .
 
 RUN pip uninstall -y pycrdt datalayer_pycrdt
-RUN pip install datalayer_pycrdt
+RUN pip install datalayer_pycrdt==0.12.15
 
 CMD ["python", "-m", "jupyter_mcp_server.server"]
