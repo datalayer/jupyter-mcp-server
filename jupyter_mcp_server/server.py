@@ -60,11 +60,11 @@ def extract_output(output: dict) -> str:
 
 
 @mcp.tool()
-async def add_markdown_cell(cell_content: str) -> str:
+async def add_markdown_cell(cell_source: str) -> str:
     """Add a markdown cell in a Jupyter notebook.
 
     Args:
-        cell_content: Markdown content
+        cell_source: Markdown source
 
     Returns:
         str: Success message
@@ -73,9 +73,29 @@ async def add_markdown_cell(cell_content: str) -> str:
         get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
     )
     await notebook.start()
-    notebook.add_markdown_cell(cell_content)
+    notebook.add_markdown_cell(cell_source)
     await notebook.stop()
     return "Jupyter Markdown cell added."
+
+
+@mcp.tool()
+async def insert_markdown_cell(cell_index: int, cell_source: str) -> str:
+    """Insert a markdown cell in a Jupyter notebook.
+
+    Args:
+        cell_index: Index of the cell to insert (0-based)
+        cell_source: Markdown source
+
+    Returns:
+        str: Success message
+    """
+    notebook = NbModelClient(
+        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+    )
+    await notebook.start()
+    notebook.insert_markdown_cell(cell_index, cell_source)
+    await notebook.stop()
+    return f"Jupyter Markdown cell {cell_index} inserted."
 
 
 @mcp.tool()
@@ -101,11 +121,11 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
 
 
 @mcp.tool()
-async def add_execute_code_cell(cell_content: str) -> list[str]:
+async def add_execute_code_cell(cell_source: str) -> list[str]:
     """Add and execute a code cell in a Jupyter notebook.
 
     Args:
-        cell_content: Code content
+        cell_source: Code source
 
     Returns:
         list[str]: List of outputs from the executed cell
@@ -114,7 +134,34 @@ async def add_execute_code_cell(cell_content: str) -> list[str]:
         get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
     )
     await notebook.start()
-    cell_index = notebook.add_code_cell(cell_content)
+    cell_index = notebook.add_code_cell(cell_source)
+    notebook.execute_cell(cell_index, kernel)
+
+    ydoc = notebook._doc
+    outputs = ydoc._ycells[cell_index]["outputs"]
+    str_outputs = [extract_output(output) for output in outputs]
+
+    await notebook.stop()
+
+    return str_outputs
+
+
+@mcp.tool()
+async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[str]:
+    """Insert and execute a code cell in a Jupyter notebook.
+
+    Args:
+        cell_index: Index of the cell to insert (0-based)
+        cell_source: Code source
+
+    Returns:
+        list[str]: List of outputs from the executed cell
+    """
+    notebook = NbModelClient(
+        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+    )
+    await notebook.start()
+    notebook.insert_code_cell(cell_index, cell_source)
     notebook.execute_cell(cell_index, kernel)
 
     ydoc = notebook._doc
@@ -166,7 +213,7 @@ async def execute_cell(cell_index: int) -> list[str]:
 async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
     """Read all cells from the Jupyter notebook.
     Returns:
-        list[dict]: List of cell information including index, type, content,
+        list[dict]: List of cell information including index, type, source,
                     and outputs (for code cells)
     """
     notebook = NbModelClient(
@@ -181,7 +228,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
         cell_info = {
             "index": i,
             "type": cell.get("cell_type", "unknown"),
-            "content": cell.get("source", ""),
+            "source": cell.get("source", ""),
         }
 
         # Add outputs for code cells
@@ -201,7 +248,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
     Args:
         cell_index: Index of the cell to read (0-based)
     Returns:
-        dict: Cell information including index, type, content, and outputs (for code cells)
+        dict: Cell information including index, type, source, and outputs (for code cells)
     """
     notebook = NbModelClient(
         get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
@@ -220,7 +267,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
     cell_info = {
         "index": cell_index,
         "type": cell.get("cell_type", "unknown"),
-        "content": cell.get("source", ""),
+        "source": cell.get("source", ""),
     }
 
     # Add outputs for code cells
