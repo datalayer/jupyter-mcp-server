@@ -8,28 +8,69 @@ from typing import Union
 
 import click
 import uvicorn
+from pydantic import BaseModel
+
+from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
+from mcp.server import FastMCP
+
 from jupyter_kernel_client import KernelClient
 from jupyter_nbmodel_client import (
     NbModelClient,
     get_jupyter_notebook_websocket_url,
 )
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP(name="jupyter", json_response=False, stateless_http=True)
 
 
-NOTEBOOK_PATH: str = os.getenv("NOTEBOOK_PATH", "notebook.ipynb")
+NOTEBOOK_PATH: str = os.getenv("NOTEBOOK_PATH", None)
 
 SERVER_URL: str = os.getenv("SERVER_URL", "http://host.docker.internal:8888")
 
 TOKEN: str = os.getenv("TOKEN", "MY_TOKEN")
 
 
+mcp = FastMCP(name="jupyter", json_response=False, stateless_http=True)
+
+
 logger = logging.getLogger(__name__)
+
+
+class CustomRequest(BaseModel):
+    message: str
+
+class CustomResponse(BaseModel):
+    result: str
+    status: str
 
 
 kernel = KernelClient(server_url=SERVER_URL, token=TOKEN)
 kernel.start()
+
+
+@mcp.custom_route("/health", ["GET"])
+async def health_check(request: Request):
+    """Custom health check endpoint"""
+    return JSONResponse({"status": "healthy", "service": "jupyter-mcp"})
+
+
+@mcp.custom_route("/notebook-info", ["GET"])
+async def get_notebook_info(request: Request):
+    """Get information about the current notebook"""
+    return {
+        "notebook_path": NOTEBOOK_PATH,
+        "server_url": SERVER_URL,
+        "kernel_status": "running" if kernel else "stopped"
+    }
+
+
+@mcp.custom_route("/custom", ["POST"])
+async def custom_endpoint(request: CustomRequest):
+    """Custom endpoint with request/response models"""
+    try:
+        # Your custom logic here
+        result = f"Processed: {request.message}"
+        return CustomResponse(result=result, status="success")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @click.command()

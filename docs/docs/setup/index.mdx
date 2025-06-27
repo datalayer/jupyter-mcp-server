@@ -2,7 +2,7 @@
 
 To setup **Jupyter MCP Server**, you need to:
 
-1. [Set up your environment](#environment-setup)
+1. [Create your environment](#environment)
 2. [Start JupyterLab](#start-jupyterlab)
 3. [Configure your preferred MCP client](#configuration).
 
@@ -31,7 +31,9 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 You can also run `make jupyterlab` if you cloned the repository.
 
 :::note
+
 The `--ip` is set to `0.0.0.0` to allow the MCP server running in a Docker container to access your local JupyterLab.
+
 :::
 
 ## Configuration
@@ -114,10 +116,16 @@ Jupyter MCP Servers also supports streamable HTTP transport, which allows you to
 
 #### Python
 
-Clone the repository and use `pip install -e .` or just install the `jupyter-mcp-server package` from PyPI with `pip install jupyter-mcp-server`. Then, you can start the Jupyter MCP Server with the following command:
+Clone the repository and use `pip install -e .` or just install the `jupyter-mcp-server package` from PyPI with `pip install jupyter-mcp-server`.
+
+Then, you can start JupyterLab and Jupyter MCP Server with the following commands.
 
 ```bash
-python -m jupyter-mcp-server --transport streamable_http
+make jupyterlab
+```
+
+```bash
+make start-streamable-http
 ```
 
 #### Docker
@@ -142,6 +150,21 @@ Use the following command to start the server on Linux.
 
 ```bash
 docker run --network=host -e SERVER_URL="http://localhost:8888" -p 4040:4040 datalayer/jupyter-mcp-server:latest --transport streamable-http
+```
+
+#### MCP Clients Configuration
+
+Use the following configuration for you MCP client to connect to a running MCP server.
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+        "command": "npx",
+        "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
+    }
+  }
+}
 ```
 
 ## Install via Smithery

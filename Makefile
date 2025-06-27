@@ -30,11 +30,11 @@ build:
 clean: ## clean
 	git clean -fdx
 
-build-docker:
+build-docker: ## build the Docker image
 	docker buildx build --platform linux/amd64,linux/arm64 -t datalayer/jupyter-mcp-server:${VERSION} .
 	docker image tag datalayer/jupyter-mcp-server:${VERSION} datalayer/jupyter-mcp-server:latest
 
-start-docker:
+start-docker: ## start the Jupyter MCP server in Docker
 	docker run -i --rm \
 	  -e SERVER_URL=http://localhost:8888 \
 	  -e TOKEN=MY_TOKEN \
@@ -42,20 +42,26 @@ start-docker:
 	  --network=host \
 	  datalayer/jupyter-mcp-server:latest
 
-pull-docker:
+pull-docker: ## pull the latest Docker image
 	docker image pull datalayer/jupyter-mcp-server:latest
 
-push-docker:
+push-docker: ## push the Docker image to the registry
 	docker push datalayer/jupyter-mcp-server:${VERSION}
 	docker push datalayer/jupyter-mcp-server:latest
 
-claude-linux:
+claude-linux: ## run the Claude Desktop Linux app using Nix
 	NIXPKGS_ALLOW_UNFREE=1 nix run github:k3d3/claude-desktop-linux-flake \
 		--impure \
 		--extra-experimental-features flakes \
 		--extra-experimental-features nix-command
 
-jupyterlab:
+start-streamable-http: ## start the Jupyter MCP server with streamable-http transport
+	@exec echo curl http://localhost:4040/mcp
+	@exec echo curl http://localhost:4040/api/mcp/jupyter/health
+	@exec echo
+	SERVER_URL=http://localhost:8888 python -m jupyter_mcp_server.server --transport streamable-http
+
+jupyterlab: ## start JupyterLab with the MCP server
 	pip uninstall -y pycrdt datalayer_pycrdt
 	pip install datalayer_pycrdt
 	jupyter lab \
