@@ -24,6 +24,7 @@ dependencies = [
     "jupyter-kernel-client",
     "jupyter-nbmodel-client",
     "mcp[cli]>=1.2.1",
+    "pydantic",
     "uvicorn",
     "click"
 ]

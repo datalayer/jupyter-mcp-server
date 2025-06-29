@@ -8,113 +8,79 @@ from typing import Union
 
 import click
 import uvicorn
-from pydantic import BaseModel
 
-from fastapi import HTTPException, Request
-from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from mcp.server import FastMCP
 
 from jupyter_kernel_client import KernelClient
 from jupyter_nbmodel_client import (
     NbModelClient,
-    get_jupyter_notebook_websocket_url,
+    get_notebook_websocket_url,
 )
-
-
-NOTEBOOK_PATH: str = os.getenv("NOTEBOOK_PATH", None)
-
-SERVER_URL: str = os.getenv("SERVER_URL", "http://host.docker.internal:8888")
-
-TOKEN: str = os.getenv("TOKEN", "MY_TOKEN")
-
-
-mcp = FastMCP(name="jupyter", json_response=False, stateless_http=True)
+from jupyter_mcp_server.utils import extract_output
 
 
 logger = logging.getLogger(__name__)
 
 
-class CustomRequest(BaseModel):
-    message: str
+START_NEW_KERNEL: bool = os.getenv("START_NEW_KERNEL", "tue").lower() in ("true", "1", "yes")
 
-class CustomResponse(BaseModel):
-    result: str
-    status: str
+KERNEL_ID: str = os.getenv("KERNEL_ID")
 
+NOTEBOOK_PATH: str = os.getenv("NOTEBOOK_PATH")
 
-kernel = KernelClient(server_url=SERVER_URL, token=TOKEN)
-kernel.start()
+SERVER_URL: str = os.getenv("SERVER_URL", "http://host.docker.internal:8888")
 
+TOKEN: str = os.getenv("TOKEN", "MY_TOKEN")
 
-@mcp.custom_route("/health", ["GET"])
-async def health_check(request: Request):
-    """Custom health check endpoint"""
-    return JSONResponse({"status": "healthy", "service": "jupyter-mcp"})
+PROVIDER: str = os.getenv("PROVIDER", "jupyter")
 
 
-@mcp.custom_route("/notebook-info", ["GET"])
-async def get_notebook_info(request: Request):
-    """Get information about the current notebook"""
+mcp = FastMCP(name="Jupyter MCP Server", json_response=False, stateless_http=True)
+
+
+if START_NEW_KERNEL or KERNEL_ID:
+    kernel = KernelClient(server_url=SERVER_URL, token=TOKEN, kernel_id=KERNEL_ID)
+    kernel.start()
+
+
+class RoomRuntime(BaseModel):
+    server_url: str
+    token: str
+    provider: str
+    notebook_path: str
+    kernel_id: str
+
+
+@mcp.custom_route("/connect", ["PUT"])
+async def connect(room_runtime: RoomRuntime):
+    """Assign a room and a runtime to the MCP server."""
+    if kernel:
+        kernel.stop()    
+    global KERNEL_ID
+    KERNEL_ID = room_runtime.kernel_id
+    global NOTEBOOK_PATH
+    NOTEBOOK_PATH = room_runtime.notebook_path
+    global SERVER_URL
+    SERVER_URL = room_runtime.server_url
+    global TOKEN
+    TOKEN = room_runtime.token
+    global PROVIDER
+    PROVIDER = room_runtime.provider
+    kernel = KernelClient(
+        server_url=SERVER_URL,
+        token=TOKEN,
+        kernel_id=KERNEL_ID,
+    )
+    kernel.start()
     return {
-        "notebook_path": NOTEBOOK_PATH,
-        "server_url": SERVER_URL,
-        "kernel_status": "running" if kernel else "stopped"
+        "succes": True,
     }
 
 
-@mcp.custom_route("/custom", ["POST"])
-async def custom_endpoint(request: CustomRequest):
-    """Custom endpoint with request/response models"""
-    try:
-        # Your custom logic here
-        result = f"Processed: {request.message}"
-        return CustomResponse(result=result, status="success")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@click.command()
-@click.option(
-    "--transport",
-    type=click.Choice(["stdio", "streamable-http"]),
-    default="stdio",
-    help="Transport type",
-)
-def main(transport: str):
-    """Run the Jupyter MCP server."""
-    if transport == "stdio":
-        mcp.run(transport="stdio")
-    elif transport == "streamable-http":
-        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=4040)  # noqa: S104
-
-
-def extract_output(output: dict) -> str:
-    """
-    Extracts readable output from a Jupyter cell output dictionary.
-
-    Args:
-        output (dict): The output dictionary from a Jupyter cell.
-
-    Returns:
-        str: A string representation of the output.
-    """
-    output_type = output.get("output_type")
-    if output_type == "stream":
-        return output.get("text", "")
-    elif output_type in ["display_data", "execute_result"]:
-        data = output.get("data", {})
-        if "text/plain" in data:
-            return data["text/plain"]
-        elif "text/html" in data:
-            return "[HTML Output]"
-        elif "image/png" in data:
-            return "[Image Output (PNG)]"
-        else:
-            return f"[{output_type} Data: keys={list(data.keys())}]"
-    elif output_type == "error":
-        return output["traceback"]
-    else:
-        return f"[Unknown output type: {output_type}]"
+# TODO: Add clear_outputs(cell_index: int) tool.
+# We need to expose reset_cell in NbModelClient:
+# https://github.com/datalayer/jupyter-nbmodel-client/blob/main/jupyter_nbmodel_client/model.py#L297-L301
 
 
 @mcp.tool()
@@ -128,7 +94,7 @@ async def append_markdown_cell(cell_source: str) -> str:
         str: Success message
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
     notebook.add_markdown_cell(cell_source)
@@ -148,7 +114,7 @@ async def insert_markdown_cell(cell_index: int, cell_source: str) -> str:
         str: Success message
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
     notebook.insert_markdown_cell(cell_index, cell_source)
@@ -170,7 +136,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     """
     # TODO: Add check on cell_type
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
     notebook.set_cell_source(cell_index, cell_source)
@@ -189,7 +155,7 @@ async def append_execute_code_cell(cell_source: str) -> list[str]:
         list[str]: List of outputs from the executed cell
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
     cell_index = notebook.add_code_cell(cell_source)
@@ -216,7 +182,7 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
         list[str]: List of outputs from the executed cell
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
     notebook.insert_code_cell(cell_index, cell_source)
@@ -231,11 +197,6 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
     return str_outputs
 
 
-# TODO: Add clear_outputs(cell_index: int) function
-# But we need to expose reset_cell in NbModelClient:
-# https://github.com/datalayer/jupyter-nbmodel-client/blob/main/jupyter_nbmodel_client/model.py#L297-L301
-
-
 @mcp.tool()
 async def execute_cell(cell_index: int) -> list[str]:
     """Execute a specific cell from the Jupyter notebook.
@@ -245,7 +206,7 @@ async def execute_cell(cell_index: int) -> list[str]:
         list[str]: List of outputs from the executed cell
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -275,7 +236,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
                     and outputs (for code cells)
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -309,7 +270,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
         dict: Cell information including index, type, source, and outputs (for code cells)
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -344,7 +305,7 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
         dict: Notebook information including path, total cells, and cell type counts
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -377,7 +338,7 @@ async def delete_cell(cell_index: int) -> str:
         str: Success message
     """
     notebook = NbModelClient(
-        get_jupyter_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH)
+        get_notebook_websocket_url(server_url=SERVER_URL, token=TOKEN, path=NOTEBOOK_PATH, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -398,5 +359,16 @@ async def delete_cell(cell_index: int) -> str:
     return f"Cell {cell_index} ({cell_type}) deleted successfully."
 
 
+@click.command()
+@click.option("--transport", type=click.Choice(["stdio", "streamable-http"]), default="stdio", help="Transport type")
+def main(transport: str):
+    """Run the Jupyter MCP server with a Transport."""
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+    elif transport == "streamable-http":
+        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=4040)  # noqa: S104
+
+
 if __name__ == "__main__":
+    """Start the Jupyter MCP Server."""
     main()
