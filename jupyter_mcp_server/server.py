@@ -8,8 +8,8 @@ from typing import Union
 import click
 import uvicorn
 
-from starlette.responses import JSONResponse
 from fastapi import Request
+from starlette.responses import JSONResponse
 
 from mcp.server import FastMCP
 
@@ -27,12 +27,15 @@ logger = logging.getLogger(__name__)
 
 TRANSPORT: str = "stdio"
 PROVIDER: str = "jupyter"
-START_NEW_RUNTIME: bool = False
+
 RUNTIME_URL: str = "http://localhost:8888"
+START_NEW_RUNTIME: bool = False
 RUNTIME_ID: str | None = None
+RUNTIME_TOKEN: str | None = None
+
 ROOM_URL: str = "http://localhost:8888"
 ROOM_ID: str = "notebook.ipynb"
-TOKEN: str | None = None
+ROOM_TOKEN: str | None = None
 
 
 mcp = FastMCP(name="Jupyter MCP Server", json_response=False, stateless_http=True)
@@ -47,7 +50,7 @@ kernel = None
 
 @mcp.custom_route("/api/connect", ["PUT"])
 async def connect(request: Request):
-    """Assign a room and a runtime to the MCP server."""
+    """Connect to a room and a runtime from the Jupyter MCP server."""
 
     data = await request.json()
     room_runtime = RoomRuntime(**data)
@@ -58,21 +61,25 @@ async def connect(request: Request):
 
     global PROVIDER
     PROVIDER = room_runtime.provider
-    global ROOM_URL
-    ROOM_URL = room_runtime.room_url
+
+    global RUNTIME_URL
+    RUNTIME_URL = room_runtime.runtime_url
     global RUNTIME_ID
     RUNTIME_ID = room_runtime.runtime_id
+    global RUNTIME_TOKEN
+    RUNTIME_TOKEN = room_runtime.runtime_token
+
     global ROOM_URL
     ROOM_URL = room_runtime.room_url
     global ROOM_ID
     ROOM_ID = room_runtime.room_id
-    global TOKEN
-    TOKEN = room_runtime.token
+    global ROOM_TOKEN
+    ROOM_TOKEN = room_runtime.room_token
 
     logger.info("Connecting to room_runtime:", room_runtime)
     kernel = KernelClient(
-        server_url=ROOM_URL,
-        token=TOKEN,
+        server_url=RUNTIME_URL,
+        token=RUNTIME_TOKEN,
         kernel_id=RUNTIME_ID,
     )
     kernel.start()
@@ -86,7 +93,7 @@ async def health_check():
     return JSONResponse({
         "success": True,
         "service": "jupyter-mcp-server",
-        "message": "Jupyter MCP Server is running",
+        "message": "Jupyter MCP Server is running.",
         "status": "healthy",
     })
 
@@ -111,7 +118,7 @@ async def append_markdown_cell(cell_source: str) -> str:
         str: Success message
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
     notebook.add_markdown_cell(cell_source)
@@ -131,7 +138,7 @@ async def insert_markdown_cell(cell_index: int, cell_source: str) -> str:
         str: Success message
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
     notebook.insert_markdown_cell(cell_index, cell_source)
@@ -153,7 +160,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     """
     # TODO: Add check on cell_type
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
     notebook.set_cell_source(cell_index, cell_source)
@@ -172,7 +179,7 @@ async def append_execute_code_cell(cell_source: str) -> list[str]:
         list[str]: List of outputs from the executed cell
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
     cell_index = notebook.add_code_cell(cell_source)
@@ -199,7 +206,7 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
         list[str]: List of outputs from the executed cell
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
     notebook.insert_code_cell(cell_index, cell_source)
@@ -223,7 +230,7 @@ async def execute_cell(cell_index: int) -> list[str]:
         list[str]: List of outputs from the executed cell
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -253,7 +260,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
                     and outputs (for code cells)
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -287,7 +294,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
         dict: Cell information including index, type, source, and outputs (for code cells)
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -322,7 +329,7 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
         dict: Notebook information including path, total cells, and cell type counts
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -355,7 +362,7 @@ async def delete_cell(cell_index: int) -> str:
         str: Success message
     """
     notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=TOKEN, path=ROOM_ID, provider=PROVIDER)
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
     await notebook.start()
 
@@ -389,44 +396,51 @@ def server():
 @server.command("connect")
 @click.argument("room_id")
 def connect(room_id):
-    """Connect to a room and runtime."""
-    click.echo(f"Starting server {room_id}")
+    """CLI command to connect a Jupyter MCP Server to a room and a runtime."""
+    # TODO Implement the logic to connect to a room and runtime.
+    click.echo(f"Connecting to room {room_id}")
 
 
 @server.command("start")
 @click.option("--transport", envvar="TRANSPORT", type=click.Choice(["stdio", "streamable-http"]), default="stdio", help="The transport to use for the MCP server. Defaults to 'stdio'.")
 @click.option("--provider", envvar="PROVIDER", type=click.Choice(["jupyter", "datalayer"]), default="jupyter", help="The provider to use for the room and runtime. Defaults to 'jupyter'.")
 @click.option("--runtime-url", envvar="RUNTIME_URL", type=click.STRING, default="http://localhost:8888", help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.") 
-@click.option("--start-new-runtime", envvar="START_NEW_RUNTIME", type=click.BOOL, default=True, help="Start a new kernel or use an existing one")
+@click.option("--runtime-token", envvar="RUNTIME_TOKEN", type=click.STRING, default=None, help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
+@click.option("--start-new-runtime", envvar="START_NEW_RUNTIME", type=click.BOOL, default=True, help="Start a new runtime or use an existing one.")
 @click.option("--runtime-id", envvar="RUNTIME_ID", type=click.STRING, default=None, help="The kernel ID to use. If not provided, a new kernel should be started.")
 @click.option("--room-url", envvar="ROOM_URL", type=click.STRING, default="http://localhost:8888", help="The room URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer room URL.") 
 @click.option("--room-id", envvar="ROOM_ID", type=click.STRING, default="notebook.ipynb", help="The room id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.")
-@click.option("--token", envvar="TOKEN", type=click.STRING, default=None, help="The token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
+@click.option("--room-token", envvar="ROOM_TOKEN", type=click.STRING, default=None, help="The room token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
 @click.option("--port", envvar="PORT", type=click.INT, default=4040, help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.")
-def start(transport: str, start_new_kernel: bool, runtime_url: str, runtime_id: str, room_url: str, room_id: str, token: str, port: int, provider: str):
-    """Start the Jupyter MCP server with a Transport."""
+def start(transport: str, start_new_runtime: bool, runtime_url: str, runtime_id: str, runtime_token: str, room_url: str, room_id: str, room_token: str, port: int, provider: str):
+    """Start the Jupyter MCP server with a transport."""
 
     global TRANSPORT
     TRANSPORT = transport
+
     global PROVIDER
     PROVIDER = provider
+
     global RUNTIME_URL
     RUNTIME_URL = runtime_url
     global START_NEW_RUNTIME
-    START_NEW_RUNTIME = start_new_kernel
+    START_NEW_RUNTIME = start_new_runtime
     global RUNTIME_ID
     RUNTIME_ID = runtime_id
+    global RUNTIME_TOKEN
+    RUNTIME_TOKEN = runtime_token
+
     global ROOM_URL
     ROOM_URL = room_url
     global ROOM_ID
     ROOM_ID = room_id
-    global TOKEN
-    TOKEN = token
+    global ROOM_TOKEN
+    ROOM_TOKEN = room_token
 
     if START_NEW_RUNTIME or RUNTIME_ID:
         global kernel
         # Initialize the kernel client with the provided parameters.
-        kernel = KernelClient(server_url=ROOM_URL, token=TOKEN, kernel_id=RUNTIME_ID)
+        kernel = KernelClient(server_url=RUNTIME_URL, token=RUNTIME_TOKEN, kernel_id=RUNTIME_ID)
         kernel.start()
 
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")

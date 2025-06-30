@@ -62,14 +62,14 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "-e",
         "ROOM_URL",
         "-e",
-        "TOKEN",
+        "RUNTIME_TOKEN",
         "-e",
         "ROOM_ID",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
         "ROOM_URL": "http://host.docker.internal:8888",
-        "TOKEN": "MY_TOKEN",
+        "RUNTIME_TOKEN": "MY_TOKEN",
         "ROOM_ID": "notebook.ipynb"
       }
     }
@@ -91,7 +91,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "-e",
         "ROOM_URL",
         "-e",
-        "TOKEN",
+        "RUNTIME_TOKEN",
         "-e",
         "ROOM_ID",
         "--network=host",
@@ -99,7 +99,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
       ],
       "env": {
         "ROOM_URL": "http://localhost:8888",
-        "TOKEN": "MY_TOKEN",
+        "RUNTIME_TOKEN": "MY_TOKEN",
         "ROOM_ID": "notebook.ipynb"
       }
     }
