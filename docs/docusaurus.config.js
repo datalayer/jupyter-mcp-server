@@ -45,9 +45,21 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'setup/index',
+          docId: 'run/index',
           position: 'left',
-          label: 'Setup',
+          label: 'Run',
+        },
+        {
+          type: 'doc',
+          docId: 'datalayer-provider/index',
+          position: 'left',
+          label: 'Datalayer',
+        },
+        {
+          type: 'doc',
+          docId: 'jupyter-provider/index',
+          position: 'left',
+          label: 'Jupyter',
         },
         {
           type: 'doc',

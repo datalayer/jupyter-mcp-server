@@ -1,0 +1,35 @@
+# Jupyter Provider
+
+To get started notebooks hosted on your own JupyterLab or JupyterHub:
+
+- 🛠️ Setup your environment by following the [Environment Setup Guide](#environment-setup).
+- 🚀 Start JupyterLab, refer to [Start JupyterLab Guide](#start-jupyterlab).
+- ⚙️ Configure your preferred MCP client using the [Jupyter MCP Server Configuration](/clients).
+
+You can now use your favorite [MCP client](/clients) to interact with Jupyter notebooks!
+
+## Environment
+
+Make sure you have the following packages installed in your environment. The collaboration package is needed as the modifications made on the notebook can be seen thanks to [Jupyter Real Time Collaboration](https://jupyterlab.readthedocs.io/en/stable/user/rtc.html).
+
+```bash
+pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel
+pip uninstall -y pycrdt datalayer_pycrdt
+pip install datalayer_pycrdt==0.12.17
+```
+
+## Start JupyterLab
+
+Then, start JupyterLab with the following command.
+
+```bash
+jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
+```
+
+You can also run `make jupyterlab` if you cloned the repository.
+
+:::note
+
+The `--ip` is set to `0.0.0.0` to allow the MCP server running in a Docker container to access your local JupyterLab.
+
+:::

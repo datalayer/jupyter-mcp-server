@@ -8,7 +8,7 @@ SHELL=/bin/bash
 
 .PHONY: clean build
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 default: all ## default target is all
 
@@ -37,8 +37,11 @@ build-docker: ## build the docker image
 start-docker: ## start the jupyter mcp server in docker
 	docker run -i --rm \
 	  -e ROOM_URL=http://localhost:8888 \
-	  -e RUNTIME_TOKEN=MY_TOKEN \
 	  -e ROOM_ID=notebook.ipynb \
+	  -e ROOM_TOKEN=MY_TOKEN \
+	  -e RUNTIME_URL=http://localhost:8888 \
+	  -e START_NEW_RUNTIME=true \
+	  -e RUNTIME_TOKEN=MY_TOKEN \
 	  --network=host \
 	  datalayer/jupyter-mcp-server:latest
 

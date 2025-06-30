@@ -21,12 +21,12 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "jupyter-kernel-client",
-    "jupyter-nbmodel-client",
-    "mcp[cli]>=1.2.1",
+    "jupyter-kernel-client>=0.7.2",
+    "jupyter-nbmodel-client>=0.13.1",
+    "mcp[cli]>=1.10.1",
     "pydantic",
     "uvicorn",
-    "click"
+    "click",
 ]
 
 [project.optional-dependencies]

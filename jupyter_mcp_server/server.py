@@ -187,11 +187,11 @@ async def append_execute_code_cell(cell_source: str) -> list[str]:
 
     ydoc = notebook._doc
     outputs = ydoc._ycells[cell_index]["outputs"]
-    str_outputs = [extract_output(output) for output in outputs]
+    outputs_str = [extract_output(output) for output in outputs]
 
     await notebook.stop()
 
-    return str_outputs
+    return outputs_str
 
 
 @mcp.tool()
@@ -214,11 +214,11 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
 
     ydoc = notebook._doc
     outputs = ydoc._ycells[cell_index]["outputs"]
-    str_outputs = [extract_output(output) for output in outputs]
+    outputs_str = [extract_output(output) for output in outputs]
 
     await notebook.stop()
 
-    return str_outputs
+    return outputs_str
 
 
 @mcp.tool()
@@ -246,10 +246,10 @@ async def execute_cell(cell_index: int) -> list[str]:
 
     ydoc = notebook._doc
     outputs = ydoc._ycells[cell_index]["outputs"]
-    str_outputs = [extract_output(output) for output in outputs]
+    outputs_str = [extract_output(output) for output in outputs]
 
     await notebook.stop()
-    return str_outputs
+    return outputs_str
 
 
 @mcp.tool()
@@ -449,6 +449,8 @@ def start(transport: str, start_new_runtime: bool, runtime_url: str, runtime_id:
         mcp.run(transport="stdio")
     elif transport == "streamable-http":
         uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=port)  # noqa: S104
+    else:
+        raise Exception("Transport should be `stdio` or `streamable-http`.")
 
 
 if __name__ == "__main__":
