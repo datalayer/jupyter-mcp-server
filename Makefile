@@ -8,7 +8,7 @@ SHELL=/bin/bash
 
 .PHONY: clean build
 
-VERSION = "0.6.0"
+VERSION = 0.5.0
 
 default: all ## default target is all
 
@@ -31,8 +31,9 @@ clean: ## clean
 	git clean -fdx
 
 build-docker: ## build the docker image
-	docker buildx build --platform linux/amd64,linux/arm64 -t datalayer/jupyter-mcp-server:${VERSION} .
-	docker image tag datalayer/jupyter-mcp-server:${VERSION} datalayer/jupyter-mcp-server:latest
+	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/jupyter-mcp-server:${VERSION} .
+	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/jupyter-mcp-server:latest .
+#	docker image tag datalayer/jupyter-mcp-server:${VERSION} datalayer/jupyter-mcp-server:latest
 
 start-docker: ## start the jupyter mcp server in docker
 	docker run -i --rm \
