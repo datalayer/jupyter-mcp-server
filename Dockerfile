@@ -16,7 +16,7 @@ RUN pip install -e .
 RUN pip uninstall -y pycrdt datalayer_pycrdt
 RUN pip install datalayer_pycrdt==0.12.17
 
-ENV NOTEBOOK_PATH=notebook.ipynb
+ENV ROOM_ID=notebook.ipynb
 
 EXPOSE 4040
 

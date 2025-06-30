@@ -34,6 +34,9 @@ test = ["ipykernel", "jupyter_server>=1.6,<3", "pytest>=7.0"]
 lint = ["mdformat>0.7", "mdformat-gfm>=0.3.5", "ruff"]
 typing = ["mypy>=0.990"]
 
+[project.scripts]
+jupyter-mcp-server = "jupyter_mcp_server.server:server"
+
 [project.license]
 file = "LICENSE"
 

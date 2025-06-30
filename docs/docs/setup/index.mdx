@@ -45,9 +45,9 @@ Note that the configuration is dependent on the operating system you are using.
 
 :::important
 
-Ensure the `port` of the `SERVER_URL`and `TOKEN` match those used in the `jupyter lab` command.
+Ensure the `port` of the `ROOM_URL`and `TOKEN` match those used in the `jupyter lab` command.
 
-The `NOTEBOOK_PATH` should be relative to the directory where JupyterLab was started.
+The `ROOM_ID` should be relative to the directory where JupyterLab was started.
 
 :::
 
@@ -63,17 +63,17 @@ The `NOTEBOOK_PATH` should be relative to the directory where JupyterLab was sta
         "-i",
         "--rm",
         "-e",
-        "SERVER_URL",
+        "ROOM_URL",
         "-e",
         "TOKEN",
         "-e",
-        "NOTEBOOK_PATH",
+        "ROOM_ID",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
-        "SERVER_URL": "http://host.docker.internal:8888",
+        "ROOM_URL": "http://host.docker.internal:8888",
         "TOKEN": "MY_TOKEN",
-        "NOTEBOOK_PATH": "notebook.ipynb"
+        "ROOM_ID": "notebook.ipynb"
       }
     }
   }
@@ -92,18 +92,18 @@ The `NOTEBOOK_PATH` should be relative to the directory where JupyterLab was sta
         "-i",
         "--rm",
         "-e",
-        "SERVER_URL",
+        "ROOM_URL",
         "-e",
         "TOKEN",
         "-e",
-        "NOTEBOOK_PATH",
+        "ROOM_ID",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
-        "SERVER_URL": "http://localhost:8888",
+        "ROOM_URL": "http://localhost:8888",
         "TOKEN": "MY_TOKEN",
-        "NOTEBOOK_PATH": "notebook.ipynb"
+        "ROOM_ID": "notebook.ipynb"
       }
     }
   }
@@ -133,23 +133,23 @@ make start-streamable-http
 You can also run the Jupyter MCP Server using Docker. Use the following command to start the server on MacOS.
 
 ```bash
-docker run --network=host -e SERVER_URL="http://localhost:8888" -p 4040:4040 datalayer/jupyter-mcp-server:latest --transport streamable-http
+docker run --network=host -e ROOM_URL="http://localhost:8888" -p 4040:4040 datalayer/jupyter-mcp-server:latest --transport streamable-http
 ```
 
 :::note
 
-You can set the `SERVER_URL` (JupyterLab Server URL), `TOKEN`, and `NOTEBOOK_PATH` environment variables to configure the server with the `-e` option in the `docker run` command. If not set, the defaults will be used:
+You can set the `ROOM_URL` (JupyterLab Server URL), `TOKEN`, and `ROOM_ID` environment variables to configure the server with the `-e` option in the `docker run` command. If not set, the defaults will be used:
 
-- `SERVER_URL`: `http://host.docker.internal:8888`
+- `ROOM_URL`: `http://host.docker.internal:8888`
 - `TOKEN`: `MY_TOKEN`
-- `NOTEBOOK_PATH`: `notebook.ipynb`
+- `ROOM_ID`: `notebook.ipynb`
 
 :::
 
 Use the following command to start the server on Linux.
 
 ```bash
-docker run --network=host -e SERVER_URL="http://localhost:8888" -p 4040:4040 datalayer/jupyter-mcp-server:latest --transport streamable-http
+docker run --network=host -e ROOM_URL="http://localhost:8888" -p 4040:4040 datalayer/jupyter-mcp-server:latest --transport streamable-http
 ```
 
 #### MCP Clients Configuration

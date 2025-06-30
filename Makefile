@@ -36,9 +36,9 @@ build-docker: ## build the Docker image
 
 start-docker: ## start the Jupyter MCP server in Docker
 	docker run -i --rm \
-	  -e SERVER_URL=http://localhost:8888 \
+	  -e ROOM_URL=http://localhost:8888 \
 	  -e TOKEN=MY_TOKEN \
-	  -e NOTEBOOK_PATH=notebook.ipynb \
+	  -e ROOM_ID=notebook.ipynb \
 	  --network=host \
 	  datalayer/jupyter-mcp-server:latest
 
@@ -55,11 +55,17 @@ claude-linux: ## run the Claude Desktop Linux app using Nix
 		--extra-experimental-features flakes \
 		--extra-experimental-features nix-command
 
-start-streamable-http: ## start the Jupyter MCP server with streamable-http transport
-	@exec echo curl http://localhost:4040/mcp
-	@exec echo curl http://localhost:4040/api/mcp/jupyter/health
+# python -m jupyter_mcp_server
+start: ## start the Jupyter MCP server with streamable-http transport
+	@exec echo curl http://localhost:4040/api/healthz
 	@exec echo
-	SERVER_URL=http://localhost:8888 python -m jupyter_mcp_server.server --transport streamable-http
+	jupyter-mcp-server start \
+	  --transport streamable-http \
+	  --room-url http://localhost:8888 \
+	  --room-id notebook.ipynb \
+	  --start-new-runtime true \
+	  --token MY_TOKEN \
+	  --port 4040
 
 jupyterlab: ## start JupyterLab with the MCP server
 	pip uninstall -y pycrdt datalayer_pycrdt

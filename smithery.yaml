@@ -22,4 +22,4 @@ startCommand:
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
-    (config) => ({ command: 'docker', args: ['run', '-i', '--rm', '-e', `SERVER_URL=${config.serverUrl}`, '-e', `TOKEN=${config.token}`, '-e', `NOTEBOOK_PATH=${config.notebookPath}`, 'datalayer/jupyter-mcp-server:latest'] })
+    (config) => ({ command: 'docker', args: ['run', '-i', '--rm', '-e', `ROOM_URL=${config.serverUrl}`, '-e', `TOKEN=${config.token}`, '-e', `ROOM_ID=${config.notebookPath}`, 'datalayer/jupyter-mcp-server:latest'] })

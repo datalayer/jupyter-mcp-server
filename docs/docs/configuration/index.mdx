@@ -1,0 +1,37 @@
+# Configuration
+
+- START_NEW_RUNTIME
+- RUNTIME_ID
+- ROOM_ID
+- ROOM_URL
+- TOKEN
+- PROVIDER
+
+## Examples
+
+For example, you can start the MCP server with the following command.
+
+```bash
+START_NEW_RUNTIME="false" \
+  ROOM_URL="http://localhost:8888" \
+  TOKEN="MY_TOKEN" \
+  jupyter-mcp-server --transport streamable-http
+
+# INFO:     Application startup complete.
+# INFO:     Uvicorn running on http://0.0.0.0:4040 (Press CTRL+C to quit)
+```
+
+Only after you can start a local JupyterLab and open a Notebook with a Kernel.
+
+```bash
+make jupyterlab
+```
+
+Then, you can assign a room and runtime via the `/connect` endpoint.
+
+```bash
+curl -X PUT \
+  -H "Content-Type: application/json" \
+  -d '{"kernel_id": "94438bd9-b5ab-4497-9011-4f9f629dc472", "room_id": "notebook.ipynb", "server_url": "http://localhost:8888", "token": "MY_TOKEN", "provider": "jupyter"}' \
+  http://localhost:4040/api/connect
+```
