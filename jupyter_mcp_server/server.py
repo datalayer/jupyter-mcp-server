@@ -6,6 +6,7 @@ import logging
 from typing import Union
 
 import click
+import httpx
 import uvicorn
 
 from fastapi import Request
@@ -45,6 +46,20 @@ kernel = None
 
 
 ###############################################################################
+# 
+
+
+def _start_kernel():
+        """Start the Jupyter kernel."""
+        global kernel
+        if kernel:
+            kernel.stop()
+        # Initialize the kernel client with the provided parameters.
+        kernel = KernelClient(server_url=RUNTIME_URL, token=RUNTIME_TOKEN, kernel_id=RUNTIME_ID)
+        kernel.start()
+
+
+###############################################################################
 # Custom Routes.
 
 
@@ -53,6 +68,8 @@ async def connect(request: Request):
     """Connect to a room and a runtime from the Jupyter MCP server."""
 
     data = await request.json()
+    logger.info("Connecting to room_runtime:", data)
+
     room_runtime = RoomRuntime(**data)
 
     global kernel
@@ -76,13 +93,7 @@ async def connect(request: Request):
     global ROOM_TOKEN
     ROOM_TOKEN = room_runtime.room_token
 
-    logger.info("Connecting to room_runtime:", room_runtime)
-    kernel = KernelClient(
-        server_url=RUNTIME_URL,
-        token=RUNTIME_TOKEN,
-        kernel_id=RUNTIME_ID,
-    )
-    kernel.start()
+    _start_kernel()
 
     return JSONResponse({ "success": True })
 
@@ -394,25 +405,67 @@ def server():
 
 
 @server.command("connect")
-@click.argument("room_id")
-def connect(room_id):
-    """CLI command to connect a Jupyter MCP Server to a room and a runtime."""
-    # TODO Implement the logic to connect to a room and runtime.
-    click.echo(f"Connecting to room {room_id}")
+@click.option("--provider", envvar="PROVIDER", type=click.Choice(["jupyter", "datalayer"]), default="jupyter", help="The provider to use for the room and runtime. Defaults to 'jupyter'.")
+@click.option("--runtime-url", envvar="RUNTIME_URL", type=click.STRING, default="http://localhost:8888", help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.") 
+@click.option("--runtime-id", envvar="RUNTIME_ID", type=click.STRING, default=None, help="The kernel ID to use. If not provided, a new kernel should be started.")
+@click.option("--runtime-token", envvar="RUNTIME_TOKEN", type=click.STRING, default=None, help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
+@click.option("--room-url", envvar="ROOM_URL", type=click.STRING, default="http://localhost:8888", help="The room URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer room URL.") 
+@click.option("--room-id", envvar="ROOM_ID", type=click.STRING, default="notebook.ipynb", help="The room id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.")
+@click.option("--room-token", envvar="ROOM_TOKEN", type=click.STRING, default=None, help="The room token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
+@click.option("--jupyter-mcp-server-url", envvar="JUPYTER_MCP_SERVER_URL", type=click.STRING, default="http://localhost:4040", help="The URL of the Jupyter MCP Server to connect to. Defaults to 'http://localhost:4040'.")
+def connect_command(jupyter_mcp_server_url: str, runtime_url: str, runtime_id: str, runtime_token: str, room_url: str, room_id: str, room_token: str, provider: str):
+    """Command to connect a Jupyter MCP Server to a room and a runtime."""
+
+    global PROVIDER
+    PROVIDER = provider
+
+    global RUNTIME_URL
+    RUNTIME_URL = runtime_url
+    global RUNTIME_ID
+    RUNTIME_ID = runtime_id
+    global RUNTIME_TOKEN
+    RUNTIME_TOKEN = runtime_token
+
+    global ROOM_URL
+    ROOM_URL = room_url
+    global ROOM_ID
+    ROOM_ID = room_id
+    global ROOM_TOKEN
+    ROOM_TOKEN = room_token
+
+    room_runtime = RoomRuntime(
+        provider=PROVIDER,
+        runtime_url=RUNTIME_URL,
+        runtime_id=RUNTIME_ID,
+        runtime_token=RUNTIME_TOKEN,
+        room_url=ROOM_URL,
+        room_id=ROOM_ID,
+        room_token=ROOM_TOKEN,
+    )
+
+    r = httpx.put(
+        f"{jupyter_mcp_server_url}/api/connect",
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        content = room_runtime.model_dump_json()
+    )
+    r.raise_for_status()
 
 
 @server.command("start")
 @click.option("--transport", envvar="TRANSPORT", type=click.Choice(["stdio", "streamable-http"]), default="stdio", help="The transport to use for the MCP server. Defaults to 'stdio'.")
 @click.option("--provider", envvar="PROVIDER", type=click.Choice(["jupyter", "datalayer"]), default="jupyter", help="The provider to use for the room and runtime. Defaults to 'jupyter'.")
 @click.option("--runtime-url", envvar="RUNTIME_URL", type=click.STRING, default="http://localhost:8888", help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.") 
-@click.option("--runtime-token", envvar="RUNTIME_TOKEN", type=click.STRING, default=None, help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
 @click.option("--start-new-runtime", envvar="START_NEW_RUNTIME", type=click.BOOL, default=True, help="Start a new runtime or use an existing one.")
 @click.option("--runtime-id", envvar="RUNTIME_ID", type=click.STRING, default=None, help="The kernel ID to use. If not provided, a new kernel should be started.")
+@click.option("--runtime-token", envvar="RUNTIME_TOKEN", type=click.STRING, default=None, help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
 @click.option("--room-url", envvar="ROOM_URL", type=click.STRING, default="http://localhost:8888", help="The room URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer room URL.") 
 @click.option("--room-id", envvar="ROOM_ID", type=click.STRING, default="notebook.ipynb", help="The room id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.")
 @click.option("--room-token", envvar="ROOM_TOKEN", type=click.STRING, default=None, help="The room token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.")
 @click.option("--port", envvar="PORT", type=click.INT, default=4040, help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.")
-def start(transport: str, start_new_runtime: bool, runtime_url: str, runtime_id: str, runtime_token: str, room_url: str, room_id: str, room_token: str, port: int, provider: str):
+def start_command(transport: str, start_new_runtime: bool, runtime_url: str, runtime_id: str, runtime_token: str, room_url: str, room_id: str, room_token: str, port: int, provider: str):
     """Start the Jupyter MCP server with a transport."""
 
     global TRANSPORT
@@ -438,10 +491,7 @@ def start(transport: str, start_new_runtime: bool, runtime_url: str, runtime_id:
     ROOM_TOKEN = room_token
 
     if START_NEW_RUNTIME or RUNTIME_ID:
-        global kernel
-        # Initialize the kernel client with the provided parameters.
-        kernel = KernelClient(server_url=RUNTIME_URL, token=RUNTIME_TOKEN, kernel_id=RUNTIME_ID)
-        kernel.start()
+        _start_kernel()
 
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
