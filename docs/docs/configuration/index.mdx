@@ -1,0 +1,75 @@
+# Configuration
+
+Check the help for the Jupyter MCP Server to see the available options.
+
+```bash
+jupyter-mcp-server start --help
+
+Usage: jupyter-mcp-server start [OPTIONS]
+
+  Start the Jupyter MCP Server with a transport.
+
+Options:
+  --transport [stdio|streamable-http]
+                                  The transport to use for the MCP Server.
+                                  Defaults to 'stdio'.
+  --provider [jupyter|datalayer]  The provider to use for the room and
+                                  runtime. Defaults to 'jupyter'.
+  --runtime-url TEXT              The runtime URL to use. For the jupyter
+                                  provider, this is the Jupyter server URL.
+                                  For the datalayer provider, this is the
+                                  Datalayer runtime URL.
+  --runtime-token TEXT            The runtime token to use for authentication
+                                  with the provider. If not provided, the
+                                  provider should accept anonymous requests.
+  --start-new-runtime BOOLEAN     Start a new runtime or use an existing one.
+  --runtime-id TEXT               The kernel ID to use. If not provided, a new
+                                  kernel should be started.
+  --room-url TEXT                 The room URL to use. For the jupyter
+                                  provider, this is the Jupyter server URL.
+                                  For the datalayer provider, this is the
+                                  Datalayer room URL.
+  --room-id TEXT                  The room id to use. For the jupyter
+                                  provider, this is the notebook path. For the
+                                  datalayer provider, this is the notebook
+                                  path.
+  --room-token TEXT               The room token to use for authentication
+                                  with the provider. If not provided, the
+                                  provider should accept anonymous requests.
+  --port INTEGER                  The port to use for the Streamable HTTP
+                                  transport. Ignored for stdio transport.
+  --help                          Show this message and exit.
+```
+
+## Start and Connect
+
+For example, you can start the MCP Server with the following command that will not create a new Runtime.
+
+```bash
+jupyter-mcp-server start \
+  --transport streamable-http \
+  --runtime-token MY_TOKEN \
+  --room-url http://localhost:8888 \
+  --runtnime-url http://localhost:8888 \
+  --start-new-runtime false
+```
+
+Only after you can start a local JupyterLab and open a Notebook with a Runtime.
+
+```bash
+make jupyterlab
+```
+
+Then, you can assign a room and runtime via the `/connect` endpoint by running this command.
+
+```bash
+jupyter-mcp-server connect \
+  --provider datalayer \
+  --room-url <url> \
+  --room-id <room> \
+  --room-token <token> \
+  --runtime-url <url> \
+  --runtime-id <runtime-id> \
+  --runtime-token <token> \
+  --jupyter-mcp-server-url http://localhost:4040
+```
