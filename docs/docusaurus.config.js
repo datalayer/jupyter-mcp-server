@@ -8,7 +8,7 @@
 module.exports = {
   title: '🪐 ✨ Jupyter MCP Server documentation',
   tagline: 'Tansform your Notebooks into an interactive, AI-powered workspace that adapts to your needs!',
-  url: 'https://datalayer.io',
+  url: 'https://datalayer.ai',
   baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
