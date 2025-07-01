@@ -11,7 +11,6 @@ import uvicorn
 
 from fastapi import Request
 from starlette.responses import JSONResponse
-
 from mcp.server import FastMCP
 
 from jupyter_kernel_client import KernelClient
@@ -23,7 +22,13 @@ from jupyter_mcp_server.models import RoomRuntime
 from jupyter_mcp_server.utils import extract_output
 
 
+###############################################################################
+
+
 logger = logging.getLogger(__name__)
+
+
+###############################################################################
 
 
 TRANSPORT: str = "stdio"
@@ -39,14 +44,17 @@ ROOM_ID: str = "notebook.ipynb"
 ROOM_TOKEN: str | None = None
 
 
-mcp = FastMCP(name="Jupyter MCP Server", json_response=False, stateless_http=True)
+###############################################################################
 
+
+mcp = FastMCP(name="Jupyter MCP Server", json_response=False, stateless_http=True)
 
 kernel = None
 
+notebook = None
+
 
 ###############################################################################
-# 
 
 
 def _start_kernel():
@@ -57,6 +65,18 @@ def _start_kernel():
         # Initialize the kernel client with the provided parameters.
         kernel = KernelClient(server_url=RUNTIME_URL, token=RUNTIME_TOKEN, kernel_id=RUNTIME_ID)
         kernel.start()
+
+
+def _start_notebook():
+    """Start the Jupyter notebook client."""
+    global notebook
+    if notebook:
+        notebook.stop()
+    # Initialize the notebook client with the provided parameters.
+    notebook = NbModelClient(
+        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
+    )
+    notebook.start()
 
 
 ###############################################################################
@@ -94,7 +114,15 @@ async def connect(request: Request):
     ROOM_TOKEN = room_runtime.room_token
 
     _start_kernel()
+    _start_notebook()
 
+    return JSONResponse({ "success": True })
+
+
+@mcp.custom_route("/api/stop", ["DELETE"])
+async def stop():
+    await kernel.stop()
+    await notebook.stop()
     return JSONResponse({ "success": True })
 
 
@@ -128,9 +156,6 @@ async def append_markdown_cell(cell_source: str) -> str:
     Returns:
         str: Success message
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
     notebook.add_markdown_cell(cell_source)
     await notebook.stop()
@@ -148,9 +173,6 @@ async def insert_markdown_cell(cell_index: int, cell_source: str) -> str:
     Returns:
         str: Success message
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
     notebook.insert_markdown_cell(cell_index, cell_source)
     await notebook.stop()
@@ -169,7 +191,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     Returns:
         str: Success message
     """
-    # TODO: Add check on cell_type
+    # TODO: Add check on cell_type.
     notebook = NbModelClient(
         get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
     )
@@ -189,9 +211,6 @@ async def append_execute_code_cell(cell_source: str) -> list[str]:
     Returns:
         list[str]: List of outputs from the executed cell
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
     cell_index = notebook.add_code_cell(cell_source)
     notebook.execute_cell(cell_index, kernel)
@@ -216,10 +235,8 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
     Returns:
         list[str]: List of outputs from the executed cell
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
+
     notebook.insert_code_cell(cell_index, cell_source)
     notebook.execute_cell(cell_index, kernel)
 
@@ -240,9 +257,6 @@ async def execute_cell(cell_index: int) -> list[str]:
     Returns:
         list[str]: List of outputs from the executed cell
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
 
     ydoc = notebook._doc
@@ -270,9 +284,6 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
         list[dict]: List of cell information including index, type, source,
                     and outputs (for code cells)
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
 
     ydoc = notebook._doc
@@ -304,9 +315,6 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
     Returns:
         dict: Cell information including index, type, source, and outputs (for code cells)
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
 
     ydoc = notebook._doc
@@ -324,7 +332,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
         "source": cell.get("source", ""),
     }
 
-    # Add outputs for code cells
+    # Add outputs for code cells.
     if cell.get("cell_type") == "code":
         outputs = cell.get("outputs", [])
         cell_info["outputs"] = [extract_output(output) for output in outputs]
@@ -339,9 +347,6 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
     Returns:
         dict: Notebook information including path, total cells, and cell type counts
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
 
     ydoc = notebook._doc
@@ -372,9 +377,6 @@ async def delete_cell(cell_index: int) -> str:
     Returns:
         str: Success message
     """
-    notebook = NbModelClient(
-        get_notebook_websocket_url(server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER)
-    )
     await notebook.start()
 
     ydoc = notebook._doc
@@ -454,6 +456,16 @@ def connect_command(jupyter_mcp_server_url: str, runtime_url: str, runtime_id: s
     r.raise_for_status()
 
 
+@server.command("stop")
+@click.option("--jupyter-mcp-server-url", envvar="JUPYTER_MCP_SERVER_URL", type=click.STRING, default="http://localhost:4040", help="The URL of the Jupyter MCP Server to stop. Defaults to 'http://localhost:4040'.")
+def stop_command(jupyter_mcp_server_url: str):
+    r = httpx.delete(
+        f"{jupyter_mcp_server_url}/api/stop",
+    )
+    r.raise_for_status()
+
+
+
 @server.command("start")
 @click.option("--transport", envvar="TRANSPORT", type=click.Choice(["stdio", "streamable-http"]), default="stdio", help="The transport to use for the MCP server. Defaults to 'stdio'.")
 @click.option("--provider", envvar="PROVIDER", type=click.Choice(["jupyter", "datalayer"]), default="jupyter", help="The provider to use for the room and runtime. Defaults to 'jupyter'.")
@@ -492,6 +504,7 @@ def start_command(transport: str, start_new_runtime: bool, runtime_url: str, run
 
     if START_NEW_RUNTIME or RUNTIME_ID:
         _start_kernel()
+        _start_notebook()
 
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
@@ -503,5 +516,9 @@ def start_command(transport: str, start_new_runtime: bool, runtime_url: str, run
         raise Exception("Transport should be `stdio` or `streamable-http`.")
 
 
+###############################################################################
+# Main.
+
+
 if __name__ == "__main__":
-    start()
+    start_command()
