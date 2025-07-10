@@ -4,7 +4,9 @@
 
 import asyncio
 import logging
+import time
 from typing import Union
+from concurrent.futures import ThreadPoolExecutor
 
 import click
 import httpx
@@ -16,11 +18,9 @@ from jupyter_nbmodel_client import (
     get_notebook_websocket_url,
 )
 from mcp.server import FastMCP
+from starlette.applications import Starlette
 from starlette.responses import JSONResponse
-
-import asyncio
-import time
-from concurrent.futures import ThreadPoolExecutor
+from starlette.middleware.cors import CORSMiddleware
 
 from jupyter_mcp_server.models import RoomRuntime
 from jupyter_mcp_server.utils import extract_output, safe_extract_outputs
@@ -51,7 +51,43 @@ ROOM_TOKEN: str | None = None
 ###############################################################################
 
 
-mcp = FastMCP(name="Jupyter MCP Server", json_response=False, stateless_http=True)
+class FastMCPWithCORS(FastMCP):
+    def streamable_http_app(self) -> Starlette:
+        """Return StreamableHTTP server app with CORS middleware
+        See: https://github.com/modelcontextprotocol/python-sdk/issues/187
+        """
+        # Get the original Starlette app
+        app = super().streamable_http_app()
+        
+        # Add CORS middleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # In production, should set specific domains
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )        
+        return app
+    
+    def sse_app(self, mount_path: str | None = None) -> Starlette:
+        """Return SSE server app with CORS middleware"""
+        # Get the original Starlette app
+        app = super().sse_app(mount_path)
+        # Add CORS middleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # In production, should set specific domains
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )        
+        return app
+
+
+###############################################################################
+
+
+mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
 
 kernel = None
 
