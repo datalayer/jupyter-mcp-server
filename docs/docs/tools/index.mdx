@@ -10,7 +10,7 @@ The server currently offers 10 tools:
 - Returns: List of outputs from the executed cell.
 
 #### 2. `append_markdown_cell`
-    
+
 - Append at the end of the notebook a markdown cell with the provided source.
 - Input:
   - `cell_source`(string): Markdown source.
@@ -56,17 +56,38 @@ The server currently offers 10 tools:
 - Read all cells from the notebook.
 - Returns:  List of cell information including index, type, source, and outputs (for code cells).
 
-#### 9. `execute_cell`
-
-- Execute a specific cell from the notebook.
-- Input:
-  - `cell_index`(int): Index of the cell to execute (0-based).
-- Returns: List of outputs from the executed cell.
-
-#### 10. `overwrite_cell_source`
+#### 9. `overwrite_cell_source`
 
 - Overwrite the source of an existing cell.
 - Input:
   - `cell_index`(int): Index of the cell to overwrite (0-based).
   - `cell_source`(string): New cell source - must match existing cell type.
 - Returns: Success message.
+
+#### 10. `execute_cell_streaming`
+
+- Execute cell with streaming progress updates. To be used for long-running cells.
+- Input:
+  - `cell_index`: Index of the cell to execute (0-based)
+  - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
+  - `progress_interval`: Seconds between progress updates (default: 5s)
+- Returns:
+  - `list[str]`: List of outputs including progress updates
+
+### 11. `execute_cell_simple_timeout`
+
+- Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells. This won't force real-time updates but will work reliably.
+- Input:
+  - `cell_index`: Index of the cell to execute (0-based)
+  - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
+- Returns:
+  - `list[str]`: List of outputs from the executed cell
+
+### 12. `execute_cell_with_progress`
+
+- Execute a specific cell with timeout and progress monitoring.
+- Input:
+  - `cell_index`: Index of the cell to execute (0-based)
+  - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
+- Returns:
+  - `list[str]`: List of outputs from the executed cell
