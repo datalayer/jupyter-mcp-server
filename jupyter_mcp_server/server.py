@@ -607,7 +607,7 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
 # Simpler real-time monitoring without forced sync
 @mcp.tool()
 async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 300) -> list[str]:
-    """Execute a cell with simple timeout (no forced real-time sync).
+    """Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells.
     This won't force real-time updates but will work reliably.
     """
     async def _execute():
@@ -661,7 +661,7 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
 
 @mcp.tool()
 async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, progress_interval: int = 5) -> list[str]:
-    """Execute cell with streaming progress updates.
+    """Execute cell with streaming progress updates. To be used for long-running cells.
     Args:
         cell_index: Index of the cell to execute (0-based)
         timeout_seconds: Maximum time to wait for execution (default: 300s)  
