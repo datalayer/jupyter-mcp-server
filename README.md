@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/datalayer-jupyter-mcp-server-badge.png)](https://mseep.ai/app/datalayer-jupyter-mcp-server)
 
 <!--
