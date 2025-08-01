@@ -16,9 +16,7 @@
 <img src="https://mseep.net/pr/datalayer-jupyter-mcp-server-badge.png" alt="MseeP.ai Security Assessment Badge" width="100" />
 </a>
 
-> 🚨 **BREAKING CHANGE**
-> Since version `0.6.0`, the configuration has changed.
-> [Read more in the release notes.](https://jupyter-mcp-server.datalayer.tech/releases)
+> 🚨 **BREAKING CHANGE** For version `0.11.0+`, `room` has been renamed to `document`. [Read more in the release notes.](https://jupyter-mcp-server.datalayer.tech/releases)
 
 **Jupyter MCP Server** is a [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server implementation that enables **real-time** interaction with 📓 Jupyter Notebooks, allowing AI to edit, document and execute code for data analysis, visualization etc.
 
