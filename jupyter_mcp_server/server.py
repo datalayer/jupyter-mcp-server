@@ -22,7 +22,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
-from jupyter_mcp_server.models import RoomRuntime
+from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.utils import extract_output, safe_extract_outputs
 
 
@@ -43,9 +43,9 @@ START_NEW_RUNTIME: bool = False
 RUNTIME_ID: str | None = None
 RUNTIME_TOKEN: str | None = None
 
-ROOM_URL: str = "http://localhost:8888"
-ROOM_ID: str = "notebook.ipynb"
-ROOM_TOKEN: str | None = None
+DOCUMENT_URL: str = "http://localhost:8888"
+DOCUMENT_ID: str = "notebook.ipynb"
+DOCUMENT_TOKEN: str | None = None
 
 
 ###############################################################################
@@ -281,12 +281,12 @@ async def __safe_notebook_operation(operation_func, max_retries=3):
 
 @mcp.custom_route("/api/connect", ["PUT"])
 async def connect(request: Request):
-    """Connect to a room and a runtime from the Jupyter MCP server."""
+    """Connect to a document and a runtime from the Jupyter MCP server."""
 
     data = await request.json()
-    logger.info("Connecting to room_runtime:", data)
+    logger.info("Connecting to document_runtime:", data)
 
-    room_runtime = RoomRuntime(**data)
+    document_runtime = DocumentRuntime(**data)
 
     global kernel
     if kernel:
@@ -296,21 +296,21 @@ async def connect(request: Request):
             logger.warning(f"Error stopping kernel during connect: {e}")
 
     global PROVIDER
-    PROVIDER = room_runtime.provider
+    PROVIDER = document_runtime.provider
 
     global RUNTIME_URL
-    RUNTIME_URL = room_runtime.runtime_url
+    RUNTIME_URL = document_runtime.runtime_url
     global RUNTIME_ID
-    RUNTIME_ID = room_runtime.runtime_id
+    RUNTIME_ID = document_runtime.runtime_id
     global RUNTIME_TOKEN
-    RUNTIME_TOKEN = room_runtime.runtime_token
+    RUNTIME_TOKEN = document_runtime.runtime_token
 
-    global ROOM_URL
-    ROOM_URL = room_runtime.room_url
-    global ROOM_ID
-    ROOM_ID = room_runtime.room_id
-    global ROOM_TOKEN
-    ROOM_TOKEN = room_runtime.room_token
+    global DOCUMENT_URL
+    DOCUMENT_URL = document_runtime.document_url
+    global DOCUMENT_ID
+    DOCUMENT_ID = document_runtime.document_id
+    global DOCUMENT_TOKEN
+    DOCUMENT_TOKEN = document_runtime.document_token
 
     try:
         __start_kernel()
@@ -373,7 +373,7 @@ async def append_markdown_cell(cell_source: str) -> str:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -405,7 +405,7 @@ async def insert_markdown_cell(cell_index: int, cell_source: str) -> str:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -438,7 +438,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -470,7 +470,7 @@ async def append_execute_code_cell(cell_source: str) -> list[str]:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -507,7 +507,7 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -544,7 +544,7 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -618,7 +618,7 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -679,7 +679,7 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -772,7 +772,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -821,7 +821,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -870,7 +870,7 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -884,7 +884,7 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
                 cell_types[cell_type] = cell_types.get(cell_type, 0) + 1
 
             info: dict[str, Union[str, int, dict[str, int]]] = {
-                "room_id": ROOM_ID,
+                "document_id": DOCUMENT_ID,
                 "total_cells": total_cells,
                 "cell_types": cell_types,
             }
@@ -913,7 +913,7 @@ async def delete_cell(cell_index: int) -> str:
         try:
             notebook = NbModelClient(
                 get_notebook_websocket_url(
-                    server_url=ROOM_URL, token=ROOM_TOKEN, path=ROOM_ID, provider=PROVIDER
+                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
                 )
             )
             await notebook.start()
@@ -957,7 +957,7 @@ def server():
     envvar="PROVIDER",
     type=click.Choice(["jupyter", "datalayer"]),
     default="jupyter",
-    help="The provider to use for the room and runtime. Defaults to 'jupyter'.",
+    help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
 )
 @click.option(
     "--runtime-url",
@@ -981,25 +981,25 @@ def server():
     help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
 )
 @click.option(
-    "--room-url",
-    envvar="ROOM_URL",
+    "--document-url",
+    envvar="DOCUMENT_URL",
     type=click.STRING,
     default="http://localhost:8888",
-    help="The room URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer room URL.",
+    help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
 )
 @click.option(
-    "--room-id",
-    envvar="ROOM_ID",
+    "--document-id",
+    envvar="DOCUMENT_ID",
     type=click.STRING,
     default="notebook.ipynb",
-    help="The room id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.",
+    help="The document id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.",
 )
 @click.option(
-    "--room-token",
-    envvar="ROOM_TOKEN",
+    "--document-token",
+    envvar="DOCUMENT_TOKEN",
     type=click.STRING,
     default=None,
-    help="The room token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+    help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
 )
 @click.option(
     "--jupyter-mcp-server-url",
@@ -1013,12 +1013,12 @@ def connect_command(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
-    room_url: str,
-    room_id: str,
-    room_token: str,
+    document_url: str,
+    document_id: str,
+    document_token: str,
     provider: str,
 ):
-    """Command to connect a Jupyter MCP Server to a room and a runtime."""
+    """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
     global PROVIDER
     PROVIDER = provider
@@ -1030,21 +1030,21 @@ def connect_command(
     global RUNTIME_TOKEN
     RUNTIME_TOKEN = runtime_token
 
-    global ROOM_URL
-    ROOM_URL = room_url
-    global ROOM_ID
-    ROOM_ID = room_id
-    global ROOM_TOKEN
-    ROOM_TOKEN = room_token
+    global DOCUMENT_URL
+    DOCUMENT_URL = document_url
+    global DOCUMENT_ID
+    DOCUMENT_ID = document_id
+    global DOCUMENT_TOKEN
+    DOCUMENT_TOKEN = document_token
 
-    room_runtime = RoomRuntime(
+    document_runtime = DocumentRuntime(
         provider=PROVIDER,
         runtime_url=RUNTIME_URL,
         runtime_id=RUNTIME_ID,
         runtime_token=RUNTIME_TOKEN,
-        room_url=ROOM_URL,
-        room_id=ROOM_ID,
-        room_token=ROOM_TOKEN,
+        document_url=DOCUMENT_URL,
+        document_id=DOCUMENT_ID,
+        document_token=DOCUMENT_TOKEN,
     )
 
     r = httpx.put(
@@ -1053,7 +1053,7 @@ def connect_command(
             "Content-Type": "application/json",
             "Accept": "application/json",
         },
-        content=room_runtime.model_dump_json(),
+        content=document_runtime.model_dump_json(),
     )
     r.raise_for_status()
 
@@ -1086,7 +1086,7 @@ def stop_command(jupyter_mcp_server_url: str):
     envvar="PROVIDER",
     type=click.Choice(["jupyter", "datalayer"]),
     default="jupyter",
-    help="The provider to use for the room and runtime. Defaults to 'jupyter'.",
+    help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
 )
 @click.option(
     "--runtime-url",
@@ -1117,25 +1117,25 @@ def stop_command(jupyter_mcp_server_url: str):
     help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
 )
 @click.option(
-    "--room-url",
-    envvar="ROOM_URL",
+    "--document-url",
+    envvar="DOCUMENT_URL",
     type=click.STRING,
     default="http://localhost:8888",
-    help="The room URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer room URL.",
+    help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
 )
 @click.option(
-    "--room-id",
-    envvar="ROOM_ID",
+    "--document-id",
+    envvar="DOCUMENT_ID",
     type=click.STRING,
     default="notebook.ipynb",
-    help="The room id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.",
+    help="The document id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.",
 )
 @click.option(
-    "--room-token",
-    envvar="ROOM_TOKEN",
+    "--document-token",
+    envvar="DOCUMENT_TOKEN",
     type=click.STRING,
     default=None,
-    help="The room token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+    help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
 )
 @click.option(
     "--port",
@@ -1150,9 +1150,9 @@ def start_command(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
-    room_url: str,
-    room_id: str,
-    room_token: str,
+    document_url: str,
+    document_id: str,
+    document_token: str,
     port: int,
     provider: str,
 ):
@@ -1173,12 +1173,12 @@ def start_command(
     global RUNTIME_TOKEN
     RUNTIME_TOKEN = runtime_token
 
-    global ROOM_URL
-    ROOM_URL = room_url
-    global ROOM_ID
-    ROOM_ID = room_id
-    global ROOM_TOKEN
-    ROOM_TOKEN = room_token
+    global DOCUMENT_URL
+    DOCUMENT_URL = document_url
+    global DOCUMENT_ID
+    DOCUMENT_ID = document_id
+    global DOCUMENT_TOKEN
+    DOCUMENT_TOKEN = document_token
 
     if START_NEW_RUNTIME or RUNTIME_ID:
         try:

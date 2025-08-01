@@ -21,7 +21,7 @@ You can also run the Jupyter MCP Server using Docker. Use the following command 
 ```bash
 docker run \
   --network=host \
-  -e ROOM_URL="http://localhost:8888" \
+  -e DOCUMENT_URL="http://localhost:8888" \
   -p 4040:4040 \
   datalayer/jupyter-mcp-server:latest \
   --transport streamable-http
@@ -29,7 +29,7 @@ docker run \
 
 :::note
 
-  You can set the `ROOM_URL` (JupyterLab Server URL), `RUNTIME_TOKEN`, and `ROOM_ID` environment variables to configure the server with the `-e` option in the `docker run` command. If not set, the defaults will be used. Refer to the [server configuration](/server-configuration) for more details on the available environment variables and their defaults.
+  You can set the `DOCUMENT_URL` (JupyterLab Server URL), `RUNTIME_TOKEN`, and `DOCUMENT_ID` environment variables to configure the server with the `-e` option in the `docker run` command. If not set, the defaults will be used. Refer to the [server configuration](/server-configuration) for more details on the available environment variables and their defaults.
 
 :::
 
@@ -38,7 +38,7 @@ Use the following command to start the server on Linux.
 ```bash
 docker run \
   --network=host \
-  -e ROOM_URL="http://localhost:8888" \
+  -e DOCUMENT_URL="http://localhost:8888" \
   -p 4040:4040 \
   datalayer/jupyter-mcp-server:latest \
   --transport streamable-http

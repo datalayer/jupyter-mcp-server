@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@datalayer/icons-react": "^1.0.0",
-    "@datalayer/primer-addons": "^1.0.0",
+    "@datalayer/primer-addons": "^1.0.3",
     "@docusaurus/core": "^3.5.2",
     "@docusaurus/preset-classic": "^3.5.2",
     "@docusaurus/theme-live-codeblock": "^3.5.2",

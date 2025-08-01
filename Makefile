@@ -38,9 +38,9 @@ build-docker: ## build the docker image
 
 start-docker: ## start the jupyter mcp server in docker
 	docker run -i --rm \
-	  -e ROOM_URL=http://localhost:8888 \
-	  -e ROOM_ID=notebook.ipynb \
-	  -e ROOM_TOKEN=MY_TOKEN \
+	  -e DOCUMENT_URL=http://localhost:8888 \
+	  -e DOCUMENT_ID=notebook.ipynb \
+	  -e DOCUMENT_TOKEN=MY_TOKEN \
 	  -e RUNTIME_URL=http://localhost:8888 \
 	  -e START_NEW_RUNTIME=true \
 	  -e RUNTIME_TOKEN=MY_TOKEN \
@@ -69,9 +69,9 @@ start: ## start the jupyter mcp server with streamable-http transport
 	@exec echo
 	jupyter-mcp-server start \
 	  --transport streamable-http \
-	  --room-url http://localhost:8888 \
-	  --room-id notebook.ipynb \
-	  --room-token MY_TOKEN \
+	  --document-url http://localhost:8888 \
+	  --document-id notebook.ipynb \
+	  --document-token MY_TOKEN \
 	  --runtime-url http://localhost:8888 \
 	  --start-new-runtime true \
 	  --runtime-token MY_TOKEN \
@@ -85,9 +85,9 @@ start-no-runtime: ## start the jupyter mcp server with streamable-http transport
 	@exec echo
 	jupyter-mcp-server start \
 	  --transport streamable-http \
-	  --room-url http://localhost:8888 \
-	  --room-id notebook.ipynb \
-	  --room-token MY_TOKEN \
+	  --document-url http://localhost:8888 \
+	  --document-id notebook.ipynb \
+	  --document-token MY_TOKEN \
 	  --runtime-url http://localhost:8888 \
 	  --start-new-runtime false \
 	  --runtime-token MY_TOKEN \

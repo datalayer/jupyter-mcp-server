@@ -110,7 +110,7 @@ module.exports = {
           'aria-label': 'GitHub',
         },
         {
-          href: 'https://bsky.app/profile/datalayer.io',
+          href: 'https://bsky.app/profile/datalayer.ai',
           position: 'right',
           className: 'header-bluesky-link',
           'aria-label': 'Bluesky',

@@ -5,11 +5,11 @@
 from pydantic import BaseModel
 
 
-class RoomRuntime(BaseModel):
+class DocumentRuntime(BaseModel):
     provider: str
-    room_url: str
-    room_id: str
-    room_token: str
+    document_url: str
+    document_id: str
+    document_token: str
     runtime_url: str
     runtime_id: str
     runtime_token: str
