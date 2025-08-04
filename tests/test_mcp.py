@@ -36,25 +36,31 @@ JUPYTER_TOOLS = [
 
 
 class MCPClient:
+    """A standard MCP client used to interact with the Jupyter MCP server"""
     def __init__(self, url):
         self.url = f"{url}/mcp"
 
     async def list_tools(self):
+        """Return the list of available tools"""
         async with streamablehttp_client(self.url) as (
             read_stream,
             write_stream,
             _,
         ):
-            # Create a session using the client streams
+            # create a session using the client streams
             async with ClientSession(read_stream, write_stream) as session:
-                # Initialize the connection
+                # initialize the connection
                 await session.initialize()
-                # List available tools
+                # list available tools
                 tools = await session.list_tools()
                 return tools
 
 
 def _start_server(name, host, port, command, readiness_endpoint="/", retries=5):
+    """Helper that start a web server as a python subprocess and wait until it's ready to accept connections
+    
+    This method can be used to start both Jupyter and Jupyter MCP servers
+    """
     _log_prefix = name
     url = f"http://{host}:{port}"
     url_readiness = f"{url}{readiness_endpoint}"
@@ -82,11 +88,12 @@ def _start_server(name, host, port, command, readiness_endpoint="/", retries=5):
 
 @pytest_asyncio.fixture(scope="session")
 async def mcp_client(jupyter_mcp_server):
+    """An MCP client that can connect to the Jupyter MCP server"""
     return MCPClient(jupyter_mcp_server)
-
 
 @pytest.fixture(scope="session")
 def jupyter_server():
+    """Start the Jupyter server and returns its URL"""
     host = "localhost"
     port = 8888
     yield from _start_server(
@@ -113,6 +120,7 @@ def jupyter_server():
 
 @pytest.fixture(scope="session")
 def jupyter_mcp_server(request, jupyter_server):
+    """Start the Jupyter MCP server and returns its URL"""
     host = "localhost"
     port = 4040
     start_new_runtime = True
@@ -151,6 +159,7 @@ def jupyter_mcp_server(request, jupyter_server):
 
 
 def test_jupyter_health(jupyter_server):
+    """Test the Jupyter server health"""
     logging.info(f"Testing service health ({jupyter_server})")
     response = requests.get(
         f"{jupyter_server}/api/status",
@@ -168,6 +177,7 @@ def test_jupyter_health(jupyter_server):
     ids=["start_runtime", "no_runtime"],
 )
 def test_mcp_health(jupyter_mcp_server, kernel_expected_status):
+    """Test the MCP Jupyter server health"""
     logging.info(f"Testing MCP server health ({jupyter_mcp_server})")
     response = requests.get(f"{jupyter_mcp_server}/api/healthz")
     assert response.status_code == HTTPStatus.OK
