@@ -9,12 +9,16 @@ import pytest_asyncio
 import subprocess
 import requests
 import logging
+import functools
 import time
 from http import HTTPStatus
+from contextlib import AsyncExitStack
+
 from requests.exceptions import ConnectionError
 
-from mcp import ClientSession
+from mcp import ClientSession, types
 from mcp.client.streamable_http import streamablehttp_client
+
 
 JUPYTER_TOKEN = "MY_TOKEN"
 
@@ -35,30 +39,69 @@ JUPYTER_TOOLS = [
 ]
 
 
+def requires_session(func):
+    """
+    A decorator that checks if the instance has a connected session.
+    """
+
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        if not self._session:
+            raise RuntimeError("Client session is not connected")
+        # If the session exists, call the original method
+        return await func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class MCPClient:
     """A standard MCP client used to interact with the Jupyter MCP server"""
+
     def __init__(self, url):
         self.url = f"{url}/mcp"
+        self._session: ClientSession | None = None
+        self._exit_stack = AsyncExitStack()
 
+    async def __aenter__(self):
+        streams_context = streamablehttp_client(self.url)
+        read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
+            streams_context
+        )
+        session_context = ClientSession(read_stream, write_stream)
+        self._session = await self._exit_stack.enter_async_context(session_context)
+        await self._session.initialize()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._exit_stack:
+            await self._exit_stack.aclose()
+        self._session = None
+
+    @requires_session
     async def list_tools(self):
-        """Return the list of available tools"""
-        async with streamablehttp_client(self.url) as (
-            read_stream,
-            write_stream,
-            _,
-        ):
-            # create a session using the client streams
-            async with ClientSession(read_stream, write_stream) as session:
-                # initialize the connection
-                await session.initialize()
-                # list available tools
-                tools = await session.list_tools()
-                return tools
+        return await self._session.list_tools()  # type: ignore
+
+    @requires_session
+    async def append_markdown_cell(self, cell_source):
+        result = await self._session.call_tool("append_markdown_cell", arguments={"cell_source": cell_source})  # type: ignore
+        if isinstance(result.content[0], types.TextContent):
+            return result.content[0].text
+
+    @requires_session
+    async def read_cell(self, cell_index):
+        result = await self._session.call_tool("read_cell", arguments={"cell_index": cell_index})  # type: ignore
+        return result.structuredContent
+
+    @requires_session
+    async def delete_cell(self, cell_index):
+        result = await self._session.call_tool("delete_cell", arguments={"cell_index": cell_index})  # type: ignore
+        if isinstance(result.content[0], types.TextContent):
+            return result.content[0].text
 
 
 def _start_server(name, host, port, command, readiness_endpoint="/", retries=5):
     """Helper that start a web server as a python subprocess and wait until it's ready to accept connections
-    
+
     This method can be used to start both Jupyter and Jupyter MCP servers
     """
     _log_prefix = name
@@ -87,9 +130,10 @@ def _start_server(name, host, port, command, readiness_endpoint="/", retries=5):
 
 
 @pytest_asyncio.fixture(scope="session")
-async def mcp_client(jupyter_mcp_server):
+async def mcp_client(jupyter_mcp_server) -> MCPClient:
     """An MCP client that can connect to the Jupyter MCP server"""
     return MCPClient(jupyter_mcp_server)
+
 
 @pytest.fixture(scope="session")
 def jupyter_server():
@@ -190,9 +234,28 @@ def test_mcp_health(jupyter_mcp_server, kernel_expected_status):
 @pytest.mark.asyncio
 async def test_mcp_tool_list(mcp_client):
     """Check that the list of tools can be retrieved and match"""
-    tools = await mcp_client.list_tools()
+    async with mcp_client:
+        tools = await mcp_client.list_tools()
     tools_name = [tool.name for tool in tools.tools]
     logging.debug(tools_name)
-    assert len(JUPYTER_TOOLS) == len(tools_name) and sorted(JUPYTER_TOOLS) == sorted(
-        tools_name
+    assert len(tools_name) == len(JUPYTER_TOOLS) and sorted(tools_name) == sorted(
+        JUPYTER_TOOLS
     )
+
+
+@pytest.mark.asyncio
+async def test_markdown_cell(mcp_client, content="Hello **World** !"):
+    """Check markdown cell features"""
+    async with mcp_client:
+        result = await mcp_client.append_markdown_cell(content)
+        assert result == "Jupyter Markdown cell added."
+        # reading and checking the content of the created cell
+        cell_info = await mcp_client.read_cell(0)
+        logging.debug(cell_info)
+        assert cell_info["index"] == 0
+        assert cell_info["type"] == "markdown"
+        # TODO: don't now if it's normal to get a list of characters instead of a string
+        assert "".join(cell_info["source"]) == content
+        # delete created cell
+        result = await mcp_client.delete_cell(0)
+        assert result == f"Cell 0 (markdown) deleted successfully."
