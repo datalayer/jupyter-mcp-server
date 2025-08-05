@@ -55,7 +55,11 @@ def requires_session(func):
 
 
 class MCPClient:
-    """A standard MCP client used to interact with the Jupyter MCP server"""
+    """A standard MCP client used to interact with the Jupyter MCP server
+
+    Basically it's a client wrapper for the Jupyter MCP server.
+    It uses the `requires_session` decorator to check if the session is connected.
+    """
 
     def __init__(self, url):
         self.url = f"{url}/mcp"
@@ -63,6 +67,7 @@ class MCPClient:
         self._exit_stack = AsyncExitStack()
 
     async def __aenter__(self):
+        """Initiate the session (enter session context)"""
         streams_context = streamablehttp_client(self.url)
         read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
             streams_context
@@ -73,19 +78,45 @@ class MCPClient:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Close the session (exit session context)"""
         if self._exit_stack:
             await self._exit_stack.aclose()
         self._session = None
+
+    @staticmethod
+    def _extract_text_content(result):
+        """Extract text content from a result"""
+        if isinstance(result.content[0], types.TextContent):
+            return result.content[0].text
 
     @requires_session
     async def list_tools(self):
         return await self._session.list_tools()  # type: ignore
 
     @requires_session
+    async def get_notebook_info(self):
+        result = await self._session.call_tool("get_notebook_info")  # type: ignore
+        return result.structuredContent
+
+    @requires_session
     async def append_markdown_cell(self, cell_source):
         result = await self._session.call_tool("append_markdown_cell", arguments={"cell_source": cell_source})  # type: ignore
-        if isinstance(result.content[0], types.TextContent):
-            return result.content[0].text
+        return MCPClient._extract_text_content(result)
+
+    @requires_session
+    async def insert_markdown_cell(self, cell_index, cell_source):
+        result = await self._session.call_tool("insert_markdown_cell", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
+        return MCPClient._extract_text_content(result)
+
+    @requires_session
+    async def append_execute_code_cell(self, cell_source):
+        result = await self._session.call_tool("append_execute_code_cell", arguments={"cell_source": cell_source})  # type: ignore
+        return result.structuredContent
+
+    @requires_session
+    async def insert_execute_code_cell(self, cell_index, cell_source):
+        result = await self._session.call_tool("insert_execute_code_cell", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
+        return result.structuredContent
 
     @requires_session
     async def read_cell(self, cell_index):
@@ -95,11 +126,10 @@ class MCPClient:
     @requires_session
     async def delete_cell(self, cell_index):
         result = await self._session.call_tool("delete_cell", arguments={"cell_index": cell_index})  # type: ignore
-        if isinstance(result.content[0], types.TextContent):
-            return result.content[0].text
+        return MCPClient._extract_text_content(result)
 
 
-def _start_server(name, host, port, command, readiness_endpoint="/", retries=5):
+def _start_server(name, host, port, command, readiness_endpoint="/", max_retries=5):
     """Helper that start a web server as a python subprocess and wait until it's ready to accept connections
 
     This method can be used to start both Jupyter and Jupyter MCP servers
@@ -110,7 +140,7 @@ def _start_server(name, host, port, command, readiness_endpoint="/", retries=5):
     logging.info(f"{_log_prefix}: starting ...")
     p_serv = subprocess.Popen(command, stdout=subprocess.PIPE)
     _log_prefix = f"{_log_prefix} ({p_serv.pid})"
-    while retries > 0:
+    while max_retries > 0:
         try:
             response = requests.get(url_readiness)
             if response is not None and response.status_code == HTTPStatus.OK:
@@ -118,10 +148,12 @@ def _start_server(name, host, port, command, readiness_endpoint="/", retries=5):
                 yield url
                 break
         except ConnectionError:
-            logging.debug(f"{_log_prefix}: waiting to accept connections [{retries}]")
+            logging.debug(
+                f"{_log_prefix}: waiting to accept connections [{max_retries}]"
+            )
             time.sleep(2)
-            retries -= 1
-    if not retries:
+            max_retries -= 1
+    if not max_retries:
         logging.error(f"{_log_prefix}: fail to start")
     logging.debug(f"{_log_prefix}: stopping ...")
     p_serv.terminate()
@@ -158,7 +190,7 @@ def jupyter_server():
             "--no-browser",
         ],
         readiness_endpoint="/api",
-        retries=10,
+        max_retries=10,
     )
 
 
@@ -237,25 +269,73 @@ async def test_mcp_tool_list(mcp_client):
     async with mcp_client:
         tools = await mcp_client.list_tools()
     tools_name = [tool.name for tool in tools.tools]
-    logging.debug(tools_name)
+    logging.debug(f"tools_name :{tools_name}")
     assert len(tools_name) == len(JUPYTER_TOOLS) and sorted(tools_name) == sorted(
         JUPYTER_TOOLS
     )
 
 
 @pytest.mark.asyncio
-async def test_markdown_cell(mcp_client, content="Hello **World** !"):
-    """Check markdown cell features"""
+async def test_notebook_info(mcp_client):
+    """Test notebook info"""
     async with mcp_client:
-        result = await mcp_client.append_markdown_cell(content)
-        assert result == "Jupyter Markdown cell added."
+        notebook_info = await mcp_client.get_notebook_info()
+        logging.debug(f"notebook_info: {notebook_info}")
+        assert notebook_info["document_id"] == "notebook.ipynb"
+        assert notebook_info["total_cells"] == 1
+        assert notebook_info["cell_types"] == {"code": 1}
+
+
+@pytest.mark.asyncio
+async def test_markdown_cell(mcp_client, content="Hello **World** !"):
+    """Test markdown cell manipulation (append, insert, read, delete)"""
+
+    async def check_and_delete_markdown_cell(mcp_client, index, content):
+        """Check and delete a markdown cell"""
         # reading and checking the content of the created cell
-        cell_info = await mcp_client.read_cell(0)
-        logging.debug(cell_info)
-        assert cell_info["index"] == 0
+        cell_info = await mcp_client.read_cell(index)
+        logging.debug(f"cell_info: {cell_info}")
+        assert cell_info["index"] == index
         assert cell_info["type"] == "markdown"
         # TODO: don't now if it's normal to get a list of characters instead of a string
         assert "".join(cell_info["source"]) == content
         # delete created cell
-        result = await mcp_client.delete_cell(0)
-        assert result == f"Cell 0 (markdown) deleted successfully."
+        result = await mcp_client.delete_cell(index)
+        assert result == f"Cell {index} (markdown) deleted successfully."
+
+    async with mcp_client:
+        # append markdown cell
+        result = await mcp_client.append_markdown_cell(content)
+        assert result == "Jupyter Markdown cell added."
+        await check_and_delete_markdown_cell(mcp_client, 1, content)
+        # insert markdown cell
+        result = await mcp_client.insert_markdown_cell(0, content)
+        assert result == f"Jupyter Markdown cell 0 inserted."
+        await check_and_delete_markdown_cell(mcp_client, 0, content)
+
+
+@pytest.mark.asyncio
+async def test_code_cell(mcp_client, content="1 + 1"):
+    async def check_and_delete_code_cell(mcp_client, index, content):
+        """Check and delete a code cell"""
+        # reading and checking the content of the created cell
+        cell_info = await mcp_client.read_cell(index)
+        logging.info(f"cell_info: {cell_info}")
+        assert cell_info["index"] == index
+        assert cell_info["type"] == "code"
+        assert "".join(cell_info["source"]) == content
+        # delete created cell
+        result = await mcp_client.delete_cell(index)
+        assert result == f"Cell {index} (code) deleted successfully."
+
+    async with mcp_client:
+        # append code cell
+        code_result = await mcp_client.append_execute_code_cell(content)
+        logging.debug(f"code_result: {code_result}")
+        assert int(code_result["result"][0]) == eval(content)
+        await check_and_delete_code_cell(mcp_client, 1, content)
+        # insert markdown cell
+        code_result = await mcp_client.insert_execute_code_cell(0, content)
+        logging.info(f"code_result: {code_result}")
+        assert int(code_result["result"][0]) == eval(content)
+        await check_and_delete_code_cell(mcp_client, 0, content)
