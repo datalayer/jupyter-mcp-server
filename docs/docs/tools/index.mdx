@@ -1,6 +1,6 @@
 # Tools
 
-The server currently offers 10 tools:
+The server currently offers 12 tools:
 
 #### 1. `append_execute_code_cell`
 
@@ -74,7 +74,7 @@ The server currently offers 10 tools:
 - Returns:
   - `list[str]`: List of outputs including progress updates
 
-### 11. `execute_cell_simple_timeout`
+#### 11. `execute_cell_simple_timeout`
 
 - Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells. This won't force real-time updates but will work reliably.
 - Input:
@@ -83,7 +83,7 @@ The server currently offers 10 tools:
 - Returns:
   - `list[str]`: List of outputs from the executed cell
 
-### 12. `execute_cell_with_progress`
+#### 12. `execute_cell_with_progress`
 
 - Execute a specific cell with timeout and progress monitoring.
 - Input:
