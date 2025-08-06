@@ -16,7 +16,7 @@ This test file is organized as follows:
     - `jupyter_mcp_server`: Spawn a Jupyter MCP server connected to the Jupyter server.
     - `mcp_client`: Returns the `MCPClient` connected to the Juypyter MCP server.
 
-3.  **Health tests**: Check that the main components are operating as expected
+3.  **Health tests**: Check that the main components are operating as expected.
     - `test_jupyter_health`: Test that the Jupyter server is healthy.
     - `test_mcp_health`: Test that the Jupyter MCP server is healthy (tests are made with different configuration runtime launched or not launched).
     - `test_mcp_tool_list`: Test that the MCP server declare its tools.
@@ -364,7 +364,7 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         logging.debug(f"code_result: {code_result}")
         assert int(code_result["result"][0]) == eval(content)
         await check_and_delete_code_cell(mcp_client, 1, content)
-        # insert markdown cell
+        # insert code cell
         code_result = await mcp_client.insert_execute_code_cell(0, content)
         logging.info(f"code_result: {code_result}")
         assert int(code_result["result"][0]) == eval(content)
