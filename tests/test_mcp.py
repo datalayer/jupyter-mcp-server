@@ -3,7 +3,7 @@
 # BSD 3-Clause License
 
 """
-Integration tests for the 'mcp.server' module.
+Integration tests for the 'mcp.server' module written in pytest with its async module `pytest-asyncio`.
 
 This test file is organized as follows:
 
@@ -28,9 +28,11 @@ This test file is organized as follows:
 
 Launch the tests
 
+```
 $ make test
-or
+# or
 $ hatch test
+```
 """
 
 import pytest
