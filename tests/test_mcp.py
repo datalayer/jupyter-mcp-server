@@ -2,7 +2,36 @@
 #
 # BSD 3-Clause License
 
-"""Python unit tests for jupyter_mcp_server."""
+"""
+Integration tests for the 'mcp.server' module.
+
+This test file is organized as follows:
+
+1. **Helpers**: Common methods and objects used to ease the writing and the execution of tests.
+    - `MCPClient`: A standard MCP client used to interact with the Jupyter MCP server.
+    - `_start_server`: Helper function that starts a web server (Jupyter Lab and MCP Server) as a python subprocess and wait until it's ready to accept connections.
+
+2.  **Fixtures**: Common setup and teardown logic for tests.
+    - `jupyter_server`: Spawn a Jupyter server (thanks to the `_start_server` helper).
+    - `jupyter_mcp_server`: Spawn a Jupyter MCP server connected to the Jupyter server.
+    - `mcp_client`: Returns the `MCPClient` connected to the Juypyter MCP server.
+
+3.  **Health tests**: Check that the main components are operating as expected
+    - `test_jupyter_health`: Test that the Jupyter server is healthy.
+    - `test_mcp_health`: Test that the Jupyter MCP server is healthy (tests are made with different configuration runtime launched or not launched).
+    - `test_mcp_tool_list`: Test that the MCP server declare its tools.
+
+4.  **Integration tests**: Check that end to end tools (client -> Jupyter MCP -> Jupyter) are working as expected.
+    - `test_notebook_info`: Test that the notebook info are returned.
+    - `test_markdown_cell`: Test markdown cell manipulation (append, insert, read, delete).
+    - `test_code_cell`: Test code cell manipulation (append, insert, read, delete)
+
+Launch the tests
+
+$ make test
+or
+$ hatch test
+"""
 
 import pytest
 import pytest_asyncio
@@ -15,7 +44,6 @@ from http import HTTPStatus
 from contextlib import AsyncExitStack
 
 from requests.exceptions import ConnectionError
-
 from mcp import ClientSession, types
 from mcp.client.streamable_http import streamablehttp_client
 
@@ -130,7 +158,7 @@ class MCPClient:
 
 
 def _start_server(name, host, port, command, readiness_endpoint="/", max_retries=5):
-    """Helper that start a web server as a python subprocess and wait until it's ready to accept connections
+    """A Helper that starts a web server as a python subprocess and wait until it's ready to accept connections
 
     This method can be used to start both Jupyter and Jupyter MCP servers
     """

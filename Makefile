@@ -23,6 +23,9 @@ install:
 dev:
 	pip install ".[test,lint,typing]"
 
+test: ## run the integration tests
+	hatch test
+
 build:
 	pip install build
 	python -m build .
