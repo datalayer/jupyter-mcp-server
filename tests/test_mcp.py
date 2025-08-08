@@ -361,7 +361,7 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         """Check and delete a code cell"""
         # reading and checking the content of the created cell
         cell_info = await mcp_client.read_cell(index)
-        logging.info(f"cell_info: {cell_info}")
+        logging.debug(f"cell_info: {cell_info}")
         assert cell_info["index"] == index
         assert cell_info["type"] == "code"
         assert "".join(cell_info["source"]) == content
