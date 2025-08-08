@@ -154,6 +154,11 @@ class MCPClient:
         return result.structuredContent
 
     @requires_session
+    async def read_all_cells(self):
+        result = await self._session.call_tool("read_all_cells")  # type: ignore
+        return result.structuredContent
+
+    @requires_session
     async def delete_cell(self, cell_index):
         result = await self._session.call_tool("delete_cell", arguments={"cell_index": cell_index})  # type: ignore
         return MCPClient._extract_text_content(result)
@@ -169,7 +174,7 @@ def _start_server(name, host, port, command, readiness_endpoint="/", max_retries
     url_readiness = f"{url}{readiness_endpoint}"
     logging.info(f"{_log_prefix}: starting ...")
     p_serv = subprocess.Popen(command, stdout=subprocess.PIPE)
-    _log_prefix = f"{_log_prefix} ({p_serv.pid})"
+    _log_prefix = f"{_log_prefix} [{p_serv.pid}]"
     while max_retries > 0:
         try:
             response = requests.get(url_readiness)
@@ -329,6 +334,12 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
         assert cell_info["type"] == "markdown"
         # TODO: don't now if it's normal to get a list of characters instead of a string
         assert "".join(cell_info["source"]) == content
+        # reading all cells
+        result = await mcp_client.read_all_cells()
+        cells_info = result["result"]
+        logging.debug(f"cells_info: {cells_info}")
+        assert len(cells_info) == 2
+        assert "".join(cells_info[index]["source"]) == content
         # delete created cell
         result = await mcp_client.delete_cell(index)
         assert result == f"Cell {index} (markdown) deleted successfully."
@@ -354,6 +365,12 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         assert cell_info["index"] == index
         assert cell_info["type"] == "code"
         assert "".join(cell_info["source"]) == content
+        # reading all cells
+        result = await mcp_client.read_all_cells()
+        cells_info = result["result"]
+        logging.debug(f"cells_info: {cells_info}")
+        assert len(cells_info) == 2
+        assert "".join(cells_info[index]["source"]) == content
         # delete created cell
         result = await mcp_client.delete_cell(index)
         assert result == f"Cell {index} (code) deleted successfully."
