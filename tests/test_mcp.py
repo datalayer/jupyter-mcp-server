@@ -24,7 +24,10 @@ This test file is organized as follows:
 4.  **Integration tests**: Check that end to end tools (client -> Jupyter MCP -> Jupyter) are working as expected.
     - `test_notebook_info`: Test that the notebook info are returned.
     - `test_markdown_cell`: Test markdown cell manipulation (append, insert, read, delete).
-    - `test_code_cell`: Test code cell manipulation (append, insert, read, delete)
+    - `test_code_cell`: Test code cell manipulation (append, insert, overwrite, execute, read, delete)
+
+5.  **Edge tests**: Check edge cases behavior.
+    - `test_bad_index`: Test behavior of all index-based tools if the index does not exist
 
 Launch the tests
 
@@ -131,12 +134,12 @@ class MCPClient:
     @requires_session
     async def append_markdown_cell(self, cell_source):
         result = await self._session.call_tool("append_markdown_cell", arguments={"cell_source": cell_source})  # type: ignore
-        return MCPClient._extract_text_content(result)
+        return result.structuredContent
 
     @requires_session
     async def insert_markdown_cell(self, cell_index, cell_source):
         result = await self._session.call_tool("insert_markdown_cell", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
-        return MCPClient._extract_text_content(result)
+        return result.structuredContent
 
     @requires_session
     async def append_execute_code_cell(self, cell_source):
@@ -161,8 +164,27 @@ class MCPClient:
     @requires_session
     async def delete_cell(self, cell_index):
         result = await self._session.call_tool("delete_cell", arguments={"cell_index": cell_index})  # type: ignore
-        return MCPClient._extract_text_content(result)
+        return result.structuredContent
 
+    @requires_session
+    async def execute_cell_streaming(self, cell_index):
+        result = await self._session.call_tool("execute_cell_streaming", arguments={"cell_index": cell_index})  # type: ignore
+        return result.structuredContent
+    
+    @requires_session
+    async def execute_cell_with_progress(self, cell_index):
+        result = await self._session.call_tool("execute_cell_with_progress", arguments={"cell_index": cell_index})  # type: ignore
+        return result.structuredContent
+    
+    @requires_session
+    async def execute_cell_simple_timeout(self, cell_index):
+        result = await self._session.call_tool("execute_cell_simple_timeout", arguments={"cell_index": cell_index})  # type: ignore
+        return result.structuredContent
+
+    @requires_session
+    async def overwrite_cell_source(self, cell_index, cell_source):
+        result = await self._session.call_tool("overwrite_cell_source", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
+        return result.structuredContent
 
 def _start_server(name, host, port, command, readiness_endpoint="/", max_retries=5):
     """A Helper that starts a web server as a python subprocess and wait until it's ready to accept connections
@@ -342,21 +364,22 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
         assert "".join(cells_info[index]["source"]) == content
         # delete created cell
         result = await mcp_client.delete_cell(index)
-        assert result == f"Cell {index} (markdown) deleted successfully."
+        assert result["result"] == f"Cell {index} (markdown) deleted successfully."
 
     async with mcp_client:
         # append markdown cell
         result = await mcp_client.append_markdown_cell(content)
-        assert result == "Jupyter Markdown cell added."
+        assert result["result"] == "Jupyter Markdown cell added."
         await check_and_delete_markdown_cell(mcp_client, 1, content)
         # insert markdown cell
         result = await mcp_client.insert_markdown_cell(0, content)
-        assert result == f"Jupyter Markdown cell 0 inserted."
+        assert result["result"] == f"Jupyter Markdown cell 0 inserted."
         await check_and_delete_markdown_cell(mcp_client, 0, content)
 
 
 @pytest.mark.asyncio
 async def test_code_cell(mcp_client, content="1 + 1"):
+    """Test code cell manipulation (append, insert, overwrite, execute, read, delete)"""
     async def check_and_delete_code_cell(mcp_client, index, content):
         """Check and delete a code cell"""
         # reading and checking the content of the created cell
@@ -373,16 +396,42 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         assert "".join(cells_info[index]["source"]) == content
         # delete created cell
         result = await mcp_client.delete_cell(index)
-        assert result == f"Cell {index} (code) deleted successfully."
+        assert result["result"] == f"Cell {index} (code) deleted successfully."
 
     async with mcp_client:
         # append code cell
+        index = 1
         code_result = await mcp_client.append_execute_code_cell(content)
         logging.debug(f"code_result: {code_result}")
         assert int(code_result["result"][0]) == eval(content)
-        await check_and_delete_code_cell(mcp_client, 1, content)
+        await check_and_delete_code_cell(mcp_client, index, content)
         # insert code cell
-        code_result = await mcp_client.insert_execute_code_cell(0, content)
-        logging.info(f"code_result: {code_result}")
-        assert int(code_result["result"][0]) == eval(content)
-        await check_and_delete_code_cell(mcp_client, 0, content)
+        index = 0
+        code_result = await mcp_client.insert_execute_code_cell(index, content)
+        logging.debug(f"code_result: {code_result}")
+        expected_result = eval(content)
+        assert int(code_result["result"][0]) == expected_result
+        # overwrite content and test different cell execution modes
+        content = f"({content}) * 2"
+        expected_result = eval(content)
+        result = await mcp_client.overwrite_cell_source(index, content)
+        logging.debug(f"result: {result}")
+        assert result["result"] == f"Cell {index} overwritten successfully - use execute_cell to execute it if code"
+        code_result = await mcp_client.execute_cell_with_progress(index)
+        assert int(code_result["result"][0]) == expected_result
+        code_result = await mcp_client.execute_cell_simple_timeout(index)
+        assert int(code_result["result"][0]) == expected_result
+        await check_and_delete_code_cell(mcp_client, index, content)
+
+
+@pytest.mark.asyncio
+async def test_bad_index(mcp_client, index=99):
+    """Test behavior of all index-based tools if the index does not exist"""
+    async with mcp_client:
+        assert await mcp_client.read_cell(index) is None
+        assert await mcp_client.insert_markdown_cell(index, "test") is None
+        assert await mcp_client.insert_execute_code_cell(index, "1 + 1") is None
+        assert await mcp_client.overwrite_cell_source(index, "1 + 1") is None
+        assert await mcp_client.execute_cell_with_progress(index) is None
+        assert await mcp_client.execute_cell_simple_timeout(index) is None
+        assert await mcp_client.delete_cell(index) is None
