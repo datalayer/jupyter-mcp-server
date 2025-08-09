@@ -22,7 +22,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
-from jupyter_mcp_server.models import DocumentRuntime
+from jupyter_mcp_server.models import DocumentRuntime, CellInfo
 from jupyter_mcp_server.utils import extract_output, safe_extract_outputs
 
 
@@ -781,22 +781,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
             cells = []
 
             for i, cell in enumerate(ydoc._ycells):
-                cell_info = {
-                    "index": i,
-                    "type": cell.get("cell_type", "unknown"),
-                    "source": cell.get("source", ""),
-                }
-
-                # Add outputs for code cells
-                if cell.get("cell_type") == "code":
-                    try:
-                        outputs = cell.get("outputs", [])
-                        cell_info["outputs"] = safe_extract_outputs(outputs)
-                    except Exception as e:
-                        cell_info["outputs"] = [f"[Error reading outputs: {str(e)}]"]
-
-                cells.append(cell_info)
-
+                cells.append(CellInfo.from_cell(i, cell).model_dump(exclude_none=True))
             return cells
         finally:
             if notebook:
@@ -834,21 +819,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
                 )
 
             cell = ydoc._ycells[cell_index]
-            cell_info = {
-                "index": cell_index,
-                "type": cell.get("cell_type", "unknown"),
-                "source": cell.get("source", ""),
-            }
-
-            # Add outputs for code cells.
-            if cell.get("cell_type") == "code":
-                try:
-                    outputs = cell.get("outputs", [])
-                    cell_info["outputs"] = safe_extract_outputs(outputs)
-                except Exception as e:
-                    cell_info["outputs"] = [f"[Error reading outputs: {str(e)}]"]
-
-            return cell_info
+            return CellInfo.from_cell(cell_index=cell_index, cell=cell).model_dump(exclude_none=True)
         finally:
             if notebook:
                 try:
