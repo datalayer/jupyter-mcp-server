@@ -11,7 +11,6 @@
 # 🪐✨ Jupyter MCP Server
 
 [![PyPI - Version](https://img.shields.io/pypi/v/jupyter-mcp-server)](https://pypi.org/project/jupyter-mcp-server)
-[![smithery badge](https://smithery.ai/badge/@datalayer/jupyter-mcp-server)](https://smithery.ai/server/@datalayer/jupyter-mcp-server)
 <a href="https://mseep.ai/app/datalayer-jupyter-mcp-server">
 <img src="https://mseep.net/pr/datalayer-jupyter-mcp-server-badge.png" alt="MseeP.ai Security Assessment Badge" width="100" />
 </a>

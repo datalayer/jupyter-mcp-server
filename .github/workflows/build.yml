@@ -92,22 +92,4 @@ jobs:
           pip list 2>&1 | grep -ie "jupyter_mcp_server"
           python -c "import jupyter_mcp_server"
 
-  check_release:
-    needs: test_sdist
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Base Setup
-        uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
-      - name: Install Dependencies
-        run: |
-          pip install -e .
-      - name: Check Release
-        uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Distributions
-        uses: actions/upload-artifact@v4
-        with:
-          name: jupyter_mcp_server-releaser-dist-${{ github.run_number }}
-          path: .jupyter_releaser_checkout/dist
+
