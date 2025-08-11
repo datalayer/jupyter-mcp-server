@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -21,6 +21,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Base Setup
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
@@ -37,15 +42,15 @@ jobs:
         run: |
           pip install build
           python -m build --sdist
-          cp dist/*.tar.gz my_server_extension.tar.gz
+          cp dist/*.tar.gz jupyter_mcp_server.tar.gz
           pip uninstall -y "jupyter_mcp_server"
           rm -rf "jupyter_mcp_server"
 
       - uses: actions/upload-artifact@v4
         if: startsWith(matrix.os, 'ubuntu')
         with:
-          name: my_server_extension-sdist-${{ matrix.python-version }}
-          path: my_server_extension.tar.gz
+          name: jupyter_mcp_server-sdist-${{ matrix.python-version }}
+          path: jupyter_mcp_server.tar.gz
 
   check_links:
     runs-on: ubuntu-latest
@@ -80,10 +85,10 @@ jobs:
           architecture: "x64"
       - uses: actions/download-artifact@v4
         with:
-          name: my_server_extension-sdist-${{ matrix.python-version }}
+          name: jupyter_mcp_server-sdist-${{ matrix.python-version }}
       - name: Install and Test
         run: |
-          pip install my_server_extension.tar.gz
+          pip install jupyter_mcp_server.tar.gz
           pip list 2>&1 | grep -ie "jupyter_mcp_server"
           python -c "import jupyter_mcp_server"
 

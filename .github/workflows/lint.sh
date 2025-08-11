@@ -3,7 +3,7 @@
 #
 # BSD 3-Clause License
 
-pip install -e ".[lint, typing]"
+pip install -e ".[lint,typing]"
 mypy --install-types --non-interactive .
 ruff check .
 mdformat --check *.md
