@@ -24,6 +24,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from jupyter_mcp_server.models import DocumentRuntime, CellInfo
 from jupyter_mcp_server.utils import extract_output, safe_extract_outputs
+from jupyter_mcp_server.config import get_config, set_config
 
 
 ###############################################################################
@@ -35,20 +36,17 @@ logger = logging.getLogger(__name__)
 ###############################################################################
 
 
-TRANSPORT: str = "stdio"
-PROVIDER: str = "jupyter"
-
-RUNTIME_URL: str = "http://localhost:8888"
-START_NEW_RUNTIME: bool = False
-RUNTIME_ID: str | None = None
-RUNTIME_TOKEN: str | None = None
-
-DOCUMENT_URL: str = "http://localhost:8888"
-DOCUMENT_ID: str = "notebook.ipynb"
-DOCUMENT_TOKEN: str | None = None
-
-
-###############################################################################
+def _get_notebook_client() -> NbModelClient:
+    """Get a configured NbModelClient instance using current configuration."""
+    config = get_config()
+    return NbModelClient(
+        get_notebook_websocket_url(
+            server_url=config.document_url,
+            token=config.document_token,
+            path=config.document_id,
+            provider=config.provider
+        )
+    )
 
 
 class FastMCPWithCORS(FastMCP):
@@ -98,6 +96,7 @@ kernel = None
 def __start_kernel():
     """Start the Jupyter kernel with error handling."""
     global kernel
+    config = get_config()
     try:
         if kernel:
             kernel.stop()
@@ -106,7 +105,11 @@ def __start_kernel():
     
     try:
         # Initialize the kernel client with the provided parameters.
-        kernel = KernelClient(server_url=RUNTIME_URL, token=RUNTIME_TOKEN, kernel_id=RUNTIME_ID)
+        kernel = KernelClient(
+            server_url=config.runtime_url, 
+            token=config.runtime_token, 
+            kernel_id=config.runtime_id
+        )
         kernel.start()
         logger.info("Kernel started successfully")
     except Exception as e:
@@ -295,22 +298,16 @@ async def connect(request: Request):
         except Exception as e:
             logger.warning(f"Error stopping kernel during connect: {e}")
 
-    global PROVIDER
-    PROVIDER = document_runtime.provider
-
-    global RUNTIME_URL
-    RUNTIME_URL = document_runtime.runtime_url
-    global RUNTIME_ID
-    RUNTIME_ID = document_runtime.runtime_id
-    global RUNTIME_TOKEN
-    RUNTIME_TOKEN = document_runtime.runtime_token
-
-    global DOCUMENT_URL
-    DOCUMENT_URL = document_runtime.document_url
-    global DOCUMENT_ID
-    DOCUMENT_ID = document_runtime.document_id
-    global DOCUMENT_TOKEN
-    DOCUMENT_TOKEN = document_runtime.document_token
+    # Update configuration with new values
+    set_config(
+        provider=document_runtime.provider,
+        runtime_url=document_runtime.runtime_url,
+        runtime_id=document_runtime.runtime_id,
+        runtime_token=document_runtime.runtime_token,
+        document_url=document_runtime.document_url,
+        document_id=document_runtime.document_id,
+        document_token=document_runtime.document_token
+    )
 
     try:
         __start_kernel()
@@ -371,11 +368,7 @@ async def append_markdown_cell(cell_source: str) -> str:
     async def _append_markdown():
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
             notebook.add_markdown_cell(cell_source)
             return "Jupyter Markdown cell added."
@@ -403,11 +396,7 @@ async def insert_markdown_cell(cell_index: int, cell_source: str) -> str:
     async def _insert_markdown():
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
             notebook.insert_markdown_cell(cell_index, cell_source)
             return f"Jupyter Markdown cell {cell_index} inserted."
@@ -436,11 +425,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     async def _overwrite_cell():
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
             notebook.set_cell_source(cell_index, cell_source)
             return f"Cell {cell_index} overwritten successfully - use execute_cell to execute it if code"
@@ -468,11 +453,7 @@ async def append_execute_code_cell(cell_source: str) -> list[str]:
         __ensure_kernel_alive()
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
             cell_index = notebook.add_code_cell(cell_source)
             notebook.execute_cell(cell_index, kernel)
@@ -505,11 +486,7 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
         __ensure_kernel_alive()
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
             notebook.insert_code_cell(cell_index, cell_source)
             notebook.execute_cell(cell_index, kernel)
@@ -542,11 +519,7 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
         
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
 
             ydoc = notebook._doc
@@ -677,11 +650,7 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
         outputs_log = []
         
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
 
             ydoc = notebook._doc
@@ -770,11 +739,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
     async def _read_all():
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
 
             ydoc = notebook._doc
@@ -804,11 +769,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
     async def _read_cell():
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
 
             ydoc = notebook._doc
@@ -838,12 +799,9 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
     """
     async def _get_info():
         notebook = None
+        config = get_config()
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
 
             ydoc = notebook._doc
@@ -855,7 +813,7 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
                 cell_types[cell_type] = cell_types.get(cell_type, 0) + 1
 
             info: dict[str, Union[str, int, dict[str, int]]] = {
-                "document_id": DOCUMENT_ID,
+                "document_id": config.document_id,
                 "total_cells": total_cells,
                 "cell_types": cell_types,
             }
@@ -882,11 +840,7 @@ async def delete_cell(cell_index: int) -> str:
     async def _delete_cell():
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
 
             ydoc = notebook._doc
@@ -991,31 +945,27 @@ def connect_command(
 ):
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
-    global PROVIDER
-    PROVIDER = provider
+    # Set configuration using the singleton
+    set_config(
+        provider=provider,
+        runtime_url=runtime_url,
+        runtime_id=runtime_id,
+        runtime_token=runtime_token,
+        document_url=document_url,
+        document_id=document_id,
+        document_token=document_token
+    )
 
-    global RUNTIME_URL
-    RUNTIME_URL = runtime_url
-    global RUNTIME_ID
-    RUNTIME_ID = runtime_id
-    global RUNTIME_TOKEN
-    RUNTIME_TOKEN = runtime_token
-
-    global DOCUMENT_URL
-    DOCUMENT_URL = document_url
-    global DOCUMENT_ID
-    DOCUMENT_ID = document_id
-    global DOCUMENT_TOKEN
-    DOCUMENT_TOKEN = document_token
-
+    config = get_config()
+    
     document_runtime = DocumentRuntime(
-        provider=PROVIDER,
-        runtime_url=RUNTIME_URL,
-        runtime_id=RUNTIME_ID,
-        runtime_token=RUNTIME_TOKEN,
-        document_url=DOCUMENT_URL,
-        document_id=DOCUMENT_ID,
-        document_token=DOCUMENT_TOKEN,
+        provider=config.provider,
+        runtime_url=config.runtime_url,
+        runtime_id=config.runtime_id,
+        runtime_token=config.runtime_token,
+        document_url=config.document_url,
+        document_id=config.document_id,
+        document_token=config.document_token,
     )
 
     r = httpx.put(
@@ -1129,29 +1079,21 @@ def start_command(
 ):
     """Start the Jupyter MCP server with a transport."""
 
-    global TRANSPORT
-    TRANSPORT = transport
+    # Set configuration using the singleton
+    config = set_config(
+        transport=transport,
+        provider=provider,
+        runtime_url=runtime_url,
+        start_new_runtime=start_new_runtime,
+        runtime_id=runtime_id,
+        runtime_token=runtime_token,
+        document_url=document_url,
+        document_id=document_id,
+        document_token=document_token,
+        port=port
+    )
 
-    global PROVIDER
-    PROVIDER = provider
-
-    global RUNTIME_URL
-    RUNTIME_URL = runtime_url
-    global START_NEW_RUNTIME
-    START_NEW_RUNTIME = start_new_runtime
-    global RUNTIME_ID
-    RUNTIME_ID = runtime_id
-    global RUNTIME_TOKEN
-    RUNTIME_TOKEN = runtime_token
-
-    global DOCUMENT_URL
-    DOCUMENT_URL = document_url
-    global DOCUMENT_ID
-    DOCUMENT_ID = document_id
-    global DOCUMENT_TOKEN
-    DOCUMENT_TOKEN = document_token
-
-    if START_NEW_RUNTIME or RUNTIME_ID:
+    if config.start_new_runtime or config.runtime_id:
         try:
             __start_kernel()
         except Exception as e:
