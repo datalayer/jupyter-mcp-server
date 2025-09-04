@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Copyright (c) 2023-2024 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
 """
 Simple test script to verify the configuration system works correctly.
 """
