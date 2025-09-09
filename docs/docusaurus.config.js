@@ -38,72 +38,6 @@ module.exports = {
       },
       items: [
         {
-          type: 'doc',
-          docId: 'datalayer/index',
-          position: 'left',
-          label: 'Datalayer',
-        },
-        {
-          type: 'doc',
-          docId: 'jupyter/index',
-          position: 'left',
-          label: 'Jupyter',
-        },
-        {
-          type: 'doc',
-          docId: 'clients/index',
-          position: 'left',
-          label: 'Clients',
-        },
-        {
-          type: 'doc',
-          docId: 'configure/index',
-          position: 'left',
-          label: 'Configure',
-        },
-        {
-          type: 'doc',
-          docId: 'serve/index',
-          position: 'left',
-          label: 'Serve',
-        },
-        {
-          type: 'doc',
-          docId: 'operate/index',
-          position: 'left',
-          label: 'Operate',
-        },
-        {
-          type: 'doc',
-          docId: 'tools/index',
-          position: 'left',
-          label: 'Tools',
-        },
-        {
-          type: 'doc',
-          docId: 'develop/index',
-          position: 'left',
-          label: 'Develop',
-        },
-        {
-          type: 'doc',
-          docId: 'contribute/index',
-          position: 'left',
-          label: 'Contribute',
-        },
-        {
-          type: 'doc',
-          docId: 'releases/index',
-          position: 'left',
-          label: 'Releases',
-        },
-        {
-          type: 'doc',
-          docId: 'resources/index',
-          position: 'left',
-          label: 'Resources',
-        },
-        {
           href: 'https://discord.gg/YQFwvmSSuR',
           position: 'right',
           className: 'header-discord-link',
@@ -213,7 +147,7 @@ module.exports = {
       {
         docs: {
           routeBasePath: '/',
-          docItemComponent: '@theme/CustomDocItem',  
+          docItemComponent: '@theme/CustomDocItem',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl: 'https://github.com/datalayer/jupyter-mcp-server/edit/main/',
         },
