@@ -36,6 +36,9 @@ The `--ip` is set to `0.0.0.0` to allow the MCP Server running in a Docker conta
 
 ## 2. Setup Jupyter MCP Server
 
+Jupyter MCP Server supports two types of transport to connect to your MCP client: **STDIO** and **Streamable HTTP**. Choose the one that best fits your needs.
+For more details on the different transports, refer to the official MCP documentation [here](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
+
 ### STDIO Transport
 
 Use the following configuration file to set up the Jupyter MCP Server for your preferred MCP client. Note that the configuration is dependent on the operating system you are using.
@@ -125,6 +128,8 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
 
 ### Streamable HTTP Transport
 
+Jupyter MCP Server also supports streamable HTTP transport, which allows you to connect to the Jupyter MCP Server using a URL. To start the server, you can either use `python` or `docker`. The server will listen on port `4040`, you can access it via http://localhost:4040.
+
 #### 1. Run the Jupyter MCP Server
 
 ##### Run with Python
@@ -147,7 +152,6 @@ You can also run the Jupyter MCP Server using Docker. Use the following command 
 
 ```bash
 docker run \
-  --network=host \
   -e DOCUMENT_URL="http://localhost:8888" \
   -p 4040:4040 \
   datalayer/jupyter-mcp-server:latest \
@@ -185,10 +189,7 @@ npx -y @smithery/cli install @datalayer/jupyter-mcp-server --client claude
 
 #### 2. Configure your MCP Client
 
-
-Jupyter MCP Servers also supports streamable HTTP transport, which allows you to connect to the Jupyter MCP Server using a URL. To start the server, you can either use `python` or `docker`. The server will listen on port `4040`, you can access it via http://localhost:4040.
-
-Use the following configuration for you MCP client to connect to a running MCP Server.
+Use the following configuration for you MCP client to connect to a running Jupyter MCP Server.
 
 ```json
 {
