@@ -66,6 +66,7 @@ JUPYTER_TOOLS = [
     "execute_cell_simple_timeout",
     "execute_cell_streaming",
     "read_all_cells",
+    "list_cell",
     "read_cell",
     "get_notebook_info",
     "delete_cell",
@@ -160,6 +161,11 @@ class MCPClient:
     async def read_all_cells(self):
         result = await self._session.call_tool("read_all_cells")  # type: ignore
         return result.structuredContent
+
+    @requires_session
+    async def list_cell(self):
+        result = await self._session.call_tool("list_cell")  # type: ignore
+        return self._extract_text_content(result)
 
     @requires_session
     async def delete_cell(self, cell_index):
@@ -422,6 +428,51 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         code_result = await mcp_client.execute_cell_simple_timeout(index)
         assert int(code_result["result"][0]) == expected_result
         await check_and_delete_code_cell(mcp_client, index, content)
+
+
+@pytest.mark.asyncio
+async def test_list_cell(mcp_client):
+    """Test list_cell functionality"""
+    async with mcp_client:
+        # Test initial list_cell (should have 1 code cell from setup)
+        cell_list = await mcp_client.list_cell()
+        logging.debug(f"Initial cell list: {cell_list}")
+        assert isinstance(cell_list, str)
+        assert "Index\tType\tCount\tFirst Line" in cell_list
+        assert "0\tcode" in cell_list  # Should have the initial code cell
+        
+        # Add a markdown cell and test again
+        markdown_content = "# Test Markdown Cell"
+        await mcp_client.append_markdown_cell(markdown_content)
+        
+        # Check list_cell with multiple cells
+        cell_list = await mcp_client.list_cell()
+        logging.debug(f"Cell list after adding markdown: {cell_list}")
+        lines = cell_list.split('\n')
+        
+        # Should have header, separator, and 2 data lines
+        assert len(lines) >= 4  # header + separator + at least 2 cells
+        assert "Index\tType\tCount\tFirst Line" in lines[0]
+        
+        # Check that both cells are listed
+        data_lines = [line for line in lines if '\t' in line and not line.startswith('Index')]
+        assert len(data_lines) == 2
+        
+        # First cell should be code, second should be markdown
+        assert data_lines[0].startswith("0\tcode")
+        assert data_lines[1].startswith("1\tmarkdown\tN/A\t# Test Markdown Cell")
+        
+        # Add a code cell with long content to test truncation
+        long_code = "# This is a very long comment that should be truncated when displayed in the list because it exceeds the 50 character limit"
+        await mcp_client.append_execute_code_cell("print('Hello World')")
+        
+        # Check list_cell with truncated content
+        cell_list = await mcp_client.list_cell()
+        logging.debug(f"Cell list after adding long code: {cell_list}")
+        
+        # Clean up by deleting added cells (in reverse order)
+        await mcp_client.delete_cell(2)  # Remove the code cell
+        await mcp_client.delete_cell(1)  # Remove the markdown cell
 
 
 @pytest.mark.asyncio

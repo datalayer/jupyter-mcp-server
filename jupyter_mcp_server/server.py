@@ -23,7 +23,7 @@ from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
 from jupyter_mcp_server.models import DocumentRuntime, CellInfo
-from jupyter_mcp_server.utils import extract_output, safe_extract_outputs
+from jupyter_mcp_server.utils import extract_output, safe_extract_outputs, format_cell_list
 from jupyter_mcp_server.config import get_config, set_config
 
 
@@ -756,6 +756,36 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
                     logger.warning(f"Error stopping notebook in read_all_cells: {e}")
     
     return await __safe_notebook_operation(_read_all)
+
+
+@mcp.tool()
+async def list_cell() -> str:
+    """List the basic information of all cells in the notebook.
+    
+    Returns a formatted table showing the index, type, execution count (for code cells),
+    and first line of each cell. This provides a quick overview of the notebook structure
+    and is useful for locating specific cells for operations like delete or insert.
+    
+    Returns:
+        str: Formatted table with cell information (Index, Type, Count, First Line)
+    """
+    async def _list_cells():
+        notebook = None
+        try:
+            notebook = _get_notebook_client()
+            await notebook.start()
+
+            ydoc = notebook._doc
+            return format_cell_list(ydoc._ycells)
+            
+        finally:
+            if notebook:
+                try:
+                    await notebook.stop()
+                except Exception as e:
+                    logger.warning(f"Error stopping notebook in list_cell: {e}")
+    
+    return await __safe_notebook_operation(_list_cells)
 
 
 @mcp.tool()
