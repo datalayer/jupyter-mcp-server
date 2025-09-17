@@ -1,6 +1,6 @@
 # Tools
 
-The server currently offers 12 tools:
+The server currently offers 13 tools:
 
 #### 1. `append_execute_code_cell`
 
@@ -56,7 +56,15 @@ The server currently offers 12 tools:
 - Read all cells from the notebook.
 - Returns:  List of cell information including index, type, source, and outputs (for code cells).
 
-#### 9. `overwrite_cell_source`
+#### 9. `list_cell`
+
+- List the basic information of all cells in the notebook.
+- Returns a formatted table showing the index, type, execution count (for code cells), and first line of each cell.
+- Provides a quick overview of the notebook structure and is useful for locating specific cells for operations.
+- Input: None
+- Returns: Formatted table string with cell information (Index, Type, Count, First Line).
+
+#### 10. `overwrite_cell_source`
 
 - Overwrite the source of an existing cell.
 - Input:
@@ -64,7 +72,7 @@ The server currently offers 12 tools:
   - `cell_source`(string): New cell source - must match existing cell type.
 - Returns: Success message.
 
-#### 10. `execute_cell_streaming`
+#### 11. `execute_cell_streaming`
 
 - Execute cell with streaming progress updates. To be used for long-running cells.
 - Input:
@@ -74,7 +82,7 @@ The server currently offers 12 tools:
 - Returns:
   - `list[str]`: List of outputs including progress updates
 
-#### 11. `execute_cell_simple_timeout`
+#### 12. `execute_cell_simple_timeout`
 
 - Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells. This won't force real-time updates but will work reliably.
 - Input:
@@ -83,7 +91,7 @@ The server currently offers 12 tools:
 - Returns:
   - `list[str]`: List of outputs from the executed cell
 
-#### 12. `execute_cell_with_progress`
+#### 13. `execute_cell_with_progress`
 
 - Execute a specific cell with timeout and progress monitoring.
 - Input:

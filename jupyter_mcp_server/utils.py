@@ -113,3 +113,50 @@ def safe_extract_outputs(outputs: Any) -> list[str]:
             result.append(extracted)
     
     return result
+
+
+def format_cell_list(ydoc_cells: Any) -> str:
+    """
+    Format notebook cells into a readable table format.
+    
+    Args:
+        ydoc_cells: The cells from the notebook's Y document
+        
+    Returns:
+        str: Formatted table string with cell information
+    """
+    total_cells = len(ydoc_cells)
+    
+    if total_cells == 0:
+        return "Notebook is empty, no cells found."
+    
+    # Create header
+    lines = ["Index\tType\tCount\tFirst Line"]
+    lines.append("-" * 60)  # Separator line
+    
+    # Process each cell
+    for i, cell_data in enumerate(ydoc_cells):
+        cell_type = cell_data.get("cell_type", "unknown")
+        
+        # Get execution count for code cells
+        if cell_type == "code":
+            execution_count = cell_data.get("execution_count") or "None"
+        else:
+            execution_count = "N/A"
+        
+        # Get first line of source
+        source = cell_data.get("source", "")
+        if isinstance(source, list):
+            first_line = source[0] if source else ""
+        else:
+            first_line = str(source)
+        
+        # Get just the first line and truncate if too long
+        first_line = first_line.split('\n')[0]
+        if len(first_line) > 50:
+            first_line = first_line[:47] + "..."
+        
+        # Add to table
+        lines.append(f"{i}\t{cell_type}\t{execution_count}\t{first_line}")
+    
+    return "\n".join(lines)
