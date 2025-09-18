@@ -224,13 +224,15 @@ async def __execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_
         
         await asyncio.sleep(1)  # Check every second
     
-    # Get final result
+    # Get final result and wait for completion
     try:
         await execution_future
+        logger.info(f"Cell {cell_index} execution completed after {time.time() - start_time:.1f}s")
     except asyncio.CancelledError:
-        pass
-    
-    return None
+        logger.warning(f"Cell {cell_index} execution was cancelled")
+    except Exception as e:
+        logger.error(f"Cell {cell_index} execution failed: {e}")
+        raise
 
 
 def __is_kernel_busy(kernel):
@@ -542,13 +544,16 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
             # Use the corrected timeout function
             await __execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds)
 
+            # Wait a moment for output synchronization
+            await asyncio.sleep(0.5)
+
             # Get final outputs
             ydoc = notebook._doc
             outputs = ydoc._ycells[cell_index]["outputs"]
             result = safe_extract_outputs(outputs)
             
             logger.info(f"Cell {cell_index} completed successfully with {len(result)} outputs")
-            return result
+            return result if result is not None else []
             
         except asyncio.TimeoutError as e:
             logger.error(f"Cell {cell_index} execution timed out: {e}")
