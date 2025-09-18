@@ -460,7 +460,11 @@ async def append_execute_code_cell(cell_source: str) -> list[str]:
 
             ydoc = notebook._doc
             outputs = ydoc._ycells[cell_index]["outputs"]
-            return safe_extract_outputs(outputs)
+            result = safe_extract_outputs(outputs)
+            return result if result is not None else []
+        except Exception as e:
+            logger.error(f"Error in append_execute_code_cell: {e}")
+            return [f"Error executing cell: {str(e)}"]
         finally:
             if notebook:
                 try:
@@ -493,7 +497,11 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
 
             ydoc = notebook._doc
             outputs = ydoc._ycells[cell_index]["outputs"]
-            return safe_extract_outputs(outputs)
+            result = safe_extract_outputs(outputs)
+            return result if result is not None else []
+        except Exception as e:
+            logger.error(f"Error in insert_execute_code_cell: {e}")
+            return [f"Error executing cell: {str(e)}"]
         finally:
             if notebook:
                 try:
@@ -566,7 +574,7 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
             
         except Exception as e:
             logger.error(f"Error executing cell {cell_index}: {e}")
-            raise
+            return [f"Error executing cell: {str(e)}"]
             
         finally:
             if notebook:
@@ -620,7 +628,11 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
             result = safe_extract_outputs(outputs)
             
             logger.info(f"Cell {cell_index} completed successfully")
-            return result
+            return result if result is not None else []
+            
+        except Exception as e:
+            logger.error(f"Error executing cell {cell_index}: {e}")
+            return [f"Error executing cell: {str(e)}"]
             
         finally:
             if notebook:
