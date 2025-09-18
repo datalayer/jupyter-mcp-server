@@ -456,7 +456,7 @@ async def test_list_cell(mcp_client):
         
         # Check that both cells are listed
         data_lines = [line for line in lines if '\t' in line and not line.startswith('Index')]
-        assert len(data_lines) == 2
+        assert len(data_lines) == 3
         
         # First cell should be code, second should be markdown
         assert data_lines[0].startswith("0\tcode")
