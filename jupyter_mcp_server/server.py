@@ -3,6 +3,7 @@
 # BSD 3-Clause License
 
 import asyncio
+import difflib
 import logging
 import time
 from typing import Union
@@ -420,15 +421,49 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
         cell_source: New cell source - must match existing cell type
 
     Returns:
-        str: Success message
+        str: Success message with diff showing changes made
     """
     async def _overwrite_cell():
         notebook = None
         try:
             notebook = _get_notebook_client()
             await notebook.start()
+            
+            ydoc = notebook._doc
+            
+            if cell_index < 0 or cell_index >= len(ydoc._ycells):
+                raise ValueError(
+                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
+                )
+            
+            # Get original cell content
+            old_source = ydoc._ycells[cell_index].get("source", "")
+            
+            # Set new cell content
             notebook.set_cell_source(cell_index, cell_source)
-            return f"Cell {cell_index} overwritten successfully - use execute_cell to execute it if code"
+            
+            # Generate diff
+            old_lines = old_source.splitlines(keepends=False)
+            new_lines = cell_source.splitlines(keepends=False)
+            
+            diff_lines = list(difflib.unified_diff(
+                old_lines, 
+                new_lines, 
+                lineterm='',
+                n=3  # Number of context lines
+            ))
+            
+            # Remove the first 3 lines (file headers) from unified_diff output
+            if len(diff_lines) > 3:
+                diff_content = '\n'.join(diff_lines[3:])
+            else:
+                diff_content = "No changes detected"
+            
+            if not diff_content.strip():
+                return f"Cell {cell_index} overwritten successfully - no changes detected"
+            
+            return f"Cell {cell_index} overwritten successfully!\n\n```diff\n{diff_content}\n```"
+            
         finally:
             if notebook:
                 try:
@@ -589,11 +624,7 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
         
         notebook = None
         try:
-            notebook = NbModelClient(
-                get_notebook_websocket_url(
-                    server_url=DOCUMENT_URL, token=DOCUMENT_TOKEN, path=DOCUMENT_ID, provider=PROVIDER
-                )
-            )
+            notebook = _get_notebook_client()
             await notebook.start()
 
             ydoc = notebook._doc

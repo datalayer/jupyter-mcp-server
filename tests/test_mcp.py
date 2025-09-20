@@ -435,7 +435,11 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         expected_result = eval(content)
         result = await mcp_client.overwrite_cell_source(index, content)
         logging.debug(f"result: {result}")
-        assert result["result"] == f"Cell {index} overwritten successfully - use execute_cell to execute it if code"
+        # Verify that the result contains success message and diff information
+        assert f"Cell {index} overwritten successfully!" in result["result"]
+        assert "```diff" in result["result"]
+        assert "+(" in result["result"]  # Should show addition of the parentheses
+        assert "* 2" in result["result"]  # Should show the multiplication
         code_result = await mcp_client.execute_cell_with_progress(index)
         assert int(code_result["result"][0]) == expected_result
         code_result = await mcp_client.execute_cell_simple_timeout(index)
@@ -496,6 +500,51 @@ async def test_list_cell(mcp_client):
         # Delete the last two cells we added
         await mcp_client.delete_cell(current_count - 1)  # Remove the code cell
         await mcp_client.delete_cell(current_count - 2)  # Remove the markdown cell
+
+
+@pytest.mark.asyncio
+async def test_overwrite_cell_diff(mcp_client):
+    """Test overwrite_cell_source diff functionality"""
+    async with mcp_client:
+        # Get initial cell count
+        initial_info = await mcp_client.get_notebook_info()
+        initial_count = initial_info["total_cells"]
+        
+        # Add a code cell with initial content
+        initial_content = "x = 10\nprint(x)"
+        await mcp_client.append_execute_code_cell(initial_content)
+        cell_index = initial_count
+        
+        # Overwrite with modified content
+        new_content = "x = 20\ny = 30\nprint(x + y)"
+        result = await mcp_client.overwrite_cell_source(cell_index, new_content)
+        
+        # Verify diff output format
+        assert f"Cell {cell_index} overwritten successfully!" in result["result"]
+        assert "```diff" in result["result"]
+        assert "```" in result["result"]  # Should have closing diff block
+        
+        # Verify diff content shows changes
+        diff_result = result["result"]
+        assert "-" in diff_result  # Should show deletions
+        assert "+" in diff_result  # Should show additions
+        
+        # Test overwriting with identical content (no changes)
+        result_no_change = await mcp_client.overwrite_cell_source(cell_index, new_content)
+        assert "no changes detected" in result_no_change["result"]
+        
+        # Test overwriting markdown cell
+        await mcp_client.append_markdown_cell("# Original Title")
+        markdown_index = initial_count + 1
+        
+        markdown_result = await mcp_client.overwrite_cell_source(markdown_index, "# Updated Title\n\nSome content")
+        assert f"Cell {markdown_index} overwritten successfully!" in markdown_result["result"]
+        assert "```diff" in markdown_result["result"]
+        assert "Updated Title" in markdown_result["result"]
+        
+        # Clean up: delete the test cells
+        await mcp_client.delete_cell(markdown_index)  # Delete markdown cell first (higher index)
+        await mcp_client.delete_cell(cell_index)      # Then delete code cell
 
 
 @pytest.mark.asyncio
