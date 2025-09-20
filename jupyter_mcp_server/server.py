@@ -437,7 +437,13 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
                 )
             
             # Get original cell content
-            old_source = ydoc._ycells[cell_index].get("source", "")
+            old_source_raw = ydoc._ycells[cell_index].get("source", "")
+            
+            # Convert source to string if it's a list (which is common in notebooks)
+            if isinstance(old_source_raw, list):
+                old_source = "".join(old_source_raw)
+            else:
+                old_source = str(old_source_raw)
             
             # Set new cell content
             notebook.set_cell_source(cell_index, cell_source)

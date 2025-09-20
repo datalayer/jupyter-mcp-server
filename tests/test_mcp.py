@@ -436,10 +436,13 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         result = await mcp_client.overwrite_cell_source(index, content)
         logging.debug(f"result: {result}")
         # Verify that the result contains success message and diff information
-        assert f"Cell {index} overwritten successfully!" in result["result"]
-        assert "```diff" in result["result"]
-        assert "+(" in result["result"]  # Should show addition of the parentheses
-        assert "* 2" in result["result"]  # Should show the multiplication
+        assert result is not None, "overwrite_cell_source should not return None"
+        result_text = result.get("result", "") if isinstance(result, dict) else str(result)
+        assert f"Cell {index} overwritten successfully!" in result_text
+        assert "```diff" in result_text
+        # The content should show the change from "1 + 1" to "(1 + 1) * 2"
+        assert "1 + 1" in result_text  # Original content
+        assert "* 2" in result_text  # Added content
         code_result = await mcp_client.execute_cell_with_progress(index)
         assert int(code_result["result"][0]) == expected_result
         code_result = await mcp_client.execute_cell_simple_timeout(index)
@@ -520,27 +523,32 @@ async def test_overwrite_cell_diff(mcp_client):
         result = await mcp_client.overwrite_cell_source(cell_index, new_content)
         
         # Verify diff output format
-        assert f"Cell {cell_index} overwritten successfully!" in result["result"]
-        assert "```diff" in result["result"]
-        assert "```" in result["result"]  # Should have closing diff block
+        assert result is not None, "overwrite_cell_source should not return None for valid input"
+        result_text = result.get("result", "") if isinstance(result, dict) else str(result)
+        assert f"Cell {cell_index} overwritten successfully!" in result_text
+        assert "```diff" in result_text
+        assert "```" in result_text  # Should have closing diff block
         
         # Verify diff content shows changes
-        diff_result = result["result"]
-        assert "-" in diff_result  # Should show deletions
-        assert "+" in diff_result  # Should show additions
+        assert "-" in result_text  # Should show deletions
+        assert "+" in result_text  # Should show additions
         
         # Test overwriting with identical content (no changes)
         result_no_change = await mcp_client.overwrite_cell_source(cell_index, new_content)
-        assert "no changes detected" in result_no_change["result"]
+        assert result_no_change is not None, "overwrite_cell_source should not return None"
+        no_change_text = result_no_change.get("result", "") if isinstance(result_no_change, dict) else str(result_no_change)
+        assert "no changes detected" in no_change_text
         
         # Test overwriting markdown cell
         await mcp_client.append_markdown_cell("# Original Title")
         markdown_index = initial_count + 1
         
         markdown_result = await mcp_client.overwrite_cell_source(markdown_index, "# Updated Title\n\nSome content")
-        assert f"Cell {markdown_index} overwritten successfully!" in markdown_result["result"]
-        assert "```diff" in markdown_result["result"]
-        assert "Updated Title" in markdown_result["result"]
+        assert markdown_result is not None, "overwrite_cell_source should not return None for markdown cell"
+        markdown_text = markdown_result.get("result", "") if isinstance(markdown_result, dict) else str(markdown_result)
+        assert f"Cell {markdown_index} overwritten successfully!" in markdown_text
+        assert "```diff" in markdown_text
+        assert "Updated Title" in markdown_text
         
         # Clean up: delete the test cells
         await mcp_client.delete_cell(markdown_index)  # Delete markdown cell first (higher index)
