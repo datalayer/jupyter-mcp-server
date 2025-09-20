@@ -463,7 +463,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
             if len(diff_lines) > 3:
                 diff_content = '\n'.join(diff_lines[3:])
             else:
-                diff_content = "No changes detected"
+                diff_content = "no changes detected"
             
             if not diff_content.strip():
                 return f"Cell {cell_index} overwritten successfully - no changes detected"
