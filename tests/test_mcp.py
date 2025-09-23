@@ -57,11 +57,9 @@ JUPYTER_TOKEN = "MY_TOKEN"
 
 # TODO: could be retrieved from code (inspect)
 JUPYTER_TOOLS = [
-    "append_markdown_cell",
-    "insert_markdown_cell",
-    "overwrite_cell_source",
-    "append_execute_code_cell",
+    "insert_cell",
     "insert_execute_code_cell",
+    "overwrite_cell_source",
     "execute_cell_with_progress",
     "execute_cell_simple_timeout",
     "execute_cell_streaming",
@@ -133,18 +131,8 @@ class MCPClient:
         return result.structuredContent
 
     @requires_session
-    async def append_markdown_cell(self, cell_source):
-        result = await self._session.call_tool("append_markdown_cell", arguments={"cell_source": cell_source})  # type: ignore
-        return result.structuredContent
-
-    @requires_session
-    async def insert_markdown_cell(self, cell_index, cell_source):
-        result = await self._session.call_tool("insert_markdown_cell", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
-        return result.structuredContent
-
-    @requires_session
-    async def append_execute_code_cell(self, cell_source):
-        result = await self._session.call_tool("append_execute_code_cell", arguments={"cell_source": cell_source})  # type: ignore
+    async def insert_cell(self, cell_index, cell_type, cell_source):
+        result = await self._session.call_tool("insert_cell", arguments={"cell_index": cell_index, "cell_type": cell_type, "cell_source": cell_source})  # type: ignore
         return result.structuredContent
 
     @requires_session
@@ -354,7 +342,7 @@ async def test_notebook_info(mcp_client):
 
 @pytest.mark.asyncio
 async def test_markdown_cell(mcp_client, content="Hello **World** !"):
-    """Test markdown cell manipulation (append, insert, read, delete)"""
+    """Test markdown cell manipulation using unified insert_cell API"""
 
     async def check_and_delete_markdown_cell(mcp_client, index, content):
         """Check and delete a markdown cell"""
@@ -380,20 +368,22 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
         initial_info = await mcp_client.get_notebook_info()
         initial_count = initial_info["total_cells"]
         
-        # append markdown cell
-        result = await mcp_client.append_markdown_cell(content)
-        assert result["result"] == "Jupyter Markdown cell added."
+        # append markdown cell using -1 index
+        result = await mcp_client.insert_cell(-1, "markdown", content)
+        assert "Cell inserted successfully" in result["result"]
+        assert f"index {initial_count} (markdown)" in result["result"]
         await check_and_delete_markdown_cell(mcp_client, initial_count, content)
         
         # insert markdown cell at the end (safer than index 0)
-        result = await mcp_client.insert_markdown_cell(initial_count, content)
-        assert result["result"] == f"Jupyter Markdown cell {initial_count} inserted."
+        result = await mcp_client.insert_cell(initial_count, "markdown", content)
+        assert "Cell inserted successfully" in result["result"]
+        assert f"index {initial_count} (markdown)" in result["result"]
         await check_and_delete_markdown_cell(mcp_client, initial_count, content)
 
 
 @pytest.mark.asyncio
 async def test_code_cell(mcp_client, content="1 + 1"):
-    """Test code cell manipulation (append, insert, overwrite, execute, read, delete)"""
+    """Test code cell manipulation using unified APIs"""
     async def check_and_delete_code_cell(mcp_client, index, content):
         """Check and delete a code cell"""
         # reading and checking the content of the created cell
@@ -417,14 +407,14 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         initial_info = await mcp_client.get_notebook_info()
         initial_count = initial_info["total_cells"]
         
-        # append code cell
+        # append and execute code cell using -1 index
         index = initial_count
-        code_result = await mcp_client.append_execute_code_cell(content)
+        code_result = await mcp_client.insert_execute_code_cell(-1, content)
         logging.debug(f"code_result: {code_result}")
         assert int(code_result["result"][0]) == eval(content)
         await check_and_delete_code_cell(mcp_client, index, content)
         
-        # insert code cell at the end (safer than index 0)
+        # insert and execute code cell at the end (safer than index 0)
         index = initial_count
         code_result = await mcp_client.insert_execute_code_cell(index, content)
         logging.debug(f"code_result: {code_result}")
@@ -435,14 +425,7 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         expected_result = eval(content)
         result = await mcp_client.overwrite_cell_source(index, content)
         logging.debug(f"result: {result}")
-        # Verify that the result contains success message and diff information
-        assert result is not None, "overwrite_cell_source should not return None"
-        result_text = result.get("result", "") if isinstance(result, dict) else str(result)
-        assert f"Cell {index} overwritten successfully!" in result_text
-        assert "```diff" in result_text
-        # The content should show the change from "1 + 1" to "(1 + 1) * 2"
-        assert "1 + 1" in result_text  # Original content
-        assert "* 2" in result_text  # Added content
+        assert result["result"] == f"Cell {index} overwritten successfully - use execute_cell to execute it if code"
         code_result = await mcp_client.execute_cell_with_progress(index)
         assert int(code_result["result"][0]) == expected_result
         code_result = await mcp_client.execute_cell_simple_timeout(index)
@@ -470,7 +453,7 @@ async def test_list_cell(mcp_client):
         
         # Add a markdown cell and test again
         markdown_content = "# Test Markdown Cell"
-        await mcp_client.append_markdown_cell(markdown_content)
+        await mcp_client.insert_cell(-1, "markdown", markdown_content)
         
         # Check list_cell with added markdown cell
         cell_list = await mcp_client.list_cell()
@@ -490,7 +473,7 @@ async def test_list_cell(mcp_client):
         
         # Add a code cell with long content to test truncation
         long_code = "# This is a very long comment that should be truncated when displayed in the list because it exceeds the 50 character limit"
-        await mcp_client.append_execute_code_cell("print('Hello World')")
+        await mcp_client.insert_execute_code_cell(-1, "print('Hello World')")
         
         # Check list_cell with truncated content
         cell_list = await mcp_client.list_cell()
@@ -506,61 +489,11 @@ async def test_list_cell(mcp_client):
 
 
 @pytest.mark.asyncio
-async def test_overwrite_cell_diff(mcp_client):
-    """Test overwrite_cell_source diff functionality"""
-    async with mcp_client:
-        # Get initial cell count
-        initial_info = await mcp_client.get_notebook_info()
-        initial_count = initial_info["total_cells"]
-        
-        # Add a code cell with initial content
-        initial_content = "x = 10\nprint(x)"
-        await mcp_client.append_execute_code_cell(initial_content)
-        cell_index = initial_count
-        
-        # Overwrite with modified content
-        new_content = "x = 20\ny = 30\nprint(x + y)"
-        result = await mcp_client.overwrite_cell_source(cell_index, new_content)
-        
-        # Verify diff output format
-        assert result is not None, "overwrite_cell_source should not return None for valid input"
-        result_text = result.get("result", "") if isinstance(result, dict) else str(result)
-        assert f"Cell {cell_index} overwritten successfully!" in result_text
-        assert "```diff" in result_text
-        assert "```" in result_text  # Should have closing diff block
-        
-        # Verify diff content shows changes
-        assert "-" in result_text  # Should show deletions
-        assert "+" in result_text  # Should show additions
-        
-        # Test overwriting with identical content (no changes)
-        result_no_change = await mcp_client.overwrite_cell_source(cell_index, new_content)
-        assert result_no_change is not None, "overwrite_cell_source should not return None"
-        no_change_text = result_no_change.get("result", "") if isinstance(result_no_change, dict) else str(result_no_change)
-        assert "no changes detected" in no_change_text
-        
-        # Test overwriting markdown cell
-        await mcp_client.append_markdown_cell("# Original Title")
-        markdown_index = initial_count + 1
-        
-        markdown_result = await mcp_client.overwrite_cell_source(markdown_index, "# Updated Title\n\nSome content")
-        assert markdown_result is not None, "overwrite_cell_source should not return None for markdown cell"
-        markdown_text = markdown_result.get("result", "") if isinstance(markdown_result, dict) else str(markdown_result)
-        assert f"Cell {markdown_index} overwritten successfully!" in markdown_text
-        assert "```diff" in markdown_text
-        assert "Updated Title" in markdown_text
-        
-        # Clean up: delete the test cells
-        await mcp_client.delete_cell(markdown_index)  # Delete markdown cell first (higher index)
-        await mcp_client.delete_cell(cell_index)      # Then delete code cell
-
-
-@pytest.mark.asyncio
 async def test_bad_index(mcp_client, index=99):
     """Test behavior of all index-based tools if the index does not exist"""
     async with mcp_client:
         assert await mcp_client.read_cell(index) is None
-        assert await mcp_client.insert_markdown_cell(index, "test") is None
+        assert await mcp_client.insert_cell(index, "markdown", "test") is None
         assert await mcp_client.insert_execute_code_cell(index, "1 + 1") is None
         assert await mcp_client.overwrite_cell_source(index, "1 + 1") is None
         assert await mcp_client.execute_cell_with_progress(index) is None

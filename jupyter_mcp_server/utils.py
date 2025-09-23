@@ -160,3 +160,47 @@ def format_cell_list(ydoc_cells: Any) -> str:
         lines.append(f"{i}\t{cell_type}\t{execution_count}\t{first_line}")
     
     return "\n".join(lines)
+
+def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> str:
+    """Get information about surrounding cells for context."""
+    start_index = max(0, cell_index - 5)
+    end_index = min(total_cells, cell_index + 6)
+    
+    if total_cells == 0:
+        return "Notebook is now empty, no cells remaining"
+    
+    lines = ["Index\tType\tCount\tFirst Line"]
+    lines.append("-" * 60)
+    
+    for i in range(start_index, end_index):
+        if i >= total_cells:
+            break
+            
+        ydoc = notebook._doc
+        cell_data = ydoc._ycells[i]
+        cell_type = cell_data.get("cell_type", "unknown")
+        
+        # Get execution count for code cells
+        if cell_type == "code":
+            execution_count = cell_data.get("execution_count") or "None"
+        else:
+            execution_count = "N/A"
+        
+        # Get first line of source
+        source = cell_data.get("source", "")
+        if isinstance(source, list):
+            first_line = source[0] if source else ""
+        else:
+            first_line = str(source)
+        
+        # Get just the first line and truncate if too long
+        first_line = first_line.split('\n')[0]
+        if len(first_line) > 50:
+            first_line = first_line[:47] + "..."
+        
+        # Mark the target cell
+        marker = " ← inserted" if i == cell_index else ""
+        
+        lines.append(f"{i}\t{cell_type}\t{execution_count}\t{first_line}{marker}")
+    
+    return "\n".join(lines)

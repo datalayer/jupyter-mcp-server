@@ -1,62 +1,49 @@
 # Tools
 
-The server currently offers 13 tools:
+The server currently offers 11 tools:
 
-#### 1. `append_execute_code_cell`
+#### 1. `insert_cell`
 
-- Append at the end of the notebook a code cell with the provided source and execute it.
+- Insert a cell to specified position with unified API.
 - Input:
+  - `cell_index`(int): Target index for insertion (0-based). Use -1 to append at end.
+  - `cell_type`(string): Type of cell to insert ("code" or "markdown").
+  - `cell_source`(string): Source content for the cell.
+- Returns: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below).
+
+#### 2. `insert_execute_code_cell`
+
+- Insert and execute a code cell in a Jupyter notebook.
+- Input:
+  - `cell_index`(int): Index of the cell to insert (0-based). Use -1 to append at end and execute.
   - `cell_source`(string): Code source.
 - Returns: List of outputs from the executed cell.
 
-#### 2. `append_markdown_cell`
-
-- Append at the end of the notebook a markdown cell with the provided source.
-- Input:
-  - `cell_source`(string): Markdown source.
-- Returns: Success message.
-
-#### 3. `insert_execute_code_cell`
-
-- Insert a code cell at a specific index in the notebook and execute it.
-- Input:
-  - `cell_index`(int): Index where the cell should be inserted (0-based).
-  - `cell_source`(string): Code to be executed.
-- Returns: Cell output.
-
-#### 4. `insert_markdown_cell`
-
-- Insert a markdown cell at a specific index in the notebook.
-- Input:
-  - `cell_index`(int): Index where the cell should be inserted (0-based).
-  - `cell_source`(string): Markdown source.
-- Returns: Success message.
-
-#### 5. `delete_cell`
+#### 3. `delete_cell`
 
 - Delete a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to delete (0-based).
 - Returns: Success message.
 
-#### 6. `get_notebook_info`
+#### 4. `get_notebook_info`
 
 - Get basic information about the notebook.
 - Returns: Dictionary with notebook path, total cells, and cell type counts.
 
-#### 7. `read_cell`
+#### 5. `read_cell`
 
 - Read a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to read (0-based).
 - Returns: Dictionary with cell index, type, source, and outputs (for code cells).
 
-#### 8. `read_all_cells`
+#### 6. `read_all_cells`
 
 - Read all cells from the notebook.
 - Returns:  List of cell information including index, type, source, and outputs (for code cells).
 
-#### 9. `list_cell`
+#### 7. `list_cell`
 
 - List the basic information of all cells in the notebook.
 - Returns a formatted table showing the index, type, execution count (for code cells), and first line of each cell.
@@ -64,7 +51,7 @@ The server currently offers 13 tools:
 - Input: None
 - Returns: Formatted table string with cell information (Index, Type, Count, First Line).
 
-#### 10. `overwrite_cell_source`
+#### 8. `overwrite_cell_source`
 
 - Overwrite the source of an existing cell.
 - Input:
@@ -72,7 +59,7 @@ The server currently offers 13 tools:
   - `cell_source`(string): New cell source - must match existing cell type.
 - Returns: Success message and diff style.
 
-#### 11. `execute_cell_streaming`
+#### 9. `execute_cell_streaming`
 
 - Execute cell with streaming progress updates. To be used for long-running cells.
 - Input:
@@ -82,7 +69,7 @@ The server currently offers 13 tools:
 - Returns:
   - `list[str]`: List of outputs including progress updates
 
-#### 12. `execute_cell_simple_timeout`
+#### 10. `execute_cell_simple_timeout`
 
 - Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells. This won't force real-time updates but will work reliably.
 - Input:
@@ -91,7 +78,7 @@ The server currently offers 13 tools:
 - Returns:
   - `list[str]`: List of outputs from the executed cell
 
-#### 13. `execute_cell_with_progress`
+#### 11. `execute_cell_with_progress`
 
 - Execute a specific cell with timeout and progress monitoring.
 - Input:
