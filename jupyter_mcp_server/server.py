@@ -24,8 +24,9 @@ from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
 from jupyter_mcp_server.models import DocumentRuntime, CellInfo
-from jupyter_mcp_server.utils import extract_output, safe_extract_outputs, format_cell_list
+from jupyter_mcp_server.utils import extract_output, safe_extract_outputs, format_cell_list, get_surrounding_cells_info
 from jupyter_mcp_server.config import get_config, set_config
+from typing import Literal
 
 
 ###############################################################################
@@ -357,58 +358,109 @@ async def health_check(request: Request):
 
 
 @mcp.tool()
-async def append_markdown_cell(cell_source: str) -> str:
-    """Append at the end of the notebook a markdown cell with the provided source.
+async def insert_cell(
+    cell_index: int,
+    cell_type: Literal["code", "markdown"],
+    cell_source: str,
+) -> str:
+    """Insert a cell to specified position.
 
     Args:
-        cell_source: Markdown source
+        cell_index: target index for insertion (0-based). Use -1 to append at end.
+        cell_type: Type of cell to insert ("code" or "markdown")
+        cell_source: Source content for the cell
 
     Returns:
-        str: Success message
+        str: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)
     """
-    async def _append_markdown():
+    async def _insert_cell():
         notebook = None
         try:
             notebook = _get_notebook_client()
             await notebook.start()
-            notebook.add_markdown_cell(cell_source)
-            return "Jupyter Markdown cell added."
+            
+            ydoc = notebook._doc
+            total_cells = len(ydoc._ycells)
+            
+            actual_index = cell_index if cell_index != -1 else total_cells
+                
+            if actual_index < 0 or actual_index > total_cells:
+                raise ValueError(
+                    f"Cell index {cell_index} is out of range. Notebook has {total_cells} cells. Use -1 to append at end."
+                )
+            
+            if cell_type == "code":
+                if actual_index == total_cells:
+                    notebook.add_code_cell(cell_source)
+                else:
+                    notebook.insert_code_cell(actual_index, cell_source)
+            elif cell_type == "markdown":
+                if actual_index == total_cells:
+                    notebook.add_markdown_cell(cell_source)
+                else:
+                    notebook.insert_markdown_cell(actual_index, cell_source)
+            
+            # Get surrounding cells info
+            new_total_cells = len(ydoc._ycells)
+            surrounding_info = get_surrounding_cells_info(notebook, actual_index, new_total_cells)
+            
+            return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
         finally:
             if notebook:
                 try:
                     await notebook.stop()
                 except Exception as e:
-                    logger.warning(f"Error stopping notebook in append_markdown_cell: {e}")
+                    logger.warning(f"Error stopping notebook in insert_cell: {e}")
     
-    return await __safe_notebook_operation(_append_markdown)
+    return await __safe_notebook_operation(_insert_cell)
 
 
 @mcp.tool()
-async def insert_markdown_cell(cell_index: int, cell_source: str) -> str:
-    """Insert a markdown cell in a Jupyter notebook.
+async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[str]:
+    """Insert and execute a code cell in a Jupyter notebook.
 
     Args:
-        cell_index: Index of the cell to insert (0-based)
-        cell_source: Markdown source
+        cell_index: Index of the cell to insert (0-based). Use -1 to append at end and execute.
+        cell_source: Code source
 
     Returns:
-        str: Success message
+        list[str]: List of outputs from the executed cell
     """
-    async def _insert_markdown():
+    async def _insert_execute():
+        __ensure_kernel_alive()
         notebook = None
         try:
             notebook = _get_notebook_client()
             await notebook.start()
-            notebook.insert_markdown_cell(cell_index, cell_source)
-            return f"Jupyter Markdown cell {cell_index} inserted."
+            
+            ydoc = notebook._doc
+            total_cells = len(ydoc._ycells)
+            
+            actual_index = cell_index if cell_index != -1 else total_cells
+                
+            if actual_index < 0 or actual_index > total_cells:
+                raise ValueError(
+                    f"Cell index {cell_index} is out of range. Notebook has {total_cells} cells. Use -1 to append at end."
+                )
+            
+            if actual_index == total_cells:
+                notebook.add_code_cell(cell_source)
+            else:
+                notebook.insert_code_cell(actual_index, cell_source)
+                
+            notebook.execute_cell(actual_index, kernel)
+
+            ydoc = notebook._doc
+            outputs = ydoc._ycells[actual_index]["outputs"]
+            return safe_extract_outputs(outputs)
         finally:
             if notebook:
                 try:
                     await notebook.stop()
                 except Exception as e:
-                    logger.warning(f"Error stopping notebook in insert_markdown_cell: {e}")
+                    logger.warning(f"Error stopping notebook in insert_execute_code_cell: {e}")
     
-    return await __safe_notebook_operation(_insert_markdown)
+    return await __safe_notebook_operation(_insert_execute)
 
 
 @mcp.tool()
@@ -478,72 +530,6 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
                     logger.warning(f"Error stopping notebook in overwrite_cell_source: {e}")
     
     return await __safe_notebook_operation(_overwrite_cell)
-
-
-@mcp.tool()
-async def append_execute_code_cell(cell_source: str) -> list[str]:
-    """Append at the end of the notebook a code cell with the provided source and execute it.
-
-    Args:
-        cell_source: Code source
-
-    Returns:
-        list[str]: List of outputs from the executed cell
-    """
-    async def _append_execute():
-        __ensure_kernel_alive()
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-            cell_index = notebook.add_code_cell(cell_source)
-            notebook.execute_cell(cell_index, kernel)
-
-            ydoc = notebook._doc
-            outputs = ydoc._ycells[cell_index]["outputs"]
-            return safe_extract_outputs(outputs)
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in append_execute_code_cell: {e}")
-    
-    return await __safe_notebook_operation(_append_execute)
-
-
-@mcp.tool()
-async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[str]:
-    """Insert and execute a code cell in a Jupyter notebook.
-
-    Args:
-        cell_index: Index of the cell to insert (0-based)
-        cell_source: Code source
-
-    Returns:
-        list[str]: List of outputs from the executed cell
-    """
-    async def _insert_execute():
-        __ensure_kernel_alive()
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-            notebook.insert_code_cell(cell_index, cell_source)
-            notebook.execute_cell(cell_index, kernel)
-
-            ydoc = notebook._doc
-            outputs = ydoc._ycells[cell_index]["outputs"]
-            return safe_extract_outputs(outputs)
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in insert_execute_code_cell: {e}")
-    
-    return await __safe_notebook_operation(_insert_execute)
-
 
 @mcp.tool()
 async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300) -> list[str]:
