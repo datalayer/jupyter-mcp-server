@@ -180,6 +180,16 @@ class MCPClient:
         result = await self._session.call_tool("overwrite_cell_source", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
         return result.structuredContent
 
+    @requires_session
+    async def append_execute_code_cell(self, cell_source):
+        """Append and execute a code cell at the end of the notebook."""
+        return await self.insert_execute_code_cell(-1, cell_source)
+
+    @requires_session  
+    async def append_markdown_cell(self, cell_source):
+        """Append a markdown cell at the end of the notebook."""
+        return await self.insert_cell(-1, "markdown", cell_source)
+
 def _start_server(name, host, port, command, readiness_endpoint="/", max_retries=5):
     """A Helper that starts a web server as a python subprocess and wait until it's ready to accept connections
 
@@ -425,7 +435,9 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         expected_result = eval(content)
         result = await mcp_client.overwrite_cell_source(index, content)
         logging.debug(f"result: {result}")
-        assert result["result"] == f"Cell {index} overwritten successfully - use execute_cell to execute it if code"
+        # The server returns a message with diff content
+        assert "Cell" in result["result"] and "overwritten successfully" in result["result"]
+        assert "diff" in result["result"]  # Should contain diff output
         code_result = await mcp_client.execute_cell_with_progress(index)
         assert int(code_result["result"][0]) == expected_result
         code_result = await mcp_client.execute_cell_simple_timeout(index)
