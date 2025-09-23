@@ -487,6 +487,54 @@ async def test_list_cell(mcp_client):
         await mcp_client.delete_cell(current_count - 1)  # Remove the code cell
         await mcp_client.delete_cell(current_count - 2)  # Remove the markdown cell
 
+@pytest.mark.asyncio
+async def test_overwrite_cell_diff(mcp_client):
+    """Test overwrite_cell_source diff functionality"""
+    async with mcp_client:
+        # Get initial cell count
+        initial_info = await mcp_client.get_notebook_info()
+        initial_count = initial_info["total_cells"]
+        
+        # Add a code cell with initial content
+        initial_content = "x = 10\nprint(x)"
+        await mcp_client.append_execute_code_cell(initial_content)
+        cell_index = initial_count
+        
+        # Overwrite with modified content
+        new_content = "x = 20\ny = 30\nprint(x + y)"
+        result = await mcp_client.overwrite_cell_source(cell_index, new_content)
+        
+        # Verify diff output format
+        assert result is not None, "overwrite_cell_source should not return None for valid input"
+        result_text = result.get("result", "") if isinstance(result, dict) else str(result)
+        assert f"Cell {cell_index} overwritten successfully!" in result_text
+        assert "```diff" in result_text
+        assert "```" in result_text  # Should have closing diff block
+        
+        # Verify diff content shows changes
+        assert "-" in result_text  # Should show deletions
+        assert "+" in result_text  # Should show additions
+        
+        # Test overwriting with identical content (no changes)
+        result_no_change = await mcp_client.overwrite_cell_source(cell_index, new_content)
+        assert result_no_change is not None, "overwrite_cell_source should not return None"
+        no_change_text = result_no_change.get("result", "") if isinstance(result_no_change, dict) else str(result_no_change)
+        assert "no changes detected" in no_change_text
+        
+        # Test overwriting markdown cell
+        await mcp_client.append_markdown_cell("# Original Title")
+        markdown_index = initial_count + 1
+        
+        markdown_result = await mcp_client.overwrite_cell_source(markdown_index, "# Updated Title\n\nSome content")
+        assert markdown_result is not None, "overwrite_cell_source should not return None for markdown cell"
+        markdown_text = markdown_result.get("result", "") if isinstance(markdown_result, dict) else str(markdown_result)
+        assert f"Cell {markdown_index} overwritten successfully!" in markdown_text
+        assert "```diff" in markdown_text
+        assert "Updated Title" in markdown_text
+        
+        # Clean up: delete the test cells
+        await mcp_client.delete_cell(markdown_index)  # Delete markdown cell first (higher index)
+        await mcp_client.delete_cell(cell_index)      # Then delete code cell
 
 @pytest.mark.asyncio
 async def test_bad_index(mcp_client, index=99):
