@@ -52,6 +52,11 @@ pip install datalayer_pycrdt==0.12.17
 jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
+#### JupyterHub
+If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
+* Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
+* Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
+
 ### 3. Configure Your Preferred MCP Client
 
 > [!NOTE]
