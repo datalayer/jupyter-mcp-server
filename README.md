@@ -100,7 +100,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
     "jupyter": {
       "command": "docker",
       "args": [
-        "run", "-i", "--rm"
+        "run", "-i", "--rm",
         "-e", "DOCUMENT_URL",
         "-e", "DOCUMENT_TOKEN",
         "-e", "DOCUMENT_ID",

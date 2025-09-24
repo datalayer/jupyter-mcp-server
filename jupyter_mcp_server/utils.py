@@ -3,7 +3,6 @@
 # BSD 3-Clause License
 
 import re
-import base64
 from typing import Any, Union
 from mcp.types import ImageContent
 from .config_env import ALLOW_IMG_OUTPUT
@@ -49,11 +48,15 @@ def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
     
     elif output_type in ["display_data", "execute_result"]:
         data = output.get("data", {})
-        if ("image/png" in output['data']):
+        if "image/png" in data:
             if ALLOW_IMG_OUTPUT:
-                return ImageContent(type="image", data=data["image/png"], mimeType="image/png")  
+                try:
+                    return ImageContent(type="image", data=data["image/png"], mimeType="image/png")
+                except Exception:
+                    # Fallback to text placeholder on error
+                    return "[Image Output (PNG) - Error processing image]"
             else:
-                return "[Image Output (PNG) - Error processing image]"
+                return "[Image Output (PNG) - Image display disabled]"
         if "text/plain" in data:
             plain_text = data["text/plain"]
             if hasattr(plain_text, 'source'):
