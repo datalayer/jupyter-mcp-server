@@ -4,9 +4,11 @@
 
 import re
 from typing import Any, Union
+from mcp.types import ImageContent
+from .config_env import ALLOW_IMG_OUTPUT
 
 
-def extract_output(output: Union[dict, Any]) -> str:
+def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
     """
     Extracts readable output from a Jupyter cell output dictionary.
     Handles both traditional and CRDT-based Jupyter formats.
@@ -46,6 +48,15 @@ def extract_output(output: Union[dict, Any]) -> str:
     
     elif output_type in ["display_data", "execute_result"]:
         data = output.get("data", {})
+        if "image/png" in data:
+            if ALLOW_IMG_OUTPUT:
+                try:
+                    return ImageContent(type="image", data=data["image/png"], mimeType="image/png")
+                except Exception:
+                    # Fallback to text placeholder on error
+                    return "[Image Output (PNG) - Error processing image]"
+            else:
+                return "[Image Output (PNG) - Image display disabled]"
         if "text/plain" in data:
             plain_text = data["text/plain"]
             if hasattr(plain_text, 'source'):
@@ -53,8 +64,6 @@ def extract_output(output: Union[dict, Any]) -> str:
             return strip_ansi_codes(str(plain_text))
         elif "text/html" in data:
             return "[HTML Output]"
-        elif "image/png" in data:
-            return "[Image Output (PNG)]"
         else:
             return f"[{output_type} Data: keys={list(data.keys())}]"
     
@@ -82,7 +91,7 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub('', text)
 
 
-def safe_extract_outputs(outputs: Any) -> list[str]:
+def safe_extract_outputs(outputs: Any) -> list[Union[str, ImageContent]]:
     """
     Safely extract all outputs from a cell, handling CRDT structures.
     
@@ -90,7 +99,7 @@ def safe_extract_outputs(outputs: Any) -> list[str]:
         outputs: Cell outputs (could be CRDT YArray or traditional list)
         
     Returns:
-        list[str]: List of string representations of outputs
+        list[Union[str, ImageContent]]: List of outputs (strings or image content)
     """
     if not outputs:
         return []
