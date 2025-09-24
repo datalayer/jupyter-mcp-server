@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "dev/multimodal-output"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "dev/multimodal-output"]
 
 defaults:
   run:

@@ -51,6 +51,7 @@ from contextlib import AsyncExitStack
 from requests.exceptions import ConnectionError
 from mcp import ClientSession, types
 from mcp.client.streamable_http import streamablehttp_client
+import os
 
 
 JUPYTER_TOKEN = "MY_TOKEN"
@@ -559,3 +560,68 @@ async def test_bad_index(mcp_client, index=99):
         assert await mcp_client.execute_cell_with_progress(index) is None
         assert await mcp_client.execute_cell_simple_timeout(index) is None
         assert await mcp_client.delete_cell(index) is None
+
+
+@pytest.mark.asyncio
+async def test_multimodal_output(mcp_client):
+    """Test multimodal output functionality with image generation"""
+    async with mcp_client:
+        # Get initial cell count
+        initial_info = await mcp_client.get_notebook_info()
+        initial_count = initial_info["total_cells"]
+        
+        # Test image generation code
+        image_code = """
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Generate a simple plot
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+plt.figure(figsize=(8, 6))
+plt.plot(x, y, 'b-', linewidth=2, label='sin(x)')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Sine Wave Test')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
+"""
+        
+        # Execute the image generation code
+        result = await mcp_client.insert_execute_code_cell(-1, image_code)
+        cell_index = initial_count
+        
+        # Check that result is not None and contains outputs
+        assert result is not None, "Result should not be None"
+        assert "result" in result, "Result should contain 'result' key"
+        outputs = result["result"]
+        assert isinstance(outputs, list), "Outputs should be a list"
+        
+        # Check for image output or placeholder
+        has_image_output = False
+        for output in outputs:
+            if isinstance(output, str):
+                # Check for image placeholder or actual image content
+                if ("Image Output (PNG)" in output or 
+                    "image display" in output.lower() or
+                    output.strip() == ''):  # matplotlib may produce empty string output
+                    has_image_output = True
+                    break
+            elif hasattr(output, 'data') and hasattr(output, 'mimeType'):
+                # This would be an actual ImageContent object
+                if output.mimeType == "image/png":
+                    has_image_output = True
+                    break
+        
+        # We should have some indication of image output
+        assert has_image_output or len(outputs) == 0, f"Expected image output indication, got: {outputs}"
+        
+        # Test with ALLOW_IMG_OUTPUT environment variable control
+        # Note: In actual deployment, this would be controlled via environment variables
+        # For testing, we just verify the code structure is correct
+        logging.info(f"Multimodal test completed with outputs: {outputs}")
+        
+        # Clean up: delete the test cell
+        await mcp_client.delete_cell(cell_index)

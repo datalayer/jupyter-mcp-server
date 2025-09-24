@@ -70,19 +70,13 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
     "jupyter": {
       "command": "docker",
       "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "DOCUMENT_URL",
-        "-e",
-        "DOCUMENT_TOKEN",
-        "-e",
-        "DOCUMENT_ID",
-        "-e",
-        "RUNTIME_URL",
-        "-e",
-        "RUNTIME_TOKEN",
+        "run", "-i", "--rm",
+        "-e", "DOCUMENT_URL",
+        "-e", "DOCUMENT_TOKEN",
+        "-e", "DOCUMENT_ID",
+        "-e", "RUNTIME_URL",
+        "-e", "RUNTIME_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
@@ -90,7 +84,8 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }
@@ -105,19 +100,13 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
     "jupyter": {
       "command": "docker",
       "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "DOCUMENT_URL",
-        "-e",
-        "DOCUMENT_TOKEN",
-        "-e",
-        "DOCUMENT_ID",
-        "-e",
-        "RUNTIME_URL",
-        "-e",
-        "RUNTIME_TOKEN",
+        "run", "-i", "--rm"
+        "-e", "DOCUMENT_URL",
+        "-e", "DOCUMENT_TOKEN",
+        "-e", "DOCUMENT_ID",
+        "-e", "RUNTIME_URL",
+        "-e", "RUNTIME_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
       ],
@@ -126,7 +115,8 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://localhost:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }
