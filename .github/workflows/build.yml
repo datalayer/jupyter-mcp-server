@@ -91,5 +91,3 @@ jobs:
           pip install jupyter_mcp_server.tar.gz
           pip list 2>&1 | grep -ie "jupyter_mcp_server"
           python -c "import jupyter_mcp_server"
-
-
