@@ -27,9 +27,11 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 
 - ⚡ **Real-time control:** Instantly view notebook changes as they happen.
 - 🔁 **Smart execution:** Automatically adjusts when a cell run fails thanks to cell output feedback.
-- 🤝 **MCP-Compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
+- 🧠 **Context-aware:** Understands the entire notebook context for more relevant interactions.
+- 📊 **Multimodal support:** Support different output types, including images, plots, and text.
+- 🤝 **MCP-compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
 
-![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/jupyter-mcp-server-claude-demo.gif)
+![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
 🛠️ This MCP offers multiple tools such as `insert_execute_code_cell`, `append_markdown_cell`, `get_notebook_info`, `read_cell`, and more, enabling advanced interactions with Jupyter notebooks. Explore our [tools documentation](https://jupyter-mcp-server.datalayer.tech/tools) to learn about all the tools powering Jupyter MCP Server.
 
@@ -53,9 +55,11 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
 #### JupyterHub
+
 If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
-* Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
-* Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
+
+- Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
+- Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 
 ### 3. Configure Your Preferred MCP Client
 

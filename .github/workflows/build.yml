@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/deployment-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -79,7 +79,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/deployment-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           architecture: "x64"
@@ -91,5 +91,3 @@ jobs:
           pip install jupyter_mcp_server.tar.gz
           pip list 2>&1 | grep -ie "jupyter_mcp_server"
           python -c "import jupyter_mcp_server"
-
-
