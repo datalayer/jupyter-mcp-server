@@ -1,9 +1,11 @@
 # Copyright (c) 2023-2024 Datalayer, Inc.
 #
 # BSD 3-Clause License
-from typing import Optional, Literal
+
+from typing import Optional, Literal, Union
 from pydantic import BaseModel
-from jupyter_mcp_server.utils import extract_output, safe_extract_outputs
+from mcp.types import ImageContent
+from jupyter_mcp_server.utils import safe_extract_outputs
 
 
 class DocumentRuntime(BaseModel):
@@ -22,7 +24,7 @@ class CellInfo(BaseModel):
     index: int
     type: Literal["unknown", "code", "markdown"]
     source: list[str]
-    outputs: Optional[list[str]]
+    outputs: Optional[list[Union[str, ImageContent]]]
 
     @classmethod
     def from_cell(cls, cell_index: int, cell: dict):

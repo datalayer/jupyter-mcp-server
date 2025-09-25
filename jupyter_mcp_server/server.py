@@ -754,7 +754,7 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
     return await __safe_notebook_operation(_execute_streaming, max_retries=1)
 
 @mcp.tool()
-async def read_all_cells() -> list[dict[str, Union[str, int, list[str]]]]:
+async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:
     """Read all cells from the Jupyter notebook.
     Returns:
         list[dict]: List of cell information including index, type, source,
@@ -813,7 +813,7 @@ async def list_cell() -> str:
 
 
 @mcp.tool()
-async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[str]]]:
+async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str, ImageContent]]]]:
     """Read a specific cell from the Jupyter notebook.
     Args:
         cell_index: Index of the cell to read (0-based)
