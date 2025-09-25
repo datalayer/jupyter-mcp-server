@@ -52,6 +52,11 @@ pip install datalayer_pycrdt==0.12.17
 jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
+#### JupyterHub
+If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
+* Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
+* Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
+
 ### 3. Configure Your Preferred MCP Client
 
 > [!NOTE]
@@ -70,19 +75,13 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
     "jupyter": {
       "command": "docker",
       "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "DOCUMENT_URL",
-        "-e",
-        "DOCUMENT_TOKEN",
-        "-e",
-        "DOCUMENT_ID",
-        "-e",
-        "RUNTIME_URL",
-        "-e",
-        "RUNTIME_TOKEN",
+        "run", "-i", "--rm",
+        "-e", "DOCUMENT_URL",
+        "-e", "DOCUMENT_TOKEN",
+        "-e", "DOCUMENT_ID",
+        "-e", "RUNTIME_URL",
+        "-e", "RUNTIME_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
@@ -90,7 +89,8 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }
@@ -105,19 +105,13 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
     "jupyter": {
       "command": "docker",
       "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "DOCUMENT_URL",
-        "-e",
-        "DOCUMENT_TOKEN",
-        "-e",
-        "DOCUMENT_ID",
-        "-e",
-        "RUNTIME_URL",
-        "-e",
-        "RUNTIME_TOKEN",
+        "run", "-i", "--rm",
+        "-e", "DOCUMENT_URL",
+        "-e", "DOCUMENT_TOKEN",
+        "-e", "DOCUMENT_ID",
+        "-e", "RUNTIME_URL",
+        "-e", "RUNTIME_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
       ],
@@ -126,7 +120,8 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://localhost:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }

@@ -26,7 +26,8 @@ from starlette.middleware.cors import CORSMiddleware
 from jupyter_mcp_server.models import DocumentRuntime, CellInfo
 from jupyter_mcp_server.utils import extract_output, safe_extract_outputs, format_cell_list, get_surrounding_cells_info
 from jupyter_mcp_server.config import get_config, set_config
-from typing import Literal
+from typing import Literal, Union
+from mcp.types import ImageContent
 
 
 ###############################################################################
@@ -416,7 +417,7 @@ async def insert_cell(
 
 
 @mcp.tool()
-async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[str]:
+async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Union[str, ImageContent]]:
     """Insert and execute a code cell in a Jupyter notebook.
 
     Args:
@@ -424,7 +425,7 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[st
         cell_source: Code source
 
     Returns:
-        list[str]: List of outputs from the executed cell
+        list[Union[str, ImageContent]]: List of outputs from the executed cell
     """
     async def _insert_execute():
         __ensure_kernel_alive()
@@ -532,13 +533,13 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     return await __safe_notebook_operation(_overwrite_cell)
 
 @mcp.tool()
-async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300) -> list[str]:
+async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300) -> list[Union[str, ImageContent]]:
     """Execute a specific cell with timeout and progress monitoring.
     Args:
         cell_index: Index of the cell to execute (0-based)
         timeout_seconds: Maximum time to wait for execution (default: 300s)
     Returns:
-        list[str]: List of outputs from the executed cell
+        list[Union[str, ImageContent]]: List of outputs from the executed cell
     """
     async def _execute():
         __ensure_kernel_alive()
@@ -606,7 +607,7 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
 
 # Simpler real-time monitoring without forced sync
 @mcp.tool()
-async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 300) -> list[str]:
+async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 300) -> list[Union[str, ImageContent]]:
     """Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells.
     This won't force real-time updates but will work reliably.
     """
@@ -656,14 +657,14 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
 
 
 @mcp.tool()
-async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, progress_interval: int = 5) -> list[str]:
+async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, progress_interval: int = 5) -> list[Union[str, ImageContent]]:
     """Execute cell with streaming progress updates. To be used for long-running cells.
     Args:
         cell_index: Index of the cell to execute (0-based)
         timeout_seconds: Maximum time to wait for execution (default: 300s)  
         progress_interval: Seconds between progress updates (default: 5s)
     Returns:
-        list[str]: List of outputs including progress updates
+        list[Union[str, ImageContent]]: List of outputs including progress updates
     """
     async def _execute_streaming():
         __ensure_kernel_alive()
