@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: ["main", "dev/unified-notebook-manager"]
+    branches: ["main"]
   pull_request:
-    branches: ["main", "dev/unified-notebook-manager"]
+    branches: ["main"]
 
 defaults:
   run:
