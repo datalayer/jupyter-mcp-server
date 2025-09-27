@@ -26,6 +26,7 @@ from starlette.middleware.cors import CORSMiddleware
 from jupyter_mcp_server.models import DocumentRuntime, CellInfo
 from jupyter_mcp_server.utils import extract_output, safe_extract_outputs, format_cell_list, get_surrounding_cells_info
 from jupyter_mcp_server.config import get_config, set_config
+from jupyter_mcp_server.notebook_manager import NotebookManager
 from typing import Literal, Union
 from mcp.types import ImageContent
 
@@ -37,20 +38,6 @@ logger = logging.getLogger(__name__)
 
 
 ###############################################################################
-
-
-def _get_notebook_client() -> NbModelClient:
-    """Get a configured NbModelClient instance using current configuration."""
-    config = get_config()
-    return NbModelClient(
-        get_notebook_websocket_url(
-            server_url=config.document_url,
-            token=config.document_token,
-            path=config.document_id,
-            provider=config.provider
-        )
-    )
-
 
 class FastMCPWithCORS(FastMCP):
     def streamable_http_app(self) -> Starlette:
@@ -90,22 +77,16 @@ class FastMCPWithCORS(FastMCP):
 
 mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
 
-kernel = None
+# Initialize the unified notebook manager
+notebook_manager = NotebookManager()
 
 
 ###############################################################################
 
 
-def __start_kernel():
-    """Start the Jupyter kernel with error handling."""
-    global kernel
+def __create_kernel() -> KernelClient:
+    """Create a new kernel instance using current configuration."""
     config = get_config()
-    try:
-        if kernel:
-            kernel.stop()
-    except Exception as e:
-        logger.warning(f"Error stopping existing kernel: {e}")
-    
     try:
         # Initialize the kernel client with the provided parameters.
         kernel = KernelClient(
@@ -114,22 +95,31 @@ def __start_kernel():
             kernel_id=config.runtime_id
         )
         kernel.start()
-        logger.info("Kernel started successfully")
+        logger.info("Kernel created and started successfully")
+        return kernel
+    except Exception as e:
+        logger.error(f"Failed to create kernel: {e}")
+        raise
+
+def __start_kernel():
+    """Start the Jupyter kernel with error handling (for backward compatibility)."""
+    try:
+        # Remove existing default notebook if any
+        if "default" in notebook_manager:
+            notebook_manager.remove_notebook("default")
+        
+        # Create and set up new kernel
+        kernel = __create_kernel()
+        notebook_manager.add_notebook("default", kernel)
+        logger.info("Default notebook kernel started successfully")
     except Exception as e:
         logger.error(f"Failed to start kernel: {e}")
-        kernel = None
         raise
 
 
-def __ensure_kernel_alive():
+def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
-    global kernel
-    if kernel is None:
-        logger.info("Kernel is None, starting new kernel")
-        __start_kernel()
-    elif not hasattr(kernel, 'is_alive') or not kernel.is_alive():
-        logger.info("Kernel is not alive, restarting")
-        __start_kernel()
+    return notebook_manager.ensure_kernel_alive("default", __create_kernel)
 
 
 async def __execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds=300):
@@ -294,12 +284,12 @@ async def connect(request: Request):
 
     document_runtime = DocumentRuntime(**data)
 
-    global kernel
-    if kernel:
+    # Clean up existing default notebook if any
+    if "default" in notebook_manager:
         try:
-            kernel.stop()
+            notebook_manager.remove_notebook("default")
         except Exception as e:
-            logger.warning(f"Error stopping kernel during connect: {e}")
+            logger.warning(f"Error stopping existing notebook during connect: {e}")
 
     # Update configuration with new values
     set_config(
@@ -322,13 +312,12 @@ async def connect(request: Request):
 
 @mcp.custom_route("/api/stop", ["DELETE"])
 async def stop(request: Request):
-    global kernel
     try:
-        if kernel:
-            await kernel.stop()
+        if "default" in notebook_manager:
+            notebook_manager.remove_notebook("default")
         return JSONResponse({"success": True})
     except Exception as e:
-        logger.error(f"Error stopping kernel: {e}")
+        logger.error(f"Error stopping notebook: {e}")
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
@@ -337,6 +326,7 @@ async def health_check(request: Request):
     """Custom health check endpoint"""
     kernel_status = "unknown"
     try:
+        kernel = notebook_manager.get_kernel("default")
         if kernel:
             kernel_status = "alive" if hasattr(kernel, 'is_alive') and kernel.is_alive() else "dead"
         else:
@@ -375,11 +365,7 @@ async def insert_cell(
         str: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)
     """
     async def _insert_cell():
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-            
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             total_cells = len(ydoc._ycells)
             
@@ -406,12 +392,6 @@ async def insert_cell(
             surrounding_info = get_surrounding_cells_info(notebook, actual_index, new_total_cells)
             
             return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in insert_cell: {e}")
     
     return await __safe_notebook_operation(_insert_cell)
 
@@ -428,12 +408,8 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
         list[Union[str, ImageContent]]: List of outputs from the executed cell
     """
     async def _insert_execute():
-        __ensure_kernel_alive()
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-            
+        kernel = __ensure_kernel_alive()
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             total_cells = len(ydoc._ycells)
             
@@ -454,12 +430,6 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
             ydoc = notebook._doc
             outputs = ydoc._ycells[actual_index]["outputs"]
             return safe_extract_outputs(outputs)
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in insert_execute_code_cell: {e}")
     
     return await __safe_notebook_operation(_insert_execute)
 
@@ -477,11 +447,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
         str: Success message with diff showing changes made
     """
     async def _overwrite_cell():
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-            
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -522,13 +488,6 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
                 return f"Cell {cell_index} overwritten successfully - no changes detected"
             
             return f"Cell {cell_index} overwritten successfully!\n\n```diff\n{diff_content}\n```"
-            
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in overwrite_cell_source: {e}")
     
     return await __safe_notebook_operation(_overwrite_cell)
 
@@ -542,14 +501,10 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
         list[Union[str, ImageContent]]: List of outputs from the executed cell
     """
     async def _execute():
-        __ensure_kernel_alive()
+        kernel = __ensure_kernel_alive()
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -559,49 +514,41 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
 
             logger.info(f"Starting execution of cell {cell_index} with {timeout_seconds}s timeout")
             
-            # Use the corrected timeout function
-            await __execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds)
+            try:
+                # Use the corrected timeout function
+                await __execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds)
 
-            # Get final outputs
-            ydoc = notebook._doc
-            outputs = ydoc._ycells[cell_index]["outputs"]
-            result = safe_extract_outputs(outputs)
-            
-            logger.info(f"Cell {cell_index} completed successfully with {len(result)} outputs")
-            return result
-            
-        except asyncio.TimeoutError as e:
-            logger.error(f"Cell {cell_index} execution timed out: {e}")
-            try:
-                if kernel and hasattr(kernel, 'interrupt'):
-                    kernel.interrupt()
-                    logger.info("Sent interrupt signal to kernel")
-            except Exception as interrupt_err:
-                logger.error(f"Failed to interrupt kernel: {interrupt_err}")
-            
-            # Return partial outputs if available
-            try:
-                if notebook:
-                    ydoc = notebook._doc
+                # Get final outputs
+                ydoc = notebook._doc
+                outputs = ydoc._ycells[cell_index]["outputs"]
+                result = safe_extract_outputs(outputs)
+                
+                logger.info(f"Cell {cell_index} completed successfully with {len(result)} outputs")
+                return result
+                
+            except asyncio.TimeoutError as e:
+                logger.error(f"Cell {cell_index} execution timed out: {e}")
+                try:
+                    if kernel and hasattr(kernel, 'interrupt'):
+                        kernel.interrupt()
+                        logger.info("Sent interrupt signal to kernel")
+                except Exception as interrupt_err:
+                    logger.error(f"Failed to interrupt kernel: {interrupt_err}")
+                
+                # Return partial outputs if available
+                try:
                     outputs = ydoc._ycells[cell_index].get("outputs", [])
                     partial_outputs = safe_extract_outputs(outputs)
                     partial_outputs.append(f"[TIMEOUT ERROR: Execution exceeded {timeout_seconds} seconds]")
                     return partial_outputs
-            except Exception:
-                pass
-            
-            return [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds and was interrupted]"]
-            
-        except Exception as e:
-            logger.error(f"Error executing cell {cell_index}: {e}")
-            raise
-            
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in execute_cell_with_progress: {e}")
+                except Exception:
+                    pass
+                
+                return [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds and was interrupted]"]
+                
+            except Exception as e:
+                logger.error(f"Error executing cell {cell_index}: {e}")
+                raise
     
     return await __safe_notebook_operation(_execute, max_retries=1)
 
@@ -612,14 +559,10 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
     This won't force real-time updates but will work reliably.
     """
     async def _execute():
-        __ensure_kernel_alive()
+        kernel = __ensure_kernel_alive()
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
                 raise ValueError(f"Cell index {cell_index} is out of range.")
@@ -645,13 +588,6 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
             
             logger.info(f"Cell {cell_index} completed successfully")
             return result
-            
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook: {e}")
     
     return await __safe_notebook_operation(_execute, max_retries=1)
 
@@ -667,16 +603,12 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
         list[Union[str, ImageContent]]: List of outputs including progress updates
     """
     async def _execute_streaming():
-        __ensure_kernel_alive()
+        kernel = __ensure_kernel_alive()
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
-        notebook = None
         outputs_log = []
         
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
                 raise ValueError(f"Cell index {cell_index} is out of range.")
@@ -743,13 +675,6 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
                     outputs_log.append(f"[ERROR: {e}]")
             
             return outputs_log if outputs_log else ["[No output generated]"]
-            
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    outputs_log.append(f"[Warning: Error closing notebook: {e}]")
     
     return await __safe_notebook_operation(_execute_streaming, max_retries=1)
 
@@ -761,23 +686,13 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, Ima
                     and outputs (for code cells)
     """
     async def _read_all():
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             cells = []
 
             for i, cell in enumerate(ydoc._ycells):
                 cells.append(CellInfo.from_cell(i, cell).model_dump(exclude_none=True))
             return cells
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in read_all_cells: {e}")
     
     return await __safe_notebook_operation(_read_all)
 
@@ -794,20 +709,9 @@ async def list_cell() -> str:
         str: Formatted table with cell information (Index, Type, Count, First Line)
     """
     async def _list_cells():
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             return format_cell_list(ydoc._ycells)
-            
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in list_cell: {e}")
     
     return await __safe_notebook_operation(_list_cells)
 
@@ -821,11 +725,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
         dict: Cell information including index, type, source, and outputs (for code cells)
     """
     async def _read_cell():
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -835,12 +735,6 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
 
             cell = ydoc._ycells[cell_index]
             return CellInfo.from_cell(cell_index=cell_index, cell=cell).model_dump(exclude_none=True)
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in read_cell: {e}")
     
     return await __safe_notebook_operation(_read_cell)
 
@@ -852,12 +746,8 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
         dict: Notebook information including path, total cells, and cell type counts
     """
     async def _get_info():
-        notebook = None
         config = get_config()
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             total_cells: int = len(ydoc._ycells)
 
@@ -873,12 +763,6 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
             }
 
             return info
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in get_notebook_info: {e}")
     
     return await __safe_notebook_operation(_get_info)
 
@@ -892,11 +776,7 @@ async def delete_cell(cell_index: int) -> str:
         str: Success message
     """
     async def _delete_cell():
-        notebook = None
-        try:
-            notebook = _get_notebook_client()
-            await notebook.start()
-
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -910,12 +790,6 @@ async def delete_cell(cell_index: int) -> str:
             del ydoc._ycells[cell_index]
 
             return f"Cell {cell_index} ({cell_type}) deleted successfully."
-        finally:
-            if notebook:
-                try:
-                    await notebook.stop()
-                except Exception as e:
-                    logger.warning(f"Error stopping notebook in delete_cell: {e}")
     
     return await __safe_notebook_operation(_delete_cell)
 
