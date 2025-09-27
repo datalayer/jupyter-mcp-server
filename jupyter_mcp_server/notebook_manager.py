@@ -180,49 +180,21 @@ class NotebookManager:
         """Check if the manager is empty (no notebooks)."""
         return len(self._notebooks) == 0
     
-    def set_default_notebook(
-        self,
-        kernel: KernelClient,
-        server_url: Optional[str] = None,
-        token: Optional[str] = None,
-        path: Optional[str] = None
-    ) -> None:
+    def ensure_kernel_alive(self, name: str, kernel_factory) -> KernelClient:
         """
-        Set up the default notebook for single-notebook compatibility.
-        
-        This method maintains backward compatibility with existing code
-        that expects a single default notebook.
-        """
-        self.add_notebook(
-            self._default_notebook_name,
-            kernel,
-            server_url,
-            token,
-            path
-        )
-    
-    def get_default_kernel(self) -> Optional[KernelClient]:
-        """Get the default notebook's kernel (for backward compatibility)."""
-        return self.get_kernel(self._default_notebook_name)
-    
-    def get_default_connection(self) -> NotebookConnection:
-        """Get the default notebook connection (for backward compatibility)."""
-        return self.get_notebook_connection(self._default_notebook_name)
-    
-    def ensure_default_kernel_alive(self, kernel_factory) -> KernelClient:
-        """
-        Ensure the default kernel is alive, create if necessary.
+        Ensure a kernel is alive, create if necessary.
         
         Args:
+            name: Notebook identifier
             kernel_factory: Function to create a new kernel
             
         Returns:
             The alive kernel instance
         """
-        kernel = self.get_default_kernel()
+        kernel = self.get_kernel(name)
         if kernel is None or not hasattr(kernel, 'is_alive') or not kernel.is_alive():
             # Create new kernel
             new_kernel = kernel_factory()
-            self.set_default_notebook(new_kernel)
+            self.add_notebook(name, new_kernel)
             return new_kernel
         return kernel

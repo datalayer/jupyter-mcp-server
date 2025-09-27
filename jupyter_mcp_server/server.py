@@ -39,24 +39,6 @@ logger = logging.getLogger(__name__)
 
 ###############################################################################
 
-
-def _get_notebook_client() -> NbModelClient:
-    """Get a configured NbModelClient instance using current configuration.
-    
-    Note: This function is kept for backward compatibility but is deprecated.
-    New code should use notebook_manager.get_default_connection().
-    """
-    config = get_config()
-    return NbModelClient(
-        get_notebook_websocket_url(
-            server_url=config.document_url,
-            token=config.document_token,
-            path=config.document_id,
-            provider=config.provider
-        )
-    )
-
-
 class FastMCPWithCORS(FastMCP):
     def streamable_http_app(self) -> Starlette:
         """Return StreamableHTTP server app with CORS middleware
@@ -128,7 +110,7 @@ def __start_kernel():
         
         # Create and set up new kernel
         kernel = __create_kernel()
-        notebook_manager.set_default_notebook(kernel)
+        notebook_manager.add_notebook("default", kernel)
         logger.info("Default notebook kernel started successfully")
     except Exception as e:
         logger.error(f"Failed to start kernel: {e}")
@@ -137,7 +119,7 @@ def __start_kernel():
 
 def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
-    return notebook_manager.ensure_default_kernel_alive(__create_kernel)
+    return notebook_manager.ensure_kernel_alive("default", __create_kernel)
 
 
 async def __execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds=300):
@@ -344,7 +326,7 @@ async def health_check(request: Request):
     """Custom health check endpoint"""
     kernel_status = "unknown"
     try:
-        kernel = notebook_manager.get_default_kernel()
+        kernel = notebook_manager.get_kernel("default")
         if kernel:
             kernel_status = "alive" if hasattr(kernel, 'is_alive') and kernel.is_alive() else "dead"
         else:
@@ -383,7 +365,7 @@ async def insert_cell(
         str: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)
     """
     async def _insert_cell():
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             total_cells = len(ydoc._ycells)
             
@@ -427,7 +409,7 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
     """
     async def _insert_execute():
         kernel = __ensure_kernel_alive()
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             total_cells = len(ydoc._ycells)
             
@@ -465,7 +447,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
         str: Success message with diff showing changes made
     """
     async def _overwrite_cell():
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -522,7 +504,7 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
         kernel = __ensure_kernel_alive()
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -580,7 +562,7 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
         kernel = __ensure_kernel_alive()
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
                 raise ValueError(f"Cell index {cell_index} is out of range.")
@@ -626,7 +608,7 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
         
         outputs_log = []
         
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
                 raise ValueError(f"Cell index {cell_index} is out of range.")
@@ -704,7 +686,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, Ima
                     and outputs (for code cells)
     """
     async def _read_all():
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             cells = []
 
@@ -727,7 +709,7 @@ async def list_cell() -> str:
         str: Formatted table with cell information (Index, Type, Count, First Line)
     """
     async def _list_cells():
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             return format_cell_list(ydoc._ycells)
     
@@ -743,7 +725,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
         dict: Cell information including index, type, source, and outputs (for code cells)
     """
     async def _read_cell():
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -765,7 +747,7 @@ async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
     """
     async def _get_info():
         config = get_config()
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
             total_cells: int = len(ydoc._ycells)
 
@@ -794,7 +776,7 @@ async def delete_cell(cell_index: int) -> str:
         str: Success message
     """
     async def _delete_cell():
-        async with notebook_manager.get_default_connection() as notebook:
+        async with notebook_manager.get_notebook_connection("default") as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
