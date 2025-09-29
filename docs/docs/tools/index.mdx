@@ -1,8 +1,49 @@
 # Tools
 
-The server currently offers 11 tools:
+The server currently offers 15 tools organized into two categories:
 
-#### 1. `insert_cell`
+## Multi-Notebook Management Tools (5 tools)
+
+#### 1. `connect_notebook`
+
+- Connect to a notebook file or create a new one.
+- Input:
+  - `notebook_name`(string): Unique identifier for the notebook
+  - `notebook_path`(string): Path to the notebook file, relative to the Jupyter server root (e.g. "./notebook.ipynb")
+  - `mode`(string): "connect" to connect to existing, "create" to create new (default: "connect")
+  - `kernel_id`(string, optional): Specific kernel ID to use (optional, will create new if not provided)
+- Returns: Success message with notebook information
+
+#### 2. `list_notebook`
+
+- List all currently connected notebooks with their information.
+- Input: None
+- Returns: TSV formatted table with notebook information (Name, Path, Status, Current)
+
+#### 3. `switch_notebook`
+
+- Switch the currently active notebook.
+- Input:
+  - `notebook_name`(string): Notebook identifier to switch to
+- Returns: Success message with new active notebook information
+
+#### 4. `restart_notebook`
+
+- Restart the kernel for a specific notebook.
+- Input:
+  - `notebook_name`(string): Notebook identifier to restart
+- Returns: Success message
+
+#### 5. `disconnect_notebook`
+
+- Disconnect from a specific notebook and release its resources.
+- Input:
+  - `notebook_name`(string): Notebook identifier to disconnect
+- Returns: Success message
+
+## Cell Tools (10 tools)
+
+#### 6. `insert_cell`
 
 - Insert a cell to specified position with unified API.
 - Input:
@@ -11,7 +52,7 @@ The server currently offers 11 tools:
   - `cell_source`(string): Source content for the cell.
 - Returns: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below).
 
-#### 2. `insert_execute_code_cell`
+#### 7. `insert_execute_code_cell`
 
 - Insert and execute a code cell in a Jupyter notebook.
 - Input:
@@ -19,31 +60,26 @@ The server currently offers 11 tools:
   - `cell_source`(string): Code source.
 - Returns: List of outputs from the executed cell (supports multimodal output including images).
 
-#### 3. `delete_cell`
+#### 8. `delete_cell`
 
 - Delete a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to delete (0-based).
 - Returns: Success message.
 
-#### 4. `get_notebook_info`
-
-- Get basic information about the notebook.
-- Returns: Dictionary with notebook path, total cells, and cell type counts.
-
-#### 5. `read_cell`
+#### 9. `read_cell`
 
 - Read a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to read (0-based).
 - Returns: Dictionary with cell index, type, source, and outputs (for code cells).
 
-#### 6. `read_all_cells`
+#### 10. `read_all_cells`
 
 - Read all cells from the notebook.
 - Returns:  List of cell information including index, type, source, and outputs (for code cells).
 
-#### 7. `list_cell`
+#### 11. `list_cell`
 
 - List the basic information of all cells in the notebook.
 - Returns a formatted table showing the index, type, execution count (for code cells), and first line of each cell.
@@ -51,7 +87,7 @@ The server currently offers 11 tools:
 - Input: None
 - Returns: Formatted table string with cell information (Index, Type, Count, First Line).
 
-#### 8. `overwrite_cell_source`
+#### 12. `overwrite_cell_source`
 
 - Overwrite the source of an existing cell.
 - Input:
@@ -59,7 +95,7 @@ The server currently offers 11 tools:
   - `cell_source`(string): New cell source - must match existing cell type.
 - Returns: Success message and diff style.
 
-#### 9. `execute_cell_streaming`
+#### 13. `execute_cell_streaming`
 
 - Execute cell with streaming progress updates. To be used for long-running cells.
 - Input:
@@ -69,7 +105,7 @@ The server currently offers 11 tools:
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs including progress updates (supports multimodal output including images)
 
-#### 10. `execute_cell_simple_timeout`
+#### 14. `execute_cell_simple_timeout`
 
 - Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells. This won't force real-time updates but will work reliably.
 - Input:
@@ -78,7 +114,7 @@ The server currently offers 11 tools:
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs from the executed cell (supports multimodal output including images)
 
-#### 11. `execute_cell_with_progress`
+#### 15. `execute_cell_with_progress`
 
 - Execute a specific cell with timeout and progress monitoring.
 - Input:

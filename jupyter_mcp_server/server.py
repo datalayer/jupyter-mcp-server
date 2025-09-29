@@ -6,7 +6,8 @@ import asyncio
 import difflib
 import logging
 import time
-from typing import Union
+from typing import Union, Optional
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 import click
@@ -17,6 +18,10 @@ from jupyter_kernel_client import KernelClient
 from jupyter_nbmodel_client import (
     NbModelClient,
     get_notebook_websocket_url,
+)
+from jupyter_server_api import (
+    JupyterServerClient,
+    NotFoundError
 )
 from mcp.server import FastMCP
 from starlette.applications import Starlette
@@ -119,7 +124,8 @@ def __start_kernel():
 
 def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
-    return notebook_manager.ensure_kernel_alive("default", __create_kernel)
+    current_notebook = notebook_manager.get_current_notebook() or "default"
+    return notebook_manager.ensure_kernel_alive(current_notebook, __create_kernel)
 
 
 async def __execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds=300):
@@ -313,8 +319,9 @@ async def connect(request: Request):
 @mcp.custom_route("/api/stop", ["DELETE"])
 async def stop(request: Request):
     try:
-        if "default" in notebook_manager:
-            notebook_manager.remove_notebook("default")
+        current_notebook = notebook_manager.get_current_notebook() or "default"
+        if current_notebook in notebook_manager:
+            notebook_manager.remove_notebook(current_notebook)
         return JSONResponse({"success": True})
     except Exception as e:
         logger.error(f"Error stopping notebook: {e}")
@@ -326,7 +333,8 @@ async def health_check(request: Request):
     """Custom health check endpoint"""
     kernel_status = "unknown"
     try:
-        kernel = notebook_manager.get_kernel("default")
+        current_notebook = notebook_manager.get_current_notebook() or "default"
+        kernel = notebook_manager.get_kernel(current_notebook)
         if kernel:
             kernel_status = "alive" if hasattr(kernel, 'is_alive') and kernel.is_alive() else "dead"
         else:
@@ -346,7 +354,203 @@ async def health_check(request: Request):
 
 ###############################################################################
 # Tools.
+###############################################################################
 
+###############################################################################
+# Multi-Notebook Management Tools.
+
+
+@mcp.tool()
+async def connect_notebook(
+    notebook_name: str,
+    notebook_path: str,
+    mode: Literal["connect", "create"] = "connect",
+    kernel_id: Optional[str] = None,
+) -> str:
+    """Connect to a notebook file or create a new one.
+    
+    Args:
+        notebook_name: Unique identifier for the notebook
+        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "./notebook.ipynb")
+        mode: "connect" to connect to existing, "create" to create new
+        kernel_id: Specific kernel ID to use (optional, will create new if not provided)
+        
+    Returns:
+        str: Success message with notebook information
+    """
+    if notebook_name in notebook_manager:
+        return f"Notebook '{notebook_name}' is already connected. Use disconnect_notebook first if you want to reconnect."
+    
+    config = get_config()
+    server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+
+    # Check the Jupyter server
+    try:
+        server_client.get_status()
+    except Exception as e:
+        return f"Failed to connect the Jupyter server: {e}"
+
+    # Check the path on Jupyter server
+    path = Path(notebook_path)
+    try:
+        # For relative paths starting with just filename, assume current directory
+        parent_path = str(path.parent) if str(path.parent) != "." else ""
+        
+        if parent_path:
+            dir_contents = server_client.contents.list_directory(parent_path)
+        else:
+            # Check in the root directory of Jupyter server
+            dir_contents = server_client.contents.list_directory("")
+            
+        if mode == "connect":
+            file_exists = any(file.name == path.name for file in dir_contents)
+            if not file_exists:
+                return f"'{notebook_path}' not found in jupyter server, please check the notebook already exists."
+    except NotFoundError:
+        parent_dir = str(path.parent) if str(path.parent) != "." else "root directory"
+        return f"'{parent_dir}' not found in jupyter server, please check the directory path already exists."
+    except Exception as e:
+        return f"Failed to check the path '{notebook_path}': {e}"
+
+    # Check the kernel
+    if kernel_id:
+        kernels = server_client.kernels.list_kernels()
+        kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
+        if not kernel_exists:
+            return f"Kernel '{kernel_id}' not found in jupyter server, please check the kernel is already exists."
+    
+    # Create notebook
+    if mode == "create":
+        server_client.contents.create_notebook(notebook_path)
+    
+    # Create kernel client
+    kernel = KernelClient(
+            server_url=config.runtime_url,
+            token=config.runtime_token,
+            kernel_id=kernel_id
+        )
+        
+    kernel.start()
+        
+    # Add notebook to manager
+    notebook_manager.add_notebook(
+        notebook_name,
+        kernel,
+        server_url=config.runtime_url,
+        token=config.runtime_token,
+        path=notebook_path
+    )
+    
+    return f"Successfully {'created and ' if mode == 'create' else ''}connected to notebook '{notebook_name}' at path '{notebook_path}'."
+
+
+@mcp.tool()
+async def list_notebook() -> str:
+    """List all currently connected notebooks with their information.
+    
+    Returns:
+        str: TSV formatted table with notebook information
+    """
+    notebooks_info = notebook_manager.list_all_notebooks()
+    
+    if not notebooks_info:
+        return "No notebooks are currently connected."
+    
+    # Create TSV formatted output
+    lines = ["Name\tPath\tStatus\tCurrent"]
+    lines.append("-" * 80)
+    
+    for name, info in notebooks_info.items():
+        current_marker = "✓" if info["is_current"] else ""
+        lines.append(f"{name}\t{info['path']}\t{info['kernel_status']}\t{current_marker}")
+    
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def restart_notebook(notebook_name: str) -> str:
+    """Restart the kernel for a specific notebook.
+    
+    Args:
+        notebook_name: Notebook identifier to restart
+        
+    Returns:
+        str: Success message
+    """
+    if notebook_name not in notebook_manager:
+        return f"Notebook '{notebook_name}' is not connected."
+    
+    success = notebook_manager.restart_notebook(notebook_name)
+    
+    if success:
+        return f"Notebook '{notebook_name}' kernel restarted successfully. Memory state and imported packages have been cleared."
+    else:
+        return f"Failed to restart notebook '{notebook_name}'. The kernel may not support restart operation."
+
+
+@mcp.tool()
+async def disconnect_notebook(notebook_name: str) -> str:
+    """Disconnect from a specific notebook and release its resources.
+    
+    Args:
+        notebook_name: Notebook identifier to disconnect
+        
+    Returns:
+        str: Success message
+    """
+    if notebook_name not in notebook_manager:
+        return f"Notebook '{notebook_name}' is not connected."
+    
+    # Get info about which notebook was current
+    current_notebook = notebook_manager.get_current_notebook()
+    was_current = current_notebook == notebook_name
+    
+    success = notebook_manager.remove_notebook(notebook_name)
+    
+    if success:
+        message = f"Notebook '{notebook_name}' disconnected successfully."
+        
+        if was_current:
+            new_current = notebook_manager.get_current_notebook()
+            if new_current:
+                message += f" Current notebook switched to '{new_current}'."
+            else:
+                message += " No notebooks remaining."
+        
+        return message
+    else:
+        return f"Notebook '{notebook_name}' was not found."
+
+
+@mcp.tool()
+async def switch_notebook(notebook_name: str) -> str:
+    """Switch the currently active notebook.
+    
+    Args:
+        notebook_name: Notebook identifier to switch to
+        
+    Returns:
+        str: Success message with new active notebook information
+    """
+    if notebook_name not in notebook_manager:
+        available_notebooks = list(notebook_manager.list_all_notebooks().keys())
+        if available_notebooks:
+            return f"Notebook '{notebook_name}' is not connected. Available notebooks: {', '.join(available_notebooks)}"
+        else:
+            return f"Notebook '{notebook_name}' is not connected and no notebooks are available."
+    
+    success = notebook_manager.set_current_notebook(notebook_name)
+    
+    if success:
+        notebooks_info = notebook_manager.list_all_notebooks()
+        notebook_info = notebooks_info[notebook_name]
+        
+        return f"Successfully switched to notebook '{notebook_name}'. Path: '{notebook_info['path']}', Status: {notebook_info['kernel_status']}. All subsequent cell operations will use this notebook."
+    else:
+        return f"Failed to switch to notebook '{notebook_name}'."
+
+###############################################################################
+# Cell Tools.
 
 @mcp.tool()
 async def insert_cell(
@@ -365,7 +569,7 @@ async def insert_cell(
         str: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)
     """
     async def _insert_cell():
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             total_cells = len(ydoc._ycells)
             
@@ -409,7 +613,7 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
     """
     async def _insert_execute():
         kernel = __ensure_kernel_alive()
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             total_cells = len(ydoc._ycells)
             
@@ -447,7 +651,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
         str: Success message with diff showing changes made
     """
     async def _overwrite_cell():
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -504,7 +708,7 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
         kernel = __ensure_kernel_alive()
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -562,7 +766,7 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
         kernel = __ensure_kernel_alive()
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
                 raise ValueError(f"Cell index {cell_index} is out of range.")
@@ -608,7 +812,7 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
         
         outputs_log = []
         
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
                 raise ValueError(f"Cell index {cell_index} is out of range.")
@@ -686,7 +890,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, Ima
                     and outputs (for code cells)
     """
     async def _read_all():
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             cells = []
 
@@ -709,7 +913,7 @@ async def list_cell() -> str:
         str: Formatted table with cell information (Index, Type, Count, First Line)
     """
     async def _list_cells():
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             return format_cell_list(ydoc._ycells)
     
@@ -725,7 +929,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
         dict: Cell information including index, type, source, and outputs (for code cells)
     """
     async def _read_cell():
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
@@ -738,35 +942,6 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
     
     return await __safe_notebook_operation(_read_cell)
 
-
-@mcp.tool()
-async def get_notebook_info() -> dict[str, Union[str, int, dict[str, int]]]:
-    """Get basic information about the notebook.
-    Returns:
-        dict: Notebook information including path, total cells, and cell type counts
-    """
-    async def _get_info():
-        config = get_config()
-        async with notebook_manager.get_notebook_connection("default") as notebook:
-            ydoc = notebook._doc
-            total_cells: int = len(ydoc._ycells)
-
-            cell_types: dict[str, int] = {}
-            for cell in ydoc._ycells:
-                cell_type: str = str(cell.get("cell_type", "unknown"))
-                cell_types[cell_type] = cell_types.get(cell_type, 0) + 1
-
-            info: dict[str, Union[str, int, dict[str, int]]] = {
-                "document_id": config.document_id,
-                "total_cells": total_cells,
-                "cell_types": cell_types,
-            }
-
-            return info
-    
-    return await __safe_notebook_operation(_get_info)
-
-
 @mcp.tool()
 async def delete_cell(cell_index: int) -> str:
     """Delete a specific cell from the Jupyter notebook.
@@ -776,7 +951,7 @@ async def delete_cell(cell_index: int) -> str:
         str: Success message
     """
     async def _delete_cell():
-        async with notebook_manager.get_notebook_connection("default") as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
 
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
