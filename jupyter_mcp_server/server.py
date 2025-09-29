@@ -19,7 +19,7 @@ from jupyter_nbmodel_client import (
     NbModelClient,
     get_notebook_websocket_url,
 )
-from jupyter_server_client import (
+from jupyter_server_api import (
     JupyterServerClient,
     NotFoundError
 )
