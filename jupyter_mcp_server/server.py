@@ -390,18 +390,25 @@ async def connect_notebook(
     except Exception as e:
         return f"Failed to connect the Jupyter server: {e}"
 
-    # Check the path
+    # Check the path on Jupyter server
     path = Path(notebook_path)
-    if not path.is_file():
-        return f"'{notebook_path}' is not a valid file path."
     try:
-        dir_contents = server_client.contents.list_directory(str(path.parent))
+        # For relative paths starting with just filename, assume current directory
+        parent_path = str(path.parent) if str(path.parent) != "." else ""
+        
+        if parent_path:
+            dir_contents = server_client.contents.list_directory(parent_path)
+        else:
+            # Check in the root directory of Jupyter server
+            dir_contents = server_client.contents.list_directory("")
+            
         if mode == "connect":
             file_exists = any(file.name == path.name for file in dir_contents)
             if not file_exists:
-                return f"'{notebook_path}' not found in jupyter server, please check the notebook is already exists."
+                return f"'{notebook_path}' not found in jupyter server, please check the notebook already exists."
     except NotFoundError:
-        return f"'{str(path.parent)}' not found in jupyter server, please check the directory path is already exists."
+        parent_dir = str(path.parent) if str(path.parent) != "." else "root directory"
+        return f"'{parent_dir}' not found in jupyter server, please check the directory path already exists."
     except Exception as e:
         return f"Failed to check the path '{notebook_path}': {e}"
 
