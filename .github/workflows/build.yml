@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: ["main", "feature/multi-notebook-management"]
+    branches: ["main"]
   pull_request:
 
 defaults:

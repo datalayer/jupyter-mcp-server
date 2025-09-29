@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: ["main", "feature/multi-notebook-management"]
+    branches: ["main"]
   pull_request:
-    branches: ["main", "feature/multi-notebook-management"]
+    branches: ["main"]
 
 defaults:
   run:
