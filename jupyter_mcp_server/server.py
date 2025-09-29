@@ -382,7 +382,7 @@ async def connect_notebook(
         return f"Notebook '{notebook_name}' is already connected. Use disconnect_notebook first if you want to reconnect."
     
     config = get_config()
-    server_client = JupyterServerClient(url=config.runtime_url, token=config.runtime_token)
+    server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
 
     # Check the Jupyter server
     try:
