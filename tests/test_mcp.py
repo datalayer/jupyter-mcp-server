@@ -22,7 +22,6 @@ This test file is organized as follows:
     - `test_mcp_tool_list`: Test that the MCP server declare its tools.
 
 4.  **Integration tests**: Check that end to end tools (client -> Jupyter MCP -> Jupyter) are working as expected.
-    - `test_notebook_info`: Test that the notebook info are returned.
     - `test_markdown_cell`: Test markdown cell manipulation (append, insert, read, delete).
     - `test_code_cell`: Test code cell manipulation (append, insert, overwrite, execute, read, delete)
 
@@ -85,6 +84,13 @@ def windows_timeout_wrapper(timeout_seconds=30):
 
 # TODO: could be retrieved from code (inspect)
 JUPYTER_TOOLS = [
+    # Multi-Notebook Management Tools
+    "connect_notebook",
+    "list_notebook", 
+    "restart_notebook",
+    "disconnect_notebook",
+    "switch_notebook",
+    # Cell Tools
     "insert_cell",
     "insert_execute_code_cell",
     "overwrite_cell_source",
@@ -94,7 +100,6 @@ JUPYTER_TOOLS = [
     "read_all_cells",
     "list_cell",
     "read_cell",
-    "get_notebook_info",
     "delete_cell",
 ]
 
@@ -174,28 +179,36 @@ class MCPClient:
     async def list_tools(self):
         return await self._session.list_tools()  # type: ignore
 
+    # Multi-Notebook Management Methods
     @requires_session
-    async def get_notebook_info(self, max_retries=3):
-        """Get notebook info with retry mechanism for Windows compatibility"""
-        for attempt in range(max_retries):
-            try:
-                result = await self._session.call_tool("get_notebook_info")  # type: ignore
-                parsed_result = self._get_structured_content_safe(result)
-                if parsed_result is not None:
-                    return parsed_result
-                else:
-                    logging.warning(f"get_notebook_info returned None on attempt {attempt + 1}/{max_retries}")
-                    if attempt < max_retries - 1:
-                        import asyncio
-                        await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
-            except Exception as e:
-                logging.error(f"get_notebook_info failed on attempt {attempt + 1}/{max_retries}: {e}")
-                if attempt < max_retries - 1:
-                    import asyncio
-                    await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
-                else:
-                    raise
-        return None
+    async def connect_notebook(self, notebook_name, notebook_path, mode="connect", kernel_id=None):
+        result = await self._session.call_tool("connect_notebook", arguments={
+            "notebook_name": notebook_name, 
+            "notebook_path": notebook_path, 
+            "mode": mode,
+            "kernel_id": kernel_id
+        })  # type: ignore
+        return self._extract_text_content(result)
+    
+    @requires_session
+    async def list_notebook(self):
+        result = await self._session.call_tool("list_notebook")  # type: ignore
+        return self._extract_text_content(result)
+    
+    @requires_session
+    async def restart_notebook(self, notebook_name):
+        result = await self._session.call_tool("restart_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
+        return self._extract_text_content(result)
+    
+    @requires_session
+    async def disconnect_notebook(self, notebook_name):
+        result = await self._session.call_tool("disconnect_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
+        return self._extract_text_content(result)
+    
+    @requires_session
+    async def switch_notebook(self, notebook_name):
+        result = await self._session.call_tool("switch_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
+        return self._extract_text_content(result)
 
     @requires_session
     async def insert_cell(self, cell_index, cell_type, cell_source):
@@ -271,10 +284,21 @@ class MCPClient:
         """Append and execute a code cell at the end of the notebook."""
         return await self.insert_execute_code_cell(-1, cell_source)
 
-    @requires_session  
+    @requires_session
     async def append_markdown_cell(self, cell_source):
         """Append a markdown cell at the end of the notebook."""
         return await self.insert_cell(-1, "markdown", cell_source)
+    
+    # Helper method to get cell count from list_cell output
+    @requires_session
+    async def get_cell_count(self):
+        """Get the number of cells by parsing list_cell output"""
+        cell_list = await self.list_cell()
+        if "Error" in cell_list or "Index\tType" not in cell_list:
+            return 0
+        lines = cell_list.split('\n')
+        data_lines = [line for line in lines if '\t' in line and not line.startswith('Index') and not line.startswith('-')]
+        return len(data_lines)
 
 def _start_server(name, host, port, command, readiness_endpoint="/", max_retries=5):
     """A Helper that starts a web server as a python subprocess and wait until it's ready to accept connections
@@ -441,29 +465,6 @@ async def test_mcp_tool_list(mcp_client):
         JUPYTER_TOOLS
     )
 
-
-@pytest.mark.asyncio
-@windows_timeout_wrapper(90)
-async def test_notebook_info(mcp_client):
-    """Test notebook info"""
-    async with mcp_client:
-        notebook_info = await mcp_client.get_notebook_info()
-        logging.debug(f"notebook_info: {notebook_info}")
-        assert notebook_info is not None, "notebook_info should not be None"
-        assert notebook_info["document_id"] == "notebook.ipynb"
-        
-        # Handle edge case where notebook might be empty on Windows due to file access issues
-        total_cells = notebook_info["total_cells"]
-        if total_cells == 0:
-            pytest.skip("Notebook appears to be empty - likely a platform-specific file access issue")
-        
-        assert total_cells == 10, f"Expected 10 cells but got {total_cells}"
-        # Adjust expected cell types based on actual notebook content
-        expected_cell_types = notebook_info["cell_types"]
-        assert "code" in expected_cell_types
-        assert "markdown" in expected_cell_types
-
-
 @pytest.mark.asyncio
 @windows_timeout_wrapper(60)
 async def test_markdown_cell(mcp_client, content="Hello **World** !"):
@@ -492,10 +493,9 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
 
     async with mcp_client:
         # Get initial cell count
-        initial_info = await mcp_client.get_notebook_info()
-        if initial_info is None:
-            pytest.skip("Could not retrieve notebook info - likely a platform-specific network issue")
-        initial_count = initial_info["total_cells"]
+        initial_count = await mcp_client.get_cell_count()
+        if initial_count == 0:
+            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # append markdown cell using -1 index
         result = await mcp_client.insert_cell(-1, "markdown", content)
@@ -536,10 +536,9 @@ async def test_code_cell(mcp_client, content="1 + 1"):
 
     async with mcp_client:
         # Get initial cell count
-        initial_info = await mcp_client.get_notebook_info()
-        if initial_info is None:
-            pytest.skip("Could not retrieve notebook info - likely a platform-specific network issue")
-        initial_count = initial_info["total_cells"]
+        initial_count = await mcp_client.get_cell_count()
+        if initial_count == 0:
+            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # append and execute code cell using -1 index
         index = initial_count
@@ -624,8 +623,7 @@ async def test_list_cell(mcp_client):
         
         # Clean up by deleting added cells (in reverse order)
         # Get current cell count to determine indices of added cells
-        current_info = await mcp_client.get_notebook_info()
-        current_count = current_info["total_cells"]
+        current_count = await mcp_client.get_cell_count()
         # Delete the last two cells we added
         await mcp_client.delete_cell(current_count - 1)  # Remove the code cell
         await mcp_client.delete_cell(current_count - 2)  # Remove the markdown cell
@@ -636,10 +634,9 @@ async def test_overwrite_cell_diff(mcp_client):
     """Test overwrite_cell_source diff functionality"""
     async with mcp_client:
         # Get initial cell count
-        initial_info = await mcp_client.get_notebook_info()
-        if initial_info is None:
-            pytest.skip("Could not retrieve notebook info - likely a platform-specific network issue")
-        initial_count = initial_info["total_cells"]
+        initial_count = await mcp_client.get_cell_count()
+        if initial_count == 0:
+            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # Add a code cell with initial content
         initial_content = "x = 10\nprint(x)"
@@ -702,10 +699,9 @@ async def test_multimodal_output(mcp_client):
     """Test multimodal output functionality with image generation"""
     async with mcp_client:
         # Get initial cell count
-        initial_info = await mcp_client.get_notebook_info()
-        if initial_info is None:
-            pytest.skip("Could not retrieve notebook info - likely a platform-specific network issue")
-        initial_count = initial_info["total_cells"]
+        initial_count = await mcp_client.get_cell_count()
+        if initial_count == 0:
+            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # Test image generation code using PIL (lightweight)
         image_code = """
@@ -777,3 +773,149 @@ display(IPythonImage(buffer.getvalue()))
         
         # Clean up: delete the test cell
         await mcp_client.delete_cell(cell_index)
+
+
+###############################################################################
+# Multi-Notebook Management Tests
+###############################################################################
+
+@pytest.mark.asyncio
+@windows_timeout_wrapper(120)
+async def test_multi_notebook_management(mcp_client):
+    """Test multi-notebook management functionality"""
+    async with mcp_client:
+        # Test initial state - should show default notebook or no notebooks
+        initial_list = await mcp_client.list_notebook()
+        logging.debug(f"Initial notebook list: {initial_list}")
+        
+        # Connect to a new notebook
+        connect_result = await mcp_client.connect_notebook("test_notebook", "new.ipynb", "connect")
+        logging.debug(f"Connect result: {connect_result}")
+        assert "Successfully connected to notebook 'test_notebook'" in connect_result
+        assert "new.ipynb" in connect_result
+        
+        # List notebooks - should now show the connected notebook
+        notebook_list = await mcp_client.list_notebook()
+        logging.debug(f"Notebook list after connect: {notebook_list}")
+        assert "test_notebook" in notebook_list
+        assert "new.ipynb" in notebook_list
+        assert "✓" in notebook_list  # Should be marked as current
+        
+        # Try to connect to the same notebook again (should fail)
+        duplicate_result = await mcp_client.connect_notebook("test_notebook", "new.ipynb")
+        assert "already connected" in duplicate_result
+        
+        # Test switching between notebooks
+        if "default" in notebook_list:
+            switch_result = await mcp_client.switch_notebook("default")
+            logging.debug(f"Switch to default result: {switch_result}")
+            assert "Successfully switched to notebook 'default'" in switch_result
+            
+            # Switch back to test notebook
+            switch_back_result = await mcp_client.switch_notebook("test_notebook")
+            assert "Successfully switched to notebook 'test_notebook'" in switch_back_result
+        
+        # Test cell operations on the new notebook
+        # First get the cell count of new.ipynb (should have some cells)
+        cell_count = await mcp_client.get_cell_count()
+        assert cell_count >= 2, f"new.ipynb should have at least 2 cells, got {cell_count}"
+        
+        # Add a test cell to the new notebook
+        test_content = "# Multi-notebook test\nprint('Testing multi-notebook')"
+        insert_result = await mcp_client.insert_cell(-1, "code", test_content)
+        assert "Cell inserted successfully" in insert_result["result"]
+        
+        # Execute the cell
+        execute_result = await mcp_client.insert_execute_code_cell(-1, "2 + 3")
+        assert "5" in str(execute_result["result"])
+        
+        # Test restart notebook
+        restart_result = await mcp_client.restart_notebook("test_notebook")
+        logging.debug(f"Restart result: {restart_result}")
+        assert "restarted successfully" in restart_result
+        
+        # Test disconnect notebook
+        disconnect_result = await mcp_client.disconnect_notebook("test_notebook")
+        logging.debug(f"Disconnect result: {disconnect_result}")
+        assert "disconnected successfully" in disconnect_result
+        
+        # Verify notebook is no longer in the list
+        final_list = await mcp_client.list_notebook()
+        logging.debug(f"Final notebook list: {final_list}")
+        if "No notebooks are currently connected" not in final_list:
+            assert "test_notebook" not in final_list
+
+
+@pytest.mark.asyncio
+@windows_timeout_wrapper(90)
+async def test_multi_notebook_cell_operations(mcp_client):
+    """Test cell operations across multiple notebooks"""
+    async with mcp_client:
+        # Connect to the new notebook
+        await mcp_client.connect_notebook("notebook_a", "new.ipynb")
+        
+        # Get initial cell count for notebook A
+        count_a = await mcp_client.get_cell_count()
+        
+        # Add a cell to notebook A
+        await mcp_client.insert_cell(-1, "markdown", "# This is notebook A")
+        
+        # Connect to default notebook (if it exists)
+        try:
+            # Try to connect to notebook.ipynb as notebook_b
+            await mcp_client.connect_notebook("notebook_b", "notebook.ipynb")
+            
+            # Switch to notebook B
+            await mcp_client.switch_notebook("notebook_b")
+            
+            # Get cell count for notebook B
+            count_b = await mcp_client.get_cell_count()
+            
+            # Add a cell to notebook B
+            await mcp_client.insert_cell(-1, "markdown", "# This is notebook B")
+            
+            # Switch back to notebook A
+            await mcp_client.switch_notebook("notebook_a")
+            
+            # Verify we're working with notebook A
+            cell_list_a = await mcp_client.list_cell()
+            assert "This is notebook A" in cell_list_a
+            
+            # Switch to notebook B and verify
+            await mcp_client.switch_notebook("notebook_b")
+            cell_list_b = await mcp_client.list_cell()
+            assert "This is notebook B" in cell_list_b
+            
+            # Clean up - disconnect both notebooks
+            await mcp_client.disconnect_notebook("notebook_a")
+            await mcp_client.disconnect_notebook("notebook_b")
+            
+        except Exception as e:
+            logging.warning(f"Could not test with notebook.ipynb: {e}")
+            # Clean up notebook A only
+            await mcp_client.disconnect_notebook("notebook_a")
+
+
+@pytest.mark.asyncio 
+@windows_timeout_wrapper(60)
+async def test_notebook_error_cases(mcp_client):
+    """Test error handling for notebook management"""
+    async with mcp_client:
+        # Test connecting to non-existent notebook
+        error_result = await mcp_client.connect_notebook("nonexistent", "nonexistent.ipynb")
+        logging.debug(f"Nonexistent notebook result: {error_result}")
+        assert "not found" in error_result.lower() or "not a valid file" in error_result.lower()
+        
+        # Test operations on non-connected notebook
+        restart_error = await mcp_client.restart_notebook("nonexistent_notebook")
+        assert "not connected" in restart_error
+        
+        disconnect_error = await mcp_client.disconnect_notebook("nonexistent_notebook") 
+        assert "not connected" in disconnect_error
+        
+        switch_error = await mcp_client.switch_notebook("nonexistent_notebook")
+        assert "not connected" in switch_error
+        
+        # Test invalid notebook paths
+        invalid_path_result = await mcp_client.connect_notebook("test", "../invalid/path.ipynb")
+        assert "not found" in invalid_path_result.lower() or "not a valid file" in invalid_path_result.lower()

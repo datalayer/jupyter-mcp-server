@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "jupyter-kernel-client>=0.7.3",
     "jupyter-nbmodel-client>=0.13.5",
+    "jupyter-server-client",
     "mcp[cli]>=1.10.1",
     "pydantic",
     "uvicorn",

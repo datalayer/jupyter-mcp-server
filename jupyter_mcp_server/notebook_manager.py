@@ -64,6 +64,7 @@ class NotebookManager:
     def __init__(self):
         self._notebooks: Dict[str, Dict[str, Any]] = {}
         self._default_notebook_name = "default"
+        self._current_notebook: Optional[str] = None  # Currently active notebook
     
     def __contains__(self, name: str) -> bool:
         """Check if a notebook is managed by this instance."""
@@ -100,6 +101,11 @@ class NotebookManager:
                 "path": path or config.document_id
             }
         }
+        
+        # For backward compatibility: if this is the first notebook or it's "default",
+        # set it as the current notebook
+        if self._current_notebook is None or name == self._default_notebook_name:
+            self._current_notebook = name
     
     def remove_notebook(self, name: str) -> bool:
         """
@@ -121,6 +127,18 @@ class NotebookManager:
                 pass
             finally:
                 del self._notebooks[name]
+                
+                # If we removed the current notebook, update the current pointer
+                if self._current_notebook == name:
+                    # Set to another notebook if available, prefer "default" for compatibility
+                    if self._default_notebook_name in self._notebooks:
+                        self._current_notebook = self._default_notebook_name
+                    elif self._notebooks:
+                        # Set to the first available notebook
+                        self._current_notebook = next(iter(self._notebooks.keys()))
+                    else:
+                        # No notebooks left
+                        self._current_notebook = None
             return True
         return False
     
@@ -198,3 +216,83 @@ class NotebookManager:
             self.add_notebook(name, new_kernel)
             return new_kernel
         return kernel
+    
+    def set_current_notebook(self, name: str) -> bool:
+        """
+        Set the currently active notebook.
+        
+        Args:
+            name: Notebook identifier
+            
+        Returns:
+            True if set successfully, False if notebook doesn't exist
+        """
+        if name in self._notebooks:
+            self._current_notebook = name
+            return True
+        return False
+    
+    def get_current_notebook(self) -> Optional[str]:
+        """
+        Get the name of the currently active notebook.
+        
+        Returns:
+            Current notebook name or None if no active notebook
+        """
+        return self._current_notebook
+    
+    def get_current_connection(self) -> NotebookConnection:
+        """
+        Get the connection for the currently active notebook.
+        For backward compatibility, defaults to "default" if no current notebook is set.
+        
+        Returns:
+            NotebookConnection context manager for the current notebook
+            
+        Raises:
+            ValueError: If no notebooks exist and no default config is available
+        """
+        current = self._current_notebook or self._default_notebook_name
+        
+        # For backward compatibility: if the requested notebook doesn't exist but we're 
+        # asking for default, create a connection using the default config
+        if current not in self._notebooks and current == self._default_notebook_name:
+            # Return a connection using default configuration
+            config = get_config()
+            return NotebookConnection({
+                "server_url": config.document_url,
+                "token": config.document_token,
+                "path": config.document_id
+            })
+        
+        return self.get_notebook_connection(current)
+    
+    def list_all_notebooks(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get information about all managed notebooks.
+        
+        Returns:
+            Dictionary with notebook names as keys and their info as values
+        """
+        result = {}
+        for name, notebook_data in self._notebooks.items():
+            kernel = notebook_data["kernel"]
+            notebook_info = notebook_data["notebook_info"]
+            
+            # Check kernel status
+            kernel_status = "unknown"
+            if kernel:
+                try:
+                    kernel_status = "alive" if hasattr(kernel, 'is_alive') and kernel.is_alive() else "dead"
+                except Exception:
+                    kernel_status = "error"
+            else:
+                kernel_status = "not_initialized"
+            
+            result[name] = {
+                "path": notebook_info.get("path", ""),
+                "kernel_status": kernel_status,
+                "is_current": name == self._current_notebook
+            }
+        
+        return result
