@@ -992,50 +992,69 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
         List of outputs from the executed code
     """
     async def _execute_ipython():
-        # Get current notebook name and kernel
-        current_notebook = notebook_manager.get_current_notebook() or "default"
-        kernel = notebook_manager.get_kernel(current_notebook)
-        
-        if not kernel:
-            # Ensure kernel is alive
-            kernel = __ensure_kernel_alive()
+        # Ensure kernel is alive
+        kernel = __ensure_kernel_alive()
         
         # Wait for kernel to be idle before executing
         await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
         
         logger.info(f"Executing IPython code with timeout {timeout}s: {code[:100]}...")
         
-        try:
-            # Execute code directly with kernel
-            execution_task = asyncio.create_task(
-                asyncio.to_thread(kernel.execute, code)
-            )
+        # Use notebook connection to create and execute a temporary cell
+        async with notebook_manager.get_current_connection() as notebook:
+            ydoc = notebook._doc
+            original_cell_count = len(ydoc._ycells)
             
-            # Wait for execution with timeout
             try:
-                outputs = await asyncio.wait_for(execution_task, timeout=timeout)
-            except asyncio.TimeoutError:
-                execution_task.cancel()
-                try:
-                    if kernel and hasattr(kernel, 'interrupt'):
-                        kernel.interrupt()
-                        logger.info("Sent interrupt signal to kernel due to timeout")
-                except Exception as interrupt_err:
-                    logger.error(f"Failed to interrupt kernel: {interrupt_err}")
+                # Add temporary code cell at the end
+                notebook.add_code_cell(code)
+                temp_cell_index = original_cell_count
                 
-                return [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"]
-            
-            # Process and extract outputs
-            if outputs:
-                result = safe_extract_outputs(outputs)
+                # Execute the temporary cell with timeout
+                execution_task = asyncio.create_task(
+                    asyncio.to_thread(notebook.execute_cell, temp_cell_index, kernel)
+                )
+                
+                try:
+                    await asyncio.wait_for(execution_task, timeout=timeout)
+                except asyncio.TimeoutError:
+                    execution_task.cancel()
+                    try:
+                        if kernel and hasattr(kernel, 'interrupt'):
+                            kernel.interrupt()
+                            logger.info("Sent interrupt signal to kernel due to timeout")
+                    except Exception as interrupt_err:
+                        logger.error(f"Failed to interrupt kernel: {interrupt_err}")
+                    
+                    # Clean up temporary cell before returning
+                    try:
+                        del ydoc._ycells[temp_cell_index]
+                    except Exception:
+                        pass
+                    return [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"]
+                
+                # Get outputs from the temporary cell
+                if temp_cell_index < len(ydoc._ycells):
+                    outputs = ydoc._ycells[temp_cell_index]["outputs"]
+                    result = safe_extract_outputs(outputs)
+                else:
+                    result = ["[No output generated]"]
+                
                 logger.info(f"IPython execution completed successfully with {len(result)} outputs")
                 return result
-            else:
-                return ["[No output generated]"]
                 
-        except Exception as e:
-            logger.error(f"Error executing IPython code: {e}")
-            return [f"[ERROR: {str(e)}]"]
+            except Exception as e:
+                logger.error(f"Error executing IPython code: {e}")
+                return [f"[ERROR: {str(e)}]"]
+                
+            finally:
+                # Always clean up the temporary cell
+                try:
+                    if temp_cell_index < len(ydoc._ycells):
+                        del ydoc._ycells[temp_cell_index]
+                        logger.debug(f"Cleaned up temporary cell at index {temp_cell_index}")
+                except Exception as cleanup_err:
+                    logger.warning(f"Failed to clean up temporary cell: {cleanup_err}")
     
     return await __safe_notebook_operation(_execute_ipython, max_retries=1)
 
