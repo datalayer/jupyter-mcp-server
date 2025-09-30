@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main","feature/execute-ipython"]
   pull_request:
 
 defaults:
