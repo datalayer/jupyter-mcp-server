@@ -969,6 +969,77 @@ async def delete_cell(cell_index: int) -> str:
     return await __safe_notebook_operation(_delete_cell)
 
 
+@mcp.tool()
+async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, ImageContent]]:
+    """Execute IPython code directly in the kernel on the current active notebook.
+    
+    This powerful tool supports:
+    1. Magic commands (e.g., %timeit, %who, %load, %run, %matplotlib)
+    2. Shell commands (e.g., !pip install, !ls, !cat)
+    3. Python code (e.g., print(df.head()), df.info())
+    
+    Use cases:
+    - Performance profiling and debugging
+    - Environment exploration and package management
+    - Variable inspection and data analysis
+    - File system operations on Jupyter server
+    - Temporary calculations and quick tests
+
+    Args:
+        code: IPython code to execute (supports magic commands, shell commands with !, and Python code)
+        timeout: Execution timeout in seconds (default: 60s)
+    Returns:
+        List of outputs from the executed code
+    """
+    async def _execute_ipython():
+        # Get current notebook name and kernel
+        current_notebook = notebook_manager.get_current_notebook() or "default"
+        kernel = notebook_manager.get_kernel(current_notebook)
+        
+        if not kernel:
+            # Ensure kernel is alive
+            kernel = __ensure_kernel_alive()
+        
+        # Wait for kernel to be idle before executing
+        await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
+        
+        logger.info(f"Executing IPython code with timeout {timeout}s: {code[:100]}...")
+        
+        try:
+            # Execute code directly with kernel
+            execution_task = asyncio.create_task(
+                asyncio.to_thread(kernel.execute, code)
+            )
+            
+            # Wait for execution with timeout
+            try:
+                outputs = await asyncio.wait_for(execution_task, timeout=timeout)
+            except asyncio.TimeoutError:
+                execution_task.cancel()
+                try:
+                    if kernel and hasattr(kernel, 'interrupt'):
+                        kernel.interrupt()
+                        logger.info("Sent interrupt signal to kernel due to timeout")
+                except Exception as interrupt_err:
+                    logger.error(f"Failed to interrupt kernel: {interrupt_err}")
+                
+                return [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"]
+            
+            # Process and extract outputs
+            if outputs:
+                result = safe_extract_outputs(outputs)
+                logger.info(f"IPython execution completed successfully with {len(result)} outputs")
+                return result
+            else:
+                return ["[No output generated]"]
+                
+        except Exception as e:
+            logger.error(f"Error executing IPython code: {e}")
+            return [f"[ERROR: {str(e)}]"]
+    
+    return await __safe_notebook_operation(_execute_ipython, max_retries=1)
+
+
 ###############################################################################
 # Commands.
 

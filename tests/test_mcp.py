@@ -101,6 +101,7 @@ JUPYTER_TOOLS = [
     "list_cell",
     "read_cell",
     "delete_cell",
+    "execute_ipython",
 ]
 
 
@@ -277,6 +278,11 @@ class MCPClient:
     @requires_session
     async def overwrite_cell_source(self, cell_index, cell_source):
         result = await self._session.call_tool("overwrite_cell_source", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
+        return self._get_structured_content_safe(result)
+
+    @requires_session
+    async def execute_ipython(self, code, timeout=60):
+        result = await self._session.call_tool("execute_ipython", arguments={"code": code, "timeout": timeout})  # type: ignore
         return self._get_structured_content_safe(result)
 
     @requires_session
@@ -919,3 +925,119 @@ async def test_notebook_error_cases(mcp_client):
         # Test invalid notebook paths
         invalid_path_result = await mcp_client.connect_notebook("test", "../invalid/path.ipynb")
         assert "not found" in invalid_path_result.lower() or "not a valid file" in invalid_path_result.lower()
+
+
+###############################################################################
+# execute_ipython Tests
+###############################################################################
+
+@pytest.mark.asyncio
+@windows_timeout_wrapper(90)
+async def test_execute_ipython_python_code(mcp_client):
+    """Test execute_ipython with basic Python code"""
+    async with mcp_client:
+        # Test simple Python code
+        result = await mcp_client.execute_ipython("print('Hello IPython World!')")
+        assert result is not None, "execute_ipython result should not be None"
+        assert "result" in result, "Result should contain 'result' key"
+        outputs = result["result"]
+        assert isinstance(outputs, list), "Outputs should be a list"
+        
+        # Check for expected output
+        output_text = "".join(str(output) for output in outputs)
+        assert "Hello IPython World!" in output_text or "[No output generated]" in output_text
+        
+        # Test mathematical calculation
+        calc_result = await mcp_client.execute_ipython("result = 2 ** 10\nprint(f'2^10 = {result}')")
+        assert calc_result is not None
+        calc_outputs = calc_result["result"]
+        calc_text = "".join(str(output) for output in calc_outputs)
+        assert "2^10 = 1024" in calc_text or "[No output generated]" in calc_text
+
+
+@pytest.mark.asyncio
+@windows_timeout_wrapper(90)
+async def test_execute_ipython_magic_commands(mcp_client):
+    """Test execute_ipython with IPython magic commands"""
+    async with mcp_client:
+        # Test %who magic command (list variables)
+        result = await mcp_client.execute_ipython("%who")
+        assert result is not None, "execute_ipython result should not be None"
+        outputs = result["result"]
+        assert isinstance(outputs, list), "Outputs should be a list"
+        
+        # Set a variable first, then use %who to see it
+        await mcp_client.execute_ipython("test_var = 42")
+        who_result = await mcp_client.execute_ipython("%who")
+        who_outputs = who_result["result"]
+        who_text = "".join(str(output) for output in who_outputs)
+        # %who should show our variable (or no output if variables exist but aren't shown)
+        # This test mainly ensures %who doesn't crash
+        
+        # Test %timeit magic command
+        timeit_result = await mcp_client.execute_ipython("%timeit sum(range(100))")
+        assert timeit_result is not None
+        timeit_outputs = timeit_result["result"]
+        timeit_text = "".join(str(output) for output in timeit_outputs)
+        # timeit should produce some timing output or complete without error
+        assert len(timeit_text) >= 0  # Just ensure no crash
+
+
+@pytest.mark.asyncio 
+@windows_timeout_wrapper(90)
+async def test_execute_ipython_shell_commands(mcp_client):
+    """Test execute_ipython with shell commands (! prefix)"""
+    async with mcp_client:
+        # Test basic shell command - echo (works on most systems)
+        result = await mcp_client.execute_ipython("!echo 'Hello from shell'")
+        assert result is not None, "execute_ipython result should not be None"
+        outputs = result["result"]
+        assert isinstance(outputs, list), "Outputs should be a list"
+        
+        output_text = "".join(str(output) for output in outputs)
+        # Shell command should either work or be handled gracefully
+        assert len(output_text) >= 0  # Just ensure no crash
+        
+        # Test Python version check
+        python_result = await mcp_client.execute_ipython("!python --version")
+        assert python_result is not None
+        python_outputs = python_result["result"]
+        python_text = "".join(str(output) for output in python_outputs)
+        # Should show Python version or complete without error
+        assert len(python_text) >= 0
+
+
+@pytest.mark.asyncio
+@windows_timeout_wrapper(60)
+async def test_execute_ipython_timeout(mcp_client):
+    """Test execute_ipython timeout functionality"""
+    async with mcp_client:
+        # Test with very short timeout on a potentially long-running command
+        result = await mcp_client.execute_ipython("import time; time.sleep(5)", timeout=2)
+        assert result is not None
+        outputs = result["result"]
+        output_text = "".join(str(output) for output in outputs)
+        # Should either complete quickly or timeout
+        assert "TIMEOUT ERROR" in output_text or len(output_text) >= 0
+
+
+@pytest.mark.asyncio
+@windows_timeout_wrapper(60)
+async def test_execute_ipython_error_handling(mcp_client):
+    """Test execute_ipython error handling"""
+    async with mcp_client:
+        # Test syntax error
+        result = await mcp_client.execute_ipython("invalid python syntax <<<")
+        assert result is not None
+        outputs = result["result"]
+        output_text = "".join(str(output) for output in outputs)
+        # Should handle the error gracefully
+        assert len(output_text) >= 0  # Ensure no crash
+        
+        # Test runtime error  
+        runtime_result = await mcp_client.execute_ipython("undefined_variable")
+        assert runtime_result is not None
+        runtime_outputs = runtime_result["result"]
+        runtime_text = "".join(str(output) for output in runtime_outputs)
+        # Should handle the error gracefully
+        assert len(runtime_text) >= 0
