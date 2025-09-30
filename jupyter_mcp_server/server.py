@@ -1006,52 +1006,14 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
         logger.info(f"Executing IPython code with timeout {timeout}s: {code[:100]}...")
         
         try:
-            # Collect outputs from kernel execution
-            outputs = []
-            
-            def output_hook(msg):
-                """Callback to collect outputs during execution"""
-                msg_type = msg['header']['msg_type']
-                content = msg['content']
-                
-                if msg_type == 'stream':
-                    outputs.append({
-                        'output_type': 'stream',
-                        'name': content.get('name', 'stdout'),
-                        'text': content.get('text', '')
-                    })
-                elif msg_type in ['display_data', 'execute_result']:
-                    outputs.append({
-                        'output_type': msg_type,
-                        'data': content.get('data', {}),
-                        'metadata': content.get('metadata', {})
-                    })
-                elif msg_type == 'error':
-                    outputs.append({
-                        'output_type': 'error',
-                        'ename': content.get('ename', ''),
-                        'evalue': content.get('evalue', ''),
-                        'traceback': content.get('traceback', [])
-                    })
-            
-            # Execute code with kernel using execute_interactive
+            # Execute code directly with kernel
             execution_task = asyncio.create_task(
-                asyncio.to_thread(
-                    kernel.execute_interactive,
-                    code,
-                    output_hook=output_hook,
-                    allow_stdin=False,
-                    silent=False,
-                    store_history=True,
-                    stop_on_error=False,
-                    timeout=timeout
-                )
+                asyncio.to_thread(kernel.execute, code)
             )
             
             # Wait for execution with timeout
             try:
-                reply = await asyncio.wait_for(execution_task, timeout=timeout + 5)
-                logger.info(f"IPython execution completed with status: {reply['content'].get('status', 'unknown')}")
+                outputs = await asyncio.wait_for(execution_task, timeout=timeout)
             except asyncio.TimeoutError:
                 execution_task.cancel()
                 try:
@@ -1065,7 +1027,7 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
             
             # Process and extract outputs
             if outputs:
-                result = safe_extract_outputs(outputs)
+                result = safe_extract_outputs(outputs['outputs'])
                 logger.info(f"IPython execution completed successfully with {len(result)} outputs")
                 return result
             else:
