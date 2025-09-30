@@ -1,6 +1,6 @@
 # Tools
 
-The server currently offers 15 tools organized into two categories:
+The server currently offers 16 tools organized into two categories:
 
 ## Multi-Notebook Management Tools (5 tools)
 
@@ -41,7 +41,7 @@ The server currently offers 15 tools organized into two categories:
   - `notebook_name`(string): Notebook identifier to disconnect
 - Returns: Success message
 
-## Cell Tools (10 tools)
+## Cell Tools (11 tools)
 
 #### 6. `insert_cell`
 
@@ -122,3 +122,22 @@ The server currently offers 15 tools organized into two categories:
   - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs from the executed cell (supports multimodal output including images)
+
+#### 16. `execute_ipython`
+
+- Execute IPython code directly in the kernel on the current active notebook.
+- This powerful tool supports:
+  1. Magic commands (e.g., %timeit, %who, %load, %run, %matplotlib)
+  2. Shell commands (e.g., !pip install, !ls, !cat)
+  3. Python code (e.g., print(df.head()), df.info())
+- Use cases:
+  - Performance profiling and debugging
+  - Environment exploration and package management
+  - Variable inspection and data analysis
+  - File system operations on Jupyter server
+  - Temporary calculations and quick tests
+- Input:
+  - `code`(string): IPython code to execute (supports magic commands, shell commands with !, and Python code)
+  - `timeout`(int): Execution timeout in seconds (default: 60s)
+- Returns:
+  - `list[Union[str, ImageContent]]`: List of outputs from the executed code (supports multimodal output including images)
