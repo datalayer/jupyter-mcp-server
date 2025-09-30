@@ -472,7 +472,7 @@ async def test_mcp_tool_list(mcp_client):
     )
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(60)
+@windows_timeout_wrapper(30)
 async def test_markdown_cell(mcp_client, content="Hello **World** !"):
     """Test markdown cell manipulation using unified insert_cell API"""
 
@@ -519,7 +519,7 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
 
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(60)
+@windows_timeout_wrapper(30)
 async def test_code_cell(mcp_client, content="1 + 1"):
     """Test code cell manipulation using unified APIs"""
     async def check_and_delete_code_cell(mcp_client, index, content):
@@ -580,7 +580,7 @@ async def test_code_cell(mcp_client, content="1 + 1"):
 
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(60)
+@windows_timeout_wrapper(30)
 async def test_list_cell(mcp_client):
     """Test list_cell functionality"""
     async with mcp_client:
@@ -635,7 +635,7 @@ async def test_list_cell(mcp_client):
         await mcp_client.delete_cell(current_count - 2)  # Remove the markdown cell
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(60)
+@windows_timeout_wrapper(30)
 async def test_overwrite_cell_diff(mcp_client):
     """Test overwrite_cell_source diff functionality"""
     async with mcp_client:
@@ -686,7 +686,7 @@ async def test_overwrite_cell_diff(mcp_client):
         await mcp_client.delete_cell(cell_index)      # Then delete code cell
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(90)
+@windows_timeout_wrapper(30)
 async def test_bad_index(mcp_client, index=99):
     """Test behavior of all index-based tools if the index does not exist"""
     async with mcp_client:
@@ -700,7 +700,7 @@ async def test_bad_index(mcp_client, index=99):
 
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(90)
+@windows_timeout_wrapper(30)
 async def test_multimodal_output(mcp_client):
     """Test multimodal output functionality with image generation"""
     async with mcp_client:
@@ -786,7 +786,7 @@ display(IPythonImage(buffer.getvalue()))
 ###############################################################################
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(120)
+@windows_timeout_wrapper(30)
 async def test_multi_notebook_management(mcp_client):
     """Test multi-notebook management functionality"""
     async with mcp_client:
@@ -853,7 +853,7 @@ async def test_multi_notebook_management(mcp_client):
 
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(90)
+@windows_timeout_wrapper(30)
 async def test_multi_notebook_cell_operations(mcp_client):
     """Test cell operations across multiple notebooks"""
     async with mcp_client:
@@ -903,7 +903,7 @@ async def test_multi_notebook_cell_operations(mcp_client):
 
 
 @pytest.mark.asyncio 
-@windows_timeout_wrapper(60)
+@windows_timeout_wrapper(30)
 async def test_notebook_error_cases(mcp_client):
     """Test error handling for notebook management"""
     async with mcp_client:
@@ -932,7 +932,7 @@ async def test_notebook_error_cases(mcp_client):
 ###############################################################################
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(90)
+@windows_timeout_wrapper(30)
 async def test_execute_ipython_python_code(mcp_client):
     """Test execute_ipython with basic Python code"""
     async with mcp_client:
@@ -956,7 +956,7 @@ async def test_execute_ipython_python_code(mcp_client):
 
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(90)
+@windows_timeout_wrapper(30)
 async def test_execute_ipython_magic_commands(mcp_client):
     """Test execute_ipython with IPython magic commands"""
     async with mcp_client:
@@ -984,7 +984,7 @@ async def test_execute_ipython_magic_commands(mcp_client):
 
 
 @pytest.mark.asyncio 
-@windows_timeout_wrapper(90)
+@windows_timeout_wrapper(30)
 async def test_execute_ipython_shell_commands(mcp_client):
     """Test execute_ipython with shell commands (! prefix)"""
     async with mcp_client:
@@ -1008,7 +1008,7 @@ async def test_execute_ipython_shell_commands(mcp_client):
 
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(60)
+@windows_timeout_wrapper(30)
 async def test_execute_ipython_timeout(mcp_client):
     """Test execute_ipython timeout functionality"""
     async with mcp_client:
@@ -1022,7 +1022,7 @@ async def test_execute_ipython_timeout(mcp_client):
 
 
 @pytest.mark.asyncio
-@windows_timeout_wrapper(60)
+@windows_timeout_wrapper(30)
 async def test_execute_ipython_error_handling(mcp_client):
     """Test execute_ipython error handling"""
     async with mcp_client:

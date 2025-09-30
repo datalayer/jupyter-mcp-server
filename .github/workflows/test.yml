@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: ["main","feature/execute-ipython"]
+    branches: ["main"]
   pull_request:
-    branches: ["main","feature/execute-ipython"]
+    branches: ["main"]
 
 defaults:
   run:
