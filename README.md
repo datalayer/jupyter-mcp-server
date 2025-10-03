@@ -17,7 +17,7 @@
 
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server)](https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server)
 
-> 🚨 **BREAKING CHANGE** For version `0.11.0+`, `room` has been renamed to `document`. [Read more in the release notes.](https://jupyter-mcp-server.datalayer.tech/releases)
+> 🚨 **NEW IN 0.14.0:** Multi-notebook support! You can now seamlessly switch between multiple notebooks in a single session. [Read more in the release notes.](https://jupyter-mcp-server.datalayer.tech/releases)
 
 **Jupyter MCP Server** is a [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server implementation that enables **real-time** interaction with 📓 Jupyter Notebooks, allowing AI to edit, document and execute code for data analysis, visualization etc.
 
@@ -29,11 +29,12 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 - 🔁 **Smart execution:** Automatically adjusts when a cell run fails thanks to cell output feedback.
 - 🧠 **Context-aware:** Understands the entire notebook context for more relevant interactions.
 - 📊 **Multimodal support:** Support different output types, including images, plots, and text.
+- 📁 **Multi-notebook support:** Seamlessly switch between multiple notebooks.
 - 🤝 **MCP-compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
-🛠️ This MCP offers multiple tools such as `insert_execute_code_cell`, `append_markdown_cell`, `get_notebook_info`, `read_cell`, and more, enabling advanced interactions with Jupyter notebooks. Explore our [tools documentation](https://jupyter-mcp-server.datalayer.tech/tools) to learn about all the tools powering Jupyter MCP Server.
+🛠️ This MCP offers multiple tools such as `insert_cell`, `execute_cell`, `list_all_files`, `read_cell`, and more, enabling advanced interactions with Jupyter notebooks. Explore our [tools documentation](https://jupyter-mcp-server.datalayer.tech/tools) to learn about all the tools powering Jupyter MCP Server.
 
 ## 🏁 Getting Started
 
@@ -54,22 +55,26 @@ pip install datalayer_pycrdt==0.12.17
 jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
-#### JupyterHub
+> [!NOTE]
+> If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
+>
+> - Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
+> - Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 
-If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
-
-- Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
-- Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 
 ### 3. Configure Your Preferred MCP Client
 
-> [!NOTE]
+> [!TIP]
 >
-> Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
+> 1. Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
 >
-> The `DOCUMENT_ID` which is the path to the notebook you want to connect to, should be relative to the directory where JupyterLab was started.
+> 2. In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and is actually the Jupyter Token.
 >
-> In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and is actually the Jupyter Token.
+> 3. The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.  
+> 
+> - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
+> - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
+> 
 
 #### MacOS and Windows
 

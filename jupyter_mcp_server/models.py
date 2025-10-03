@@ -5,7 +5,7 @@
 from typing import Optional, Literal, Union
 from pydantic import BaseModel
 from mcp.types import ImageContent
-from jupyter_mcp_server.utils import safe_extract_outputs
+from jupyter_mcp_server.utils import safe_extract_outputs, normalize_cell_source
 
 
 class DocumentRuntime(BaseModel):
@@ -37,6 +37,10 @@ class CellInfo(BaseModel):
                 outputs = safe_extract_outputs(outputs)
             except Exception as e:
                 outputs = [f"[Error reading outputs: {str(e)}]"]
+        
+        # Properly normalize the cell source to a list of lines
+        source = normalize_cell_source(cell.get("source", ""))
+        
         return cls(
-            index=cell_index, type=type, source=cell.get("source", ""), outputs=outputs
+            index=cell_index, type=type, source=source, outputs=outputs
         )

@@ -277,6 +277,80 @@ async def __safe_notebook_operation(operation_func, max_retries=3):
     raise Exception("Unexpected error in retry logic")
 
 
+def _list_notebooks_recursively(server_client, path="", notebooks=None):
+    """Recursively list all .ipynb files in the Jupyter server."""
+    if notebooks is None:
+        notebooks = []
+    
+    try:
+        contents = server_client.contents.list_directory(path)
+        for item in contents:
+            full_path = f"{path}/{item.name}" if path else item.name
+            if item.type == "directory":
+                # Recursively search subdirectories
+                _list_notebooks_recursively(server_client, full_path, notebooks)
+            elif item.type == "notebook" or (item.type == "file" and item.name.endswith('.ipynb')):
+                # Add notebook to list without any prefix
+                notebooks.append(full_path)
+    except Exception as e:
+        # If we can't access a directory, just skip it
+        pass
+    
+    return notebooks
+
+
+def _list_files_recursively(server_client, current_path="", current_depth=0, files=None, max_depth=3):
+    """Recursively list all files and directories in the Jupyter server."""
+    if files is None:
+        files = []
+    
+    # Stop if we've reached max depth
+    if current_depth > max_depth:
+        return files
+    
+    try:
+        contents = server_client.contents.list_directory(current_path)
+        for item in contents:
+            full_path = f"{current_path}/{item.name}" if current_path else item.name
+            
+            # Format size
+            size_str = ""
+            if hasattr(item, 'size') and item.size is not None:
+                if item.size < 1024:
+                    size_str = f"{item.size}B"
+                elif item.size < 1024 * 1024:
+                    size_str = f"{item.size // 1024}KB"
+                else:
+                    size_str = f"{item.size // (1024 * 1024)}MB"
+            
+            # Format last modified
+            last_modified = ""
+            if hasattr(item, 'last_modified') and item.last_modified:
+                last_modified = item.last_modified.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Add file/directory to list
+            files.append({
+                'path': full_path,
+                'type': item.type,
+                'size': size_str,
+                'last_modified': last_modified
+            })
+            
+            # Recursively explore directories
+            if item.type == "directory":
+                _list_files_recursively(server_client, full_path, current_depth + 1, files, max_depth)
+                
+    except Exception as e:
+        # If we can't access a directory, add an error entry
+        files.append({
+            'path': current_path or "root",
+            'type': "error",
+            'size': "",
+            'last_modified': f"Error: {str(e)}"
+        })
+    
+    return files
+
 ###############################################################################
 # Custom Routes.
 
@@ -371,7 +445,7 @@ async def connect_notebook(
     
     Args:
         notebook_name: Unique identifier for the notebook
-        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "./notebook.ipynb")
+        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
         mode: "connect" to connect to existing, "create" to create new
         kernel_id: Specific kernel ID to use (optional, will create new if not provided)
         
@@ -440,29 +514,65 @@ async def connect_notebook(
         token=config.runtime_token,
         path=notebook_path
     )
+    notebook_manager.set_current_notebook(notebook_name)
     
     return f"Successfully {'created and ' if mode == 'create' else ''}connected to notebook '{notebook_name}' at path '{notebook_path}'."
 
 
 @mcp.tool()
 async def list_notebook() -> str:
-    """List all currently connected notebooks with their information.
+    """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
+    
+    To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `connect_notebook` tool.
     
     Returns:
-        str: TSV formatted table with notebook information
+        str: TSV formatted table with notebook information including management status
     """
-    notebooks_info = notebook_manager.list_all_notebooks()
+    # Get all notebooks from the Jupyter server
+    config = get_config()
+    server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+    all_notebooks = _list_notebooks_recursively(server_client)
     
-    if not notebooks_info:
-        return "No notebooks are currently connected."
+    # Get managed notebooks info
+    managed_notebooks = notebook_manager.list_all_notebooks()
+    
+    if not all_notebooks and not managed_notebooks:
+        return "No notebooks found in the Jupyter server."
     
     # Create TSV formatted output
-    lines = ["Name\tPath\tStatus\tCurrent"]
-    lines.append("-" * 80)
+    lines = ["Path\tManaged\tName\tStatus\tCurrent"]
+    lines.append("-" * 100)
     
-    for name, info in notebooks_info.items():
-        current_marker = "✓" if info["is_current"] else ""
-        lines.append(f"{name}\t{info['path']}\t{info['kernel_status']}\t{current_marker}")
+    # Create a set of managed notebook paths for quick lookup
+    managed_paths = {info["path"] for info in managed_notebooks.values()}
+    
+    # Add all notebooks found in the server
+    for notebook_path in sorted(all_notebooks):
+        is_managed = notebook_path in managed_paths
+        
+        if is_managed:
+            # Find the managed notebook entry
+            managed_info = None
+            managed_name = None
+            for name, info in managed_notebooks.items():
+                if info["path"] == notebook_path:
+                    managed_info = info
+                    managed_name = name
+                    break
+            
+            if managed_info:
+                current_marker = "✓" if managed_info["is_current"] else ""
+                lines.append(f"{notebook_path}\tYes\t{managed_name}\t{managed_info['kernel_status']}\t{current_marker}")
+            else:
+                lines.append(f"{notebook_path}\tYes\t-\t-\t")
+        else:
+            lines.append(f"{notebook_path}\tNo\t-\t-\t")
+    
+    # Add any managed notebooks that weren't found in the server (edge case)
+    for name, info in managed_notebooks.items():
+        if info["path"] not in all_notebooks:
+            current_marker = "✓" if info["is_current"] else ""
+            lines.append(f"{info['path']}\tYes (not found)\t{name}\t{info['kernel_status']}\t{current_marker}")
     
     return "\n".join(lines)
 
@@ -1038,6 +1148,132 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
             return [f"[ERROR: {str(e)}]"]
     
     return await __safe_notebook_operation(_execute_ipython, max_retries=1)
+
+
+@mcp.tool()
+async def list_all_files(path: str = "", max_depth: int = 3) -> str:
+    """List all files and directories in the Jupyter server's file system.
+    
+    This tool recursively lists files and directories from the Jupyter server's content API,
+    showing the complete file structure including notebooks, data files, scripts, and directories.
+    
+    Args:
+        path: The starting path to list from (empty string means root directory)
+        max_depth: Maximum depth to recurse into subdirectories (default: 3)
+        
+    Returns:
+        str: Tab-separated table with columns: Path, Type, Size, Last_Modified
+    """
+    async def _list_all_files():
+        config = get_config()
+        server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+        
+        # Get all files starting from the specified path using the utility function
+        all_files = _list_files_recursively(server_client, path, 0, None, max_depth)
+        
+        if not all_files:
+            return f"No files found in path '{path or 'root'}'"
+        
+        # Sort files by path for better readability
+        all_files.sort(key=lambda x: x['path'])
+        
+        # Create TSV formatted output
+        lines = ["Path\tType\tSize\tLast_Modified"]
+        for file_info in all_files:
+            lines.append(f"{file_info['path']}\t{file_info['type']}\t{file_info['size']}\t{file_info['last_modified']}")
+        
+        return "\n".join(lines)
+    
+    return await __safe_notebook_operation(_list_all_files)
+
+
+@mcp.tool()
+async def list_kernel() -> str:
+    """List all available kernels in the Jupyter server.
+    
+    This tool shows all running and available kernel sessions on the Jupyter server,
+    including their IDs, names, states, connection information, and kernel specifications.
+    Useful for monitoring kernel resources and identifying specific kernels for connection.
+    
+    Returns:
+        str: Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
+    """
+    async def _list_kernels():
+        config = get_config()
+        server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+        
+        try:
+            # Get all kernels from the Jupyter server
+            kernels = server_client.kernels.list_kernels()
+            
+            if not kernels:
+                return "No kernels found on the Jupyter server."
+            
+            # Get kernel specifications for additional details
+            kernels_specs = server_client.kernelspecs.list_kernelspecs()
+            
+            # Create enhanced kernel information list
+            output = []
+            for kernel in kernels:
+                kernel_info = {
+                    "id": kernel.id or "unknown",
+                    "name": kernel.name or "unknown",
+                    "state": "unknown",
+                    "connections": "unknown", 
+                    "last_activity": "unknown",
+                    "display_name": "unknown",
+                    "language": "unknown",
+                    "env": "unknown"
+                }
+                
+                # Get kernel state - this might vary depending on the API version
+                if hasattr(kernel, 'execution_state'):
+                    kernel_info["state"] = kernel.execution_state
+                elif hasattr(kernel, 'state'):
+                    kernel_info["state"] = kernel.state
+                
+                # Get connection count
+                if hasattr(kernel, 'connections'):
+                    kernel_info["connections"] = str(kernel.connections)
+                
+                # Get last activity
+                if hasattr(kernel, 'last_activity') and kernel.last_activity:
+                    if hasattr(kernel.last_activity, 'strftime'):
+                        kernel_info["last_activity"] = kernel.last_activity.strftime("%Y-%m-%d %H:%M:%S")
+                    else:
+                        kernel_info["last_activity"] = str(kernel.last_activity)
+                
+                output.append(kernel_info)
+            
+            # Enhance kernel info with specifications
+            for kernel in output:
+                kernel_name = kernel["name"]
+                if hasattr(kernels_specs, 'kernelspecs') and kernel_name in kernels_specs.kernelspecs:
+                    kernel_spec = kernels_specs.kernelspecs[kernel_name]
+                    if hasattr(kernel_spec, 'spec'):
+                        if hasattr(kernel_spec.spec, 'display_name'):
+                            kernel["display_name"] = kernel_spec.spec.display_name
+                        if hasattr(kernel_spec.spec, 'language'):
+                            kernel["language"] = kernel_spec.spec.language
+                        if hasattr(kernel_spec.spec, 'env'):
+                            # Convert env dict to a readable string format
+                            env_dict = kernel_spec.spec.env
+                            if env_dict:
+                                env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
+                                kernel["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
+            
+            # Create TSV formatted output
+            lines = ["ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment"]
+            
+            for kernel in output:
+                lines.append(f"{kernel['id']}\t{kernel['name']}\t{kernel['display_name']}\t{kernel['language']}\t{kernel['state']}\t{kernel['connections']}\t{kernel['last_activity']}\t{kernel['env']}")
+            
+            return "\n".join(lines)
+            
+        except Exception as e:
+            return f"Error listing kernels: {str(e)}"
+    
+    return await __safe_notebook_operation(_list_kernels)
 
 
 ###############################################################################
