@@ -154,11 +154,8 @@ def format_cell_list(ydoc_cells: Any) -> str:
             execution_count = "N/A"
         
         # Get first line of source
-        source = cell_data.get("source", "")
-        if isinstance(source, list):
-            first_line = source[0] if source else ""
-        else:
-            first_line = str(source)
+        source_lines = normalize_cell_source(cell_data.get("source", ""))
+        first_line = source_lines[0] if source_lines else ""
         
         # Get just the first line and truncate if too long
         first_line = first_line.split('\n')[0]
@@ -169,6 +166,47 @@ def format_cell_list(ydoc_cells: Any) -> str:
         lines.append(f"{i}\t{cell_type}\t{execution_count}\t{first_line}")
     
     return "\n".join(lines)
+
+def normalize_cell_source(source: Any) -> list[str]:
+    """
+    Normalize cell source to a list of strings (lines).
+    
+    In Jupyter notebooks, source can be either:
+    - A string (single or multi-line with \n)  
+    - A list of strings (each element is a line)
+    - CRDT text objects
+    
+    Args:
+        source: The source from a Jupyter cell
+        
+    Returns:
+        list[str]: List of source lines
+    """
+    if not source:
+        return []
+    
+    # Handle CRDT text objects
+    if hasattr(source, 'source'):
+        source = str(source.source)
+    elif hasattr(source, '__str__') and 'Text' in str(type(source)):
+        source = str(source)
+    
+    # If it's already a list, return as is
+    if isinstance(source, list):
+        return [str(line) for line in source]
+    
+    # If it's a string, split by newlines
+    if isinstance(source, str):
+        # Split by newlines but preserve the newline characters except for the last line
+        lines = source.splitlines(keepends=True)
+        # Remove trailing newline from the last line if present
+        if lines and lines[-1].endswith('\n'):
+            lines[-1] = lines[-1][:-1]
+        return lines
+    
+    # Fallback: convert to string and split
+    return str(source).splitlines(keepends=True)
+
 
 def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> str:
     """Get information about surrounding cells for context."""
@@ -196,11 +234,8 @@ def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> s
             execution_count = "N/A"
         
         # Get first line of source
-        source = cell_data.get("source", "")
-        if isinstance(source, list):
-            first_line = source[0] if source else ""
-        else:
-            first_line = str(source)
+        source_lines = normalize_cell_source(cell_data.get("source", ""))
+        first_line = source_lines[0] if source_lines else ""
         
         # Get just the first line and truncate if too long
         first_line = first_line.split('\n')[0]
