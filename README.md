@@ -29,6 +29,7 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 - 🔁 **Smart execution:** Automatically adjusts when a cell run fails thanks to cell output feedback.
 - 🧠 **Context-aware:** Understands the entire notebook context for more relevant interactions.
 - 📊 **Multimodal support:** Support different output types, including images, plots, and text.
+- 📁 **Multi-notebook support:** Seamlessly switch between multiple notebooks.
 - 🤝 **MCP-compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)

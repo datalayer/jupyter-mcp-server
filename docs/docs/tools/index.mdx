@@ -1,6 +1,6 @@
 # Tools
 
-The server currently offers 16 tools organized into two categories:
+The server currently offers 18 tools organized into 3 categories:
 
 ## Multi-Notebook Management Tools (5 tools)
 
@@ -9,16 +9,21 @@ The server currently offers 16 tools organized into two categories:
 - Connect to a notebook file or create a new one.
 - Input:
   - `notebook_name`(string): Unique identifier for the notebook
-  - `notebook_path`(string): Path to the notebook file, relative to the Jupyter server root (e.g. "./notebook.ipynb")
+  - `notebook_path`(string): Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
   - `mode`(string): "connect" to connect to existing, "create" to create new (default: "connect")
   - `kernel_id`(string, optional): Specific kernel ID to use (optional, will create new if not provided)
 - Returns: Success message with notebook information
 
 #### 2. `list_notebook`
 
-- List all currently connected notebooks with their information.
+- List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed by the notebook manager.     To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `connect_notebook` tool.
 - Input: None
-- Returns: TSV formatted table with notebook information (Name, Path, Status, Current)
+- Returns: TSV formatted table with notebook information (Path, Managed, Name, Status, Current)
+  - **Path**: Relative path to the notebook file in the Jupyter server
+  - **Managed**: "Yes" if the notebook is currently managed by the MCP server, "No" otherwise
+  - **Name**: Unique identifier for managed notebooks, "-" for unmanaged notebooks
+  - **Status**: Kernel status for managed notebooks ("alive", "dead", etc.), "-" for unmanaged notebooks
+  - **Current**: "✓" if this is the currently active managed notebook, empty otherwise
 
 #### 3. `switch_notebook`
 
@@ -41,9 +46,39 @@ The server currently offers 16 tools organized into two categories:
   - `notebook_name`(string): Notebook identifier to disconnect
 - Returns: Success message
 
+## Server Management Tools (2 tools)
+
+#### 6. `list_all_files`
+
+- List all files and directories in the Jupyter server's file system.
+- This tool recursively lists files and directories from the Jupyter server's content API, showing the complete file structure including notebooks, data files, scripts, and directories.
+- Input:
+  - `path`(string, optional): The starting path to list from (empty string means root directory)
+  - `max_depth`(int, optional): Maximum depth to recurse into subdirectories (default: 3)
+- Returns: Tab-separated table with columns: Path, Type, Size, Last_Modified
+  - **Path**: Full path to the file or directory
+  - **Type**: File type ("file", "directory", "notebook", or "error" if inaccessible)
+  - **Size**: File size formatted as B, KB, or MB (empty for directories)
+  - **Last_Modified**: Last modification timestamp in YYYY-MM-DD HH:MM:SS format
+
+#### 7. `list_kernel`
+
+- List all available kernels in the Jupyter server.
+- This tool shows all running and available kernel sessions on the Jupyter server, including their IDs, names, states, connection information, and kernel specifications. Useful for monitoring kernel resources and identifying specific kernels for connection.
+- Input: None
+- Returns: Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
+  - **ID**: Unique kernel identifier
+  - **Name**: Kernel name/type (e.g., "python3", "ir", etc.)
+  - **Display_Name**: Human-readable kernel name from kernel spec
+  - **Language**: Programming language supported by the kernel
+  - **State**: Current execution state ("idle", "busy", "unknown")
+  - **Connections**: Number of active connections to this kernel
+  - **Last_Activity**: Timestamp of last kernel activity in YYYY-MM-DD HH:MM:SS format
+  - **Environment**: Environment variables defined in the kernel spec (truncated if long)
+
 ## Cell Tools (11 tools)
 
-#### 6. `insert_cell`
+#### 8. `insert_cell`
 
 - Insert a cell to specified position with unified API.
 - Input:
@@ -52,7 +87,7 @@ The server currently offers 16 tools organized into two categories:
   - `cell_source`(string): Source content for the cell.
 - Returns: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below).
 
-#### 7. `insert_execute_code_cell`
+#### 9. `insert_execute_code_cell`
 
 - Insert and execute a code cell in a Jupyter notebook.
 - Input:
@@ -60,26 +95,26 @@ The server currently offers 16 tools organized into two categories:
   - `cell_source`(string): Code source.
 - Returns: List of outputs from the executed cell (supports multimodal output including images).
 
-#### 8. `delete_cell`
+#### 10. `delete_cell`
 
 - Delete a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to delete (0-based).
 - Returns: Success message.
 
-#### 9. `read_cell`
+#### 11. `read_cell`
 
 - Read a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to read (0-based).
 - Returns: Dictionary with cell index, type, source, and outputs (for code cells).
 
-#### 10. `read_all_cells`
+#### 12. `read_all_cells`
 
 - Read all cells from the notebook.
 - Returns:  List of cell information including index, type, source, and outputs (for code cells).
 
-#### 11. `list_cell`
+#### 13. `list_cell`
 
 - List the basic information of all cells in the notebook.
 - Returns a formatted table showing the index, type, execution count (for code cells), and first line of each cell.
@@ -87,7 +122,7 @@ The server currently offers 16 tools organized into two categories:
 - Input: None
 - Returns: Formatted table string with cell information (Index, Type, Count, First Line).
 
-#### 12. `overwrite_cell_source`
+#### 14. `overwrite_cell_source`
 
 - Overwrite the source of an existing cell.
 - Input:
@@ -95,7 +130,7 @@ The server currently offers 16 tools organized into two categories:
   - `cell_source`(string): New cell source - must match existing cell type.
 - Returns: Success message and diff style.
 
-#### 13. `execute_cell_streaming`
+#### 15. `execute_cell_streaming`
 
 - Execute cell with streaming progress updates. To be used for long-running cells.
 - Input:
@@ -105,7 +140,7 @@ The server currently offers 16 tools organized into two categories:
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs including progress updates (supports multimodal output including images)
 
-#### 14. `execute_cell_simple_timeout`
+#### 16. `execute_cell_simple_timeout`
 
 - Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells. This won't force real-time updates but will work reliably.
 - Input:
@@ -114,7 +149,7 @@ The server currently offers 16 tools organized into two categories:
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs from the executed cell (supports multimodal output including images)
 
-#### 15. `execute_cell_with_progress`
+#### 17. `execute_cell_with_progress`
 
 - Execute a specific cell with timeout and progress monitoring.
 - Input:
@@ -123,7 +158,7 @@ The server currently offers 16 tools organized into two categories:
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs from the executed cell (supports multimodal output including images)
 
-#### 16. `execute_ipython`
+#### 18. `execute_ipython`
 
 - Execute IPython code directly in the kernel on the current active notebook.
 - This powerful tool supports:
