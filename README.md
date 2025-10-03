@@ -34,7 +34,7 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
-🛠️ This MCP offers multiple tools such as `insert_execute_code_cell`, `append_markdown_cell`, `get_notebook_info`, `read_cell`, and more, enabling advanced interactions with Jupyter notebooks. Explore our [tools documentation](https://jupyter-mcp-server.datalayer.tech/tools) to learn about all the tools powering Jupyter MCP Server.
+🛠️ This MCP offers multiple tools such as `insert_cell`, `execute_cell`, `list_all_files`, `read_cell`, and more, enabling advanced interactions with Jupyter notebooks. Explore our [tools documentation](https://jupyter-mcp-server.datalayer.tech/tools) to learn about all the tools powering Jupyter MCP Server.
 
 ## 🏁 Getting Started
 
@@ -55,7 +55,7 @@ pip install datalayer_pycrdt==0.12.17
 jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
-> [!INFO]
+> [!NOTE]
 > If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
 >
 > - Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
@@ -64,7 +64,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 
 ### 3. Configure Your Preferred MCP Client
 
-> [!NOTE]
+> [!TIP]
 >
 > 1. Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
 >
