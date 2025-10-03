@@ -102,6 +102,8 @@ JUPYTER_TOOLS = [
     "read_cell",
     "delete_cell",
     "execute_ipython",
+    "list_all_files",
+    "list_kernel",
 ]
 
 
