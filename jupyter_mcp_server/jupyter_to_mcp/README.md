@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Jupyter-to-MCP HTTP Adapter
 
 This extension provides HTTP REST API endpoints that expose MCP (Model Context Protocol) tools through standard HTTP requests, acting as an adapter between HTTP clients and the MCP protocol.
