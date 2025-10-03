@@ -1,0 +1,7 @@
+{
+    "ServerApp": {
+        "jpserver_extensions": {
+            "jupyter_mcp_server.jupyter_to_mcp": true
+        }
+    }
+}

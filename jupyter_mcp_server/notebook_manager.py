@@ -241,23 +241,41 @@ class NotebookManager:
         """
         return self._current_notebook
     
-    def get_current_connection(self) -> NotebookConnection:
+    def get_current_connection(self):
         """
         Get the connection for the currently active notebook.
         For backward compatibility, defaults to "default" if no current notebook is set.
         
         Returns:
-            NotebookConnection context manager for the current notebook
+            NotebookConnection or InternalNotebookConnection context manager for the current notebook
             
         Raises:
             ValueError: If no notebooks exist and no default config is available
         """
         current = self._current_notebook or self._default_notebook_name
         
+        # Check if we should use internal connection
+        from jupyter_mcp_server.server import mcp
+        if hasattr(mcp, '_internal_client') and mcp._internal_client:
+            # Use internal connection
+            from jupyter_mcp_server.server import InternalNotebookConnection
+            
+            if current in self._notebooks:
+                notebook_info = self._notebooks[current]["notebook_info"]
+                notebook_path = notebook_info.get("path", "notebook.ipynb")
+            else:
+                # Default fallback
+                from jupyter_mcp_server.config import get_config
+                config = get_config()
+                notebook_path = config.document_id
+                
+            return InternalNotebookConnection(mcp._internal_client, notebook_path)
+        
         # For backward compatibility: if the requested notebook doesn't exist but we're 
         # asking for default, create a connection using the default config
         if current not in self._notebooks and current == self._default_notebook_name:
             # Return a connection using default configuration
+            from jupyter_mcp_server.config import get_config
             config = get_config()
             return NotebookConnection({
                 "server_url": config.document_url,

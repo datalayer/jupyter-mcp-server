@@ -49,6 +49,12 @@ typing = ["mypy>=0.990"]
 [project.scripts]
 jupyter-mcp-server = "jupyter_mcp_server.server:server"
 
+[project.entry-points."jupyter_server.extension_points.v1"]
+jupyter_to_mcp = "jupyter_mcp_server.jupyter_to_mcp.extension:JupyterToMCPExtension"
+
+[tool.hatch.build.targets.wheel.shared-data]
+"jupyter-config/jupyter_server_config.d/jupyter_to_mcp.json" = "etc/jupyter/jupyter_server_config.d/jupyter_to_mcp.json"
+
 [project.license]
 file = "LICENSE"
 
