@@ -55,22 +55,26 @@ pip install datalayer_pycrdt==0.12.17
 jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
-#### JupyterHub
+> [!INFO]
+> If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
+>
+> - Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
+> - Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 
-If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
-
-- Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
-- Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 
 ### 3. Configure Your Preferred MCP Client
 
 > [!NOTE]
 >
-> Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
+> 1. Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
 >
-> The `DOCUMENT_ID` which is the path to the notebook you want to connect to, should be relative to the directory where JupyterLab was started.
+> 2. In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and is actually the Jupyter Token.
 >
-> In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and is actually the Jupyter Token.
+> 3. The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.  
+> 
+> - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
+> - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
+> 
 
 #### MacOS and Windows
 
