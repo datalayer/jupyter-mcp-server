@@ -2,15 +2,11 @@
 #
 # BSD 3-Clause License
 
-import asyncio
 import logging
-import time
-from typing import Union, Optional
-from concurrent.futures import ThreadPoolExecutor
-
 import click
 import httpx
 import uvicorn
+from typing import Union, Optional
 from fastapi import Request
 from jupyter_kernel_client import KernelClient
 from jupyter_server_api import JupyterServerClient
@@ -292,6 +288,34 @@ def __start_kernel():
     """Start the Jupyter kernel with error handling (for backward compatibility)."""
     config = get_config()
     start_kernel(notebook_manager, config, logger)
+
+
+async def __auto_enroll_document():
+    """Automatically enroll the configured document_id as a managed notebook."""
+    config = get_config()
+    
+    # Check if document_id is configured and not already managed
+    if config.document_id and "default" not in notebook_manager:
+        try:
+            logger.info(f"Auto-enrolling document '{config.document_id}' as managed notebook 'default'")
+            
+            # Use the use_notebook_tool to properly enroll the notebook
+            result = await use_notebook_tool.execute(
+                mode=server_context.mode,
+                server_client=server_context.server_client,
+                notebook_name="default",
+                notebook_path=config.document_id,
+                connect_mode="connect",
+                kernel_id=config.runtime_id,
+                contents_manager=server_context.contents_manager,
+                kernel_manager=server_context.kernel_manager,
+                notebook_manager=notebook_manager,
+                runtime_url=config.runtime_url if config.runtime_url != "local" else None,
+                runtime_token=config.runtime_token,
+            )
+            logger.info(f"Auto-enrollment result: {result}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-enroll document: {e}. You can manually use it with use_notebook tool.")
 
 
 def __ensure_kernel_alive() -> KernelClient:
@@ -1081,7 +1105,22 @@ def start_command(
     # Reset ServerContext to pick up new configuration
     ServerContext.reset()
 
-    if config.start_new_runtime or config.runtime_id:
+    # Auto-enroll the configured document_id as a managed notebook if provided
+    if config.document_id:
+        try:
+            import asyncio
+            # Run the async enrollment in the event loop
+            asyncio.run(__auto_enroll_document())
+        except Exception as e:
+            logger.warning(f"Failed to auto-enroll document '{config.document_id}': {e}")
+            # Fallback to old behavior for backward compatibility
+            if config.start_new_runtime or config.runtime_id:
+                try:
+                    __start_kernel()
+                except Exception as e2:
+                    logger.error(f"Failed to start kernel on startup: {e2}")
+    elif config.start_new_runtime or config.runtime_id:
+        # Legacy path: start kernel if no document_id but start_new_runtime is set
         try:
             __start_kernel()
         except Exception as e:
