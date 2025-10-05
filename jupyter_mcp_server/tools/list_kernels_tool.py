@@ -6,7 +6,7 @@ from ._base import BaseTool, ServerMode
 from ..config import get_config
 
 
-class ListKernelTool(BaseTool):
+class ListKernelsTool(BaseTool):
     """List all available kernels in the Jupyter server.
     
     This tool shows all running and available kernel sessions on the Jupyter server,
@@ -16,7 +16,7 @@ class ListKernelTool(BaseTool):
     
     @property
     def name(self) -> str:
-        return "list_kernel"
+        return "list_kernels"
     
     @property
     def description(self) -> str:

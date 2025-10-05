@@ -12,7 +12,7 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.tools._registry import ToolRegistry, get_tool_registry, register_tool
 
 # Import tool implementations - Notebook Management
-from jupyter_mcp_server.tools.list_notebook_tool import ListNotebookTool
+from jupyter_mcp_server.tools.list_notebooks_tool import ListNotebooksTool
 from jupyter_mcp_server.tools.connect_notebook_tool import ConnectNotebookTool
 from jupyter_mcp_server.tools.restart_notebook_tool import RestartNotebookTool
 from jupyter_mcp_server.tools.disconnect_notebook_tool import DisconnectNotebookTool
@@ -37,7 +37,7 @@ from jupyter_mcp_server.tools.execute_cell_with_progress_tool import ExecuteCell
 # Import tool implementations - Other Tools
 from jupyter_mcp_server.tools.execute_ipython_tool import ExecuteIpythonTool
 from jupyter_mcp_server.tools.list_all_files_tool import ListAllFilesTool
-from jupyter_mcp_server.tools.list_kernel_tool import ListKernelTool
+from jupyter_mcp_server.tools.list_kernels_tool import ListKernelsTool
 
 __all__ = [
     "BaseTool",
@@ -46,7 +46,7 @@ __all__ = [
     "get_tool_registry",
     "register_tool",
     # Notebook Management
-    "ListNotebookTool",
+    "ListNotebooksTool",
     "ConnectNotebookTool",
     "RestartNotebookTool",
     "DisconnectNotebookTool",
@@ -67,7 +67,7 @@ __all__ = [
     # Other Tools
     "ExecuteIpythonTool",
     "ListAllFilesTool",
-    "ListKernelTool",
+    "ListKernelsTool",
 ]
 
 

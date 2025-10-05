@@ -47,7 +47,7 @@ from jupyter_mcp_server.tools import (
     # Other Tools
     ExecuteIpythonTool,
     ListAllFilesTool,
-    ListKernelTool,
+    ListKernelsTool,
 )
 from typing import Literal, Union
 from mcp.types import ImageContent
@@ -129,7 +129,7 @@ execute_cell_with_progress_tool = ExecuteCellWithProgressTool()
 # Other Tools
 execute_ipython_tool = ExecuteIpythonTool()
 list_all_files_tool = ListAllFilesTool()
-list_kernel_tool = ListKernelTool()
+list_kernel_tool = ListKernelsTool()
 
 
 ###############################################################################
