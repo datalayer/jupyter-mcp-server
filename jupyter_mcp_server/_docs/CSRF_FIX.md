@@ -70,8 +70,8 @@ async def options(self):
 ```
 
 ## Files Changed
-- `jupyter_mcp_server/jupyter_to_mcp/handlers.py` - Added CSRF bypass and CORS headers to `MCPASGIHandler`
-- `jupyter_mcp_server/jupyter_to_mcp/extension.py` - Updated URL pattern to match both `/mcp` and `/mcp/`
+- `jupyter_mcp_server/jupyter_extension/handlers.py` - Added CSRF bypass and CORS headers to `MCPASGIHandler`
+- `jupyter_mcp_server/jupyter_extension/extension.py` - Updated URL pattern to match both `/mcp` and `/mcp/`
 
 ## Testing
 ```bash

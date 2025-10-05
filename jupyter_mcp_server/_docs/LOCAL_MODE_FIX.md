@@ -19,7 +19,7 @@ Updated `list_notebook` tool to detect when running in local mode and use the co
 async def list_notebook() -> str:
     # Check if we should use local API or HTTP
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         
         if context.is_local_document() and context.get_contents_manager() is not None:
@@ -69,7 +69,7 @@ Created `mode_utils.py` with helper functions:
 def is_local_mode() -> bool:
     """Check if running in local API mode."""
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         return context.is_local_document() and context.get_contents_manager() is not None
     except (ImportError, Exception):
@@ -90,7 +90,7 @@ Each tool should follow this pattern:
 @mcp.tool()
 async def my_tool(param: str) -> str:
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         
         if context.is_local_document() and context.get_contents_manager() is not None:
@@ -126,7 +126,7 @@ The HTTP client methods (`server_client.contents.*`) are synchronous.
 @mcp.tool()
 async def my_kernel_tool(param: str) -> str:
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         
         if context.is_local_runtime() and context.get_kernel_manager() is not None:

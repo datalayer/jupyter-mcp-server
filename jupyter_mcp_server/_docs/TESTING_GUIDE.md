@@ -202,7 +202,7 @@ jupyter-server \
 
 ```python
 import logging
-from jupyter_mcp_server.jupyter_to_mcp.extension import JupyterMCPServerExtensionApp
+from jupyter_mcp_server.jupyter_extension.extension import JupyterMCPServerExtensionApp
 
 # Enable logging
 logging.basicConfig(level=logging.DEBUG)

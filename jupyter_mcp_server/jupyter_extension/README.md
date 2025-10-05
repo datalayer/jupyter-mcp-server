@@ -5,7 +5,7 @@ This subpackage provides the adapter layer to expose MCP server tools as a Jupyt
 ## Architecture
 
 ```
-jupyter_to_mcp/
+jupyter_extension/
 ├── context.py          # ServerContext singleton (MCP_SERVER vs JUPYTER_SERVER)
 ├── extension.py        # JupyterMCPServerExtensionApp
 ├── handlers.py         # Tornado HTTP handlers for MCP endpoints

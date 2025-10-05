@@ -20,8 +20,8 @@ from jupyter_server.utils import url_path_join
 from tornado.wsgi import WSGIContainer
 from tornado.web import FallbackHandler
 
-from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
-from jupyter_mcp_server.jupyter_to_mcp.handlers import (
+from jupyter_mcp_server.jupyter_extension.context import get_server_context
+from jupyter_mcp_server.jupyter_extension.handlers import (
     MCPHealthHandler,
     MCPToolsListHandler,
     MCPToolsCallHandler,
@@ -36,8 +36,8 @@ from traitlets import Unicode, Bool
 from jupyter_server.extension.application import ExtensionApp, ExtensionAppJinjaMixin
 from jupyter_server.utils import url_path_join
 
-from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
-from jupyter_mcp_server.jupyter_to_mcp.handlers import (
+from jupyter_mcp_server.jupyter_extension.context import get_server_context
+from jupyter_mcp_server.jupyter_extension.handlers import (
     MCPHealthHandler,
     MCPToolsListHandler,
     MCPToolsCallHandler,
@@ -156,7 +156,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         base_url = self.serverapp.base_url
         
         # Import here to avoid circular imports
-        from jupyter_mcp_server.jupyter_to_mcp.handlers import MCPSSEHandler
+        from jupyter_mcp_server.jupyter_extension.handlers import MCPSSEHandler
         
         # Define handlers
         handlers = [
@@ -212,7 +212,7 @@ def _jupyter_server_extension_points():
     """
     return [
         {
-            "module": "jupyter_mcp_server.jupyter_to_mcp.extension",
+            "module": "jupyter_mcp_server.jupyter_extension.extension",
             "app": JupyterMCPServerExtensionApp
         }
     ]

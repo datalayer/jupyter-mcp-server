@@ -45,7 +45,7 @@ This ensures we have:
 ## Changes Made
 
 ### 1. New Handler: `MCPASGIHandler` 
-**File**: `jupyter_mcp_server/jupyter_to_mcp/handlers.py`
+**File**: `jupyter_mcp_server/jupyter_extension/handlers.py`
 
 Created a new Tornado handler that wraps a Starlette ASGI application. This handler:
 - Converts Tornado requests to ASGI scope
@@ -86,7 +86,7 @@ class MCPASGIHandler(tornado.web.RequestHandler):
 ```
 
 ### 2. Updated Extension Handler Registration
-**File**: `jupyter_mcp_server/jupyter_to_mcp/extension.py`
+**File**: `jupyter_mcp_server/jupyter_extension/extension.py`
 
 Modified `initialize_handlers()` to:
 - Import the `mcp` FastMCP instance from `server.py`
@@ -97,7 +97,7 @@ Modified `initialize_handlers()` to:
 def initialize_handlers(self):
     # Import the FastMCP instance
     from jupyter_mcp_server.server import mcp
-    from jupyter_mcp_server.jupyter_to_mcp.handlers import MCPASGIHandler
+    from jupyter_mcp_server.jupyter_extension.handlers import MCPASGIHandler
     
     # Get the Starlette app
     starlette_app = mcp.streamable_http_app()
@@ -247,8 +247,8 @@ Then restart Claude Desktop and it should connect to the `/mcp` endpoint success
 
 ## Related Files
 
-- `jupyter_mcp_server/jupyter_to_mcp/handlers.py` - New `MCPASGIHandler`
-- `jupyter_mcp_server/jupyter_to_mcp/extension.py` - Updated handler registration
+- `jupyter_mcp_server/jupyter_extension/handlers.py` - New `MCPASGIHandler`
+- `jupyter_mcp_server/jupyter_extension/extension.py` - Updated handler registration
 - `jupyter_mcp_server/server.py` - Original FastMCP server (unchanged)
 - `test_extension.py` - Extension validation tests
 - `Makefile` - `start-as-jupyter-server` command
@@ -276,8 +276,8 @@ jupyter_mcp_server enabled
 ### Monitor Requests
 Watch the Jupyter Server logs for:
 ```
-INFO:jupyter_mcp_server.jupyter_to_mcp.extension:Registered MCP handlers at /mcp/
-INFO:jupyter_mcp_server.jupyter_to_mcp.extension:  - MCP protocol: /mcp (via FastMCP Starlette app)
+INFO:jupyter_mcp_server.jupyter_extension.extension:Registered MCP handlers at /mcp/
+INFO:jupyter_mcp_server.jupyter_extension.extension:  - MCP protocol: /mcp (via FastMCP Starlette app)
 ```
 
 ## Conclusion

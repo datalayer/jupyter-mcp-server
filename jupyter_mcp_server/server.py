@@ -185,7 +185,7 @@ class ServerContext:
             return
         
         try:
-            from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
             context = get_server_context()
             
             if context.is_local_document() and context.get_contents_manager() is not None:

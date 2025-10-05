@@ -18,9 +18,9 @@ from tornado.web import RequestHandler
 from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.extension.handler import ExtensionHandlerMixin
 
-from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
-from jupyter_mcp_server.jupyter_to_mcp.backends.local_backend import LocalBackend
-from jupyter_mcp_server.jupyter_to_mcp.backends.remote_backend import RemoteBackend
+from jupyter_mcp_server.jupyter_extension.context import get_server_context
+from jupyter_mcp_server.jupyter_extension.backends.local_backend import LocalBackend
+from jupyter_mcp_server.jupyter_extension.backends.remote_backend import RemoteBackend
 
 logger = logging.getLogger(__name__)
 

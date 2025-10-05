@@ -12,7 +12,7 @@ It provides efficient local access to contents_manager and kernel_manager.
 from typing import Optional, Any, Union, Literal, TYPE_CHECKING
 import asyncio
 from mcp.types import ImageContent
-from jupyter_mcp_server.jupyter_to_mcp.backends.base import Backend
+from jupyter_mcp_server.jupyter_extension.backends.base import Backend
 from jupyter_mcp_server.utils import safe_extract_outputs
 
 if TYPE_CHECKING:

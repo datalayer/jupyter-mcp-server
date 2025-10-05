@@ -268,12 +268,12 @@ Expected: Tool execution result
 ## Code Changes
 
 ### Files Modified
-1. **`jupyter_mcp_server/jupyter_to_mcp/handlers.py`**
+1. **`jupyter_mcp_server/jupyter_extension/handlers.py`**
    - Replaced `MCPProxyHandler` with `MCPSSEHandler`
    - Implements MCP JSON-RPC protocol directly
    - Calls `mcp._tools[tool_name](**params)` directly
 
-2. **`jupyter_mcp_server/jupyter_to_mcp/extension.py`**
+2. **`jupyter_mcp_server/jupyter_extension/extension.py`**
    - Updated to use `MCPSSEHandler` instead of `MCPProxyHandler`
    - No longer tries to mount Starlette app
 

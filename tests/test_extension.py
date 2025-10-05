@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 def test_import():
     """Test that all imports work."""
     try:
-        from jupyter_mcp_server.jupyter_to_mcp import extension
-        from jupyter_mcp_server.jupyter_to_mcp import handlers
-        from jupyter_mcp_server.jupyter_to_mcp import context
+        from jupyter_mcp_server.jupyter_extension import extension
+        from jupyter_mcp_server.jupyter_extension import handlers
+        from jupyter_mcp_server.jupyter_extension import context
         logger.info("✅ All imports successful")
         return True
     except Exception as e:
@@ -35,7 +35,7 @@ def test_extension_points():
 def test_handler_creation():
     """Test that handlers can be instantiated."""
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.handlers import MCPASGIHandler, MCPHealthHandler
+        from jupyter_mcp_server.jupyter_extension.handlers import MCPASGIHandler, MCPHealthHandler
         logger.info(f"✅ Handlers available: MCPASGIHandler, MCPHealthHandler")
         return True
     except Exception as e:

@@ -168,7 +168,7 @@ The system automatically detects which mode to use:
 def _get_server_mode() -> ServerMode:
     """Determine the current server mode."""
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         
         # Check if running as Jupyter extension with local access

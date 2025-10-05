@@ -24,7 +24,7 @@ def get_server_mode_and_clients() -> Tuple[str, Optional[JupyterServerClient], O
     
     # Check if we should use local API
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         
         if context.is_local_document() and context.get_contents_manager() is not None:
@@ -56,7 +56,7 @@ def is_local_mode() -> bool:
         True if using local serverapp API, False if using HTTP clients
     """
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         return context.is_local_document() and context.get_contents_manager() is not None
     except (ImportError, Exception):

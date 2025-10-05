@@ -263,7 +263,7 @@ jupyter_mcp_server/
 │   │
 │   └── ... (other tool files)
 │
-└── jupyter_to_mcp/
+└── jupyter_extension/
     ├── context.py
     │   └── ServerContext
     │       ├── get_contents_manager()

@@ -55,7 +55,7 @@ This document describes the architecture, design patterns, and implementation st
 
 ## Core Components
 
-### 1. Server Context (`jupyter_to_mcp/context.py`)
+### 1. Server Context (`jupyter_extension/context.py`)
 
 **Purpose**: Singleton that tracks execution mode and provides access to server resources.
 
@@ -75,7 +75,7 @@ if context.is_local_runtime():
     # Use local kernel manager
 ```
 
-### 2. Backend Interface (`jupyter_to_mcp/backends/base.py`)
+### 2. Backend Interface (`jupyter_extension/backends/base.py`)
 
 **Purpose**: Abstract interface defining notebook and kernel operations.
 
@@ -88,7 +88,7 @@ if context.is_local_runtime():
 - Cells: read, append, insert, delete, overwrite
 - Kernels: execute, interrupt, restart, shutdown, list
 
-### 3. Local Backend (`jupyter_to_mcp/backends/local_backend.py`)
+### 3. Local Backend (`jupyter_extension/backends/local_backend.py`)
 
 **Purpose**: Efficient local access when running as Jupyter Server extension.
 
@@ -106,13 +106,13 @@ kernel_id = await backend.get_or_create_kernel("notebook.ipynb")
 outputs = await backend.execute_cell("notebook.ipynb", 0, kernel_id)
 ```
 
-### 4. Remote Backend (`jupyter_to_mcp/backends/remote_backend.py`)
+### 4. Remote Backend (`jupyter_extension/backends/remote_backend.py`)
 
 **Purpose**: Connect to remote Jupyter servers (maintains backward compatibility).
 
 **Status**: Structure defined, full implementation to be refactored from existing server.py logic.
 
-### 5. Jupyter Server Extension (`jupyter_to_mcp/extension.py`)
+### 5. Jupyter Server Extension (`jupyter_extension/extension.py`)
 
 **Purpose**: Expose MCP tools as a Jupyter Server extension.
 
@@ -137,7 +137,7 @@ async def stop_extension(self):
 - `document_id`: Default notebook path
 - `document_token`, `runtime_token`: For remote access
 
-### 6. MCP Protocol Handlers (`jupyter_to_mcp/handlers.py`)
+### 6. MCP Protocol Handlers (`jupyter_extension/handlers.py`)
 
 **Purpose**: Tornado HTTP handlers implementing MCP protocol endpoints.
 
@@ -157,7 +157,7 @@ def get_backend(self):
         return RemoteBackend(...)
 ```
 
-### 7. Protocol Messages (`jupyter_to_mcp/protocol/messages.py`)
+### 7. Protocol Messages (`jupyter_extension/protocol/messages.py`)
 
 **Purpose**: Pydantic models for consistent API across both modes.
 
@@ -336,7 +336,7 @@ MCP Client
 ```python
 def _jupyter_server_extension_points():
     return [{
-        "module": "jupyter_mcp_server.jupyter_to_mcp.extension",
+        "module": "jupyter_mcp_server.jupyter_extension.extension",
         "app": JupyterMCPServerExtensionApp
     }]
 ```
@@ -358,7 +358,7 @@ def _jupyter_server_extension_points():
 ## Implementation Status
 
 ### ✅ Completed (Phase 1 - Foundation)
-- [x] Package structure (`jupyter_to_mcp/`)
+- [x] Package structure (`jupyter_extension/`)
 - [x] ServerContext singleton
 - [x] Backend interface (base.py)
 - [x] LocalBackend implementation

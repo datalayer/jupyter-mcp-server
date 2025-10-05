@@ -84,7 +84,7 @@ The `_get_server_mode()` helper function determines which mode to use:
 ```python
 def _get_server_mode() -> ServerMode:
     try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
         context = get_server_context()
         
         if (context.context_type == "JUPYTER_SERVER" and 

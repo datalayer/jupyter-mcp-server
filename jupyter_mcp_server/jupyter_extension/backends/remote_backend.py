@@ -13,7 +13,7 @@ For MCP_SERVER mode, this maintains 100% backward compatibility with the existin
 
 from typing import Optional, Any, Union, Literal
 from mcp.types import ImageContent
-from jupyter_mcp_server.jupyter_to_mcp.backends.base import Backend
+from jupyter_mcp_server.jupyter_extension.backends.base import Backend
 
 # Note: This is a placeholder that delegates to existing server.py logic
 # The actual implementation will be refactored from server.py in a later step

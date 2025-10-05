@@ -9,9 +9,9 @@ We've successfully implemented the **foundational architecture** for dual-mode o
 ### ✅ Phase 1: Foundation (COMPLETED)
 
 #### 1. Package Structure
-Created the `jupyter_to_mcp` subpackage with organized modules:
+Created the `jupyter_extension` subpackage with organized modules:
 ```
-jupyter_mcp_server/jupyter_to_mcp/
+jupyter_mcp_server/jupyter_extension/
 ├── __init__.py
 ├── context.py          # ServerContext singleton
 ├── extension.py        # JupyterMCPServerExtensionApp
@@ -85,7 +85,7 @@ Updated `pyproject.toml`:
 
 #### 10. Documentation
 - **ARCHITECTURE.md**: Comprehensive architecture documentation
-- **jupyter_to_mcp/README.md**: Package-specific documentation
+- **jupyter_extension/README.md**: Package-specific documentation
 - Code comments and docstrings throughout
 
 ## How to Use It
@@ -262,7 +262,7 @@ Expected response:
 
 ### New Files Created
 ```
-jupyter_mcp_server/jupyter_to_mcp/
+jupyter_mcp_server/jupyter_extension/
 ├── __init__.py                       # Package init with exports
 ├── context.py                        # ServerContext singleton (161 lines)
 ├── extension.py                      # JupyterMCPServerExtensionApp (194 lines)
