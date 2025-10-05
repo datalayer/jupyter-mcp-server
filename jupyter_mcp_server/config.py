@@ -16,13 +16,13 @@ class JupyterMCPConfig(BaseModel):
     provider: str = Field(default="jupyter", description="The provider to use for the document and runtime")
     
     # Runtime configuration
-    runtime_url: str = Field(default="http://localhost:8888", description="The runtime URL to use")
+    runtime_url: str = Field(default="http://localhost:8888", description="The runtime URL to use, or 'local' for direct serverapp access")
     start_new_runtime: bool = Field(default=False, description="Start a new runtime or use an existing one")
     runtime_id: Optional[str] = Field(default=None, description="The kernel ID to use")
     runtime_token: Optional[str] = Field(default=None, description="The runtime token to use for authentication")
     
     # Document configuration
-    document_url: str = Field(default="http://localhost:8888", description="The document URL to use")
+    document_url: str = Field(default="http://localhost:8888", description="The document URL to use, or 'local' for direct serverapp access")
     document_id: str = Field(default="notebook.ipynb", description="The document id to use")
     document_token: Optional[str] = Field(default=None, description="The document token to use for authentication")
     
@@ -33,6 +33,14 @@ class JupyterMCPConfig(BaseModel):
         """Pydantic configuration."""
         validate_assignment = True
         arbitrary_types_allowed = True
+    
+    def is_local_document(self) -> bool:
+        """Check if document URL is set to local."""
+        return self.document_url == "local"
+    
+    def is_local_runtime(self) -> bool:
+        """Check if runtime URL is set to local."""
+        return self.runtime_url == "local"
 
 
 # Singleton instance

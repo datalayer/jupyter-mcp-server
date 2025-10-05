@@ -1,0 +1,7 @@
+{
+  "ServerApp": {
+    "nbserver_extensions": {
+      "jupyter_mcp_server": true
+    }
+  }
+}

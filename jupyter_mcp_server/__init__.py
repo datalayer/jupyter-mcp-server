@@ -4,4 +4,7 @@
 
 """Jupyter MCP Server."""
 
-__all__ = []
+from jupyter_mcp_server.jupyter_to_mcp.extension import _jupyter_server_extension_points
+
+
+__all__ = ["_jupyter_server_extension_points"]
