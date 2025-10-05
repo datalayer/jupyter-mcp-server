@@ -39,17 +39,18 @@ async def list_notebook() -> str:
 Added helper function:
 
 ```python
-def _list_notebooks_local(contents_manager, path="", notebooks=None):
+async def _list_notebooks_local(contents_manager, path="", notebooks=None):
     """Recursively list all .ipynb files using local contents_manager API."""
     if notebooks is None:
         notebooks = []
     
     try:
-        model = contents_manager.get(path, content=True, type='directory')
+        # IMPORTANT: contents_manager methods are async!
+        model = await contents_manager.get(path, content=True, type='directory')
         for item in model.get('content', []):
             full_path = f"{path}/{item['name']}" if path else item['name']
             if item['type'] == "directory":
-                _list_notebooks_local(contents_manager, full_path, notebooks)
+                await _list_notebooks_local(contents_manager, full_path, notebooks)
             elif item['type'] == "notebook":
                 notebooks.append(full_path)
     except Exception:
@@ -57,6 +58,8 @@ def _list_notebooks_local(contents_manager, path="", notebooks=None):
     
     return notebooks
 ```
+
+**CRITICAL**: The Jupyter Server API methods (like `contents_manager.get()`) are **async** and must be awaited. Make sure helper functions are defined as `async def` and use `await` when calling these methods.
 
 ### Utility Module Created
 
@@ -93,12 +96,13 @@ async def my_tool(param: str) -> str:
         if context.is_local_document() and context.get_contents_manager() is not None:
             # LOCAL MODE - use contents_manager
             contents_manager = context.get_contents_manager()
-            result = contents_manager.get(path)  # Direct API call
+            # IMPORTANT: contents_manager methods are async!
+            result = await contents_manager.get(path)  # Must await!
         else:
             # HTTP MODE - use server_client
             config = get_config()
             server_client = JupyterServerClient(...)
-            result = server_client.contents.get(path)  # HTTP request
+            result = server_client.contents.get(path)  # HTTP request (sync)
     except (ImportError, Exception):
         # Fallback to HTTP
         config = get_config()
@@ -107,6 +111,14 @@ async def my_tool(param: str) -> str:
     
     return format_result(result)
 ```
+
+**IMPORTANT**: Jupyter Server's `contents_manager` methods are **async**:
+- `await contents_manager.get(path, content=True)` - Get file/directory
+- `await contents_manager.save(model, path)` - Save file/notebook
+- `await contents_manager.new(model, path)` - Create new file/notebook
+- `await contents_manager.delete(path)` - Delete file/notebook
+
+The HTTP client methods (`server_client.contents.*`) are synchronous.
 
 ### For Kernel Operations (uses kernel_manager)
 
