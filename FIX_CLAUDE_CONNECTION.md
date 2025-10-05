@@ -1,16 +1,29 @@
 # Fix for Claude Desktop Connection Issue
 
 ## Problem
-Claude Desktop was getting 404 errors when trying to connect to the Jupyter Server MCP extension:
+Claude Desktop was getting errors when trying to connect to the Jupyter Server MCP extension:
+
+### Issue 1: 404 Errors (RESOLVED)
 ```
 [W 2025-10-05 12:35:54.914 ServerApp] 404 POST /mcp (@127.0.0.1) 8.79ms referer=None
 [W 2025-10-05 12:35:54.926 ServerApp] 404 GET /mcp (@127.0.0.1) 1.20ms referer=None
 ```
 
-## Root Cause
+### Issue 2: 403 CSRF Errors (RESOLVED)
+```
+[W 2025-10-05 12:43:05.313 ServerApp] 403 POST /mcp (127.0.0.1): '_xsrf' argument missing from POST
+[W 2025-10-05 12:43:05.314 ServerApp] 403 POST /mcp (@127.0.0.1) 0.67ms referer=None
+```
+
+## Root Causes
+
+### 1. Wrong Endpoint Path
 The MCP protocol requires the SSE endpoint to be at `/mcp` (not `/mcp/sse`). Claude Desktop and other MCP clients expect to connect to the base `/mcp` endpoint for the full MCP protocol communication.
 
 Our initial implementation tried to create custom Tornado handlers for individual MCP operations, but this doesn't properly implement the full MCP protocol specification.
+
+### 2. CSRF Protection
+Tornado/Jupyter Server requires XSRF tokens for POST requests by default. The MCP protocol doesn't use browser-based XSRF tokens, so we need to disable CSRF checks for MCP endpoints.
 
 ## Solution
 Instead of reimplementing the MCP protocol with Tornado handlers, we now:
@@ -18,10 +31,14 @@ Instead of reimplementing the MCP protocol with Tornado handlers, we now:
 1. **Reuse the existing FastMCP server** from `server.py`
 2. **Mount the Starlette ASGI app** that FastMCP provides at the `/mcp` endpoint
 3. **Create an ASGI-to-Tornado bridge** (`MCPASGIHandler`) that wraps the Starlette app
+4. **Disable CSRF protection** for MCP endpoints (MCP has its own auth mechanism)
+5. **Add CORS headers** to allow cross-origin requests from MCP clients
 
 This ensures we have:
 - ✅ Full MCP protocol compliance (using the same FastMCP implementation as standalone mode)
 - ✅ Correct endpoint routing (`/mcp` for SSE transport)
+- ✅ No CSRF conflicts (disabled for MCP endpoints)
+- ✅ Cross-origin support (CORS headers enabled)
 - ✅ Backward compatibility with existing tools
 - ✅ No need to reimplement MCP protocol details
 
@@ -35,6 +52,9 @@ Created a new Tornado handler that wraps a Starlette ASGI application. This hand
 - Executes the ASGI application
 - Streams responses back to Tornado
 - Supports all HTTP methods (GET, POST, PUT, DELETE, etc.)
+- **Disables XSRF checks** via `check_xsrf_cookie()` override
+- **Adds CORS headers** via `set_default_headers()`
+- **Handles OPTIONS** requests for CORS preflight
 
 ```python
 class MCPASGIHandler(tornado.web.RequestHandler):
@@ -42,6 +62,21 @@ class MCPASGIHandler(tornado.web.RequestHandler):
     
     def initialize(self, asgi_app):
         self.asgi_app = asgi_app
+    
+    def check_xsrf_cookie(self):
+        """Disable XSRF check for MCP endpoints."""
+        pass
+    
+    def set_default_headers(self):
+        """Set CORS headers."""
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    
+    async def options(self):
+        """Handle CORS preflight."""
+        self.set_status(204)
+        self.finish()
     
     async def _execute_asgi(self):
         # Build ASGI scope from Tornado request

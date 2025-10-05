@@ -140,11 +140,12 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         """
         Register MCP protocol handlers.
         
-        Strategy: We import the mcp FastMCP instance from server.py and mount its
-        Starlette application at /mcp to handle the full MCP protocol.
+        Strategy: Implement MCP protocol directly in Tornado handlers that
+        call the MCP tools from server.py. This avoids the complexity of
+        wrapping the Starlette ASGI app.
         
         Endpoints:
-        - GET/POST /mcp - MCP protocol endpoint (handled by FastMCP Starlette app)
+        - GET/POST /mcp - MCP protocol endpoint (SSE-based)
         - GET /mcp/healthz - Health check (Tornado handler)
         - GET /mcp/tools/list - List available tools (Tornado handler)
         - POST /mcp/tools/call - Execute a tool (Tornado handler)
@@ -152,17 +153,13 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         base_url = self.serverapp.base_url
         
         # Import here to avoid circular imports
-        from jupyter_mcp_server.server import mcp
-        from jupyter_mcp_server.jupyter_to_mcp.handlers import MCPASGIHandler
-        
-        # Get the Starlette app from FastMCP
-        starlette_app = mcp.streamable_http_app()
+        from jupyter_mcp_server.jupyter_to_mcp.handlers import MCPSSEHandler
         
         # Define handlers
-        # The MCP protocol endpoint uses a special ASGI handler that delegates to Starlette
         handlers = [
-            # MCP protocol endpoint - delegates to FastMCP Starlette app
-            (url_path_join(base_url, "/mcp"), MCPASGIHandler, {"asgi_app": starlette_app}),
+            # MCP protocol endpoint - SSE-based handler
+            # Match /mcp with or without trailing slash
+            (url_path_join(base_url, "/mcp/?"), MCPSSEHandler),
             # Utility endpoints (optional, for debugging)
             (url_path_join(base_url, "/mcp/healthz"), MCPHealthHandler),
             (url_path_join(base_url, "/mcp/tools/list"), MCPToolsListHandler),
@@ -173,7 +170,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         self.handlers.extend(handlers)
         
         logger.info(f"Registered MCP handlers at {base_url}/mcp/")
-        logger.info(f"  - MCP protocol: {base_url}/mcp (via FastMCP Starlette app)")
+        logger.info(f"  - MCP protocol: {base_url}/mcp (SSE-based)")
         logger.info(f"  - Health check: {base_url}/mcp/healthz")
         logger.info(f"  - List tools: {base_url}/mcp/tools/list")
         logger.info(f"  - Call tool: {base_url}/mcp/tools/call")

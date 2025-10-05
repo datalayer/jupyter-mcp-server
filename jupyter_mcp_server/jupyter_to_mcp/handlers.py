@@ -3,16 +3,18 @@
 # BSD 3-Clause License
 
 """
-Tornado Handlers for MCP Protocol
+Tornado request handlers for the Jupyter MCP Server extension.
 
-These handlers expose MCP protocol endpoints via Jupyter Server's Tornado web application.
+This module provides handlers that bridge between Tornado (Jupyter Server) and
+FastMCP, managing the MCP protocol lifecycle and request proxying.
 """
 
 import json
-import logging
-from typing import Any
 import asyncio
+import logging
 import tornado.web
+from typing import Optional, Dict, Any
+from tornado.web import RequestHandler
 from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.extension.handler import ExtensionHandlerMixin
 
@@ -20,113 +22,191 @@ from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
 from jupyter_mcp_server.jupyter_to_mcp.backends.local_backend import LocalBackend
 from jupyter_mcp_server.jupyter_to_mcp.backends.remote_backend import RemoteBackend
 
-
 logger = logging.getLogger(__name__)
 
 
-class MCPASGIHandler(tornado.web.RequestHandler):
+class MCPSSEHandler(RequestHandler):
     """
-    Handler that wraps a Starlette ASGI application.
+    Server-Sent Events (SSE) handler for MCP protocol.
     
-    This handler allows mounting the FastMCP Starlette app within Tornado.
+    This handler implements the MCP SSE transport by directly calling
+    the registered MCP tools instead of trying to wrap the Starlette app.
+    
+    The MCP protocol uses SSE for streaming responses from the server to the client.
     """
     
-    def initialize(self, asgi_app):
-        """Initialize with the ASGI application."""
-        self.asgi_app = asgi_app
+    def check_xsrf_cookie(self):
+        """Disable XSRF checking for MCP protocol requests."""
+        pass
     
-    async def _execute_asgi(self):
-        """Execute the ASGI application."""
-        # Build ASGI scope
-        scope = {
-            "type": "http",
-            "asgi": {"version": "3.0"},
-            "http_version": self.request.version,
-            "method": self.request.method,
-            "scheme": "https" if self.request.protocol == "https" else "http",
-            "path": self.request.path,
-            "query_string": self.request.query.encode("latin1") if self.request.query else b"",
-            "root_path": "",
-            "headers": [
-                (name.lower().encode("latin1"), value.encode("latin1"))
-                for name, value in self.request.headers.get_all()
-            ],
-            "server": (self.request.host.split(":")[0], 
-                      int(self.request.host.split(":")[1]) if ":" in self.request.host else 80),
-        }
-        
-        # Create receive/send callables
-        request_complete = False
-        
-        async def receive():
-            nonlocal request_complete
-            if not request_complete:
-                request_complete = True
-                return {
-                    "type": "http.request",
-                    "body": self.request.body,
-                    "more_body": False,
-                }
-            # Should not be called again
-            await asyncio.sleep(0.1)
-            return {"type": "http.disconnect"}
-        
-        response_started = False
-        
-        async def send(message):
-            nonlocal response_started
-            
-            if message["type"] == "http.response.start":
-                response_started = True
-                self.set_status(message["status"])
-                for header_name, header_value in message.get("headers", []):
-                    self.set_header(
-                        header_name.decode("latin1"),
-                        header_value.decode("latin1")
-                    )
-            
-            elif message["type"] == "http.response.body":
-                body = message.get("body", b"")
-                if body:
-                    self.write(body)
-                
-                # If this is the final chunk, finish the response
-                if not message.get("more_body", False):
-                    self.finish()
-        
-        # Execute the ASGI app
-        try:
-            await self.asgi_app(scope, receive, send)
-        except Exception as e:
-            logger.error(f"ASGI app error: {e}", exc_info=True)
-            if not response_started:
-                self.set_status(500)
-                self.write(json.dumps({"error": str(e)}))
-                self.finish()
+    def set_default_headers(self):
+        """Set headers for SSE and CORS."""
+        self.set_header("Content-Type", "text/event-stream")
+        self.set_header("Cache-Control", "no-cache")
+        self.set_header("Connection", "keep-alive")
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    
+    async def options(self, *args, **kwargs):
+        """Handle CORS preflight requests."""
+        self.set_status(204)
+        self.finish()
     
     async def get(self):
-        """Handle GET requests."""
-        await self._execute_asgi()
+        """Handle SSE connection establishment."""
+        # Import here to avoid circular dependency
+        from jupyter_mcp_server.server import mcp
+        
+        # For now, just acknowledge the connection
+        # The actual MCP protocol would be handled via POST
+        self.write("event: connected\ndata: {}\n\n")
+        await self.flush()
     
     async def post(self):
-        """Handle POST requests."""
-        await self._execute_asgi()
-    
-    async def put(self):
-        """Handle PUT requests."""
-        await self._execute_asgi()
-    
-    async def delete(self):
-        """Handle DELETE requests."""
-        await self._execute_asgi()
-    
-    async def patch(self):
-        """Handle PATCH requests."""
-        await self._execute_asgi()
-    
-    async def options(self):
-        """Handle OPTIONS requests."""
-        await self._execute_asgi()
+        """Handle MCP protocol messages."""
+        # Import here to avoid circular dependency
+        from jupyter_mcp_server.server import mcp
+        
+        try:
+            # Parse the JSON-RPC request
+            body = json.loads(self.request.body.decode('utf-8'))
+            method = body.get("method")
+            params = body.get("params", {})
+            request_id = body.get("id")
+            
+            logger.info(f"MCP request: method={method}, id={request_id}")
+            
+            # Handle different MCP methods
+            if method == "initialize":
+                # Return server capabilities
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "tools": {}
+                        },
+                        "serverInfo": {
+                            "name": "Jupyter MCP Server",
+                            "version": "0.14.0"
+                        }
+                    }
+                }
+                logger.info(f"Sending initialize response: {response}")
+            elif method == "tools/list":
+                # List available tools from FastMCP
+                from jupyter_mcp_server.server import mcp
+                
+                logger.info("Calling mcp.list_tools()...")
+                
+                try:
+                    # Use FastMCP's list_tools method - returns list of Tool objects
+                    tools_list = await mcp.list_tools()
+                    logger.info(f"Got {len(tools_list)} tools from FastMCP")
+                    
+                    # Convert to MCP protocol format
+                    tools = []
+                    for tool in tools_list:
+                        tools.append({
+                            "name": tool.name,
+                            "description": tool.description,
+                            "inputSchema": tool.inputSchema
+                        })
+                    
+                    logger.info(f"Converted {len(tools)} tools to MCP format")
+                    
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": {
+                            "tools": tools
+                        }
+                    }
+                except Exception as e:
+                    logger.error(f"Error listing tools: {e}", exc_info=True)
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {
+                            "code": -32603,
+                            "message": f"Internal error listing tools: {str(e)}"
+                        }
+                    }
+            elif method == "tools/call":
+                # Execute a tool
+                from jupyter_mcp_server.server import mcp
+                
+                tool_name = params.get("name")
+                tool_arguments = params.get("arguments", {})
+                
+                logger.info(f"Calling tool: {tool_name} with args: {tool_arguments}")
+                
+                try:
+                    # Use FastMCP's call_tool method
+                    result = await mcp.call_tool(tool_name, tool_arguments)
+                    
+                    logger.info(f"Tool result type: {type(result)}")
+                    
+                    # Convert result to dict - it's a CallToolResult with content list
+                    if hasattr(result, 'model_dump'):
+                        result_dict = result.model_dump()
+                    elif hasattr(result, 'dict'):
+                        result_dict = result.dict()
+                    else:
+                        result_dict = {"content": [{"type": "text", "text": str(result)}]}
+                    
+                    logger.info(f"Converted result to dict")
+                    
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "result": result_dict
+                    }
+                except Exception as e:
+                    logger.error(f"Error calling tool: {e}", exc_info=True)
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {
+                            "code": -32603,
+                            "message": f"Internal error calling tool: {str(e)}"
+                        }
+                    }
+            else:
+                # Method not supported
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32601,
+                        "message": f"Method not found: {method}"
+                    }
+                }
+            
+            # Send response
+            self.set_header("Content-Type", "application/json")
+            logger.info(f"Sending response: {json.dumps(response)[:200]}...")
+            self.write(json.dumps(response))
+            self.finish()
+            
+        except Exception as e:
+            logger.error(f"Error handling MCP request: {e}", exc_info=True)
+            self.set_status(500)
+            self.write(json.dumps({
+                "jsonrpc": "2.0",
+                "id": body.get("id") if 'body' in locals() else None,
+                "error": {
+                    "code": -32603,
+                    "message": str(e)
+                }
+            }))
+            self.finish()
+
+
+# MCPHealthHandler, MCPToolsListHandler, MCPToolsCallHandler are defined below
+# with the existing implementations from the original code
 
 
 class MCPHandler(ExtensionHandlerMixin, JupyterHandler):

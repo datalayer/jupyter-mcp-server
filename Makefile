@@ -101,17 +101,21 @@ start-as-jupyter-server: ## start jupyter server with MCP extension (local acces
 	@exec echo
 	@exec echo 🚀 Starting Jupyter Server with MCP Extension
 	@exec echo 📍 Using local serverapp access - document_url=local, runtime_url=local
+	@exec echo
+	@exec echo 🔗 JupyterLab will be available at http://localhost:4040/lab
 	@exec echo 🔗 MCP endpoints will be available at http://localhost:4040/mcp
 	@exec echo
 	@exec echo "Test with: curl http://localhost:4040/mcp/healthz"
 	@exec echo
-	jupyter-server \
-	  --JupyterMCPServerExtensionApp.document_url=local \
-	  --JupyterMCPServerExtensionApp.runtime_url=local \
-	  --JupyterMCPServerExtensionApp.document_id=notebook.ipynb \
-	  --port=4040 \
-	  --token=MY_TOKEN
-	  
+	jupyter lab \
+	  --JupyterMCPServerExtensionApp.document_url local \
+	  --JupyterMCPServerExtensionApp.runtime_url local \
+	  --JupyterMCPServerExtensionApp.document_id notebook.ipynb \
+	  --ServerApp.disable_check_xsrf True \
+	  --IdentityProvider.token MY_TOKEN \
+	  --ServerApp.root_dir ./dev/content \
+	  --port 4040
+
 jupyterlab: ## start jupyterlab for the mcp server
 	pip uninstall -y pycrdt datalayer_pycrdt
 	pip install datalayer_pycrdt
