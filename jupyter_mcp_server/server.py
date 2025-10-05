@@ -198,14 +198,16 @@ class ServerContext:
                 # Initialize HTTP clients for MCP_SERVER mode
                 config = get_config()
                 
-                # Validate that runtime_url is set
-                if not config.runtime_url or config.runtime_url == "None":
+                # Validate that runtime_url is set and not None/empty
+                runtime_url = config.runtime_url
+                if not runtime_url or runtime_url in ("None", "none", "null", ""):
                     raise ValueError(
-                        "runtime_url is not configured. Please set RUNTIME_URL environment variable "
-                        "or pass --runtime-url argument when starting the server."
+                        f"runtime_url is not configured (current value: {repr(runtime_url)}). "
+                        "Please set RUNTIME_URL environment variable or pass --runtime-url argument when starting the server."
                     )
                 
-                self._server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+                logger.info(f"Initializing MCP_SERVER mode with runtime_url: {runtime_url}")
+                self._server_client = JupyterServerClient(base_url=runtime_url, token=config.runtime_token)
                 # kernel_client will be created lazily when needed
         except (ImportError, Exception) as e:
             # If not in Jupyter context, use MCP_SERVER mode
@@ -214,14 +216,16 @@ class ServerContext:
                 # Initialize HTTP clients for MCP_SERVER mode
                 config = get_config()
                 
-                # Validate that runtime_url is set
-                if not config.runtime_url or config.runtime_url == "None":
+                # Validate that runtime_url is set and not None/empty
+                runtime_url = config.runtime_url
+                if not runtime_url or runtime_url in ("None", "none", "null", ""):
                     raise ValueError(
-                        "runtime_url is not configured. Please set RUNTIME_URL environment variable "
-                        "or pass --runtime-url argument when starting the server."
+                        f"runtime_url is not configured (current value: {repr(runtime_url)}). "
+                        "Please set RUNTIME_URL environment variable or pass --runtime-url argument when starting the server."
                     )
                 
-                self._server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+                logger.info(f"Initializing MCP_SERVER mode with runtime_url: {runtime_url}")
+                self._server_client = JupyterServerClient(base_url=runtime_url, token=config.runtime_token)
             else:
                 raise
         

@@ -258,6 +258,7 @@ def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> s
 def create_kernel(config, logger):
     """Create a new kernel instance using current configuration."""
     from jupyter_kernel_client import KernelClient
+    kernel = None
     try:
         # Initialize the kernel client with the provided parameters.
         kernel = KernelClient(
@@ -270,6 +271,14 @@ def create_kernel(config, logger):
         return kernel
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
+        # Clean up partially initialized kernel to prevent __del__ errors
+        if kernel is not None:
+            try:
+                # Try to clean up the kernel object if it exists
+                if hasattr(kernel, 'stop'):
+                    kernel.stop()
+            except Exception as cleanup_error:
+                logger.debug(f"Error during kernel cleanup: {cleanup_error}")
         raise
 
 
