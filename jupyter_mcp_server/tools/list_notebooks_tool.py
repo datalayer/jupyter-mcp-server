@@ -21,7 +21,7 @@ class ListNotebooksTool(BaseTool):
     def description(self) -> str:
         return """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
     
-To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `connect_notebook` tool.
+To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `use_notebook` tool.
 
 Returns:
     str: TSV formatted table with notebook information including management status"""

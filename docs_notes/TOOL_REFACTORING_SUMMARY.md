@@ -70,7 +70,7 @@ jupyter_mcp_server/
 │   │
 │   ├── # Notebook Management (5 tools)
 │   ├── list_notebook_tool.py
-│   ├── connect_notebook_tool.py
+│   ├── use_notebook_tool.py
 │   ├── restart_notebook_tool.py
 │   ├── disconnect_notebook_tool.py
 │   ├── switch_notebook_tool.py
@@ -134,7 +134,7 @@ jupyter_mcp_server/
 
 ### Tool Categories
 
-**Notebook Management (5):** list_notebook, connect_notebook, restart_notebook, disconnect_notebook, switch_notebook
+**Notebook Management (5):** list_notebook, use_notebook, restart_notebook, disconnect_notebook, switch_notebook
 
 **Cell Reading (3):** read_all_cells, list_cell, read_cell
 

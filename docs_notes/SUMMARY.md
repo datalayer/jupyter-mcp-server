@@ -28,7 +28,7 @@ jupyter_mcp_server/
 │   ├── MIGRATION.md             # Step-by-step migration guide
 │   │
 │   ├── list_notebook.py         # ✅ Implemented
-│   ├── connect_notebook.py      # ✅ Implemented
+│   ├── use_notebook.py      # ✅ Implemented
 │   ├── disconnect_notebook.py   # ✅ Implemented
 │   │
 │   ├── restart_notebook.py      # TODO
@@ -154,11 +154,11 @@ async def list_notebook() -> str:
     return await registry.execute_tool("list_notebook", mode=mode)
 
 @mcp.tool()
-async def connect_notebook(notebook_name: str, notebook_path: str, ...) -> str:
+async def use_notebook(notebook_name: str, notebook_path: str, ...) -> str:
     """Connect to a notebook..."""
     mode = _get_server_mode()
     return await registry.execute_tool(
-        "connect_notebook",
+        "use_notebook",
         mode=mode,
         notebook_name=notebook_name,
         notebook_path=notebook_path,
@@ -248,7 +248,7 @@ def _get_server_mode() -> ServerMode:
 
 ## Next Steps
 
-1. **Continue creating tool classes**: Follow the pattern in `list_notebook.py`, `connect_notebook.py`, `disconnect_notebook.py`
+1. **Continue creating tool classes**: Follow the pattern in `list_notebook.py`, `use_notebook.py`, `disconnect_notebook.py`
 
 2. **Update server.py**: Replace each `@mcp.tool()` function with a wrapper that calls `registry.execute_tool()`
 
@@ -293,5 +293,5 @@ jupyter lab
 Refer to:
 - **Architecture**: `tools/README.md`
 - **Migration**: `tools/MIGRATION.md`
-- **Examples**: `list_notebook.py`, `connect_notebook.py`, `disconnect_notebook.py`
+- **Examples**: `list_notebook.py`, `use_notebook.py`, `disconnect_notebook.py`
 - **Integration**: `integration_example.py`

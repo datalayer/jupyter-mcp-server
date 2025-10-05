@@ -16,7 +16,7 @@ All 18 `@mcp.tool()` functions from `server.py` have been successfully extracted
 
 #### 1. Notebook Management (5 tools)
 - ✅ `list_notebook_tool.py` - ListNotebookTool
-- ✅ `connect_notebook_tool.py` - ConnectNotebookTool
+- ✅ `use_notebook_tool.py` - ConnectNotebookTool
 - ✅ `restart_notebook_tool.py` - RestartNotebookTool
 - ✅ `disconnect_notebook_tool.py` - DisconnectNotebookTool
 - ✅ `switch_notebook_tool.py` - SwitchNotebookTool
@@ -136,7 +136,7 @@ The next phase is to integrate these tool classes into `server.py`:
    ```python
    # Initialize tool instances
    list_notebook_tool = ListNotebookTool(notebook_manager)
-   connect_notebook_tool = ConnectNotebookTool(notebook_manager)
+   use_notebook_tool = ConnectNotebookTool(notebook_manager)
    # ... initialize all 18 tools
    ```
 
@@ -209,7 +209,7 @@ After integration, test both modes:
 
 ### Created Files (18 tool files)
 - `jupyter_mcp_server/tools/list_notebook_tool.py`
-- `jupyter_mcp_server/tools/connect_notebook_tool.py`
+- `jupyter_mcp_server/tools/use_notebook_tool.py`
 - `jupyter_mcp_server/tools/restart_notebook_tool.py`
 - `jupyter_mcp_server/tools/disconnect_notebook_tool.py`
 - `jupyter_mcp_server/tools/switch_notebook_tool.py`

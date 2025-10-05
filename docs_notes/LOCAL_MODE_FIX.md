@@ -159,7 +159,7 @@ async def my_kernel_tool(param: str) -> str:
 - `list_notebook` - Now uses local contents_manager when available
 
 ### 🔲 Need Updating (17 tools)
-- `connect_notebook` - Check paths with contents_manager, start kernel with kernel_manager
+- `use_notebook` - Check paths with contents_manager, start kernel with kernel_manager
 - `disconnect_notebook` - Should work (only uses notebook_manager)
 - `restart_notebook` - Should work (only uses notebook_manager)
 - `switch_notebook` - Should work (only uses notebook_manager)
@@ -202,7 +202,7 @@ make start
 
 ## Next Steps
 
-1. Update `connect_notebook` (highest priority - used for starting work)
+1. Update `use_notebook` (highest priority - used for starting work)
 2. Update cell operation tools (read, insert, delete, overwrite)
 3. Update execution tools (execute_cell_* variants)
 4. Update kernel management tools
@@ -239,4 +239,4 @@ python -m py_compile jupyter_mcp_server/mode_utils.py
 
 **Status**: `list_notebook` fixed, 17 tools remaining
 **Impact**: Eliminates connection refused errors for notebook listing in extension mode
-**Next**: Update `connect_notebook` to use local API for path checking and kernel creation
+**Next**: Update `use_notebook` to use local API for path checking and kernel creation

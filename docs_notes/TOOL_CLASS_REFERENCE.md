@@ -56,7 +56,7 @@ result = await list_notebook_tool.execute(
 #### ConnectNotebookTool
 Connects to or creates a notebook file.
 ```python
-result = await connect_notebook_tool.execute(
+result = await use_notebook_tool.execute(
     mode=ServerMode.MCP_SERVER,
     notebook_path="notebook.ipynb",
     ensure_kernel_alive_fn=__ensure_kernel_alive,

@@ -15,7 +15,7 @@ from typing import Optional
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools._registry import get_tool_registry, register_tool
 from jupyter_mcp_server.tools.list_notebook_tool import ListNotebookTool
-from jupyter_mcp_server.tools.connect_notebook import ConnectNotebookTool
+from jupyter_mcp_server.tools.use_notebook import ConnectNotebookTool
 from jupyter_mcp_server.config import get_config
 
 
@@ -42,7 +42,7 @@ def register_mcp_tools(mcp, notebook_manager):
     async def list_notebook() -> str:
         """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
         
-        To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `connect_notebook` tool.
+        To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `use_notebook` tool.
         
         Returns:
             str: TSV formatted table with notebook information including management status
@@ -57,7 +57,7 @@ def register_mcp_tools(mcp, notebook_manager):
         )
     
     @mcp.tool()
-    async def connect_notebook(
+    async def use_notebook(
         notebook_name: str,
         notebook_path: str,
         mode: str = "connect",  # Renamed parameter to avoid conflict
@@ -79,7 +79,7 @@ def register_mcp_tools(mcp, notebook_manager):
         
         # Execute the tool
         return await registry.execute_tool(
-            "connect_notebook",
+            "use_notebook",
             mode=server_mode,
             notebook_name=notebook_name,
             notebook_path=notebook_path,

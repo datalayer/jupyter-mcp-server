@@ -82,7 +82,7 @@ This directory contains the refactored tool architecture for Jupyter MCP Server,
   - HTTP mode: `server_client.contents.list_directory()`
   - Local mode: `contents_manager.get()`
 
-- ✅ **[connect_notebook.py](connect_notebook.py)** (219 lines)
+- ✅ **[use_notebook.py](use_notebook.py)** (219 lines)
   - Connect to or create notebooks
   - HTTP mode: `server_client` + `KernelClient`
   - Local mode: `contents_manager` + `kernel_manager`
@@ -118,7 +118,7 @@ This directory contains the refactored tool architecture for Jupyter MCP Server,
 ### For Implementing
 1. Check **QUICKREF.md** - Get the template
 2. Look at **list_notebook.py** - See a complete example
-3. Look at **connect_notebook.py** - See parameter handling
+3. Look at **use_notebook.py** - See parameter handling
 4. Look at **disconnect_notebook.py** - See simple tool example
 5. Follow **MIGRATION.md** - Integrate into server.py
 

@@ -12,7 +12,7 @@ You now have **8 tools** extracted into separate class files in `jupyter_mcp_ser
 
 ### ✅ Notebook Management (5 tools)
 - `list_notebook.py` - List all notebooks (with async local API support)
-- `connect_notebook_tool.py` - Connect to/create notebooks (dual-mode)
+- `use_notebook_tool.py` - Connect to/create notebooks (dual-mode)
 - `restart_notebook_tool.py` - Restart notebook kernel
 - `disconnect_notebook_tool.py` - Disconnect from notebook
 - `switch_notebook_tool.py` - Switch active notebook

@@ -36,7 +36,7 @@ Each tool is implemented as a separate class with an `execute` method that can o
 
 ### Tool Implementation Pattern
 
-Each tool file (e.g., `list_notebook.py`, `connect_notebook.py`) contains:
+Each tool file (e.g., `list_notebook.py`, `use_notebook.py`) contains:
 
 ```python
 class MyTool(BaseTool):
@@ -116,7 +116,7 @@ def _get_server_mode() -> ServerMode:
 
 ### Notebook Management
 - `list_notebook.py`: List all notebooks with management status
-- `connect_notebook.py`: Connect to or create notebooks
+- `use_notebook.py`: Connect to or create notebooks
 - `disconnect_notebook.py`: Disconnect from notebooks
 - `restart_notebook.py`: Restart notebook kernels
 - `switch_notebook.py`: Switch active notebook

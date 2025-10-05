@@ -235,7 +235,7 @@ jupyter_mcp_server/
 │   ├── _get_server_mode()
 │   └── @mcp.tool() wrappers
 │       ├── list_notebook()
-│       ├── connect_notebook()
+│       ├── use_notebook()
 │       └── ... (other tools)
 │
 ├── tools/
@@ -257,7 +257,7 @@ jupyter_mcp_server/
 │   │       ├── _list_notebooks_local()
 │   │       └── execute()
 │   │
-│   ├── connect_notebook.py
+│   ├── use_notebook.py
 │   │   └── ConnectNotebookTool
 │   │       ├── _check_path_http()
 │   │       ├── _check_path_local()

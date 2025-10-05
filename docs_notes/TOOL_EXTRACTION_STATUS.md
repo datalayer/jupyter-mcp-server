@@ -17,7 +17,7 @@ Successfully extracted **8 tools** from `server.py` into separate tool class fil
    - Supports async local API with `await contents_manager.get()`
    - Lists all notebooks recursively in both modes
    
-2. **`connect_notebook_tool.py`** - `ConnectNotebookTool`
+2. **`use_notebook_tool.py`** - `ConnectNotebookTool`
    - Dual-mode path checking (HTTP vs local)
    - Creates notebooks using local API or HTTP
    - Starts kernel and adds to notebook_manager
@@ -116,7 +116,7 @@ class MyTool(BaseTool):
 
 **Dual-Mode Tools** (need local API support):
 - list_notebook (✅ has async local support)
-- connect_notebook (✅ has async local support)
+- use_notebook (✅ has async local support)
 - Future: insert_cell, delete_cell, overwrite_cell_source
 
 ## Files Created
@@ -127,7 +127,7 @@ jupyter_mcp_server/tools/
 ├── base.py                              # BaseTool + ServerMode
 ├── registry.py                          # ToolRegistry
 ├── list_notebook.py                     # ✅ ListNotebookTool
-├── connect_notebook_tool.py             # ✅ ConnectNotebookTool
+├── use_notebook_tool.py             # ✅ ConnectNotebookTool
 ├── restart_notebook_tool.py             # ✅ RestartNotebookTool
 ├── disconnect_notebook_tool.py          # ✅ DisconnectNotebookTool
 ├── switch_notebook_tool.py              # ✅ SwitchNotebookTool

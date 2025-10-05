@@ -236,7 +236,7 @@ Expected response:
 ```json
 {
   "tools": [
-    {"name": "connect_notebook", ...},
+    {"name": "use_notebook", ...},
     {"name": "list_notebook", ...},
     ...
   ],

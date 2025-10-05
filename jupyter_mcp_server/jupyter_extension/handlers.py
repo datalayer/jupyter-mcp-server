@@ -288,7 +288,7 @@ class MCPToolsListHandler(MCPHandler):
         """Return list of available tools."""
         tools = [
             {
-                "name": "connect_notebook",
+                "name": "use_notebook",
                 "description": "Connect to a notebook file or create a new one",
                 "parameters": ["notebook_name", "notebook_path", "mode", "kernel_id"]
             },

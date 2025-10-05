@@ -84,7 +84,7 @@ async def list_notebook() -> str:
     """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
     
     To interact with a notebook, it has to be "managed". If a notebook is not managed, 
-    you can connect to it using the `connect_notebook` tool.
+    you can connect to it using the `use_notebook` tool.
     
     Returns:
         str: TSV formatted table with notebook information including management status
@@ -100,7 +100,7 @@ For tools that take parameters, pass them through to `execute_tool()`:
 #### Before:
 ```python
 @mcp.tool()
-async def connect_notebook(
+async def use_notebook(
     notebook_name: str,
     notebook_path: str,
     mode: Literal["connect", "create"] = "connect",
@@ -113,7 +113,7 @@ async def connect_notebook(
 #### After:
 ```python
 @mcp.tool()
-async def connect_notebook(
+async def use_notebook(
     notebook_name: str,
     notebook_path: str,
     mode: Literal["connect", "create"] = "connect",
@@ -132,7 +132,7 @@ async def connect_notebook(
     """
     server_mode = _get_server_mode()
     return await registry.execute_tool(
-        "connect_notebook",
+        "use_notebook",
         mode=server_mode,
         notebook_name=notebook_name,
         notebook_path=notebook_path,
@@ -257,7 +257,7 @@ Migrate tools in phases:
 - `restart_notebook`
 
 **Phase 2**: Tools with path/file operations
-- ✅ `connect_notebook`
+- ✅ `use_notebook`
 - `manage_notebook_files`
 - `list_files`
 

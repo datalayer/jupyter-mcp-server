@@ -12,7 +12,7 @@ This document tracks the migration of `@mcp.tool()` functions from `server.py` i
 
 ### Notebook Management Tools (4/4)
 - ✅ `tools/list_notebook.py` - ListNotebookTool (has async local API support)
-- ✅ `tools/connect_notebook_tool.py` - ConnectNotebookTool (dual-mode with local API)
+- ✅ `tools/use_notebook_tool.py` - ConnectNotebookTool (dual-mode with local API)
 - ✅ `tools/restart_notebook_tool.py` - RestartNotebookTool (mode-agnostic)
 - ✅ `tools/disconnect_notebook_tool.py` - DisconnectNotebookTool (mode-agnostic)
 - ✅ `tools/switch_notebook_tool.py` - SwitchNotebookTool (mode-agnostic)

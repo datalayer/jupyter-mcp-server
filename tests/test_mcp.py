@@ -85,7 +85,7 @@ def windows_timeout_wrapper(timeout_seconds=30):
 # TODO: could be retrieved from code (inspect)
 JUPYTER_TOOLS = [
     # Multi-Notebook Management Tools
-    "connect_notebook",
+    "use_notebook",
     "list_notebook", 
     "restart_notebook",
     "disconnect_notebook",
@@ -184,8 +184,8 @@ class MCPClient:
 
     # Multi-Notebook Management Methods
     @requires_session
-    async def connect_notebook(self, notebook_name, notebook_path, mode="connect", kernel_id=None):
-        result = await self._session.call_tool("connect_notebook", arguments={
+    async def use_notebook(self, notebook_name, notebook_path, mode="connect", kernel_id=None):
+        result = await self._session.call_tool("use_notebook", arguments={
             "notebook_name": notebook_name, 
             "notebook_path": notebook_path, 
             "mode": mode,
@@ -797,7 +797,7 @@ async def test_multi_notebook_management(mcp_client):
         logging.debug(f"Initial notebook list: {initial_list}")
         
         # Connect to a new notebook
-        connect_result = await mcp_client.connect_notebook("test_notebook", "new.ipynb", "connect")
+        connect_result = await mcp_client.use_notebook("test_notebook", "new.ipynb", "connect")
         logging.debug(f"Connect result: {connect_result}")
         assert "Successfully connected to notebook 'test_notebook'" in connect_result
         assert "new.ipynb" in connect_result
@@ -810,7 +810,7 @@ async def test_multi_notebook_management(mcp_client):
         assert "✓" in notebook_list  # Should be marked as current
         
         # Try to connect to the same notebook again (should fail)
-        duplicate_result = await mcp_client.connect_notebook("test_notebook", "new.ipynb")
+        duplicate_result = await mcp_client.use_notebook("test_notebook", "new.ipynb")
         assert "already connected" in duplicate_result
         
         # Test switching between notebooks
@@ -860,7 +860,7 @@ async def test_multi_notebook_cell_operations(mcp_client):
     """Test cell operations across multiple notebooks"""
     async with mcp_client:
         # Connect to the new notebook
-        await mcp_client.connect_notebook("notebook_a", "new.ipynb")
+        await mcp_client.use_notebook("notebook_a", "new.ipynb")
         
         # Get initial cell count for notebook A
         count_a = await mcp_client.get_cell_count()
@@ -871,7 +871,7 @@ async def test_multi_notebook_cell_operations(mcp_client):
         # Connect to default notebook (if it exists)
         try:
             # Try to connect to notebook.ipynb as notebook_b
-            await mcp_client.connect_notebook("notebook_b", "notebook.ipynb")
+            await mcp_client.use_notebook("notebook_b", "notebook.ipynb")
             
             # Switch to notebook B
             await mcp_client.switch_notebook("notebook_b")
@@ -910,7 +910,7 @@ async def test_notebook_error_cases(mcp_client):
     """Test error handling for notebook management"""
     async with mcp_client:
         # Test connecting to non-existent notebook
-        error_result = await mcp_client.connect_notebook("nonexistent", "nonexistent.ipynb")
+        error_result = await mcp_client.use_notebook("nonexistent", "nonexistent.ipynb")
         logging.debug(f"Nonexistent notebook result: {error_result}")
         assert "not found" in error_result.lower() or "not a valid file" in error_result.lower()
         
@@ -925,7 +925,7 @@ async def test_notebook_error_cases(mcp_client):
         assert "not connected" in switch_error
         
         # Test invalid notebook paths
-        invalid_path_result = await mcp_client.connect_notebook("test", "../invalid/path.ipynb")
+        invalid_path_result = await mcp_client.use_notebook("test", "../invalid/path.ipynb")
         assert "not found" in invalid_path_result.lower() or "not a valid file" in invalid_path_result.lower()
 
 
