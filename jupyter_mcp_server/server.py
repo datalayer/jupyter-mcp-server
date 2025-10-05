@@ -153,6 +153,18 @@ class ServerContext:
             cls._instance = cls()
         return cls._instance
     
+    @classmethod
+    def reset(cls):
+        """Reset the singleton instance. Use this when config changes."""
+        if cls._instance is not None:
+            cls._instance._initialized = False
+            cls._instance._mode = None
+            cls._instance._contents_manager = None
+            cls._instance._kernel_manager = None
+            cls._instance._kernel_spec_manager = None
+            cls._instance._server_client = None
+            cls._instance._kernel_client = None
+    
     def initialize(self):
         """Initialize context once."""
         if self._initialized:
@@ -171,13 +183,33 @@ class ServerContext:
                 self._mode = ServerMode.MCP_SERVER
                 # Initialize HTTP clients for MCP_SERVER mode
                 config = get_config()
+                
+                # Validate that runtime_url is set
+                if not config.runtime_url or config.runtime_url == "None":
+                    raise ValueError(
+                        "runtime_url is not configured. Please set RUNTIME_URL environment variable "
+                        "or pass --runtime-url argument when starting the server."
+                    )
+                
                 self._server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
                 # kernel_client will be created lazily when needed
-        except (ImportError, Exception):
-            self._mode = ServerMode.MCP_SERVER
-            # Initialize HTTP clients for MCP_SERVER mode
-            config = get_config()
-            self._server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+        except (ImportError, Exception) as e:
+            # If not in Jupyter context, use MCP_SERVER mode
+            if not isinstance(e, ValueError):
+                self._mode = ServerMode.MCP_SERVER
+                # Initialize HTTP clients for MCP_SERVER mode
+                config = get_config()
+                
+                # Validate that runtime_url is set
+                if not config.runtime_url or config.runtime_url == "None":
+                    raise ValueError(
+                        "runtime_url is not configured. Please set RUNTIME_URL environment variable "
+                        "or pass --runtime-url argument when starting the server."
+                    )
+                
+                self._server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+            else:
+                raise
         
         self._initialized = True
         logger.info(f"Server mode initialized: {self._mode}")
@@ -414,50 +446,6 @@ async def __safe_notebook_operation(operation_func, max_retries=3):
     raise Exception("Unexpected error in retry logic")
 
 
-def _list_notebooks_recursively(server_client, path="", notebooks=None):
-    """Recursively list all .ipynb files in the Jupyter server."""
-    if notebooks is None:
-        notebooks = []
-    
-    try:
-        contents = server_client.contents.list_directory(path)
-        for item in contents:
-            full_path = f"{path}/{item.name}" if path else item.name
-            if item.type == "directory":
-                # Recursively search subdirectories
-                _list_notebooks_recursively(server_client, full_path, notebooks)
-            elif item.type == "notebook" or (item.type == "file" and item.name.endswith('.ipynb')):
-                # Add notebook to list without any prefix
-                notebooks.append(full_path)
-    except Exception as e:
-        # If we can't access a directory, just skip it
-        pass
-    
-    return notebooks
-
-
-async def _list_notebooks_local(contents_manager, path="", notebooks=None):
-    """Recursively list all .ipynb files using local contents_manager API."""
-    if notebooks is None:
-        notebooks = []
-    
-    try:
-        model = await contents_manager.get(path, content=True, type='directory')
-        for item in model.get('content', []):
-            full_path = f"{path}/{item['name']}" if path else item['name']
-            if item['type'] == "directory":
-                # Recursively search subdirectories
-                await _list_notebooks_local(contents_manager, full_path, notebooks)
-            elif item['type'] == "notebook" or (item['type'] == "file" and item['name'].endswith('.ipynb')):
-                # Add notebook to list
-                notebooks.append(full_path)
-    except Exception as e:
-        # If we can't access a directory, just skip it
-        pass
-    
-    return notebooks
-
-
 def _list_files_recursively(server_client, current_path="", current_depth=0, files=None, max_depth=3):
     """Recursively list all files and directories in the Jupyter server."""
     if files is None:
@@ -510,6 +498,7 @@ def _list_files_recursively(server_client, current_path="", current_depth=0, fil
     
     return files
 
+
 ###############################################################################
 # Custom Routes.
 
@@ -540,6 +529,9 @@ async def connect(request: Request):
         document_id=document_runtime.document_id,
         document_token=document_runtime.document_token
     )
+    
+    # Reset ServerContext to pick up new configuration
+    ServerContext.reset()
 
     try:
         __start_kernel()
@@ -722,7 +714,7 @@ async def insert_cell(
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
-            source=cell_source,
+            cell_source=cell_source,
             cell_type=cell_type,
         )
     )
@@ -747,8 +739,8 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
-            source=cell_source,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            cell_source=cell_source,
+            ensure_kernel_alive=__ensure_kernel_alive,
         )
     )
 
@@ -981,6 +973,8 @@ async def list_all_files(path: str = "", max_depth: int = 3) -> str:
     return await __safe_notebook_operation(
         lambda: list_all_files_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
             path=path,
             max_depth=max_depth,
             list_files_recursively_fn=_list_files_recursively,
@@ -1235,6 +1229,9 @@ def start_command(
         document_token=document_token,
         port=port
     )
+    
+    # Reset ServerContext to pick up new configuration
+    ServerContext.reset()
 
     if config.start_new_runtime or config.runtime_id:
         try:
