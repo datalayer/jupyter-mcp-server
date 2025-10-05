@@ -37,16 +37,28 @@ class ExecuteIpythonTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        code: str,
+        server_client=None,
+        contents_manager=None,
+        kernel_manager=None,
+        kernel_spec_manager=None,
+        notebook_manager=None,
+        # Tool-specific parameters
+        code: str = None,
         timeout: int = 60,
         ensure_kernel_alive_fn=None,
         wait_for_kernel_idle_fn=None,
         safe_extract_outputs_fn=None,
+        **kwargs
     ) -> list[Union[str, ImageContent]]:
         """Execute IPython code directly in the kernel.
         
         Args:
             mode: Server mode (ignored, uses notebook manager)
+            server_client: JupyterServerClient (not used in this tool)
+            contents_manager: Contents manager (not used in this tool)
+            kernel_manager: Kernel manager (not used in this tool)
+            kernel_spec_manager: Kernel spec manager (not used in this tool)
+            notebook_manager: Notebook manager for connection
             code: IPython code to execute (supports magic commands, shell commands with !, and Python code)
             timeout: Execution timeout in seconds (default: 60s)
             ensure_kernel_alive_fn: Function to ensure kernel is alive
@@ -62,10 +74,12 @@ class ExecuteIpythonTool(BaseTool):
             raise ValueError("wait_for_kernel_idle_fn is required")
         if safe_extract_outputs_fn is None:
             raise ValueError("safe_extract_outputs_fn is required")
+        if notebook_manager is None:
+            raise ValueError("notebook_manager is required")
         
         # Get current notebook name and kernel
-        current_notebook = self.notebook_manager.get_current_notebook() or "default"
-        kernel = self.notebook_manager.get_kernel(current_notebook)
+        current_notebook = notebook_manager.get_current_notebook() or "default"
+        kernel = notebook_manager.get_kernel(current_notebook)
         
         if not kernel:
             # Ensure kernel is alive

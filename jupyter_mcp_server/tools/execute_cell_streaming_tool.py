@@ -25,17 +25,29 @@ class ExecuteCellStreamingTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        cell_index: int,
+        server_client=None,
+        contents_manager=None,
+        kernel_manager=None,
+        kernel_spec_manager=None,
+        notebook_manager=None,
+        # Tool-specific parameters
+        cell_index: int = None,
         timeout_seconds: int = 300,
         progress_interval: int = 5,
         ensure_kernel_alive_fn=None,
         wait_for_kernel_idle_fn=None,
         extract_output_fn=None,
+        **kwargs
     ) -> list[Union[str, ImageContent]]:
         """Execute cell with streaming progress updates.
         
         Args:
             mode: Server mode (ignored, uses notebook manager)
+            server_client: JupyterServerClient (not used in this tool)
+            contents_manager: Contents manager (not used in this tool)
+            kernel_manager: Kernel manager (not used in this tool)
+            kernel_spec_manager: Kernel spec manager (not used in this tool)
+            notebook_manager: Notebook manager for connection
             cell_index: Index of the cell to execute (0-based)
             timeout_seconds: Maximum time to wait for execution (default: 300s)
             progress_interval: Seconds between progress updates (default: 5s)
@@ -52,13 +64,15 @@ class ExecuteCellStreamingTool(BaseTool):
             raise ValueError("wait_for_kernel_idle_fn is required")
         if extract_output_fn is None:
             raise ValueError("extract_output_fn is required")
+        if notebook_manager is None:
+            raise ValueError("notebook_manager is required")
         
         kernel = ensure_kernel_alive_fn()
         await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
         
         outputs_log = []
         
-        async with self.notebook_manager.get_current_connection() as notebook:
+        async with notebook_manager.get_current_connection() as notebook:
             ydoc = notebook._doc
             if cell_index < 0 or cell_index >= len(ydoc._ycells):
                 raise ValueError(f"Cell index {cell_index} is out of range.")
