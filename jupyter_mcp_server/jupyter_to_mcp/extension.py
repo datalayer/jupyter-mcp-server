@@ -109,6 +109,9 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         This is called during extension loading to set up configuration
         and update the server context.
         """
+        # Reduce noise from httpx logging (used by JupyterLab for PyPI extension discovery)
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        
         logger.info(f"Initializing Jupyter MCP Server Extension")
         logger.info(f"  Document URL: {self.document_url}")
         logger.info(f"  Runtime URL: {self.runtime_url}")
