@@ -56,12 +56,35 @@ def get_config() -> JupyterMCPConfig:
 
 
 def set_config(**kwargs) -> JupyterMCPConfig:
-    """Set configuration values and return the config instance."""
+    """Set configuration values and return the config instance.
+    
+    Automatically handles string representations of None by removing them from kwargs,
+    allowing defaults to be used instead. This handles cases where environment variables
+    or MCP clients pass "None" as a string.
+    """
+    def should_skip(value):
+        """Check if value is a string representation of None that should be skipped."""
+        return isinstance(value, str) and value.lower() in ("none", "null", "")
+    
+    # Filter out string "None" values and let defaults be used instead
+    # For optional fields (tokens, runtime_id), convert to actual None
+    normalized_kwargs = {}
+    for key, value in kwargs.items():
+        if should_skip(value):
+            # For optional fields, set to None; for required fields, skip (use default)
+            if key in ("runtime_token", "document_token", "runtime_id"):
+                normalized_kwargs[key] = None
+            # For required string fields like runtime_url, document_url, skip the key
+            # to let the default value be used
+            # Do nothing - skip this key
+        else:
+            normalized_kwargs[key] = value
+    
     global _config_instance
     if _config_instance is None:
-        _config_instance = JupyterMCPConfig(**kwargs)
+        _config_instance = JupyterMCPConfig(**normalized_kwargs)
     else:
-        for key, value in kwargs.items():
+        for key, value in normalized_kwargs.items():
             if hasattr(_config_instance, key):
                 setattr(_config_instance, key, value)
     return _config_instance

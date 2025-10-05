@@ -199,11 +199,15 @@ class ServerContext:
                 config = get_config()
                 
                 # Validate that runtime_url is set and not None/empty
+                # Note: String "None" values should have been normalized by start_command()
                 runtime_url = config.runtime_url
                 if not runtime_url or runtime_url in ("None", "none", "null", ""):
                     raise ValueError(
                         f"runtime_url is not configured (current value: {repr(runtime_url)}). "
-                        "Please set RUNTIME_URL environment variable or pass --runtime-url argument when starting the server."
+                        "Please check:\n"
+                        "1. RUNTIME_URL environment variable is set correctly (not the string 'None')\n"
+                        "2. --runtime-url argument is provided when starting the server\n"
+                        "3. The MCP client configuration passes runtime_url correctly"
                     )
                 
                 logger.info(f"Initializing MCP_SERVER mode with runtime_url: {runtime_url}")
@@ -217,11 +221,15 @@ class ServerContext:
                 config = get_config()
                 
                 # Validate that runtime_url is set and not None/empty
+                # Note: String "None" values should have been normalized by start_command()
                 runtime_url = config.runtime_url
                 if not runtime_url or runtime_url in ("None", "none", "null", ""):
                     raise ValueError(
                         f"runtime_url is not configured (current value: {repr(runtime_url)}). "
-                        "Please set RUNTIME_URL environment variable or pass --runtime-url argument when starting the server."
+                        "Please check:\n"
+                        "1. RUNTIME_URL environment variable is set correctly (not the string 'None')\n"
+                        "2. --runtime-url argument is provided when starting the server\n"
+                        "3. The MCP client configuration passes runtime_url correctly"
                     )
                 
                 logger.info(f"Initializing MCP_SERVER mode with runtime_url: {runtime_url}")
@@ -333,7 +341,14 @@ async def connect(request: Request):
     """Connect to a document and a runtime from the Jupyter MCP server."""
 
     data = await request.json()
-    logger.info("Connecting to document_runtime:", data)
+    
+    # Log the received data for diagnostics
+    # Note: set_config() will automatically normalize string "None" values
+    logger.info(
+        f"Connect endpoint received - runtime_url: {repr(data.get('runtime_url'))}, "
+        f"document_url: {repr(data.get('document_url'))}, "
+        f"provider: {data.get('provider')}"
+    )
 
     document_runtime = DocumentRuntime(**data)
 
@@ -345,6 +360,7 @@ async def connect(request: Request):
             logger.warning(f"Error stopping existing notebook during connect: {e}")
 
     # Update configuration with new values
+    # String "None" values will be automatically normalized by set_config()
     set_config(
         provider=document_runtime.provider,
         runtime_url=document_runtime.runtime_url,
@@ -1041,7 +1057,16 @@ def start_command(
 ):
     """Start the Jupyter MCP server with a transport."""
 
+    # Log the received configuration for diagnostics
+    # Note: set_config() will automatically normalize string "None" values
+    logger.info(
+        f"Start command received - runtime_url: {repr(runtime_url)}, "
+        f"document_url: {repr(document_url)}, provider: {provider}, "
+        f"transport: {transport}"
+    )
+
     # Set configuration using the singleton
+    # String "None" values will be automatically normalized by set_config()
     config = set_config(
         transport=transport,
         provider=provider,

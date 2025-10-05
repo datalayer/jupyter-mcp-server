@@ -157,23 +157,46 @@ Returns:
             elif mode == ServerMode.MCP_SERVER and server_client is not None:
                 server_client.contents.create_notebook(notebook_path)
         
-        # Create kernel client (currently always uses HTTP approach)
-        # TODO: In JUPYTER_SERVER mode, could use kernel_manager.start_kernel() directly
-        kernel = KernelClient(
-            server_url=runtime_url,
-            token=runtime_token,
-            kernel_id=kernel_id
-        )
-        kernel.start()
+        # Create/connect to kernel based on mode
+        if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
+            # JUPYTER_SERVER mode: Use local kernel manager
+            if kernel_id:
+                # Connect to existing kernel
+                kernel = kernel_manager.get_kernel(kernel_id)
+            else:
+                # Start a new kernel
+                kernel_id = await kernel_manager.start_kernel()
+                kernel = kernel_manager.get_kernel(kernel_id)
+            
+            # For JUPYTER_SERVER mode, store the kernel object directly
+            # NotebookManager will handle local kernel differently
+            notebook_manager.add_notebook(
+                notebook_name,
+                kernel,
+                server_url="local",  # Indicate local mode
+                token=None,
+                path=notebook_path
+            )
+        elif mode == ServerMode.MCP_SERVER and runtime_url:
+            # MCP_SERVER mode: Use HTTP-based kernel client
+            kernel = KernelClient(
+                server_url=runtime_url,
+                token=runtime_token,
+                kernel_id=kernel_id
+            )
+            kernel.start()
+            
+            # Add notebook to manager with HTTP client
+            notebook_manager.add_notebook(
+                notebook_name,
+                kernel,
+                server_url=runtime_url,
+                token=runtime_token,
+                path=notebook_path
+            )
+        else:
+            return f"Invalid configuration: mode={mode}, runtime_url={runtime_url}, kernel_manager={kernel_manager is not None}"
         
-        # Add notebook to manager
-        notebook_manager.add_notebook(
-            notebook_name,
-            kernel,
-            server_url=runtime_url,
-            token=runtime_token,
-            path=notebook_path
-        )
         notebook_manager.set_current_notebook(notebook_name)
         
-        return f"Successfully {'created and ' if connect_mode == 'create' else ''}connected to notebook '{notebook_name}' at path '{notebook_path}'."
+        return f"Successfully {'created and ' if connect_mode == 'create' else ''}connected to notebook '{notebook_name}' at path '{notebook_path}' using {mode.value} mode."

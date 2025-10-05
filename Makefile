@@ -96,12 +96,13 @@ start-no-runtime: ## start the jupyter mcp server with streamable-http transport
 	  --runtime-token MY_TOKEN \
 	  --port 4040
 
-start-as-jupyter-server: ## start jupyter server with MCP extension (local access)
+start-as-jupyter-server: ## start jupyter server with MCP extension
 	@exec echo
 	@exec echo 🚀 Starting Jupyter Server with MCP Extension
 	@exec echo 📍 Using local serverapp access - document_url=local, runtime_url=local
 	@exec echo
 	@exec echo 🔗 JupyterLab will be available at http://localhost:4040/lab
+	@exec echo
 	@exec echo 🔗 MCP endpoints will be available at http://localhost:4040/mcp
 	@exec echo
 	@exec echo "Test with: curl http://localhost:4040/mcp/healthz"
