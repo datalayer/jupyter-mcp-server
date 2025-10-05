@@ -3,11 +3,9 @@
 # BSD 3-Clause License
 
 import asyncio
-import difflib
 import logging
 import time
 from typing import Union, Optional
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 import click
@@ -15,23 +13,42 @@ import httpx
 import uvicorn
 from fastapi import Request
 from jupyter_kernel_client import KernelClient
-from jupyter_nbmodel_client import (
-    NbModelClient,
-    get_notebook_websocket_url,
-)
-from jupyter_server_api import (
-    JupyterServerClient,
-    NotFoundError
-)
 from mcp.server import FastMCP
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
-from jupyter_mcp_server.models import DocumentRuntime, CellInfo
+from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.utils import extract_output, safe_extract_outputs, format_cell_list, get_surrounding_cells_info
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.tools import (
+    # Tool infrastructure
+    ServerMode,
+    # Notebook Management
+    ListNotebookTool,
+    ConnectNotebookTool,
+    RestartNotebookTool,
+    DisconnectNotebookTool,
+    SwitchNotebookTool,
+    # Cell Reading
+    ReadAllCellsTool,
+    ListCellTool,
+    ReadCellTool,
+    # Cell Writing
+    InsertCellTool,
+    InsertExecuteCodeCellTool,
+    OverwriteCellSourceTool,
+    DeleteCellTool,
+    # Cell Execution
+    ExecuteCellSimpleTimeoutTool,
+    ExecuteCellStreamingTool,
+    ExecuteCellWithProgressTool,
+    # Other Tools
+    ExecuteIpythonTool,
+    ListAllFilesTool,
+    ListKernelTool,
+)
 from typing import Literal, Union
 from mcp.types import ImageContent
 
@@ -59,7 +76,7 @@ class FastMCPWithCORS(FastMCP):
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
-        )        
+        )
         return app
     
     def sse_app(self, mount_path: str | None = None) -> Starlette:
@@ -84,6 +101,96 @@ mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_
 
 # Initialize the unified notebook manager
 notebook_manager = NotebookManager()
+
+# Initialize all tool instances (no arguments needed - tools receive dependencies via execute())
+# Notebook Management Tools
+list_notebook_tool = ListNotebookTool()
+connect_notebook_tool = ConnectNotebookTool()
+restart_notebook_tool = RestartNotebookTool()
+disconnect_notebook_tool = DisconnectNotebookTool()
+switch_notebook_tool = SwitchNotebookTool()
+
+# Cell Reading Tools
+read_all_cells_tool = ReadAllCellsTool()
+list_cell_tool = ListCellTool()
+read_cell_tool = ReadCellTool()
+
+# Cell Writing Tools
+insert_cell_tool = InsertCellTool()
+insert_execute_code_cell_tool = InsertExecuteCodeCellTool()
+overwrite_cell_source_tool = OverwriteCellSourceTool()
+delete_cell_tool = DeleteCellTool()
+
+# Cell Execution Tools
+execute_cell_simple_timeout_tool = ExecuteCellSimpleTimeoutTool()
+execute_cell_streaming_tool = ExecuteCellStreamingTool()
+execute_cell_with_progress_tool = ExecuteCellWithProgressTool()
+
+# Other Tools
+execute_ipython_tool = ExecuteIpythonTool()
+list_all_files_tool = ListAllFilesTool()
+list_kernel_tool = ListKernelTool()
+
+
+###############################################################################
+
+
+class ServerContext:
+    """Singleton to cache server mode and context managers."""
+    _instance = None
+    _mode = None
+    _contents_manager = None
+    _kernel_manager = None
+    _initialized = False
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+    
+    def initialize(self):
+        """Initialize context once."""
+        if self._initialized:
+            return
+        
+        try:
+            from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+            context = get_server_context()
+            
+            if context.is_local_document() and context.get_contents_manager() is not None:
+                self._mode = ServerMode.JUPYTER_SERVER
+                self._contents_manager = context.get_contents_manager()
+                self._kernel_manager = context.get_kernel_manager()
+            else:
+                self._mode = ServerMode.MCP_SERVER
+        except (ImportError, Exception):
+            self._mode = ServerMode.MCP_SERVER
+        
+        self._initialized = True
+        logger.info(f"Server mode initialized: {self._mode}")
+    
+    @property
+    def mode(self):
+        if not self._initialized:
+            self.initialize()
+        return self._mode
+    
+    @property
+    def contents_manager(self):
+        if not self._initialized:
+            self.initialize()
+        return self._contents_manager
+    
+    @property
+    def kernel_manager(self):
+        if not self._initialized:
+            self.initialize()
+        return self._kernel_manager
+
+
+# Initialize server context singleton
+server_context = ServerContext.get_instance()
 
 
 ###############################################################################
@@ -474,71 +581,18 @@ async def connect_notebook(
     Returns:
         str: Success message with notebook information
     """
-    if notebook_name in notebook_manager:
-        return f"Notebook '{notebook_name}' is already connected. Use disconnect_notebook first if you want to reconnect."
-    
-    config = get_config()
-    server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
-
-    # Check the Jupyter server
-    try:
-        server_client.get_status()
-    except Exception as e:
-        return f"Failed to connect the Jupyter server: {e}"
-
-    # Check the path on Jupyter server
-    path = Path(notebook_path)
-    try:
-        # For relative paths starting with just filename, assume current directory
-        parent_path = str(path.parent) if str(path.parent) != "." else ""
-        
-        if parent_path:
-            dir_contents = server_client.contents.list_directory(parent_path)
-        else:
-            # Check in the root directory of Jupyter server
-            dir_contents = server_client.contents.list_directory("")
-            
-        if mode == "connect":
-            file_exists = any(file.name == path.name for file in dir_contents)
-            if not file_exists:
-                return f"'{notebook_path}' not found in jupyter server, please check the notebook already exists."
-    except NotFoundError:
-        parent_dir = str(path.parent) if str(path.parent) != "." else "root directory"
-        return f"'{parent_dir}' not found in jupyter server, please check the directory path already exists."
-    except Exception as e:
-        return f"Failed to check the path '{notebook_path}': {e}"
-
-    # Check the kernel
-    if kernel_id:
-        kernels = server_client.kernels.list_kernels()
-        kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
-        if not kernel_exists:
-            return f"Kernel '{kernel_id}' not found in jupyter server, please check the kernel is already exists."
-    
-    # Create notebook
-    if mode == "create":
-        server_client.contents.create_notebook(notebook_path)
-    
-    # Create kernel client
-    kernel = KernelClient(
-            server_url=config.runtime_url,
-            token=config.runtime_token,
-            kernel_id=kernel_id
+    return await __safe_notebook_operation(
+        lambda: connect_notebook_tool.execute(
+            mode=server_context.mode,
+            notebook_name=notebook_name,
+            notebook_path=notebook_path,
+            creation_mode=mode,
+            kernel_id=kernel_id,
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
         )
-        
-    kernel.start()
-        
-    # Add notebook to manager
-    notebook_manager.add_notebook(
-        notebook_name,
-        kernel,
-        server_url=config.runtime_url,
-        token=config.runtime_token,
-        path=notebook_path
     )
-    notebook_manager.set_current_notebook(notebook_name)
-    
-    return f"Successfully {'created and ' if mode == 'create' else ''}connected to notebook '{notebook_name}' at path '{notebook_path}'."
 
 
 @mcp.tool()
@@ -550,69 +604,12 @@ async def list_notebook() -> str:
     Returns:
         str: TSV formatted table with notebook information including management status
     """
-    # Get all notebooks from the Jupyter server
-    config = get_config()
-    
-    # Check if we should use local API or HTTP
-    try:
-        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
-        context = get_server_context()
-        
-        if context.is_local_document() and context.get_contents_manager() is not None:
-            # Use local API (JUPYTER_SERVER mode)
-            contents_manager = context.get_contents_manager()
-            all_notebooks = await _list_notebooks_local(contents_manager)
-        else:
-            # Use HTTP API (MCP_SERVER mode)
-            server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
-            all_notebooks = _list_notebooks_recursively(server_client)
-    except (ImportError, Exception):
-        # Fallback to HTTP API
-        server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
-        all_notebooks = _list_notebooks_recursively(server_client)
-    
-    # Get managed notebooks info
-    managed_notebooks = notebook_manager.list_all_notebooks()
-    
-    if not all_notebooks and not managed_notebooks:
-        return "No notebooks found in the Jupyter server."
-    
-    # Create TSV formatted output
-    lines = ["Path\tManaged\tName\tStatus\tCurrent"]
-    lines.append("-" * 100)
-    
-    # Create a set of managed notebook paths for quick lookup
-    managed_paths = {info["path"] for info in managed_notebooks.values()}
-    
-    # Add all notebooks found in the server
-    for notebook_path in sorted(all_notebooks):
-        is_managed = notebook_path in managed_paths
-        
-        if is_managed:
-            # Find the managed notebook entry
-            managed_info = None
-            managed_name = None
-            for name, info in managed_notebooks.items():
-                if info["path"] == notebook_path:
-                    managed_info = info
-                    managed_name = name
-                    break
-            
-            if managed_info:
-                current_marker = "✓" if managed_info["is_current"] else ""
-                lines.append(f"{notebook_path}\tYes\t{managed_name}\t{managed_info['kernel_status']}\t{current_marker}")
-            else:
-                lines.append(f"{notebook_path}\tYes\t-\t-\t")
-        else:
-            lines.append(f"{notebook_path}\tNo\t-\t-\t")
-    
-    # Add any managed notebooks that weren't found in the server (edge case)
-    for name, info in managed_notebooks.items():
-        if info["path"] not in all_notebooks:
-            current_marker = "✓" if info["is_current"] else ""
-            lines.append(f"{info['path']}\tYes (not found)\t{name}\t{info['kernel_status']}\t{current_marker}")
-    
-    return "\n".join(lines)
+    return await list_notebook_tool.execute(
+        mode=server_context.mode,
+        path="",
+        contents_manager=server_context.contents_manager,
+        kernel_manager=server_context.kernel_manager,
+    )
 
 
 @mcp.tool()
@@ -625,15 +622,10 @@ async def restart_notebook(notebook_name: str) -> str:
     Returns:
         str: Success message
     """
-    if notebook_name not in notebook_manager:
-        return f"Notebook '{notebook_name}' is not connected."
-    
-    success = notebook_manager.restart_notebook(notebook_name)
-    
-    if success:
-        return f"Notebook '{notebook_name}' kernel restarted successfully. Memory state and imported packages have been cleared."
-    else:
-        return f"Failed to restart notebook '{notebook_name}'. The kernel may not support restart operation."
+    return await restart_notebook_tool.execute(
+        mode=server_context.mode,
+        notebook_name=notebook_name,
+    )
 
 
 @mcp.tool()
@@ -646,28 +638,10 @@ async def disconnect_notebook(notebook_name: str) -> str:
     Returns:
         str: Success message
     """
-    if notebook_name not in notebook_manager:
-        return f"Notebook '{notebook_name}' is not connected."
-    
-    # Get info about which notebook was current
-    current_notebook = notebook_manager.get_current_notebook()
-    was_current = current_notebook == notebook_name
-    
-    success = notebook_manager.remove_notebook(notebook_name)
-    
-    if success:
-        message = f"Notebook '{notebook_name}' disconnected successfully."
-        
-        if was_current:
-            new_current = notebook_manager.get_current_notebook()
-            if new_current:
-                message += f" Current notebook switched to '{new_current}'."
-            else:
-                message += " No notebooks remaining."
-        
-        return message
-    else:
-        return f"Notebook '{notebook_name}' was not found."
+    return await disconnect_notebook_tool.execute(
+        mode=server_context.mode,
+        notebook_name=notebook_name,
+    )
 
 
 @mcp.tool()
@@ -680,22 +654,10 @@ async def switch_notebook(notebook_name: str) -> str:
     Returns:
         str: Success message with new active notebook information
     """
-    if notebook_name not in notebook_manager:
-        available_notebooks = list(notebook_manager.list_all_notebooks().keys())
-        if available_notebooks:
-            return f"Notebook '{notebook_name}' is not connected. Available notebooks: {', '.join(available_notebooks)}"
-        else:
-            return f"Notebook '{notebook_name}' is not connected and no notebooks are available."
-    
-    success = notebook_manager.set_current_notebook(notebook_name)
-    
-    if success:
-        notebooks_info = notebook_manager.list_all_notebooks()
-        notebook_info = notebooks_info[notebook_name]
-        
-        return f"Successfully switched to notebook '{notebook_name}'. Path: '{notebook_info['path']}', Status: {notebook_info['kernel_status']}. All subsequent cell operations will use this notebook."
-    else:
-        return f"Failed to switch to notebook '{notebook_name}'."
+    return await switch_notebook_tool.execute(
+        mode=server_context.mode,
+        notebook_name=notebook_name,
+    )
 
 ###############################################################################
 # Cell Tools.
@@ -716,36 +678,14 @@ async def insert_cell(
     Returns:
         str: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)
     """
-    async def _insert_cell():
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            total_cells = len(ydoc._ycells)
-            
-            actual_index = cell_index if cell_index != -1 else total_cells
-                
-            if actual_index < 0 or actual_index > total_cells:
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {total_cells} cells. Use -1 to append at end."
-                )
-            
-            if cell_type == "code":
-                if actual_index == total_cells:
-                    notebook.add_code_cell(cell_source)
-                else:
-                    notebook.insert_code_cell(actual_index, cell_source)
-            elif cell_type == "markdown":
-                if actual_index == total_cells:
-                    notebook.add_markdown_cell(cell_source)
-                else:
-                    notebook.insert_markdown_cell(actual_index, cell_source)
-            
-            # Get surrounding cells info
-            new_total_cells = len(ydoc._ycells)
-            surrounding_info = get_surrounding_cells_info(notebook, actual_index, new_total_cells)
-            
-            return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
-    
-    return await __safe_notebook_operation(_insert_cell)
+    return await __safe_notebook_operation(
+        lambda: insert_cell_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+            source=cell_source,
+            cell_type=cell_type,
+        )
+    )
 
 
 @mcp.tool()
@@ -759,31 +699,14 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
     Returns:
         list[Union[str, ImageContent]]: List of outputs from the executed cell
     """
-    async def _insert_execute():
-        kernel = __ensure_kernel_alive()
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            total_cells = len(ydoc._ycells)
-            
-            actual_index = cell_index if cell_index != -1 else total_cells
-                
-            if actual_index < 0 or actual_index > total_cells:
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {total_cells} cells. Use -1 to append at end."
-                )
-            
-            if actual_index == total_cells:
-                notebook.add_code_cell(cell_source)
-            else:
-                notebook.insert_code_cell(actual_index, cell_source)
-                
-            notebook.execute_cell(actual_index, kernel)
-
-            ydoc = notebook._doc
-            outputs = ydoc._ycells[actual_index]["outputs"]
-            return safe_extract_outputs(outputs)
-    
-    return await __safe_notebook_operation(_insert_execute)
+    return await __safe_notebook_operation(
+        lambda: insert_execute_code_cell_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+            source=cell_source,
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+        )
+    )
 
 
 @mcp.tool()
@@ -798,50 +721,13 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     Returns:
         str: Success message with diff showing changes made
     """
-    async def _overwrite_cell():
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
-                )
-            
-            # Get original cell content
-            old_source_raw = ydoc._ycells[cell_index].get("source", "")
-            
-            # Convert source to string if it's a list (which is common in notebooks)
-            if isinstance(old_source_raw, list):
-                old_source = "".join(old_source_raw)
-            else:
-                old_source = str(old_source_raw)
-            
-            # Set new cell content
-            notebook.set_cell_source(cell_index, cell_source)
-            
-            # Generate diff
-            old_lines = old_source.splitlines(keepends=False)
-            new_lines = cell_source.splitlines(keepends=False)
-            
-            diff_lines = list(difflib.unified_diff(
-                old_lines, 
-                new_lines, 
-                lineterm='',
-                n=3  # Number of context lines
-            ))
-            
-            # Remove the first 3 lines (file headers) from unified_diff output
-            if len(diff_lines) > 3:
-                diff_content = '\n'.join(diff_lines[3:])
-            else:
-                diff_content = "no changes detected"
-            
-            if not diff_content.strip():
-                return f"Cell {cell_index} overwritten successfully - no changes detected"
-            
-            return f"Cell {cell_index} overwritten successfully!\n\n```diff\n{diff_content}\n```"
-    
-    return await __safe_notebook_operation(_overwrite_cell)
+    return await __safe_notebook_operation(
+        lambda: overwrite_cell_source_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+            new_source=cell_source,
+        )
+    )
 
 @mcp.tool()
 async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300) -> list[Union[str, ImageContent]]:
@@ -852,57 +738,18 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
     Returns:
         list[Union[str, ImageContent]]: List of outputs from the executed cell
     """
-    async def _execute():
-        kernel = __ensure_kernel_alive()
-        await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
-        
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
-                )
-
-            logger.info(f"Starting execution of cell {cell_index} with {timeout_seconds}s timeout")
-            
-            try:
-                # Use the corrected timeout function
-                await __execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds)
-
-                # Get final outputs
-                ydoc = notebook._doc
-                outputs = ydoc._ycells[cell_index]["outputs"]
-                result = safe_extract_outputs(outputs)
-                
-                logger.info(f"Cell {cell_index} completed successfully with {len(result)} outputs")
-                return result
-                
-            except asyncio.TimeoutError as e:
-                logger.error(f"Cell {cell_index} execution timed out: {e}")
-                try:
-                    if kernel and hasattr(kernel, 'interrupt'):
-                        kernel.interrupt()
-                        logger.info("Sent interrupt signal to kernel")
-                except Exception as interrupt_err:
-                    logger.error(f"Failed to interrupt kernel: {interrupt_err}")
-                
-                # Return partial outputs if available
-                try:
-                    outputs = ydoc._ycells[cell_index].get("outputs", [])
-                    partial_outputs = safe_extract_outputs(outputs)
-                    partial_outputs.append(f"[TIMEOUT ERROR: Execution exceeded {timeout_seconds} seconds]")
-                    return partial_outputs
-                except Exception:
-                    pass
-                
-                return [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds and was interrupted]"]
-                
-            except Exception as e:
-                logger.error(f"Error executing cell {cell_index}: {e}")
-                raise
-    
-    return await __safe_notebook_operation(_execute, max_retries=1)
+    return await __safe_notebook_operation(
+        lambda: execute_cell_with_progress_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+            timeout_seconds=timeout_seconds,
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
+            safe_extract_outputs_fn=safe_extract_outputs,
+            execute_cell_with_forced_sync_fn=__execute_cell_with_forced_sync,
+        ),
+        max_retries=1
+    )
 
 # Simpler real-time monitoring without forced sync
 @mcp.tool()
@@ -910,38 +757,17 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
     """Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells.
     This won't force real-time updates but will work reliably.
     """
-    async def _execute():
-        kernel = __ensure_kernel_alive()
-        await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
-        
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                raise ValueError(f"Cell index {cell_index} is out of range.")
-
-            logger.info(f"Starting execution of cell {cell_index} with {timeout_seconds}s timeout")
-            
-            # Simple execution with timeout
-            execution_task = asyncio.create_task(
-                asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
-            )
-            
-            try:
-                await asyncio.wait_for(execution_task, timeout=timeout_seconds)
-            except asyncio.TimeoutError:
-                execution_task.cancel()
-                if kernel and hasattr(kernel, 'interrupt'):
-                    kernel.interrupt()
-                return [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds]"]
-
-            # Get final outputs
-            outputs = ydoc._ycells[cell_index]["outputs"]
-            result = safe_extract_outputs(outputs)
-            
-            logger.info(f"Cell {cell_index} completed successfully")
-            return result
-    
-    return await __safe_notebook_operation(_execute, max_retries=1)
+    return await __safe_notebook_operation(
+        lambda: execute_cell_simple_timeout_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+            timeout_seconds=timeout_seconds,
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
+            safe_extract_outputs_fn=safe_extract_outputs,
+        ),
+        max_retries=1
+    )
 
 
 @mcp.tool()
@@ -954,81 +780,18 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
     Returns:
         list[Union[str, ImageContent]]: List of outputs including progress updates
     """
-    async def _execute_streaming():
-        kernel = __ensure_kernel_alive()
-        await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
-        
-        outputs_log = []
-        
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                raise ValueError(f"Cell index {cell_index} is out of range.")
-
-            # Start execution in background
-            execution_task = asyncio.create_task(
-                asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
-            )
-            
-            start_time = time.time()
-            last_output_count = 0
-            
-            # Monitor progress
-            while not execution_task.done():
-                elapsed = time.time() - start_time
-                
-                # Check timeout
-                if elapsed > timeout_seconds:
-                    execution_task.cancel()
-                    outputs_log.append(f"[TIMEOUT at {elapsed:.1f}s: Cancelling execution]")
-                    try:
-                        kernel.interrupt()
-                        outputs_log.append("[Sent interrupt signal to kernel]")
-                    except Exception:
-                        pass
-                    break
-                
-                # Check for new outputs
-                try:
-                    current_outputs = ydoc._ycells[cell_index].get("outputs", [])
-                    if len(current_outputs) > last_output_count:
-                        new_outputs = current_outputs[last_output_count:]
-                        for output in new_outputs:
-                            extracted = extract_output(output)
-                            if extracted.strip():
-                                outputs_log.append(f"[{elapsed:.1f}s] {extracted}")
-                        last_output_count = len(current_outputs)
-                
-                except Exception as e:
-                    outputs_log.append(f"[{elapsed:.1f}s] Error checking outputs: {e}")
-                
-                # Progress update
-                if int(elapsed) % progress_interval == 0 and elapsed > 0:
-                    outputs_log.append(f"[PROGRESS: {elapsed:.1f}s elapsed, {last_output_count} outputs so far]")
-                
-                await asyncio.sleep(1)
-            
-            # Get final result
-            if not execution_task.cancelled():
-                try:
-                    await execution_task
-                    final_outputs = ydoc._ycells[cell_index].get("outputs", [])
-                    outputs_log.append(f"[COMPLETED in {time.time() - start_time:.1f}s]")
-                    
-                    # Add any final outputs not captured during monitoring
-                    if len(final_outputs) > last_output_count:
-                        remaining = final_outputs[last_output_count:]
-                        for output in remaining:
-                            extracted = extract_output(output)
-                            if extracted.strip():
-                                outputs_log.append(extracted)
-                                
-                except Exception as e:
-                    outputs_log.append(f"[ERROR: {e}]")
-            
-            return outputs_log if outputs_log else ["[No output generated]"]
-    
-    return await __safe_notebook_operation(_execute_streaming, max_retries=1)
+    return await __safe_notebook_operation(
+        lambda: execute_cell_streaming_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+            timeout_seconds=timeout_seconds,
+            progress_interval=progress_interval,
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
+            extract_output_fn=extract_output,
+        ),
+        max_retries=1
+    )
 
 @mcp.tool()
 async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:
@@ -1037,16 +800,9 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, Ima
         list[dict]: List of cell information including index, type, source,
                     and outputs (for code cells)
     """
-    async def _read_all():
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            cells = []
-
-            for i, cell in enumerate(ydoc._ycells):
-                cells.append(CellInfo.from_cell(i, cell).model_dump(exclude_none=True))
-            return cells
-    
-    return await __safe_notebook_operation(_read_all)
+    return await __safe_notebook_operation(
+        lambda: read_all_cells_tool.execute(mode=server_context.mode)
+    )
 
 
 @mcp.tool()
@@ -1060,12 +816,9 @@ async def list_cell() -> str:
     Returns:
         str: Formatted table with cell information (Index, Type, Count, First Line)
     """
-    async def _list_cells():
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            return format_cell_list(ydoc._ycells)
-    
-    return await __safe_notebook_operation(_list_cells)
+    return await __safe_notebook_operation(
+        lambda: list_cell_tool.execute(mode=server_context.mode)
+    )
 
 
 @mcp.tool()
@@ -1076,19 +829,12 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
     Returns:
         dict: Cell information including index, type, source, and outputs (for code cells)
     """
-    async def _read_cell():
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
-                )
-
-            cell = ydoc._ycells[cell_index]
-            return CellInfo.from_cell(cell_index=cell_index, cell=cell).model_dump(exclude_none=True)
-    
-    return await __safe_notebook_operation(_read_cell)
+    return await __safe_notebook_operation(
+        lambda: read_cell_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+        )
+    )
 
 @mcp.tool()
 async def delete_cell(cell_index: int) -> str:
@@ -1098,23 +844,12 @@ async def delete_cell(cell_index: int) -> str:
     Returns:
         str: Success message
     """
-    async def _delete_cell():
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
-                )
-
-            cell_type = ydoc._ycells[cell_index].get("cell_type", "unknown")
-
-            # Delete the cell
-            del ydoc._ycells[cell_index]
-
-            return f"Cell {cell_index} ({cell_type}) deleted successfully."
-    
-    return await __safe_notebook_operation(_delete_cell)
+    return await __safe_notebook_operation(
+        lambda: delete_cell_tool.execute(
+            mode=server_context.mode,
+            cell_index=cell_index,
+        )
+    )
 
 
 @mcp.tool()
@@ -1139,53 +874,17 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
     Returns:
         List of outputs from the executed code
     """
-    async def _execute_ipython():
-        # Get current notebook name and kernel
-        current_notebook = notebook_manager.get_current_notebook() or "default"
-        kernel = notebook_manager.get_kernel(current_notebook)
-        
-        if not kernel:
-            # Ensure kernel is alive
-            kernel = __ensure_kernel_alive()
-        
-        # Wait for kernel to be idle before executing
-        await __wait_for_kernel_idle(kernel, max_wait_seconds=30)
-        
-        logger.info(f"Executing IPython code with timeout {timeout}s: {code[:100]}...")
-        
-        try:
-            # Execute code directly with kernel
-            execution_task = asyncio.create_task(
-                asyncio.to_thread(kernel.execute, code)
-            )
-            
-            # Wait for execution with timeout
-            try:
-                outputs = await asyncio.wait_for(execution_task, timeout=timeout)
-            except asyncio.TimeoutError:
-                execution_task.cancel()
-                try:
-                    if kernel and hasattr(kernel, 'interrupt'):
-                        kernel.interrupt()
-                        logger.info("Sent interrupt signal to kernel due to timeout")
-                except Exception as interrupt_err:
-                    logger.error(f"Failed to interrupt kernel: {interrupt_err}")
-                
-                return [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"]
-            
-            # Process and extract outputs
-            if outputs:
-                result = safe_extract_outputs(outputs['outputs'])
-                logger.info(f"IPython execution completed successfully with {len(result)} outputs")
-                return result
-            else:
-                return ["[No output generated]"]
-                
-        except Exception as e:
-            logger.error(f"Error executing IPython code: {e}")
-            return [f"[ERROR: {str(e)}]"]
-    
-    return await __safe_notebook_operation(_execute_ipython, max_retries=1)
+    return await __safe_notebook_operation(
+        lambda: execute_ipython_tool.execute(
+            mode=server_context.mode,
+            code=code,
+            timeout=timeout,
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
+            safe_extract_outputs_fn=safe_extract_outputs,
+        ),
+        max_retries=1
+    )
 
 
 @mcp.tool()
@@ -1202,27 +901,14 @@ async def list_all_files(path: str = "", max_depth: int = 3) -> str:
     Returns:
         str: Tab-separated table with columns: Path, Type, Size, Last_Modified
     """
-    async def _list_all_files():
-        config = get_config()
-        server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
-        
-        # Get all files starting from the specified path using the utility function
-        all_files = _list_files_recursively(server_client, path, 0, None, max_depth)
-        
-        if not all_files:
-            return f"No files found in path '{path or 'root'}'"
-        
-        # Sort files by path for better readability
-        all_files.sort(key=lambda x: x['path'])
-        
-        # Create TSV formatted output
-        lines = ["Path\tType\tSize\tLast_Modified"]
-        for file_info in all_files:
-            lines.append(f"{file_info['path']}\t{file_info['type']}\t{file_info['size']}\t{file_info['last_modified']}")
-        
-        return "\n".join(lines)
-    
-    return await __safe_notebook_operation(_list_all_files)
+    return await __safe_notebook_operation(
+        lambda: list_all_files_tool.execute(
+            mode=server_context.mode,
+            path=path,
+            max_depth=max_depth,
+            list_files_recursively_fn=_list_files_recursively,
+        )
+    )
 
 
 @mcp.tool()
@@ -1236,82 +922,9 @@ async def list_kernel() -> str:
     Returns:
         str: Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
     """
-    async def _list_kernels():
-        config = get_config()
-        server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
-        
-        try:
-            # Get all kernels from the Jupyter server
-            kernels = server_client.kernels.list_kernels()
-            
-            if not kernels:
-                return "No kernels found on the Jupyter server."
-            
-            # Get kernel specifications for additional details
-            kernels_specs = server_client.kernelspecs.list_kernelspecs()
-            
-            # Create enhanced kernel information list
-            output = []
-            for kernel in kernels:
-                kernel_info = {
-                    "id": kernel.id or "unknown",
-                    "name": kernel.name or "unknown",
-                    "state": "unknown",
-                    "connections": "unknown", 
-                    "last_activity": "unknown",
-                    "display_name": "unknown",
-                    "language": "unknown",
-                    "env": "unknown"
-                }
-                
-                # Get kernel state - this might vary depending on the API version
-                if hasattr(kernel, 'execution_state'):
-                    kernel_info["state"] = kernel.execution_state
-                elif hasattr(kernel, 'state'):
-                    kernel_info["state"] = kernel.state
-                
-                # Get connection count
-                if hasattr(kernel, 'connections'):
-                    kernel_info["connections"] = str(kernel.connections)
-                
-                # Get last activity
-                if hasattr(kernel, 'last_activity') and kernel.last_activity:
-                    if hasattr(kernel.last_activity, 'strftime'):
-                        kernel_info["last_activity"] = kernel.last_activity.strftime("%Y-%m-%d %H:%M:%S")
-                    else:
-                        kernel_info["last_activity"] = str(kernel.last_activity)
-                
-                output.append(kernel_info)
-            
-            # Enhance kernel info with specifications
-            for kernel in output:
-                kernel_name = kernel["name"]
-                if hasattr(kernels_specs, 'kernelspecs') and kernel_name in kernels_specs.kernelspecs:
-                    kernel_spec = kernels_specs.kernelspecs[kernel_name]
-                    if hasattr(kernel_spec, 'spec'):
-                        if hasattr(kernel_spec.spec, 'display_name'):
-                            kernel["display_name"] = kernel_spec.spec.display_name
-                        if hasattr(kernel_spec.spec, 'language'):
-                            kernel["language"] = kernel_spec.spec.language
-                        if hasattr(kernel_spec.spec, 'env'):
-                            # Convert env dict to a readable string format
-                            env_dict = kernel_spec.spec.env
-                            if env_dict:
-                                env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
-                                kernel["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
-            
-            # Create TSV formatted output
-            lines = ["ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment"]
-            
-            for kernel in output:
-                lines.append(f"{kernel['id']}\t{kernel['name']}\t{kernel['display_name']}\t{kernel['language']}\t{kernel['state']}\t{kernel['connections']}\t{kernel['last_activity']}\t{kernel['env']}")
-            
-            return "\n".join(lines)
-            
-        except Exception as e:
-            return f"Error listing kernels: {str(e)}"
-    
-    return await __safe_notebook_operation(_list_kernels)
+    return await __safe_notebook_operation(
+        lambda: list_kernel_tool.execute(mode=server_context.mode)
+    )
 
 
 ###############################################################################
