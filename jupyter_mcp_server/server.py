@@ -13,6 +13,7 @@ import httpx
 import uvicorn
 from fastapi import Request
 from jupyter_kernel_client import KernelClient
+from jupyter_server_api import JupyterServerClient
 from mcp.server import FastMCP
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
@@ -26,7 +27,7 @@ from jupyter_mcp_server.tools import (
     # Tool infrastructure
     ServerMode,
     # Notebook Management
-    ListNotebookTool,
+    ListNotebooksTool,
     ConnectNotebookTool,
     RestartNotebookTool,
     DisconnectNotebookTool,
@@ -104,7 +105,7 @@ notebook_manager = NotebookManager()
 
 # Initialize all tool instances (no arguments needed - tools receive dependencies via execute())
 # Notebook Management Tools
-list_notebook_tool = ListNotebookTool()
+list_notebook_tool = ListNotebooksTool()
 connect_notebook_tool = ConnectNotebookTool()
 restart_notebook_tool = RestartNotebookTool()
 disconnect_notebook_tool = DisconnectNotebookTool()
@@ -141,6 +142,9 @@ class ServerContext:
     _mode = None
     _contents_manager = None
     _kernel_manager = None
+    _kernel_spec_manager = None
+    _server_client = None
+    _kernel_client = None
     _initialized = False
     
     @classmethod
@@ -162,10 +166,18 @@ class ServerContext:
                 self._mode = ServerMode.JUPYTER_SERVER
                 self._contents_manager = context.get_contents_manager()
                 self._kernel_manager = context.get_kernel_manager()
+                self._kernel_spec_manager = context.get_kernel_spec_manager() if hasattr(context, 'get_kernel_spec_manager') else None
             else:
                 self._mode = ServerMode.MCP_SERVER
+                # Initialize HTTP clients for MCP_SERVER mode
+                config = get_config()
+                self._server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+                # kernel_client will be created lazily when needed
         except (ImportError, Exception):
             self._mode = ServerMode.MCP_SERVER
+            # Initialize HTTP clients for MCP_SERVER mode
+            config = get_config()
+            self._server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
         
         self._initialized = True
         logger.info(f"Server mode initialized: {self._mode}")
@@ -187,6 +199,24 @@ class ServerContext:
         if not self._initialized:
             self.initialize()
         return self._kernel_manager
+    
+    @property
+    def kernel_spec_manager(self):
+        if not self._initialized:
+            self.initialize()
+        return self._kernel_spec_manager
+    
+    @property
+    def server_client(self):
+        if not self._initialized:
+            self.initialize()
+        return self._server_client
+    
+    @property
+    def kernel_client(self):
+        if not self._initialized:
+            self.initialize()
+        return self._kernel_client
 
 
 # Initialize server context singleton
@@ -584,13 +614,15 @@ async def connect_notebook(
     return await __safe_notebook_operation(
         lambda: connect_notebook_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
             notebook_name=notebook_name,
             notebook_path=notebook_path,
-            creation_mode=mode,
+            connect_mode=mode,
             kernel_id=kernel_id,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
         )
     )
 
@@ -606,9 +638,10 @@ async def list_notebook() -> str:
     """
     return await list_notebook_tool.execute(
         mode=server_context.mode,
-        path="",
+        server_client=server_context.server_client,
         contents_manager=server_context.contents_manager,
         kernel_manager=server_context.kernel_manager,
+        notebook_manager=notebook_manager,
     )
 
 
@@ -625,6 +658,7 @@ async def restart_notebook(notebook_name: str) -> str:
     return await restart_notebook_tool.execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
+        notebook_manager=notebook_manager,
     )
 
 
@@ -641,6 +675,7 @@ async def disconnect_notebook(notebook_name: str) -> str:
     return await disconnect_notebook_tool.execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
+        notebook_manager=notebook_manager,
     )
 
 
@@ -657,6 +692,7 @@ async def switch_notebook(notebook_name: str) -> str:
     return await switch_notebook_tool.execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
+        notebook_manager=notebook_manager,
     )
 
 ###############################################################################
@@ -681,6 +717,10 @@ async def insert_cell(
     return await __safe_notebook_operation(
         lambda: insert_cell_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
             source=cell_source,
             cell_type=cell_type,
@@ -702,6 +742,10 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
     return await __safe_notebook_operation(
         lambda: insert_execute_code_cell_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
             source=cell_source,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
@@ -724,6 +768,10 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     return await __safe_notebook_operation(
         lambda: overwrite_cell_source_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
             new_source=cell_source,
         )
@@ -741,6 +789,10 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
     return await __safe_notebook_operation(
         lambda: execute_cell_with_progress_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
             timeout_seconds=timeout_seconds,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
@@ -760,6 +812,10 @@ async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 30
     return await __safe_notebook_operation(
         lambda: execute_cell_simple_timeout_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
             timeout_seconds=timeout_seconds,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
@@ -783,6 +839,10 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
     return await __safe_notebook_operation(
         lambda: execute_cell_streaming_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
             timeout_seconds=timeout_seconds,
             progress_interval=progress_interval,
@@ -801,7 +861,11 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, Ima
                     and outputs (for code cells)
     """
     return await __safe_notebook_operation(
-        lambda: read_all_cells_tool.execute(mode=server_context.mode)
+        lambda: read_all_cells_tool.execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+        )
     )
 
 
@@ -817,7 +881,11 @@ async def list_cell() -> str:
         str: Formatted table with cell information (Index, Type, Count, First Line)
     """
     return await __safe_notebook_operation(
-        lambda: list_cell_tool.execute(mode=server_context.mode)
+        lambda: list_cell_tool.execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+        )
     )
 
 
@@ -832,6 +900,8 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
     return await __safe_notebook_operation(
         lambda: read_cell_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
             cell_index=cell_index,
         )
     )
@@ -847,6 +917,10 @@ async def delete_cell(cell_index: int) -> str:
     return await __safe_notebook_operation(
         lambda: delete_cell_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
         )
     )
@@ -877,6 +951,9 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
     return await __safe_notebook_operation(
         lambda: execute_ipython_tool.execute(
             mode=server_context.mode,
+            server_client=server_context.server_client,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
             code=code,
             timeout=timeout,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
@@ -923,7 +1000,12 @@ async def list_kernel() -> str:
         str: Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
     """
     return await __safe_notebook_operation(
-        lambda: list_kernel_tool.execute(mode=server_context.mode)
+        lambda: list_kernel_tool.execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            kernel_manager=server_context.kernel_manager,
+            kernel_spec_manager=server_context.kernel_spec_manager,
+        )
     )
 
 

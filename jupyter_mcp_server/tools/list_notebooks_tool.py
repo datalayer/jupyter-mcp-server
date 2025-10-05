@@ -47,18 +47,18 @@ Returns:
         
         return notebooks
     
-    def _list_notebooks_local(self, contents_manager: Any, path: str = "", notebooks: Optional[List[str]] = None) -> List[str]:
+    async def _list_notebooks_local(self, contents_manager: Any, path: str = "", notebooks: Optional[List[str]] = None) -> List[str]:
         """List notebooks using local contents_manager API (JUPYTER_SERVER mode)."""
         if notebooks is None:
             notebooks = []
         
         try:
-            model = contents_manager.get(path, content=True, type='directory')
+            model = await contents_manager.get(path, content=True, type='directory')
             for item in model.get('content', []):
                 full_path = f"{path}/{item['name']}" if path else item['name']
                 if item['type'] == "directory":
                     # Recursively search subdirectories
-                    self._list_notebooks_local(contents_manager, full_path, notebooks)
+                    await self._list_notebooks_local(contents_manager, full_path, notebooks)
                 elif item['type'] == "notebook" or (item['type'] == "file" and item['name'].endswith('.ipynb')):
                     # Add notebook to list
                     notebooks.append(full_path)
@@ -93,7 +93,7 @@ Returns:
         """
         # Get all notebooks based on mode
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-            all_notebooks = self._list_notebooks_local(contents_manager)
+            all_notebooks = await self._list_notebooks_local(contents_manager)
         elif mode == ServerMode.MCP_SERVER and server_client is not None:
             all_notebooks = self._list_notebooks_http(server_client)
         else:

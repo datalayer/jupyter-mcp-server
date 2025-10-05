@@ -96,7 +96,6 @@ start-no-runtime: ## start the jupyter mcp server with streamable-http transport
 	  --runtime-token MY_TOKEN \
 	  --port 4040
 
-
 start-as-jupyter-server: ## start jupyter server with MCP extension (local access)
 	@exec echo
 	@exec echo 🚀 Starting Jupyter Server with MCP Extension
@@ -116,13 +115,16 @@ start-as-jupyter-server: ## start jupyter server with MCP extension (local acces
 	  --ServerApp.root_dir ./dev/content \
 	  --port 4040
 
+#		--ServerApp.root_dir ./dev/content
 jupyterlab: ## start jupyterlab for the mcp server
 	pip uninstall -y pycrdt datalayer_pycrdt
 	pip install datalayer_pycrdt
-	jupyter lab \
+	@exec echo
+	@exec echo curl http://localhost:8888/lab?token=MY_TOKEN
+	@exec echo
+	cd dev/content && jupyter lab \
 		--port 8888 \
 		--ip 0.0.0.0 \
-		--ServerApp.root_dir ./dev/content \
 		--IdentityProvider.token MY_TOKEN
 
 publish-pypi: # publish the pypi package
