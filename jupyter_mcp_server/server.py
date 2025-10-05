@@ -23,8 +23,6 @@ from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.utils import (
     extract_output, 
     safe_extract_outputs, 
-    format_cell_list, 
-    get_surrounding_cells_info,
     create_kernel,
     start_kernel,
     ensure_kernel_alive,
@@ -42,7 +40,7 @@ from jupyter_mcp_server.tools import (
     ServerMode,
     # Notebook Management
     ListNotebooksTool,
-    ConnectNotebookTool,
+    UseNotebookTool,
     RestartNotebookTool,
     DisconnectNotebookTool,
     SwitchNotebookTool,
@@ -120,7 +118,7 @@ notebook_manager = NotebookManager()
 # Initialize all tool instances (no arguments needed - tools receive dependencies via execute())
 # Notebook Management Tools
 list_notebook_tool = ListNotebooksTool()
-connect_notebook_tool = ConnectNotebookTool()
+use_notebook_tool = UseNotebookTool()
 restart_notebook_tool = RestartNotebookTool()
 disconnect_notebook_tool = DisconnectNotebookTool()
 switch_notebook_tool = SwitchNotebookTool()
@@ -427,13 +425,13 @@ async def health_check(request: Request):
 
 
 @mcp.tool()
-async def connect_notebook(
+async def use_notebook(
     notebook_name: str,
     notebook_path: str,
     mode: Literal["connect", "create"] = "connect",
     kernel_id: Optional[str] = None,
 ) -> str:
-    """Connect to a notebook file or create a new one.
+    """Use a notebook file (connect to existing or create new).
     
     Args:
         notebook_name: Unique identifier for the notebook
@@ -445,7 +443,7 @@ async def connect_notebook(
         str: Success message with notebook information
     """
     return await __safe_notebook_operation(
-        lambda: connect_notebook_tool.execute(
+        lambda: use_notebook_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             notebook_name=notebook_name,
@@ -464,7 +462,7 @@ async def connect_notebook(
 async def list_notebook() -> str:
     """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
     
-    To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `connect_notebook` tool.
+    To interact with a notebook, it has to be "managed". If a notebook is not managed, you can use it with the `use_notebook` tool.
     
     Returns:
         str: TSV formatted table with notebook information including management status

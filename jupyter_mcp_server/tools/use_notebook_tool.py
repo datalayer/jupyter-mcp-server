@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""Connect notebook tool implementation."""
+"""Use notebook tool implementation."""
 
 from typing import Any, Optional, Literal
 from pathlib import Path
@@ -12,16 +12,16 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 
 
-class ConnectNotebookTool(BaseTool):
-    """Tool to connect to or create a notebook file."""
+class UseNotebookTool(BaseTool):
+    """Tool to use (connect to or create) a notebook file."""
     
     @property
     def name(self) -> str:
-        return "connect_notebook"
+        return "use_notebook"
     
     @property
     def description(self) -> str:
-        return """Connect to a notebook file or create a new one.
+        return """Use a notebook file (connect to existing or create new).
     
 Args:
     notebook_name: Unique identifier for the notebook
@@ -102,7 +102,7 @@ Returns:
         runtime_token: Optional[str] = None,
         **kwargs
     ) -> str:
-        """Execute the connect_notebook tool.
+        """Execute the use_notebook tool.
         
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
@@ -122,7 +122,7 @@ Returns:
             Success message with notebook information
         """
         if notebook_name in notebook_manager:
-            return f"Notebook '{notebook_name}' is already connected. Use disconnect_notebook first if you want to reconnect."
+            return f"Notebook '{notebook_name}' is already in use. Use disconnect_notebook first if you want to reconnect."
         
         # Check server connectivity (HTTP mode only)
         if mode == ServerMode.MCP_SERVER and server_client is not None:
@@ -201,4 +201,4 @@ Returns:
         
         notebook_manager.set_current_notebook(notebook_name)
         
-        return f"Successfully {'created and ' if connect_mode == 'create' else ''}connected to notebook '{notebook_name}' at path '{notebook_path}' using {mode.value} mode."
+        return f"Successfully {'created and ' if connect_mode == 'create' else ''}using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."

@@ -13,10 +13,10 @@ from jupyter_mcp_server.tools._registry import ToolRegistry, get_tool_registry, 
 
 # Import tool implementations - Notebook Management
 from jupyter_mcp_server.tools.list_notebooks_tool import ListNotebooksTool
-from jupyter_mcp_server.tools.connect_notebook_tool import ConnectNotebookTool
 from jupyter_mcp_server.tools.restart_notebook_tool import RestartNotebookTool
 from jupyter_mcp_server.tools.disconnect_notebook_tool import DisconnectNotebookTool
 from jupyter_mcp_server.tools.switch_notebook_tool import SwitchNotebookTool
+from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 
 # Import tool implementations - Cell Reading
 from jupyter_mcp_server.tools.read_all_cells_tool import ReadAllCellsTool
@@ -47,10 +47,10 @@ __all__ = [
     "register_tool",
     # Notebook Management
     "ListNotebooksTool",
-    "ConnectNotebookTool",
     "RestartNotebookTool",
     "DisconnectNotebookTool",
     "SwitchNotebookTool",
+    "UseNotebookTool",
     # Cell Reading
     "ReadAllCellsTool",
     "ListCellTool",
