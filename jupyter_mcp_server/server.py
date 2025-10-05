@@ -291,13 +291,32 @@ def __start_kernel():
 
 
 async def __auto_enroll_document():
-    """Automatically enroll the configured document_id as a managed notebook."""
+    """Automatically enroll the configured document_id as a managed notebook.
+    
+    Handles kernel creation/connection based on configuration:
+    - If runtime_id is provided: Connect to that specific kernel
+    - If start_new_runtime is True: Create a new kernel
+    - Otherwise: Connect to notebook's existing kernel (if any)
+    """
     config = get_config()
     
     # Check if document_id is configured and not already managed
     if config.document_id and "default" not in notebook_manager:
         try:
-            logger.info(f"Auto-enrolling document '{config.document_id}' as managed notebook 'default'")
+            # Determine kernel_id based on configuration
+            kernel_id_to_use = None
+            if config.runtime_id:
+                # User explicitly provided a kernel ID to connect to
+                kernel_id_to_use = config.runtime_id
+                logger.info(f"Auto-enrolling document '{config.document_id}' with existing kernel '{kernel_id_to_use}'")
+            elif config.start_new_runtime:
+                # User wants a new kernel created
+                kernel_id_to_use = None  # Will trigger new kernel creation in use_notebook_tool
+                logger.info(f"Auto-enrolling document '{config.document_id}' with new kernel")
+            else:
+                # Connect to notebook's existing kernel (if any)
+                kernel_id_to_use = None
+                logger.info(f"Auto-enrolling document '{config.document_id}' (will use notebook's existing kernel if available)")
             
             # Use the use_notebook_tool to properly enroll the notebook
             result = await use_notebook_tool.execute(
@@ -306,7 +325,7 @@ async def __auto_enroll_document():
                 notebook_name="default",
                 notebook_path=config.document_id,
                 connect_mode="connect",
-                kernel_id=config.runtime_id,
+                kernel_id=kernel_id_to_use,
                 contents_manager=server_context.contents_manager,
                 kernel_manager=server_context.kernel_manager,
                 notebook_manager=notebook_manager,
@@ -720,6 +739,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, Ima
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
         )
     )
 
@@ -740,6 +760,7 @@ async def list_cell() -> str:
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
         )
     )
 
@@ -757,6 +778,7 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
             cell_index=cell_index,
         )
     )
@@ -1105,22 +1127,20 @@ def start_command(
     # Reset ServerContext to pick up new configuration
     ServerContext.reset()
 
-    # Auto-enroll the configured document_id as a managed notebook if provided
+    # Determine startup behavior based on configuration
     if config.document_id:
+        # If document_id is provided, auto-enroll the notebook as "default"
+        # This will handle kernel creation/connection as part of enrollment
         try:
             import asyncio
             # Run the async enrollment in the event loop
             asyncio.run(__auto_enroll_document())
         except Exception as e:
-            logger.warning(f"Failed to auto-enroll document '{config.document_id}': {e}")
-            # Fallback to old behavior for backward compatibility
-            if config.start_new_runtime or config.runtime_id:
-                try:
-                    __start_kernel()
-                except Exception as e2:
-                    logger.error(f"Failed to start kernel on startup: {e2}")
+            logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
+            # Note: Auto-enrollment already handles kernel creation, no fallback needed
     elif config.start_new_runtime or config.runtime_id:
-        # Legacy path: start kernel if no document_id but start_new_runtime is set
+        # If no document_id but start_new_runtime/runtime_id is set, just create kernel
+        # This is for backward compatibility - kernel without managed notebook
         try:
             __start_kernel()
         except Exception as e:

@@ -80,7 +80,7 @@ start: ## start the jupyter mcp server with streamable-http transport
 	  --runtime-token MY_TOKEN \
 	  --port 4040
 
-start-naked: ## start the jupyter mcp server with streamable-http transport and no document nor runtime
+start-empty: ## start the jupyter mcp server with streamable-http transport and no document nor runtime
 	@exec echo
 	@exec echo curl http://localhost:4040/api/healthz
 	@exec echo
