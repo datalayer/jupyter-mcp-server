@@ -299,6 +299,28 @@ def _list_notebooks_recursively(server_client, path="", notebooks=None):
     return notebooks
 
 
+def _list_notebooks_local(contents_manager, path="", notebooks=None):
+    """Recursively list all .ipynb files using local contents_manager API."""
+    if notebooks is None:
+        notebooks = []
+    
+    try:
+        model = contents_manager.get(path, content=True, type='directory')
+        for item in model.get('content', []):
+            full_path = f"{path}/{item['name']}" if path else item['name']
+            if item['type'] == "directory":
+                # Recursively search subdirectories
+                _list_notebooks_local(contents_manager, full_path, notebooks)
+            elif item['type'] == "notebook" or (item['type'] == "file" and item['name'].endswith('.ipynb')):
+                # Add notebook to list
+                notebooks.append(full_path)
+    except Exception as e:
+        # If we can't access a directory, just skip it
+        pass
+    
+    return notebooks
+
+
 def _list_files_recursively(server_client, current_path="", current_depth=0, files=None, max_depth=3):
     """Recursively list all files and directories in the Jupyter server."""
     if files is None:
@@ -530,8 +552,24 @@ async def list_notebook() -> str:
     """
     # Get all notebooks from the Jupyter server
     config = get_config()
-    server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
-    all_notebooks = _list_notebooks_recursively(server_client)
+    
+    # Check if we should use local API or HTTP
+    try:
+        from jupyter_mcp_server.jupyter_to_mcp.context import get_server_context
+        context = get_server_context()
+        
+        if context.is_local_document() and context.get_contents_manager() is not None:
+            # Use local API (JUPYTER_SERVER mode)
+            contents_manager = context.get_contents_manager()
+            all_notebooks = _list_notebooks_local(contents_manager)
+        else:
+            # Use HTTP API (MCP_SERVER mode)
+            server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+            all_notebooks = _list_notebooks_recursively(server_client)
+    except (ImportError, Exception):
+        # Fallback to HTTP API
+        server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+        all_notebooks = _list_notebooks_recursively(server_client)
     
     # Get managed notebooks info
     managed_notebooks = notebook_manager.list_all_notebooks()
