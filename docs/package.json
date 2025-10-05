@@ -21,7 +21,7 @@
     "@docusaurus/theme-live-codeblock": "^3.5.2",
     "@docusaurus/theme-mermaid": "^3.5.2",
     "@mdx-js/react": "^3.0.1",
-    "@primer/react-brand": "^0.51.0",
+    "@primer/react-brand": "^0.58.0",
     "clsx": "^2.1.1",
     "docusaurus-lunr-search": "^3.5.0",
     "react": "18.3.1",
