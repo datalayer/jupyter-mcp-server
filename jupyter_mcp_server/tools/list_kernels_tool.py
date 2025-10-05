@@ -1,9 +1,9 @@
 """List all available kernels tool."""
 
+from typing import Any, Optional, List, Dict
 from jupyter_server_api import JupyterServerClient
 
 from ._base import BaseTool, ServerMode
-from ..config import get_config
 
 
 class ListKernelsTool(BaseTool):
@@ -22,27 +22,14 @@ class ListKernelsTool(BaseTool):
     def description(self) -> str:
         return "List all available kernels in the Jupyter server"
     
-    async def execute(
-        self,
-        mode: ServerMode,
-    ) -> str:
-        """List all available kernels.
-        
-        Args:
-            mode: Server mode (ignored, always uses HTTP client)
-            
-        Returns:
-            Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
-        """
-        config = get_config()
-        server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
-        
+    def _list_kernels_http(self, server_client: JupyterServerClient) -> List[Dict[str, str]]:
+        """List kernels using HTTP API (MCP_SERVER mode)."""
         try:
             # Get all kernels from the Jupyter server
             kernels = server_client.kernels.list_kernels()
             
             if not kernels:
-                return "No kernels found on the Jupyter server."
+                return []
             
             # Get kernel specifications for additional details
             kernels_specs = server_client.kernelspecs.list_kernelspecs()
@@ -97,13 +84,123 @@ class ListKernelsTool(BaseTool):
                                 env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
                                 kernel["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
             
+            return output
+            
+        except Exception as e:
+            raise RuntimeError(f"Error listing kernels via HTTP: {str(e)}")
+    
+    async def _list_kernels_local(
+        self, 
+        kernel_manager: Any, 
+        kernel_spec_manager: Any
+    ) -> List[Dict[str, str]]:
+        """List kernels using local kernel_manager API (JUPYTER_SERVER mode)."""
+        try:
+            # Get all running kernels
+            kernel_ids = list(kernel_manager.list_kernels())
+            
+            if not kernel_ids:
+                return []
+            
+            # Get kernel specifications
+            kernel_specs = kernel_spec_manager.get_all_specs() if kernel_spec_manager else {}
+            
+            # Create enhanced kernel information list
+            output = []
+            for kernel_id in kernel_ids:
+                kernel = kernel_manager.get_kernel(kernel_id)
+                
+                kernel_info = {
+                    "id": kernel_id or "unknown",
+                    "name": kernel.kernel_name if hasattr(kernel, 'kernel_name') else "unknown",
+                    "state": "unknown",
+                    "connections": "unknown",
+                    "last_activity": "unknown",
+                    "display_name": "unknown",
+                    "language": "unknown",
+                    "env": "unknown"
+                }
+                
+                # Get kernel state
+                if hasattr(kernel, 'execution_state'):
+                    kernel_info["state"] = kernel.execution_state
+                elif hasattr(kernel, 'state'):
+                    kernel_info["state"] = kernel.state
+                
+                # Get connection count
+                if hasattr(kernel, 'connections'):
+                    kernel_info["connections"] = str(kernel.connections)
+                
+                # Get last activity
+                if hasattr(kernel, 'last_activity') and kernel.last_activity:
+                    if hasattr(kernel.last_activity, 'strftime'):
+                        kernel_info["last_activity"] = kernel.last_activity.strftime("%Y-%m-%d %H:%M:%S")
+                    else:
+                        kernel_info["last_activity"] = str(kernel.last_activity)
+                
+                output.append(kernel_info)
+            
+            # Enhance kernel info with specifications
+            for kernel in output:
+                kernel_name = kernel["name"]
+                if kernel_name in kernel_specs:
+                    spec = kernel_specs[kernel_name].get('spec', {})
+                    if 'display_name' in spec:
+                        kernel["display_name"] = spec['display_name']
+                    if 'language' in spec:
+                        kernel["language"] = spec['language']
+                    if 'env' in spec and spec['env']:
+                        env_dict = spec['env']
+                        env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
+                        kernel["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
+            
+            return output
+            
+        except Exception as e:
+            raise RuntimeError(f"Error listing kernels locally: {str(e)}")
+    
+    async def execute(
+        self,
+        mode: ServerMode,
+        server_client: Optional[JupyterServerClient] = None,
+        kernel_client: Optional[Any] = None,
+        contents_manager: Optional[Any] = None,
+        kernel_manager: Optional[Any] = None,
+        kernel_spec_manager: Optional[Any] = None,
+        **kwargs
+    ) -> str:
+        """List all available kernels.
+        
+        Args:
+            mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
+            server_client: HTTP client for MCP_SERVER mode
+            kernel_manager: Direct kernel manager access for JUPYTER_SERVER mode
+            kernel_spec_manager: Kernel spec manager for JUPYTER_SERVER mode
+            **kwargs: Additional parameters (unused)
+            
+        Returns:
+            Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
+        """
+        # Get kernel info based on mode
+        if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
+            kernel_list = await self._list_kernels_local(kernel_manager, kernel_spec_manager)
+        elif mode == ServerMode.MCP_SERVER and server_client is not None:
+            kernel_list = self._list_kernels_http(server_client)
+        else:
+            raise ValueError(f"Invalid mode or missing required managers/clients: mode={mode}")
+        
+        if not kernel_list:
+            return "No kernels found on the Jupyter server."
+        
+        try:
             # Create TSV formatted output
             lines = ["ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment"]
             
-            for kernel in output:
+            for kernel in kernel_list:
                 lines.append(f"{kernel['id']}\t{kernel['name']}\t{kernel['display_name']}\t{kernel['language']}\t{kernel['state']}\t{kernel['connections']}\t{kernel['last_activity']}\t{kernel['env']}")
             
             return "\n".join(lines)
             
         except Exception as e:
-            return f"Error listing kernels: {str(e)}"
+            return f"Error formatting kernel list: {str(e)}"
+
