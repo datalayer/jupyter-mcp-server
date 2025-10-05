@@ -4,7 +4,7 @@ import asyncio
 from typing import Union
 from mcp.types import ImageContent
 
-from .base import BaseTool, ServerMode
+from ._base import BaseTool, ServerMode
 
 
 class ExecuteCellSimpleTimeoutTool(BaseTool):

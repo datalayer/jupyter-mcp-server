@@ -6,7 +6,7 @@
 
 from typing import Any, Optional
 from jupyter_server_api import JupyterServerClient
-from jupyter_mcp_server.tools.base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.utils import format_cell_list
 

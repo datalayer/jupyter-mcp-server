@@ -6,7 +6,7 @@
 
 from typing import Any, Optional, List, Union
 from jupyter_server_api import JupyterServerClient
-from jupyter_mcp_server.tools.base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.utils import safe_extract_outputs
 from mcp.types import ImageContent

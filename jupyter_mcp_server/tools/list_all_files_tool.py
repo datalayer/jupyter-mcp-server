@@ -2,7 +2,7 @@
 
 from jupyter_server_api import JupyterServerClient
 
-from .base import BaseTool, ServerMode
+from ._base import BaseTool, ServerMode
 from ..config import get_config
 
 

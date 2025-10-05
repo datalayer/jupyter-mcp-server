@@ -5,7 +5,7 @@ import time
 from typing import Union
 from mcp.types import ImageContent
 
-from .base import BaseTool, ServerMode
+from ._base import BaseTool, ServerMode
 
 
 class ExecuteCellStreamingTool(BaseTool):

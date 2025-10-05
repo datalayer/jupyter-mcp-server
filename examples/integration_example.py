@@ -12,8 +12,8 @@ This demonstrates how to:
 """
 
 from typing import Optional
-from jupyter_mcp_server.tools.base import ServerMode
-from jupyter_mcp_server.tools.registry import get_tool_registry, register_tool
+from jupyter_mcp_server.tools._base import ServerMode
+from jupyter_mcp_server.tools._registry import get_tool_registry, register_tool
 from jupyter_mcp_server.tools.list_notebook_tool import ListNotebookTool
 from jupyter_mcp_server.tools.connect_notebook import ConnectNotebookTool
 from jupyter_mcp_server.config import get_config

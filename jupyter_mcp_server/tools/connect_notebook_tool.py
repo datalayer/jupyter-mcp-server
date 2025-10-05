@@ -8,7 +8,7 @@ from typing import Any, Optional, Literal
 from pathlib import Path
 from jupyter_server_api import JupyterServerClient, NotFoundError
 from jupyter_kernel_client import KernelClient
-from jupyter_mcp_server.tools.base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 
 

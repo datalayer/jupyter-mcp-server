@@ -8,8 +8,8 @@ Each tool is implemented as a separate class with an execute method
 that can operate in either MCP_SERVER or JUPYTER_SERVER mode.
 """
 
-from jupyter_mcp_server.tools.base import BaseTool, ServerMode
-from jupyter_mcp_server.tools.registry import ToolRegistry, get_tool_registry, register_tool
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._registry import ToolRegistry, get_tool_registry, register_tool
 
 # Import tool implementations - Notebook Management
 from jupyter_mcp_server.tools.list_notebook_tool import ListNotebookTool

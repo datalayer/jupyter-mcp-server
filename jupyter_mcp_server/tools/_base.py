@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from jupyter_server_api import JupyterServerClient
 from jupyter_kernel_client import KernelClient
