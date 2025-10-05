@@ -159,20 +159,22 @@ Returns:
         
         # Create/connect to kernel based on mode
         if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
-            # JUPYTER_SERVER mode: Use local kernel manager
+            # JUPYTER_SERVER mode: Use local kernel manager API directly
             if kernel_id:
-                # Connect to existing kernel
-                kernel = kernel_manager.get_kernel(kernel_id)
+                # Connect to existing kernel - verify it exists
+                if kernel_id not in kernel_manager:
+                    return f"Kernel '{kernel_id}' not found in local kernel manager."
+                kernel_info = {"id": kernel_id}
             else:
-                # Start a new kernel
+                # Start a new kernel using local API
                 kernel_id = await kernel_manager.start_kernel()
-                kernel = kernel_manager.get_kernel(kernel_id)
+                kernel_info = {"id": kernel_id}
             
-            # For JUPYTER_SERVER mode, store the kernel object directly
-            # NotebookManager will handle local kernel differently
+            # For JUPYTER_SERVER mode, store kernel info (not KernelClient object)
+            # The actual kernel is managed by kernel_manager
             notebook_manager.add_notebook(
                 notebook_name,
-                kernel,
+                kernel_info,  # Store kernel metadata, not client object
                 server_url="local",  # Indicate local mode
                 token=None,
                 path=notebook_path

@@ -77,7 +77,7 @@ class NotebookManager:
     def add_notebook(
         self, 
         name: str, 
-        kernel: KernelClient,
+        kernel,  # Can be KernelClient or dict with kernel metadata
         server_url: Optional[str] = None,
         token: Optional[str] = None,
         path: Optional[str] = None
@@ -87,14 +87,19 @@ class NotebookManager:
         
         Args:
             name: Unique identifier for the notebook
-            kernel: Kernel client instance
-            server_url: Jupyter server URL (optional, uses config default)
+            kernel: Kernel client instance (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode)
+            server_url: Jupyter server URL (optional, uses config default). Use "local" for JUPYTER_SERVER mode.
             token: Authentication token (optional, uses config default)
             path: Notebook file path (optional, uses config default)
         """
         config = get_config()
+        
+        # Determine if this is local (JUPYTER_SERVER) mode or HTTP (MCP_SERVER) mode
+        is_local_mode = server_url == "local"
+        
         self._notebooks[name] = {
             "kernel": kernel,
+            "is_local": is_local_mode,
             "notebook_info": {
                 "server_url": server_url or config.document_url,
                 "token": token or config.document_token,
@@ -119,8 +124,13 @@ class NotebookManager:
         """
         if name in self._notebooks:
             try:
-                kernel = self._notebooks[name]["kernel"]
-                if kernel and hasattr(kernel, 'stop'):
+                notebook_data = self._notebooks[name]
+                is_local = notebook_data.get("is_local", False)
+                kernel = notebook_data["kernel"]
+                
+                # Only stop kernel if it's an HTTP KernelClient (MCP_SERVER mode)
+                # In JUPYTER_SERVER mode, kernel is just metadata, actual kernel managed elsewhere
+                if not is_local and kernel and hasattr(kernel, 'stop'):
                     kernel.stop()
             except Exception:
                 # Ignore errors during kernel cleanup
@@ -142,7 +152,7 @@ class NotebookManager:
             return True
         return False
     
-    def get_kernel(self, name: str) -> Optional[KernelClient]:
+    def get_kernel(self, name: str):
         """
         Get the kernel for a specific notebook.
         
@@ -150,11 +160,44 @@ class NotebookManager:
             name: Notebook identifier
             
         Returns:
-            Kernel client or None if not found
+            Kernel client (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode), or None if not found
         """
         if name in self._notebooks:
             return self._notebooks[name]["kernel"]
         return None
+    
+    def get_kernel_id(self, name: str) -> Optional[str]:
+        """
+        Get the kernel ID for a specific notebook.
+        
+        Args:
+            name: Notebook identifier
+            
+        Returns:
+            Kernel ID string or None if not found
+        """
+        if name in self._notebooks:
+            kernel = self._notebooks[name]["kernel"]
+            # Handle both KernelClient objects and kernel metadata dicts
+            if isinstance(kernel, dict):
+                return kernel.get("id")
+            elif hasattr(kernel, 'kernel_id'):
+                return kernel.kernel_id
+        return None
+    
+    def is_local_notebook(self, name: str) -> bool:
+        """
+        Check if a notebook is using local (JUPYTER_SERVER) mode.
+        
+        Args:
+            name: Notebook identifier
+            
+        Returns:
+            True if local mode, False otherwise
+        """
+        if name in self._notebooks:
+            return self._notebooks[name].get("is_local", False)
+        return False
     
     def get_notebook_connection(self, name: str) -> NotebookConnection:
         """
