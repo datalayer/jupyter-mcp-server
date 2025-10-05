@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Implementation Summary: Jupyter MCP Server Dual-Mode Architecture
 
 ## What We've Built

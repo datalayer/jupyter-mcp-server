@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Tool Refactoring Summary
 
 ## Completed: All 18 MCP Tools Extracted and Integrated

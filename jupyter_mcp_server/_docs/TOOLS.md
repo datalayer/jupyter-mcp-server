@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Tools Architecture
 
 This directory contains the refactored tool implementation for Jupyter MCP Server that supports both standalone MCP server mode and Jupyter Server extension mode.

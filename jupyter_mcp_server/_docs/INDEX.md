@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Tools Directory - Index
 
 This directory contains the refactored tool architecture for Jupyter MCP Server, supporting both standalone MCP server mode and Jupyter Server extension mode.

@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Tool Extraction Progress
 
 This document tracks the migration of `@mcp.tool()` functions from `server.py` into separate tool class files in the `tools/` package.

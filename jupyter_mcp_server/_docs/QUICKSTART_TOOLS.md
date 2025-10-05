@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Quick Start Guide - Using Tool Classes
 
 ## What's Been Done (8/18 tools)

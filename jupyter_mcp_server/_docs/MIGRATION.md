@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Migration Guide: Refactoring Server.py to Use Tool Classes
 
 This guide explains how to migrate the existing `server.py` to use the new tool architecture.

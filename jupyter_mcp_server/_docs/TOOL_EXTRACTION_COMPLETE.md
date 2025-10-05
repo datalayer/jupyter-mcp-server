@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Tool Extraction Complete Summary
 
 **Status:** ✅ **100% COMPLETE** - All 18 tools successfully extracted from `server.py`

@@ -1,3 +1,7 @@
+# Copyright (c) 2023-2024 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
 """List all files and directories tool."""
 
 from jupyter_server_api import JupyterServerClient
