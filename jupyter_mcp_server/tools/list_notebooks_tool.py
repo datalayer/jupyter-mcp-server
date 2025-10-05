@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""List notebook tool implementation."""
+"""List notebooks tool implementation."""
 
 from typing import Any, Optional, List
 from jupyter_server_api import JupyterServerClient

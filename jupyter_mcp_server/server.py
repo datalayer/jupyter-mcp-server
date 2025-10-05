@@ -20,7 +20,21 @@ from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
 from jupyter_mcp_server.models import DocumentRuntime
-from jupyter_mcp_server.utils import extract_output, safe_extract_outputs, format_cell_list, get_surrounding_cells_info
+from jupyter_mcp_server.utils import (
+    extract_output, 
+    safe_extract_outputs, 
+    format_cell_list, 
+    get_surrounding_cells_info,
+    create_kernel,
+    start_kernel,
+    ensure_kernel_alive,
+    execute_cell_with_timeout,
+    execute_cell_with_forced_sync,
+    is_kernel_busy,
+    wait_for_kernel_idle,
+    safe_notebook_operation,
+    list_files_recursively,
+)
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools import (
@@ -261,242 +275,49 @@ server_context = ServerContext.get_instance()
 def __create_kernel() -> KernelClient:
     """Create a new kernel instance using current configuration."""
     config = get_config()
-    try:
-        # Initialize the kernel client with the provided parameters.
-        kernel = KernelClient(
-            server_url=config.runtime_url, 
-            token=config.runtime_token, 
-            kernel_id=config.runtime_id
-        )
-        kernel.start()
-        logger.info("Kernel created and started successfully")
-        return kernel
-    except Exception as e:
-        logger.error(f"Failed to create kernel: {e}")
-        raise
+    return create_kernel(config, logger)
+
 
 def __start_kernel():
     """Start the Jupyter kernel with error handling (for backward compatibility)."""
-    try:
-        # Remove existing default notebook if any
-        if "default" in notebook_manager:
-            notebook_manager.remove_notebook("default")
-        
-        # Create and set up new kernel
-        kernel = __create_kernel()
-        notebook_manager.add_notebook("default", kernel)
-        logger.info("Default notebook kernel started successfully")
-    except Exception as e:
-        logger.error(f"Failed to start kernel: {e}")
-        raise
+    config = get_config()
+    start_kernel(notebook_manager, config, logger)
 
 
 def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
     current_notebook = notebook_manager.get_current_notebook() or "default"
-    return notebook_manager.ensure_kernel_alive(current_notebook, __create_kernel)
+    return ensure_kernel_alive(notebook_manager, current_notebook, __create_kernel)
 
 
 async def __execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds=300):
     """Execute a cell with timeout and real-time output sync."""
-    start_time = time.time()
-    
-    def _execute_sync():
-        return notebook.execute_cell(cell_index, kernel)
-    
-    executor = ThreadPoolExecutor(max_workers=1)
-    try:
-        future = executor.submit(_execute_sync)
-        
-        while not future.done():
-            elapsed = time.time() - start_time
-            if elapsed > timeout_seconds:
-                future.cancel()
-                raise asyncio.TimeoutError(f"Cell execution timed out after {timeout_seconds} seconds")
-            
-            await asyncio.sleep(2)
-            try:
-                # Try to force document sync using the correct method
-                ydoc = notebook._doc
-                if hasattr(ydoc, 'flush') and callable(ydoc.flush):
-                    ydoc.flush()  # Flush pending changes
-                elif hasattr(notebook, '_websocket') and notebook._websocket:
-                    # Force a small update to trigger sync
-                    pass  # The websocket should auto-sync
-                
-                if cell_index < len(ydoc._ycells):
-                    outputs = ydoc._ycells[cell_index].get("outputs", [])
-                    if outputs:
-                        logger.info(f"Cell {cell_index} executing... ({elapsed:.1f}s) - {len(outputs)} outputs so far")
-            except Exception as e:
-                logger.debug(f"Sync attempt failed: {e}")
-                pass
-        
-        result = future.result()
-        return result
-        
-    finally:
-        executor.shutdown(wait=False)
+    return await execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds, logger)
 
 
-# Alternative approach: Create a custom execution function that forces updates
 async def __execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds=300):
     """Execute cell with forced real-time synchronization."""
-    start_time = time.time()
-    
-    # Start execution
-    execution_future = asyncio.create_task(
-        asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
-    )
-    
-    last_output_count = 0
-    
-    while not execution_future.done():
-        elapsed = time.time() - start_time
-        
-        if elapsed > timeout_seconds:
-            execution_future.cancel()
-            try:
-                if hasattr(kernel, 'interrupt'):
-                    kernel.interrupt()
-            except Exception:
-                pass
-            raise asyncio.TimeoutError(f"Cell execution timed out after {timeout_seconds} seconds")
-        
-        # Check for new outputs and try to trigger sync
-        try:
-            ydoc = notebook._doc
-            current_outputs = ydoc._ycells[cell_index].get("outputs", [])
-            
-            if len(current_outputs) > last_output_count:
-                last_output_count = len(current_outputs)
-                logger.info(f"Cell {cell_index} progress: {len(current_outputs)} outputs after {elapsed:.1f}s")
-                
-                # Try different sync methods
-                try:
-                    # Method 1: Force Y-doc update
-                    if hasattr(ydoc, 'observe') and hasattr(ydoc, 'unobserve'):
-                        # Trigger observers by making a tiny change
-                        pass
-                        
-                    # Method 2: Force websocket message
-                    if hasattr(notebook, '_websocket') and notebook._websocket:
-                        # The websocket should automatically sync on changes
-                        pass
-                        
-                except Exception as sync_error:
-                    logger.debug(f"Sync method failed: {sync_error}")
-                    
-        except Exception as e:
-            logger.debug(f"Output check failed: {e}")
-        
-        await asyncio.sleep(1)  # Check every second
-    
-    # Get final result
-    try:
-        await execution_future
-    except asyncio.CancelledError:
-        pass
-    
-    return None
+    return await execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds, logger)
 
 
 def __is_kernel_busy(kernel):
     """Check if kernel is currently executing something."""
-    try:
-        # This is a simple check - you might need to adapt based on your kernel client
-        if hasattr(kernel, '_client') and hasattr(kernel._client, 'is_alive'):
-            return kernel._client.is_alive()
-        return False
-    except Exception:
-        return False
+    return is_kernel_busy(kernel)
 
 
 async def __wait_for_kernel_idle(kernel, max_wait_seconds=60):
     """Wait for kernel to become idle before proceeding."""
-    start_time = time.time()
-    while __is_kernel_busy(kernel):
-        elapsed = time.time() - start_time
-        if elapsed > max_wait_seconds:
-            logger.warning(f"Kernel still busy after {max_wait_seconds}s, proceeding anyway")
-            break
-        logger.info(f"Waiting for kernel to become idle... ({elapsed:.1f}s)")
-        await asyncio.sleep(1)
+    return await wait_for_kernel_idle(kernel, logger, max_wait_seconds)
 
 
 async def __safe_notebook_operation(operation_func, max_retries=3):
     """Safely execute notebook operations with connection recovery."""
-    for attempt in range(max_retries):
-        try:
-            return await operation_func()
-        except Exception as e:
-            error_msg = str(e).lower()
-            if any(err in error_msg for err in ["websocketclosederror", "connection is already closed", "connection closed"]):
-                if attempt < max_retries - 1:
-                    logger.warning(f"Connection lost, retrying... (attempt {attempt + 1}/{max_retries})")
-                    await asyncio.sleep(1 + attempt)  # Increasing delay
-                    continue
-                else:
-                    logger.error(f"Failed after {max_retries} attempts: {e}")
-                    raise Exception(f"Connection failed after {max_retries} retries: {e}")
-            else:
-                # Non-connection error, don't retry
-                raise e
-    
-    raise Exception("Unexpected error in retry logic")
+    return await safe_notebook_operation(operation_func, logger, max_retries)
 
 
 def _list_files_recursively(server_client, current_path="", current_depth=0, files=None, max_depth=3):
     """Recursively list all files and directories in the Jupyter server."""
-    if files is None:
-        files = []
-    
-    # Stop if we've reached max depth
-    if current_depth > max_depth:
-        return files
-    
-    try:
-        contents = server_client.contents.list_directory(current_path)
-        for item in contents:
-            full_path = f"{current_path}/{item.name}" if current_path else item.name
-            
-            # Format size
-            size_str = ""
-            if hasattr(item, 'size') and item.size is not None:
-                if item.size < 1024:
-                    size_str = f"{item.size}B"
-                elif item.size < 1024 * 1024:
-                    size_str = f"{item.size // 1024}KB"
-                else:
-                    size_str = f"{item.size // (1024 * 1024)}MB"
-            
-            # Format last modified
-            last_modified = ""
-            if hasattr(item, 'last_modified') and item.last_modified:
-                last_modified = item.last_modified.strftime("%Y-%m-%d %H:%M:%S")
-            
-            # Add file/directory to list
-            files.append({
-                'path': full_path,
-                'type': item.type,
-                'size': size_str,
-                'last_modified': last_modified
-            })
-            
-            # Recursively explore directories
-            if item.type == "directory":
-                _list_files_recursively(server_client, full_path, current_depth + 1, files, max_depth)
-                
-    except Exception as e:
-        # If we can't access a directory, add an error entry
-        files.append({
-            'path': current_path or "root",
-            'type': "error",
-            'size': "",
-            'last_modified': f"Error: {str(e)}"
-        })
-    
-    return files
+    return list_files_recursively(server_client, current_path, current_depth, files, max_depth)
 
 
 ###############################################################################

@@ -69,6 +69,7 @@ include = [
 
 [tool.hatch.build.targets.wheel.shared-data]
 "jupyter-config/jupyter_server_config.d" = "etc/jupyter/jupyter_server_config.d"
+"jupyter-config/jupyter_notebook_config.d" = "etc/jupyter/jupyter_notebook_config.d"
 
 [tool.pytest.ini_options]
 filterwarnings = [
