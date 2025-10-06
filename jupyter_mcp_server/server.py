@@ -296,12 +296,33 @@ async def __auto_enroll_document():
     Handles kernel creation/connection based on configuration:
     - If runtime_id is provided: Connect to that specific kernel
     - If start_new_runtime is True: Create a new kernel
-    - Otherwise: Connect to notebook's existing kernel (if any)
+    - If both are False/None: Enroll notebook WITHOUT kernel (notebook-only mode)
     """
     config = get_config()
     
     # Check if document_id is configured and not already managed
     if config.document_id and "default" not in notebook_manager:
+        # Check if we should skip kernel creation entirely
+        if not config.runtime_id and not config.start_new_runtime:
+            # Enroll notebook without kernel - just register the notebook path
+            try:
+                logger.info(f"Auto-enrolling document '{config.document_id}' without kernel (notebook-only mode)")
+                # Add notebook to manager without kernel
+                notebook_manager.add_notebook(
+                    "default",
+                    None,  # No kernel
+                    server_url=config.document_url,
+                    token=config.document_token,
+                    path=config.document_id
+                )
+                notebook_manager.set_current_notebook("default")
+                logger.info(f"Auto-enrollment result: Successfully enrolled notebook 'default' at path '{config.document_id}' without kernel.")
+                return
+            except Exception as e:
+                logger.warning(f"Failed to auto-enroll document without kernel: {e}")
+                return
+        
+        # Otherwise, enroll with kernel
         try:
             # Determine kernel_id based on configuration
             kernel_id_to_use = None
@@ -313,12 +334,8 @@ async def __auto_enroll_document():
                 # User wants a new kernel created
                 kernel_id_to_use = None  # Will trigger new kernel creation in use_notebook_tool
                 logger.info(f"Auto-enrolling document '{config.document_id}' with new kernel")
-            else:
-                # Connect to notebook's existing kernel (if any)
-                kernel_id_to_use = None
-                logger.info(f"Auto-enrolling document '{config.document_id}' (will use notebook's existing kernel if available)")
             
-            # Use the use_notebook_tool to properly enroll the notebook
+            # Use the use_notebook_tool to properly enroll the notebook with kernel
             result = await use_notebook_tool.execute(
                 mode=server_context.mode,
                 server_client=server_context.server_client,
@@ -485,6 +502,7 @@ async def use_notebook(
     Returns:
         str: Success message with notebook information
     """
+    config = get_config()
     return await __safe_notebook_operation(
         lambda: use_notebook_tool.execute(
             mode=server_context.mode,
@@ -497,6 +515,8 @@ async def use_notebook(
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
+            runtime_url=config.runtime_url if config.runtime_url != "local" else None,
+            runtime_token=config.runtime_token,
         )
     )
 
@@ -1129,15 +1149,20 @@ def start_command(
 
     # Determine startup behavior based on configuration
     if config.document_id:
-        # If document_id is provided, auto-enroll the notebook as "default"
-        # This will handle kernel creation/connection as part of enrollment
+        # If document_id is provided, auto-enroll the notebook
+        # Kernel creation depends on start_new_runtime and runtime_id flags
         try:
             import asyncio
             # Run the async enrollment in the event loop
             asyncio.run(__auto_enroll_document())
         except Exception as e:
             logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
-            # Note: Auto-enrollment already handles kernel creation, no fallback needed
+            # Fallback to legacy kernel-only mode if enrollment fails
+            if config.start_new_runtime or config.runtime_id:
+                try:
+                    __start_kernel()
+                except Exception as e2:
+                    logger.error(f"Failed to start kernel on startup: {e2}")
     elif config.start_new_runtime or config.runtime_id:
         # If no document_id but start_new_runtime/runtime_id is set, just create kernel
         # This is for backward compatibility - kernel without managed notebook
@@ -1145,6 +1170,7 @@ def start_command(
             __start_kernel()
         except Exception as e:
             logger.error(f"Failed to start kernel on startup: {e}")
+    # else: No startup action - user must manually enroll notebooks or create kernels
 
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 

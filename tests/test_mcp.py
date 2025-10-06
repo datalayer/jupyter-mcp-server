@@ -799,7 +799,7 @@ async def test_multi_notebook_management(mcp_client):
         # Connect to a new notebook
         connect_result = await mcp_client.use_notebook("test_notebook", "new.ipynb", "connect")
         logging.debug(f"Connect result: {connect_result}")
-        assert "Successfully connected to notebook 'test_notebook'" in connect_result
+        assert "Successfully using notebook 'test_notebook'" in connect_result
         assert "new.ipynb" in connect_result
         
         # List notebooks - should now show the connected notebook
@@ -811,7 +811,7 @@ async def test_multi_notebook_management(mcp_client):
         
         # Try to connect to the same notebook again (should fail)
         duplicate_result = await mcp_client.use_notebook("test_notebook", "new.ipynb")
-        assert "already connected" in duplicate_result
+        assert "already using" in duplicate_result
         
         # Test switching between notebooks
         if "default" in notebook_list:

@@ -122,7 +122,7 @@ Returns:
             Success message with notebook information
         """
         if notebook_name in notebook_manager:
-            return f"Notebook '{notebook_name}' is already in use. Use disconnect_notebook first if you want to reconnect."
+            return f"Notebook '{notebook_name}' is already using. Use disconnect_notebook first if you want to reconnect."
         
         # Check server connectivity (HTTP mode only)
         if mode == ServerMode.MCP_SERVER and server_client is not None:
@@ -201,4 +201,8 @@ Returns:
         
         notebook_manager.set_current_notebook(notebook_name)
         
-        return f"Successfully {'created and ' if connect_mode == 'create' else ''}using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
+        # Return message based on mode
+        if connect_mode == "create":
+            return f"Successfully created and using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
+        else:
+            return f"Successfully using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
