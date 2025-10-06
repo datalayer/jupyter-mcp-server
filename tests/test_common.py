@@ -122,11 +122,28 @@ class MCPClient:
     def _extract_text_content(result):
         """Extract text content from a result"""
         try:
+            logging.debug(f"_extract_text_content: result type={type(result)}, has content={hasattr(result, 'content')}, is tuple={isinstance(result, tuple)}, is list={isinstance(result, list)}")
+            
+            # Handle tuple results (content, metadata)
+            if isinstance(result, tuple) and len(result) >= 2:
+                logging.debug(f"_extract_text_content: handling tuple, first element type={type(result[0])}")
+                result = result[0]  # Get the content list from the tuple
+            
             if hasattr(result, 'content') and result.content and len(result.content) > 0:
                 if isinstance(result.content[0], types.TextContent):
-                    return result.content[0].text
-        except (AttributeError, IndexError, TypeError):
-            pass
+                    text = result.content[0].text
+                    logging.debug(f"_extract_text_content: extracted from result.content[0].text, length={len(text)}")
+                    return text
+            # Handle list results directly
+            elif isinstance(result, list) and len(result) > 0:
+                if isinstance(result[0], types.TextContent):
+                    text = result[0].text
+                    logging.debug(f"_extract_text_content: extracted from list[0].text, length={len(text)}")
+                    return text
+        except (AttributeError, IndexError, TypeError) as e:
+            logging.debug(f"_extract_text_content error: {e}, result type: {type(result)}")
+        
+        logging.debug(f"_extract_text_content: returning None, could not extract")
         return None
 
     def _get_structured_content_safe(self, result):
@@ -216,10 +233,14 @@ class MCPClient:
             try:
                 result = await self._session.call_tool("list_cells")  # type: ignore
                 text_result = self._extract_text_content(result)
+                logging.debug(f"list_cells attempt {attempt + 1}: text_result type={type(text_result)}, len={len(text_result) if text_result else 0}")
+                logging.debug(f"list_cells attempt {attempt + 1}: text_result[:500]={repr(text_result[:500]) if text_result else 'None'}")
+                has_index_type = ("Index\tType" in text_result) if text_result else False
+                logging.debug(f"list_cells attempt {attempt + 1}: has_index_type={has_index_type}")
                 if text_result is not None and not text_result.startswith("Error") and "Index\tType" in text_result:
                     return text_result
                 else:
-                    logging.warning(f"list_cells returned unexpected result on attempt {attempt + 1}/{max_retries}: {text_result}")
+                    logging.warning(f"list_cells returned unexpected result on attempt {attempt + 1}/{max_retries}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(0.5)
             except Exception as e:

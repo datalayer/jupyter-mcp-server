@@ -89,6 +89,7 @@ Returns:
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # Local mode: read notebook directly from file system
             # Get current notebook path from notebook_manager if available, else use config
+            notebook_path = None
             if notebook_manager:
                 notebook_path = notebook_manager.get_current_notebook_path()
             if not notebook_path:
