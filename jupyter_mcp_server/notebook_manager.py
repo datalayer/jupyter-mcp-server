@@ -23,14 +23,24 @@ class NotebookConnection:
     """
     Context manager for Notebook connections that handles the lifecycle
     of NbModelClient instances.
+    
+    Note: This is only used in MCP_SERVER mode with remote Jupyter servers that have RTC enabled.
+    In JUPYTER_SERVER mode (local), notebook content is accessed directly via contents_manager.
     """
     
-    def __init__(self, notebook_info: Dict[str, str]):
+    def __init__(self, notebook_info: Dict[str, str], is_local: bool = False):
         self.notebook_info = notebook_info
+        self.is_local = is_local
         self._notebook: Optional[NbModelClient] = None
     
     async def __aenter__(self) -> NbModelClient:
         """Enter context, establish notebook connection."""
+        if self.is_local:
+            raise ValueError(
+                "NotebookConnection cannot be used in local/JUPYTER_SERVER mode. "
+                "Cell operations in local mode should use contents_manager directly to read notebook JSON files."
+            )
+        
         config = get_config()
         ws_url = get_notebook_websocket_url(
             server_url=self.notebook_info.get("server_url", config.document_url),

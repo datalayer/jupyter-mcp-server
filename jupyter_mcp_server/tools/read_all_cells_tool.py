@@ -9,6 +9,7 @@ from jupyter_server_api import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import CellInfo
+from jupyter_mcp_server.config import get_config
 from mcp.types import ImageContent
 
 
@@ -27,6 +28,39 @@ Returns:
     list[dict]: List of cell information including index, type, source,
                 and outputs (for code cells)"""
     
+    async def _read_cells_local(self, contents_manager: Any, path: str) -> List[Dict[str, Any]]:
+        """Read cells using local contents_manager (JUPYTER_SERVER mode)."""
+        # Read the notebook file directly
+        model = await contents_manager.get(path, content=True, type='notebook')
+        
+        if 'content' not in model:
+            raise ValueError(f"Could not read notebook content from {path}")
+        
+        notebook_content = model['content']
+        cells = notebook_content.get('cells', [])
+        
+        # Convert cells to the expected format
+        result = []
+        for idx, cell in enumerate(cells):
+            cell_info = {
+                "index": idx,
+                "cell_type": cell.get('cell_type', 'unknown'),
+                "source": cell.get('source', '')
+            }
+            
+            # Add execution count for code cells
+            if cell.get('cell_type') == 'code':
+                cell_info["execution_count"] = cell.get('execution_count')
+                
+                # Add outputs if present
+                outputs = cell.get('outputs', [])
+                if outputs:
+                    cell_info["outputs"] = outputs
+            
+            result.append(cell_info)
+        
+        return result
+    
     async def execute(
         self,
         mode: ServerMode,
@@ -41,20 +75,28 @@ Returns:
         """Execute the read_all_cells tool.
         
         Args:
-            mode: Server mode (uses notebook_manager connection)
-            notebook_manager: Notebook manager instance
+            mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
+            contents_manager: Direct API access for JUPYTER_SERVER mode
+            notebook_manager: Notebook manager instance for MCP_SERVER mode
             **kwargs: Additional parameters
             
         Returns:
             List of cell information dictionaries
         """
-        # This tool uses notebook_manager which handles connections
-        # The actual notebook content comes from NbModelClient regardless of mode
-        async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            cells = []
+        if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+            # Local mode: read notebook directly from file system
+            config = get_config()
+            notebook_path = config.document_id
+            return await self._read_cells_local(contents_manager, notebook_path)
+        elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
+            # Remote mode: use WebSocket connection to Y.js document
+            async with notebook_manager.get_current_connection() as notebook:
+                ydoc = notebook._doc
+                cells = []
 
-            for i, cell in enumerate(ydoc._ycells):
-                cells.append(CellInfo.from_cell(i, cell).model_dump(exclude_none=True))
-            
-            return cells
+                for i, cell in enumerate(ydoc._ycells):
+                    cells.append(CellInfo.from_cell(i, cell).model_dump(exclude_none=True))
+                
+                return cells
+        else:
+            raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

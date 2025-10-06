@@ -95,7 +95,7 @@ start-empty: ## start the jupyter mcp server with streamable-http transport and 
 	  --runtime-token MY_TOKEN \
 	  --port 4040
 
-start-jupyter-server: ## start jupyter server with MCP extension
+start-jupyter-server-extension: ## start jupyter server with MCP extension
 	@exec echo
 	@exec echo 🚀 Starting Jupyter Server with MCP Extension
 	@exec echo 📍 Using local serverapp access - document_url=local, runtime_url=local
