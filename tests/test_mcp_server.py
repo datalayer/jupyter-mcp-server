@@ -3,33 +3,22 @@
 # BSD 3-Clause License
 
 """
-Integration tests for the 'mcp.server' module written in pytest with its async module `pytest-asyncio`.
+Integration tests for Jupyter MCP Server in MCP_SERVER mode (remote/HTTP transport).
 
-This test file is organized as follows:
+This test file validates the server when running as a standalone MCP server that
+communicates with Jupyter Lab via HTTP. It tests:
 
-1. **Helpers**: Common methods and objects used to ease the writing and the execution of tests.
-    - `MCPClient`: A standard MCP client used to interact with the Jupyter MCP server.
-    - `_start_server`: Helper function that starts a web server (Jupyter Lab and MCP Server) as a python subprocess and wait until it's ready to accept connections.
+1. **Health checks**: Verify server and kernel health
+2. **Tool listing**: Ensure all expected tools are registered
+3. **Cell operations**: Test markdown and code cell manipulation
+4. **Multi-notebook management**: Test notebook switching and management
+5. **execute_ipython**: Test IPython magic commands and shell execution
+6. **Edge cases**: Test error handling for invalid inputs
 
-2.  **Fixtures**: Common setup and teardown logic for tests.
-    - `jupyter_server`: Spawn a Jupyter server (thanks to the `_start_server` helper).
-    - `jupyter_mcp_server`: Spawn a Jupyter MCP server connected to the Jupyter server.
-    - `mcp_client`: Returns the `MCPClient` connected to the Juypyter MCP server.
+The tests use the MCPClient from test_common.py to interact with the server
+via the MCP protocol over streamable HTTP.
 
-3.  **Health tests**: Check that the main components are operating as expected.
-    - `test_jupyter_health`: Test that the Jupyter server is healthy.
-    - `test_mcp_health`: Test that the Jupyter MCP server is healthy (tests are made with different configuration runtime launched or not launched).
-    - `test_mcp_tool_list`: Test that the MCP server declare its tools.
-
-4.  **Integration tests**: Check that end to end tools (client -> Jupyter MCP -> Jupyter) are working as expected.
-    - `test_markdown_cell`: Test markdown cell manipulation (append, insert, read, delete).
-    - `test_code_cell`: Test code cell manipulation (append, insert, overwrite, execute, read, delete)
-
-5.  **Edge tests**: Check edge cases behavior.
-    - `test_bad_index`: Test behavior of all index-based tools if the index does not exist
-
-Launch the tests
-
+Launch the tests:
 ```
 $ make test
 # or
@@ -37,348 +26,27 @@ $ hatch test
 ```
 """
 
+import logging
+import platform
+import socket
+from http import HTTPStatus
+
 import pytest
 import pytest_asyncio
-import subprocess
 import requests
-import logging
-import functools
-import time
-import platform
-from http import HTTPStatus
-from contextlib import AsyncExitStack
 
-from requests.exceptions import ConnectionError
-from mcp import ClientSession, types
-from mcp.client.streamable_http import streamablehttp_client
-import os
+from test_common import MCPClient, JUPYTER_TOOLS, windows_timeout_wrapper
+from conftest import JUPYTER_TOKEN, _start_server
 
 
-JUPYTER_TOKEN = "MY_TOKEN"
-
-def windows_timeout_wrapper(timeout_seconds=30):
-    """Decorator to add Windows-specific timeout handling to async test functions
-    
-    Windows has known issues with asyncio and network timeouts that can cause 
-    tests to hang indefinitely. This decorator adds a safety timeout specifically
-    for Windows platforms while allowing other platforms to run normally.
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            if platform.system() == "Windows":
-                import asyncio
-                try:
-                    return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
-                except asyncio.TimeoutError:
-                    pytest.skip(f"Test {func.__name__} timed out on Windows ({timeout_seconds}s) - known platform limitation")
-                except Exception as e:
-                    # Check if it's a network timeout related to Windows
-                    if "ReadTimeout" in str(e) or "TimeoutError" in str(e):
-                        pytest.skip(f"Test {func.__name__} hit network timeout on Windows - known platform limitation: {e}")
-                    raise
-            else:
-                return await func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-# TODO: could be retrieved from code (inspect)
-JUPYTER_TOOLS = [
-    # Multi-Notebook Management Tools
-    "use_notebook",
-    "list_notebook", 
-    "restart_notebook",
-    "unuse_notebook",
-    # Cell Tools
-    "insert_cell",
-    "insert_execute_code_cell",
-    "overwrite_cell_source",
-    "execute_cell_with_progress",
-    "execute_cell_simple_timeout",
-    "execute_cell_streaming",
-    "read_cells",
-    "list_cells",
-    "read_cell",
-    "delete_cell",
-    "execute_ipython",
-    "list_files",
-    "list_kernel",
-]
-
-
-def requires_session(func):
-    """
-    A decorator that checks if the instance has a connected session.
-    """
-
-    @functools.wraps(func)
-    async def wrapper(self, *args, **kwargs):
-        if not self._session:
-            raise RuntimeError("Client session is not connected")
-        # If the session exists, call the original method
-        return await func(self, *args, **kwargs)
-
-    return wrapper
-
-
-class MCPClient:
-    """A standard MCP client used to interact with the Jupyter MCP server
-
-    Basically it's a client wrapper for the Jupyter MCP server.
-    It uses the `requires_session` decorator to check if the session is connected.
-    """
-
-    def __init__(self, url):
-        self.url = f"{url}/mcp"
-        self._session: ClientSession | None = None
-        self._exit_stack = AsyncExitStack()
-
-    async def __aenter__(self):
-        """Initiate the session (enter session context)"""
-        streams_context = streamablehttp_client(self.url)
-        read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
-            streams_context
-        )
-        session_context = ClientSession(read_stream, write_stream)
-        self._session = await self._exit_stack.enter_async_context(session_context)
-        await self._session.initialize()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Close the session (exit session context)"""
-        if self._exit_stack:
-            await self._exit_stack.aclose()
-        self._session = None
-
-    @staticmethod
-    def _extract_text_content(result):
-        """Extract text content from a result"""
-        try:
-            if hasattr(result, 'content') and result.content and len(result.content) > 0:
-                if isinstance(result.content[0], types.TextContent):
-                    return result.content[0].text
-        except (AttributeError, IndexError, TypeError):
-            pass
-        return None
-
-    def _get_structured_content_safe(self, result):
-        """Safely get structured content with fallback to text content parsing"""
-        content = getattr(result, 'structuredContent', None)
-        if content is None:
-            # Try to extract from text content as fallback
-            text_content = self._extract_text_content(result)
-            if text_content:
-                import json
-                try:
-                    return json.loads(text_content)
-                except json.JSONDecodeError as e:
-                    logging.warning(f"Failed to parse JSON from text content: {e}, content: {text_content[:200]}...")
-            else:
-                logging.warning(f"No text content available in result: {type(result)}")
-        return content
-
-    @requires_session
-    async def list_tools(self):
-        return await self._session.list_tools()  # type: ignore
-
-    # Multi-Notebook Management Methods
-    @requires_session
-    async def use_notebook(self, notebook_name, notebook_path=None, mode="connect", kernel_id=None):
-        arguments = {
-            "notebook_name": notebook_name, 
-            "mode": mode,
-            "kernel_id": kernel_id
-        }
-        # Only add notebook_path if provided (for switching, it's optional)
-        if notebook_path is not None:
-            arguments["notebook_path"] = notebook_path
-        
-        result = await self._session.call_tool("use_notebook", arguments=arguments)  # type: ignore
-        return self._extract_text_content(result)
-    
-    @requires_session
-    async def list_notebook(self):
-        result = await self._session.call_tool("list_notebook")  # type: ignore
-        return self._extract_text_content(result)
-    
-    @requires_session
-    async def restart_notebook(self, notebook_name):
-        result = await self._session.call_tool("restart_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
-        return self._extract_text_content(result)
-    
-    @requires_session
-    async def unuse_notebook(self, notebook_name):
-        result = await self._session.call_tool("unuse_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
-        return self._extract_text_content(result)
-    
-    @requires_session
-    async def insert_cell(self, cell_index, cell_type, cell_source):
-        result = await self._session.call_tool("insert_cell", arguments={"cell_index": cell_index, "cell_type": cell_type, "cell_source": cell_source})  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def insert_execute_code_cell(self, cell_index, cell_source):
-        result = await self._session.call_tool("insert_execute_code_cell", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def read_cell(self, cell_index):
-        result = await self._session.call_tool("read_cell", arguments={"cell_index": cell_index})  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def read_cells(self):
-        result = await self._session.call_tool("read_cells")  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def list_cells(self, max_retries=3):
-        """List cells with retry mechanism for Windows compatibility"""
-        for attempt in range(max_retries):
-            try:
-                result = await self._session.call_tool("list_cells")  # type: ignore
-                text_result = self._extract_text_content(result)
-                if text_result is not None and not text_result.startswith("Error") and "Index\tType" in text_result:
-                    return text_result
-                else:
-                    logging.warning(f"list_cells returned invalid result on attempt {attempt + 1}/{max_retries}: {text_result}")
-                    if attempt < max_retries - 1:
-                        import asyncio
-                        await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
-            except Exception as e:
-                logging.error(f"list_cells failed on attempt {attempt + 1}/{max_retries}: {e}")
-                if attempt < max_retries - 1:
-                    import asyncio
-                    await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
-                else:
-                    # Return an error message instead of raising, to allow tests to handle gracefully
-                    return f"Error executing tool list_cells: {e}"
-        return "Error: Failed to retrieve cell list after all retries"
-
-    @requires_session
-    async def delete_cell(self, cell_index):
-        result = await self._session.call_tool("delete_cell", arguments={"cell_index": cell_index})  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def execute_cell_streaming(self, cell_index):
-        result = await self._session.call_tool("execute_cell_streaming", arguments={"cell_index": cell_index})  # type: ignore
-        return self._get_structured_content_safe(result)
-    
-    @requires_session
-    async def execute_cell_with_progress(self, cell_index):
-        result = await self._session.call_tool("execute_cell_with_progress", arguments={"cell_index": cell_index})  # type: ignore
-        return self._get_structured_content_safe(result)
-    
-    @requires_session
-    async def execute_cell_simple_timeout(self, cell_index):
-        result = await self._session.call_tool("execute_cell_simple_timeout", arguments={"cell_index": cell_index})  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def overwrite_cell_source(self, cell_index, cell_source):
-        result = await self._session.call_tool("overwrite_cell_source", arguments={"cell_index": cell_index, "cell_source": cell_source})  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def execute_ipython(self, code, timeout=60):
-        result = await self._session.call_tool("execute_ipython", arguments={"code": code, "timeout": timeout})  # type: ignore
-        return self._get_structured_content_safe(result)
-
-    @requires_session
-    async def append_execute_code_cell(self, cell_source):
-        """Append and execute a code cell at the end of the notebook."""
-        return await self.insert_execute_code_cell(-1, cell_source)
-
-    @requires_session
-    async def append_markdown_cell(self, cell_source):
-        """Append a markdown cell at the end of the notebook."""
-        return await self.insert_cell(-1, "markdown", cell_source)
-    
-    # Helper method to get cell count from list_cells output
-    @requires_session
-    async def get_cell_count(self):
-        """Get the number of cells by parsing list_cells output"""
-        cell_list = await self.list_cells()
-        if "Error" in cell_list or "Index\tType" not in cell_list:
-            return 0
-        lines = cell_list.split('\n')
-        data_lines = [line for line in lines if '\t' in line and not line.startswith('Index') and not line.startswith('-')]
-        return len(data_lines)
-
-def _start_server(name, host, port, command, readiness_endpoint="/", max_retries=5):
-    """A Helper that starts a web server as a python subprocess and wait until it's ready to accept connections
-
-    This method can be used to start both Jupyter and Jupyter MCP servers
-    """
-    _log_prefix = name
-    url = f"http://{host}:{port}"
-    url_readiness = f"{url}{readiness_endpoint}"
-    logging.info(f"{_log_prefix}: starting ...")
-    p_serv = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    _log_prefix = f"{_log_prefix} [{p_serv.pid}]"
-    while max_retries > 0:
-        try:
-            response = requests.get(url_readiness, timeout=10)
-            if response is not None and response.status_code == HTTPStatus.OK:
-                logging.info(f"{_log_prefix}: started ({url})!")
-                yield url
-                break
-        except (ConnectionError, requests.exceptions.Timeout):
-            logging.debug(
-                f"{_log_prefix}: waiting to accept connections [{max_retries}]"
-            )
-            time.sleep(2)
-            max_retries -= 1
-    if not max_retries:
-        logging.error(f"{_log_prefix}: fail to start")
-    logging.debug(f"{_log_prefix}: stopping ...")
-    try:
-        p_serv.terminate()
-        p_serv.wait(timeout=5)  # Reduced timeout for faster cleanup
-        logging.info(f"{_log_prefix}: stopped")
-    except subprocess.TimeoutExpired:
-        logging.warning(f"{_log_prefix}: terminate timeout, forcing kill")
-        p_serv.kill()
-        try:
-            p_serv.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            logging.error(f"{_log_prefix}: kill timeout, process may be stuck")
-    except Exception as e:
-        logging.error(f"{_log_prefix}: error during shutdown: {e}")
-
+###############################################################################
+# MCP_SERVER Mode Fixtures
+###############################################################################
 
 @pytest_asyncio.fixture(scope="function")
 async def mcp_client(jupyter_mcp_server) -> MCPClient:
     """An MCP client that can connect to the Jupyter MCP server"""
     return MCPClient(jupyter_mcp_server)
-
-
-@pytest.fixture(scope="session")
-def jupyter_server():
-    """Start the Jupyter server and returns its URL"""
-    host = "localhost"
-    port = 8888
-    yield from _start_server(
-        name="JupyterLab",
-        host=host,
-        port=port,
-        command=[
-            "jupyter",
-            "lab",
-            "--port",
-            str(port),
-            "--IdentityProvider.token",
-            JUPYTER_TOKEN,
-            "--ip",
-            host,
-            "--ServerApp.root_dir",
-            "./dev/content",
-            "--no-browser",
-        ],
-        readiness_endpoint="/api",
-        max_retries=10,
-    )
 
 
 @pytest.fixture(scope="function")
