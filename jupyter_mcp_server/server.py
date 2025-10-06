@@ -667,7 +667,7 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
-            new_source=cell_source,
+            cell_source=cell_source,
         )
     )
 
