@@ -57,7 +57,7 @@ def test_dynamic_tool_list():
         
         # Verify we have the expected tools
         tool_names = [t['name'] for t in tools]
-        expected_tools = ['use_notebook', 'list_notebook', 'read_all_cells', 'execute_cell_simple_timeout']
+        expected_tools = ['use_notebook', 'list_notebook', 'read_cells', 'execute_cell_simple_timeout']
         
         for expected in expected_tools:
             if expected not in tool_names:

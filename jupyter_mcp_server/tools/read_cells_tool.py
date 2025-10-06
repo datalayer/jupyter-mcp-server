@@ -13,16 +13,16 @@ from jupyter_mcp_server.config import get_config
 from mcp.types import ImageContent
 
 
-class ReadAllCellsTool(BaseTool):
-    """Tool to read all cells from a Jupyter notebook."""
+class ReadCellsTool(BaseTool):
+    """Tool to read cells from a Jupyter notebook."""
     
     @property
     def name(self) -> str:
-        return "read_all_cells"
+        return "read_cells"
     
     @property
     def description(self) -> str:
-        return """Read all cells from the Jupyter notebook.
+        return """Read cells from the Jupyter notebook.
     
 Returns:
     list[dict]: List of cell information including index, type, source,
@@ -72,7 +72,7 @@ Returns:
         notebook_manager: Optional[NotebookManager] = None,
         **kwargs
     ) -> List[Dict[str, Union[str, int, List[Union[str, ImageContent]]]]]:
-        """Execute the read_all_cells tool.
+        """Execute the read_cells tool.
         
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)

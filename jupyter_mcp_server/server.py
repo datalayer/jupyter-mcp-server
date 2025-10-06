@@ -40,7 +40,7 @@ from jupyter_mcp_server.tools import (
     RestartNotebookTool,
     UnuseNotebookTool,
     # Cell Reading
-    ReadAllCellsTool,
+    ReadCellsTool,
     ListCellsTool,
     ReadCellTool,
     # Cell Writing
@@ -118,7 +118,7 @@ restart_notebook_tool = RestartNotebookTool()
 unuse_notebook_tool = UnuseNotebookTool()
 
 # Cell Reading Tools
-read_all_cells_tool = ReadAllCellsTool()
+read_cells_tool = ReadCellsTool()
 list_cells_tool = ListCellsTool()
 read_cell_tool = ReadCellTool()
 
@@ -731,14 +731,14 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
     )
 
 @mcp.tool()
-async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:
+async def read_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:
     """Read all cells from the Jupyter notebook.
     Returns:
         list[dict]: List of cell information including index, type, source,
                     and outputs (for code cells)
     """
     return await __safe_notebook_operation(
-        lambda: read_all_cells_tool.execute(
+        lambda: read_cells_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,

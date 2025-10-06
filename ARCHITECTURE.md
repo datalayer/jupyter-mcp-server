@@ -92,7 +92,7 @@ class BaseTool:
 
 **Tool Categories** (18 tools total):
 - **Notebook Management** (5): list_notebook, use_notebook, unuse_notebook, restart_notebook
-- **Cell Reading** (3): read_all_cells, list_cells, read_cell
+- **Cell Reading** (3): read_cells, list_cells, read_cell
 - **Cell Writing** (4): insert_cell, insert_execute_code_cell, overwrite_cell_source, delete_cell
 - **Cell Execution** (3): execute_cell_simple_timeout, execute_cell_streaming, execute_cell_with_progress
 - **Other** (3): execute_ipython, list_all_files, list_kernels
@@ -333,7 +333,7 @@ MCP Client
 
 ## Tool Implementation Details
 
-### Cell Reading Tools (read_all_cells, list_cells, read_cell)
+### Cell Reading Tools (read_cells, list_cells, read_cell)
 
 **JUPYTER_SERVER Mode**:
 - Read notebook file via `contents_manager.get(path, content=True, type='notebook')`
@@ -471,7 +471,7 @@ jupyter_mcp_server/
 │   ├── list_notebooks_tool.py # List notebooks (dual-mode)
 │   ├── use_notebook_tool.py   # Connect/create notebooks
 │   ├── list_cells_tool.py      # List cells (dual-mode)
-│   ├── read_all_cells_tool.py # Read all cells (dual-mode)
+│   ├── read_cells_tool.py # Read all cells (dual-mode)
 │   ├── read_cell_tool.py      # Read specific cell (dual-mode)
 │   └── ... (15 more tools)
 └── jupyter_extension/

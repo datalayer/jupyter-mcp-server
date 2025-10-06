@@ -96,7 +96,7 @@ JUPYTER_TOOLS = [
     "execute_cell_with_progress",
     "execute_cell_simple_timeout",
     "execute_cell_streaming",
-    "read_all_cells",
+    "read_cells",
     "list_cells",
     "read_cell",
     "delete_cell",
@@ -227,8 +227,8 @@ class MCPClient:
         return self._get_structured_content_safe(result)
 
     @requires_session
-    async def read_all_cells(self):
-        result = await self._session.call_tool("read_all_cells")  # type: ignore
+    async def read_cells(self):
+        result = await self._session.call_tool("read_cells")  # type: ignore
         return self._get_structured_content_safe(result)
 
     @requires_session
@@ -486,8 +486,8 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
         # TODO: don't now if it's normal to get a list of characters instead of a string
         assert "".join(cell_info["source"]) == content
         # reading all cells
-        result = await mcp_client.read_all_cells()
-        assert result is not None, "read_all_cells result should not be None"
+        result = await mcp_client.read_cells()
+        assert result is not None, "read_cells result should not be None"
         cells_info = result["result"]
         logging.debug(f"cells_info: {cells_info}")
         # Check that our cell is in the expected position with correct content
@@ -531,7 +531,7 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         assert cell_info["type"] == "code"
         assert "".join(cell_info["source"]) == content
         # reading all cells
-        result = await mcp_client.read_all_cells()
+        result = await mcp_client.read_cells()
         cells_info = result["result"]
         logging.debug(f"cells_info: {cells_info}")
         # Check that our cell is in the expected position with correct content
