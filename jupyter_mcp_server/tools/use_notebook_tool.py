@@ -96,7 +96,7 @@ Returns:
         # Tool-specific parameters
         notebook_name: str = None,
         notebook_path: str = None,
-        connect_mode: Literal["connect", "create"] = "connect",
+        use_mode: Literal["connect", "create"] = "connect",
         kernel_id: Optional[str] = None,
         runtime_url: Optional[str] = None,
         runtime_token: Optional[str] = None,
@@ -112,7 +112,7 @@ Returns:
             notebook_manager: Notebook manager instance
             notebook_name: Unique identifier for the notebook
             notebook_path: Path to the notebook file
-            connect_mode: "connect" or "create"
+            use_mode: "connect" or "create"
             kernel_id: Optional specific kernel ID
             runtime_url: Runtime URL for HTTP mode
             runtime_token: Runtime token for HTTP mode
@@ -133,9 +133,9 @@ Returns:
         
         # Check the path exists
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-            path_ok, error_msg = await self._check_path_local(contents_manager, notebook_path, connect_mode)
+            path_ok, error_msg = await self._check_path_local(contents_manager, notebook_path, use_mode)
         elif mode == ServerMode.MCP_SERVER and server_client is not None:
-            path_ok, error_msg = await self._check_path_http(server_client, notebook_path, connect_mode)
+            path_ok, error_msg = await self._check_path_http(server_client, notebook_path, use_mode)
         else:
             return f"Invalid mode or missing required clients: mode={mode}"
         
@@ -150,7 +150,7 @@ Returns:
                 return f"Kernel '{kernel_id}' not found in jupyter server, please check the kernel already exists."
         
         # Create notebook if needed
-        if connect_mode == "create":
+        if use_mode == "create":
             if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
                 # Use local API to create notebook
                 await contents_manager.new(model={'type': 'notebook'}, path=notebook_path)
@@ -202,7 +202,7 @@ Returns:
         notebook_manager.set_current_notebook(notebook_name)
         
         # Return message based on mode
-        if connect_mode == "create":
+        if use_mode == "create":
             return f"Successfully created and using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
         else:
             return f"Successfully using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
