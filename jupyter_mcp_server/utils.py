@@ -3,9 +3,42 @@
 # BSD 3-Clause License
 
 import re
-from typing import Any, Union
+from typing import Any, Union, Tuple, Optional
 from mcp.types import ImageContent
 from .config_env import ALLOW_IMG_OUTPUT
+
+
+def get_current_notebook_context(notebook_manager=None):
+    """
+    Get the current notebook path and kernel ID for JUPYTER_SERVER mode.
+    
+    Args:
+        notebook_manager: NotebookManager instance (optional)
+        
+    Returns:
+        Tuple of (notebook_path, kernel_id)
+        Falls back to config values if notebook_manager not provided
+    """
+    from .config import get_config
+    
+    notebook_path = None
+    kernel_id = None
+    
+    if notebook_manager:
+        # Try to get current notebook info from manager
+        notebook_path = notebook_manager.get_current_notebook_path()
+        current_notebook = notebook_manager.get_current_notebook() or "default"
+        kernel_id = notebook_manager.get_kernel_id(current_notebook)
+    
+    # Fallback to config if not found in manager
+    if not notebook_path or not kernel_id:
+        config = get_config()
+        if not notebook_path:
+            notebook_path = config.document_id
+        if not kernel_id:
+            kernel_id = config.runtime_id
+    
+    return notebook_path, kernel_id
 
 
 def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:

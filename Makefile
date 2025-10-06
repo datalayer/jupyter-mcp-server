@@ -24,16 +24,19 @@ dev:
 	pip install ".[test,lint,typing]"
 
 test: ## run the unit tests
+	git checkout ./dev/content && \
 	TEST_MCP_SERVER=true \
 	TEST_JUPYTER_SERVER=true \
 	pytest
 
 test-mcp-server: ## run the unit tests for mcp server
+	git checkout ./dev/content && \
 	TEST_MCP_SERVER=true \
 	TEST_JUPYTER_SERVER=false \
 	pytest
 
 test-jupyter-server: ## run the unit tests for jupyter server
+	git checkout ./dev/content && \
 	TEST_MCP_SERVER=false \
 	TEST_JUPYTER_SERVER=true \
 	pytest

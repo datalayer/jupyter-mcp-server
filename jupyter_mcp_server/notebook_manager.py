@@ -320,6 +320,18 @@ class NotebookManager:
         
         return self.get_notebook_connection(current)
     
+    def get_current_notebook_path(self) -> Optional[str]:
+        """
+        Get the file path of the currently active notebook.
+        
+        Returns:
+            Notebook file path or None if no active notebook
+        """
+        current = self._current_notebook or self._default_notebook_name
+        if current in self._notebooks:
+            return self._notebooks[current]["notebook_info"].get("path")
+        return None
+    
     def list_all_notebooks(self) -> Dict[str, Dict[str, Any]]:
         """
         Get information about all managed notebooks.

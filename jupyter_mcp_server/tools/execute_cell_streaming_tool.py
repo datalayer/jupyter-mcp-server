@@ -12,7 +12,7 @@ from mcp.types import ImageContent
 
 from ._base import BaseTool, ServerMode
 from jupyter_mcp_server.config import get_config
-from jupyter_mcp_server.utils import execute_cell_local
+from jupyter_mcp_server.utils import execute_cell_local, get_current_notebook_context
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +76,7 @@ class ExecuteCellStreamingTool(BaseTool):
             if kernel_manager is None:
                 raise ValueError("kernel_manager is required for JUPYTER_SERVER mode")
             
-            config = get_config()
-            notebook_path = config.document_id
-            kernel_id = config.runtime_id
+            notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
             
             logger.info(f"Executing cell {cell_index} in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)")
             logger.info("Note: Streaming progress updates require MCP_SERVER mode with WebSocket")

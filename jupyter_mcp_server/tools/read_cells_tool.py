@@ -10,6 +10,7 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import CellInfo
 from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.utils import get_current_notebook_context
 from mcp.types import ImageContent
 
 
@@ -85,8 +86,7 @@ Returns:
         """
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # Local mode: read notebook directly from file system
-            config = get_config()
-            notebook_path = config.document_id
+            notebook_path, _ = get_current_notebook_context(notebook_manager)
             return await self._read_cells_local(contents_manager, notebook_path)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document

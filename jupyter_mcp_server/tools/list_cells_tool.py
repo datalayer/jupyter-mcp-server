@@ -80,7 +80,7 @@ Returns:
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
             contents_manager: Direct API access for JUPYTER_SERVER mode
-            notebook_manager: Notebook manager instance for MCP_SERVER mode
+            notebook_manager: Notebook manager instance
             **kwargs: Additional parameters
             
         Returns:
@@ -88,8 +88,12 @@ Returns:
         """
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # Local mode: read notebook directly from file system
-            config = get_config()
-            notebook_path = config.document_id
+            # Get current notebook path from notebook_manager if available, else use config
+            if notebook_manager:
+                notebook_path = notebook_manager.get_current_notebook_path()
+            if not notebook_path:
+                config = get_config()
+                notebook_path = config.document_id
             return await self._list_cells_local(contents_manager, notebook_path)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document

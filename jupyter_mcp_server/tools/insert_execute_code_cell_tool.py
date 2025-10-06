@@ -13,6 +13,7 @@ from typing import Any, Optional, List, Union
 from jupyter_server_api import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.utils import get_current_notebook_context
 from jupyter_mcp_server.utils import safe_extract_outputs
 from mcp.types import ImageContent
 
@@ -296,16 +297,14 @@ Returns:
             
             context = get_server_context()
             serverapp = context.serverapp
-            config = get_config()
-            notebook_path = config.document_id
+            
+            notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
             
             # Resolve to absolute path
             if serverapp and not Path(notebook_path).is_absolute():
                 root_dir = serverapp.root_dir
                 notebook_path = str(Path(root_dir) / notebook_path)
             
-            # Get kernel_id from config
-            kernel_id = config.runtime_id
             if not kernel_id:
                 raise ValueError("kernel_id (runtime_id) is required for JUPYTER_SERVER mode")
             
