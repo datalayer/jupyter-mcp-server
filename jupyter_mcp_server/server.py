@@ -828,6 +828,14 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
     Returns:
         List of outputs from the executed code
     """
+    # Get kernel_id for JUPYTER_SERVER mode
+    kernel_id = None
+    if server_context.mode == ServerMode.JUPYTER_SERVER:
+        current_notebook = notebook_manager.get_current_notebook() or "default"
+        kernel_id = notebook_manager.get_kernel_id(current_notebook)
+        if not kernel_id:
+            return ["[ERROR: No kernel_id found for current notebook. Please ensure a kernel is started.]"]
+    
     return await __safe_notebook_operation(
         lambda: execute_ipython_tool.execute(
             mode=server_context.mode,
@@ -836,6 +844,7 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
             notebook_manager=notebook_manager,
             code=code,
             timeout=timeout,
+            kernel_id=kernel_id,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
             wait_for_kernel_idle_fn=__wait_for_kernel_idle,
             safe_extract_outputs_fn=safe_extract_outputs,
