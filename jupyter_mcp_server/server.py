@@ -552,6 +552,7 @@ async def restart_notebook(notebook_name: str) -> str:
         mode=server_context.mode,
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
+        kernel_manager=server_context.kernel_manager,
     )
 
 
@@ -569,6 +570,7 @@ async def unuse_notebook(notebook_name: str) -> str:
         mode=server_context.mode,
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
+        kernel_manager=server_context.kernel_manager,
     )
 
 
