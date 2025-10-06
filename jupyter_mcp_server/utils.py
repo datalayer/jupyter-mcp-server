@@ -514,3 +514,257 @@ def list_files_recursively(server_client, current_path="", current_depth=0, file
         })
     
     return files
+
+
+###############################################################################
+# Local code execution helpers (JUPYTER_SERVER mode)
+###############################################################################
+
+
+async def execute_code_local(
+    serverapp,
+    notebook_path: str,
+    code: str,
+    kernel_id: str,
+    timeout: int = 300,
+    logger=None
+) -> list[Union[str, ImageContent]]:
+    """Execute code in a kernel and return outputs (JUPYTER_SERVER mode).
+    
+    This is a centralized code execution function for JUPYTER_SERVER mode that:
+    1. Gets the kernel from kernel_manager
+    2. Creates a client and sends execute_request
+    3. Polls for response messages with timeout
+    4. Collects and formats outputs
+    5. Cleans up resources
+    
+    Args:
+        serverapp: Jupyter ServerApp instance
+        notebook_path: Path to the notebook (for context)
+        code: Code to execute
+        kernel_id: ID of the kernel to execute in
+        timeout: Timeout in seconds (default: 300)
+        logger: Logger instance (optional)
+        
+    Returns:
+        List of formatted outputs (strings or ImageContent)
+    """
+    import asyncio
+    import zmq.asyncio
+    from inspect import isawaitable
+    
+    if logger is None:
+        import logging
+        logger = logging.getLogger(__name__)
+    
+    try:
+        # Get kernel manager
+        kernel_manager = serverapp.kernel_manager
+        
+        # Get the kernel using pinned_superclass pattern (from jupyter-resource-usage)
+        lkm = kernel_manager.pinned_superclass.get_kernel(kernel_manager, kernel_id)
+        session = lkm.session
+        client = lkm.client()
+        
+        # Send execute request
+        shell_channel = client.shell_channel
+        msg_id = session.msg("execute_request", {
+            "code": code,
+            "silent": False,
+            "store_history": True,
+            "user_expressions": {},
+            "allow_stdin": False,
+            "stop_on_error": False
+        })
+        shell_channel.send(msg_id)
+        
+        # Prepare to collect outputs
+        outputs = []
+        execution_done = False
+        
+        # Poll for messages with timeout
+        poller = zmq.asyncio.Poller()
+        iopub_socket = client.iopub_channel.socket
+        shell_socket = shell_channel.socket
+        poller.register(iopub_socket, zmq.POLLIN)
+        poller.register(shell_socket, zmq.POLLIN)
+        
+        timeout_ms = timeout * 1000
+        start_time = asyncio.get_event_loop().time()
+        
+        while not execution_done:
+            elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+            remaining_ms = max(0, timeout_ms - elapsed_ms)
+            
+            if remaining_ms <= 0:
+                client.stop_channels()
+                logger.warning(f"Code execution timeout after {timeout}s")
+                return [f"[TIMEOUT ERROR: Code execution exceeded {timeout} seconds]"]
+            
+            events = dict(await poller.poll(remaining_ms))
+            
+            # Check for shell reply (execution complete)
+            if shell_socket in events:
+                reply = client.shell_channel.get_msg(timeout=0)
+                if isawaitable(reply):
+                    reply = await reply
+                
+                if reply and reply.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
+                    execution_done = True
+            
+            # Check for IOPub messages (outputs)
+            if iopub_socket in events:
+                msg = client.iopub_channel.get_msg(timeout=0)
+                if isawaitable(msg):
+                    msg = await msg
+                
+                if msg and msg.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
+                    msg_type = msg.get('msg_type')
+                    content = msg.get('content', {})
+                    
+                    # Collect output messages
+                    if msg_type == 'stream':
+                        outputs.append({
+                            'output_type': 'stream',
+                            'name': content.get('name', 'stdout'),
+                            'text': content.get('text', '')
+                        })
+                    elif msg_type == 'execute_result':
+                        outputs.append({
+                            'output_type': 'execute_result',
+                            'data': content.get('data', {}),
+                            'metadata': content.get('metadata', {}),
+                            'execution_count': content.get('execution_count')
+                        })
+                    elif msg_type == 'display_data':
+                        outputs.append({
+                            'output_type': 'display_data',
+                            'data': content.get('data', {}),
+                            'metadata': content.get('metadata', {})
+                        })
+                    elif msg_type == 'error':
+                        outputs.append({
+                            'output_type': 'error',
+                            'ename': content.get('ename', ''),
+                            'evalue': content.get('evalue', ''),
+                            'traceback': content.get('traceback', [])
+                        })
+        
+        # Clean up
+        client.stop_channels()
+        
+        # Extract and format outputs
+        if outputs:
+            result = safe_extract_outputs(outputs)
+            logger.info(f"Code execution completed with {len(result)} outputs")
+            return result
+        else:
+            return ["[No output generated]"]
+            
+    except Exception as e:
+        logger.error(f"Error executing code locally: {e}")
+        return [f"[ERROR: {str(e)}]"]
+
+
+async def execute_cell_local(
+    serverapp,
+    notebook_path: str,
+    cell_index: int,
+    kernel_id: str,
+    timeout: int = 300,
+    logger=None
+) -> list[Union[str, ImageContent]]:
+    """Execute a cell in a notebook and return outputs (JUPYTER_SERVER mode).
+    
+    This function:
+    1. Reads the cell source from the notebook file
+    2. Executes the code using execute_code_local
+    3. Writes the outputs back to the notebook file
+    4. Returns the formatted outputs
+    
+    Args:
+        serverapp: Jupyter ServerApp instance
+        notebook_path: Path to the notebook
+        cell_index: Index of the cell to execute
+        kernel_id: ID of the kernel to execute in
+        timeout: Timeout in seconds (default: 300)
+        logger: Logger instance (optional)
+        
+    Returns:
+        List of formatted outputs (strings or ImageContent)
+    """
+    import nbformat
+    
+    if logger is None:
+        import logging
+        logger = logging.getLogger(__name__)
+    
+    try:
+        # Read notebook
+        with open(notebook_path, 'r', encoding='utf-8') as f:
+            notebook = nbformat.read(f, as_version=nbformat.NO_CONVERT)
+        
+        # Validate cell index
+        if cell_index < 0 or cell_index >= len(notebook.cells):
+            raise ValueError(f"Cell index {cell_index} out of range. Notebook has {len(notebook.cells)} cells.")
+        
+        cell = notebook.cells[cell_index]
+        
+        # Only execute code cells
+        if cell.cell_type != 'code':
+            return [f"[Cell {cell_index} is not a code cell (type: {cell.cell_type})]"]
+        
+        # Get cell source
+        source = cell.source
+        if not source:
+            return ["[Cell is empty]"]
+        
+        # Execute the code
+        logger.info(f"Executing cell {cell_index} from {notebook_path}")
+        outputs = await execute_code_local(
+            serverapp=serverapp,
+            notebook_path=notebook_path,
+            code=source,
+            kernel_id=kernel_id,
+            timeout=timeout,
+            logger=logger
+        )
+        
+        # Write outputs back to notebook (update execution_count and outputs)
+        # Get the last execution count
+        max_count = 0
+        for c in notebook.cells:
+            if c.cell_type == 'code' and c.execution_count:
+                max_count = max(max_count, c.execution_count)
+        
+        cell.execution_count = max_count + 1
+        
+        # Convert formatted outputs back to nbformat structure
+        # Note: outputs is already formatted, so we need to reconstruct
+        # For simplicity, we'll store a simple representation
+        cell.outputs = []
+        for output in outputs:
+            if isinstance(output, str):
+                # Create a stream output
+                cell.outputs.append(nbformat.v4.new_output(
+                    output_type='stream',
+                    name='stdout',
+                    text=output
+                ))
+            elif isinstance(output, ImageContent):
+                # Create a display_data output with image
+                cell.outputs.append(nbformat.v4.new_output(
+                    output_type='display_data',
+                    data={'image/png': output.data}
+                ))
+        
+        # Write notebook back
+        with open(notebook_path, 'w', encoding='utf-8') as f:
+            nbformat.write(notebook, f)
+        
+        logger.info(f"Cell {cell_index} executed and notebook updated")
+        return outputs
+        
+    except Exception as e:
+        logger.error(f"Error executing cell locally: {e}")
+        return [f"[ERROR: {str(e)}]"]

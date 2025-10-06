@@ -23,7 +23,22 @@ install:
 dev:
 	pip install ".[test,lint,typing]"
 
-test: ## run the integration tests
+test: ## run the unit tests
+	TEST_MCP_SERVER=true \
+	TEST_JUPYTER_SERVER=true \
+	pytest
+
+test-mcp-server: ## run the unit tests for mcp server
+	TEST_MCP_SERVER=true \
+	TEST_JUPYTER_SERVER=false \
+	pytest
+
+test-jupyter-server: ## run the unit tests for jupyter server
+	TEST_MCP_SERVER=false \
+	TEST_JUPYTER_SERVER=true \
+	pytest
+
+test-integration: ## run the integration tests
 	hatch test
 
 build:
