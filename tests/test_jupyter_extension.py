@@ -1,103 +1,130 @@
-#!/usr/bin/env python
 # Copyright (c) 2023-2024 Datalayer, Inc.
 #
 # BSD 3-Clause License
 
 """
-Quick test to verify the extension loads and handlers are registered.
+Integration tests for Jupyter MCP Server in JUPYTER_SERVER mode (extension).
+
+This test file validates the server when running as a Jupyter Server extension
+with direct access to serverapp resources (contents_manager, kernel_manager).
+
+Key differences from MCP_SERVER mode:
+- Uses YDoc collaborative editing when notebooks are open
+- Direct kernel_manager access for execute_ipython
+- Local file operations without HTTP roundtrip
+
+The tests connect to the extension's HTTP endpoints (not the standalone MCP server).
+
+Launch the tests:
+```
+$ pytest tests/test_jupyter_extension.py -v
+```
 """
 
-import sys
 import logging
+from http import HTTPStatus
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import pytest
+import requests
+
+from .conftest import JUPYTER_TOKEN
+
+
+###############################################################################
+# Unit Tests - Extension Components
+###############################################################################
 
 def test_import():
-    """Test that all imports work."""
-    try:
-        from jupyter_mcp_server.jupyter_extension import extension
-        from jupyter_mcp_server.jupyter_extension import handlers
-        from jupyter_mcp_server.jupyter_extension import context
-        logger.info("✅ All imports successful")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Import failed: {e}", exc_info=True)
-        return False
+    """Test that all extension imports work."""
+    from jupyter_mcp_server.jupyter_extension import extension
+    from jupyter_mcp_server.jupyter_extension import handlers
+    from jupyter_mcp_server.jupyter_extension import context
+    logging.info("✅ All imports successful")
+    assert True
+
 
 def test_extension_points():
     """Test extension discovery."""
-    try:
-        from jupyter_mcp_server import _jupyter_server_extension_points
-        points = _jupyter_server_extension_points()
-        logger.info(f"✅ Extension points: {points}")
-        return len(points) > 0
-    except Exception as e:
-        logger.error(f"❌ Extension points failed: {e}", exc_info=True)
-        return False
+    from jupyter_mcp_server import _jupyter_server_extension_points
+    points = _jupyter_server_extension_points()
+    logging.info(f"Extension points: {points}")
+    assert len(points) > 0
+    assert "jupyter_mcp_server" in points[0]["module"]
+
 
 def test_handler_creation():
     """Test that handlers can be instantiated."""
-    try:
-        from jupyter_mcp_server.jupyter_extension.handlers import MCPSSEHandler, MCPHealthHandler, MCPToolsListHandler
-        logger.info(f"✅ Handlers available: MCPSSEHandler, MCPHealthHandler, MCPToolsListHandler")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Handler creation failed: {e}", exc_info=True)
-        return False
+    from jupyter_mcp_server.jupyter_extension.handlers import (
+        MCPSSEHandler, 
+        MCPHealthHandler, 
+        MCPToolsListHandler
+    )
+    logging.info("✅ Handlers available")
+    assert MCPSSEHandler is not None
+    assert MCPHealthHandler is not None
+    assert MCPToolsListHandler is not None
 
-def test_dynamic_tool_list():
-    """Test that tool list is returned dynamically from registry."""
-    try:
-        import asyncio
-        from jupyter_mcp_server.server import get_registered_tools
-        
-        tools = asyncio.run(get_registered_tools())
-        logger.info(f"✅ Found {len(tools)} tools dynamically")
-        
-        # Verify we have the expected tools
-        tool_names = [t['name'] for t in tools]
-        expected_tools = ['use_notebook', 'list_notebook', 'read_cells', 'execute_cell_simple_timeout']
-        
-        for expected in expected_tools:
-            if expected not in tool_names:
-                logger.error(f"❌ Expected tool '{expected}' not found in: {tool_names}")
-                return False
-        
-        # Verify each tool has required fields
-        for tool in tools:
-            if not all(key in tool for key in ['name', 'description', 'parameters']):
-                logger.error(f"❌ Tool missing required fields: {tool.get('name', 'unknown')}")
-                return False
-        
-        logger.info(f"✅ All tools have required metadata")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Dynamic tool list failed: {e}", exc_info=True)
-        return False
 
-if __name__ == "__main__":
-    tests = [
-        ("Imports", test_import),
-        ("Extension Points", test_extension_points),
-        ("Handler Creation", test_handler_creation),
-        ("Dynamic Tool List", test_dynamic_tool_list),
-    ]
+###############################################################################
+# Integration Tests - Extension Running in Jupyter
+###############################################################################
+
+def test_extension_health(jupyter_server_with_extension):
+    """Test that Jupyter server with MCP extension is healthy"""
+    logging.info(f"Testing Jupyter+MCP extension health ({jupyter_server_with_extension})")
     
-    results = []
-    for name, test_func in tests:
-        logger.info(f"\n{'='*60}")
-        logger.info(f"Testing: {name}")
-        logger.info(f"{'='*60}")
-        result = test_func()
-        results.append((name, result))
+    # Test Jupyter API is accessible
+    response = requests.get(
+        f"{jupyter_server_with_extension}/api/status",
+        headers={"Authorization": f"token {JUPYTER_TOKEN}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    logging.info("✅ Jupyter API is accessible")
+
+
+def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_server):
+    """
+    Document the differences between the two server modes for future reference.
     
-    logger.info(f"\n{'='*60}")
-    logger.info("Test Summary")
-    logger.info(f"{'='*60}")
-    for name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
-        logger.info(f"{status}: {name}")
+    This test serves as living documentation of the architecture.
+    """
+    logging.info("\n" + "="*80)
+    logging.info("SERVER MODE COMPARISON")
+    logging.info("="*80)
     
-    all_passed = all(result for _, result in results)
-    sys.exit(0 if all_passed else 1)
+    logging.info("\nMCP_SERVER Mode (Standalone):")
+    logging.info(f"  - URL: {jupyter_server}")
+    logging.info("  - Started via: python -m jupyter_mcp_server --transport streamable-http")
+    logging.info("  - Tools use: JupyterServerClient + KernelClient (HTTP)")
+    logging.info("  - File operations: HTTP API (contents API)")
+    logging.info("  - Cell operations: WebSocket messages")
+    logging.info("  - Execute IPython: WebSocket to kernel")
+    logging.info("  - Tests: test_mcp_server.py")
+    
+    logging.info("\nJUPYTER_SERVER Mode (Extension):")
+    logging.info(f"  - URL: {jupyter_server_with_extension}")
+    logging.info("  - Started via: jupyter lab --ServerApp.jpserver_extensions")
+    logging.info("  - Tools use: Direct Python APIs (contents_manager, kernel_manager)")
+    logging.info("  - File operations: Direct nbformat + YDoc collaborative")
+    logging.info("  - Cell operations: YDoc when available, nbformat fallback")
+    logging.info("  - Execute IPython: Direct kernel_manager.get_kernel() + ZMQ")
+    logging.info("  - Tests: test_jupyter_extension.py (this file)")
+    
+    logging.info("\nKey Benefits of JUPYTER_SERVER Mode:")
+    logging.info("  ✓ Real-time collaborative editing via YDoc")
+    logging.info("  ✓ Zero-latency local operations")
+    logging.info("  ✓ Direct ZMQ access to kernels")
+    logging.info("  ✓ Automatic sync with JupyterLab UI")
+    
+    logging.info("\nKey Benefits of MCP_SERVER Mode:")
+    logging.info("  ✓ Works with remote Jupyter servers")
+    logging.info("  ✓ No Jupyter extension installation required")
+    logging.info("  ✓ Can proxy to multiple Jupyter instances")
+    logging.info("  ✓ Standard MCP protocol compatibility")
+    
+    logging.info("="*80 + "\n")
+    
+    # Both servers should be running
+    assert jupyter_server is not None
+    assert jupyter_server_with_extension is not None
+    assert jupyter_server != jupyter_server_with_extension  # Different ports

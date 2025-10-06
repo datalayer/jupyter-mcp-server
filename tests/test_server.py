@@ -28,76 +28,18 @@ $ hatch test
 
 import logging
 import platform
-import socket
 from http import HTTPStatus
 
 import pytest
-import pytest_asyncio
 import requests
 
-from test_common import MCPClient, JUPYTER_TOOLS, windows_timeout_wrapper
-from conftest import JUPYTER_TOKEN, _start_server
+from .test_common import MCPClient, JUPYTER_TOOLS, windows_timeout_wrapper
+from .conftest import JUPYTER_TOKEN
 
 
 ###############################################################################
-# MCP_SERVER Mode Fixtures
+# Health Tests
 ###############################################################################
-
-@pytest_asyncio.fixture(scope="function")
-async def mcp_client(jupyter_mcp_server) -> MCPClient:
-    """An MCP client that can connect to the Jupyter MCP server"""
-    return MCPClient(jupyter_mcp_server)
-
-
-@pytest.fixture(scope="function")
-def jupyter_mcp_server(request, jupyter_server):
-    """Start the Jupyter MCP server and returns its URL"""
-    import socket
-    
-    # Find an available port
-    def find_free_port():
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', 0))
-            s.listen(1)
-            port = s.getsockname()[1]
-        return port
-    
-    host = "localhost"
-    port = find_free_port()
-    start_new_runtime = True
-    try:
-        start_new_runtime = request.param
-    except AttributeError:
-        # fixture not parametrized
-        pass
-    yield from _start_server(
-        name="Jupyter MCP",
-        host=host,
-        port=port,
-        command=[
-            "python",
-            "-m",
-            "jupyter_mcp_server",
-            "--transport",
-            "streamable-http",
-            "--document-url",
-            jupyter_server,
-            "--document-id",
-            "notebook.ipynb",
-            "--document-token",
-            JUPYTER_TOKEN,
-            "--runtime-url",
-            jupyter_server,
-            "--start-new-runtime",
-            str(start_new_runtime),
-            "--runtime-token",
-            JUPYTER_TOKEN,
-            "--port",
-            str(port),
-        ],
-        readiness_endpoint="/api/healthz",
-    )
-
 
 def test_jupyter_health(jupyter_server):
     """Test the Jupyter server health"""
@@ -141,10 +83,10 @@ async def test_mcp_tool_list(mcp_client: MCPClient):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_markdown_cell(mcp_client, content="Hello **World** !"):
+async def test_markdown_cell(mcp_client: MCPClient, content="Hello **World** !"):
     """Test markdown cell manipulation using unified insert_cell API"""
 
-    async def check_and_delete_markdown_cell(mcp_client, index, content):
+    async def check_and_delete_markdown_cell(mcp_client: MCPClient, index, content):
         """Check and delete a markdown cell"""
         # reading and checking the content of the created cell
         cell_info = await mcp_client.read_cell(index)
@@ -188,9 +130,9 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_code_cell(mcp_client, content="1 + 1"):
+async def test_code_cell(mcp_client: MCPClient, content="1 + 1"):
     """Test code cell manipulation using unified APIs"""
-    async def check_and_delete_code_cell(mcp_client, index, content):
+    async def check_and_delete_code_cell(mcp_client: MCPClient, index, content):
         """Check and delete a code cell"""
         # reading and checking the content of the created cell
         cell_info = await mcp_client.read_cell(index)
@@ -355,7 +297,7 @@ async def test_overwrite_cell_diff(mcp_client: MCPClient):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_bad_index(mcp_client, index=99):
+async def test_bad_index(mcp_client: MCPClient, index=99):
     """Test behavior of all index-based tools if the index does not exist"""
     async with mcp_client:
         assert await mcp_client.read_cell(index) is None

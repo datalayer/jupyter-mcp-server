@@ -149,5 +149,5 @@ async def test_use_notebook_multiple_switches():
 
 
 if __name__ == "__main__":
-    # Allow running with: python tests/test_use_notebook_switch.py
+    # Allow running with: python tests/test_use_notebook.py
     pytest.main([__file__, "-v"])
