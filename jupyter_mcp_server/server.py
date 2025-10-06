@@ -54,7 +54,7 @@ from jupyter_mcp_server.tools import (
     ExecuteCellWithProgressTool,
     # Other Tools
     ExecuteIpythonTool,
-    ListAllFilesTool,
+    ListFilesTool,
     ListKernelsTool,
 )
 from typing import Literal, Union
@@ -135,7 +135,7 @@ execute_cell_with_progress_tool = ExecuteCellWithProgressTool()
 
 # Other Tools
 execute_ipython_tool = ExecuteIpythonTool()
-list_all_files_tool = ListAllFilesTool()
+list_files_tool = ListFilesTool()
 list_kernel_tool = ListKernelsTool()
 
 
@@ -854,7 +854,7 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
 
 
 @mcp.tool()
-async def list_all_files(path: str = "", max_depth: int = 3) -> str:
+async def list_files(path: str = "", max_depth: int = 3) -> str:
     """List all files and directories in the Jupyter server's file system.
     
     This tool recursively lists files and directories from the Jupyter server's content API,
@@ -868,7 +868,7 @@ async def list_all_files(path: str = "", max_depth: int = 3) -> str:
         str: Tab-separated table with columns: Path, Type, Size, Last_Modified
     """
     return await __safe_notebook_operation(
-        lambda: list_all_files_tool.execute(
+        lambda: list_files_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,

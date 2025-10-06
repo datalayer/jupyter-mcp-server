@@ -10,8 +10,8 @@ from ._base import BaseTool, ServerMode
 from ..config import get_config
 
 
-class ListAllFilesTool(BaseTool):
-    """List all files and directories in the Jupyter server's file system.
+class ListFilesTool(BaseTool):
+    """List files and directories in the Jupyter server's file system.
     
     This tool recursively lists files and directories from the Jupyter server's content API,
     showing the complete file structure including notebooks, data files, scripts, and directories.
@@ -19,7 +19,7 @@ class ListAllFilesTool(BaseTool):
     
     @property
     def name(self) -> str:
-        return "list_all_files"
+        return "list_files"
     
     @property
     def description(self) -> str:

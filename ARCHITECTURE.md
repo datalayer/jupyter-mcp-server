@@ -95,7 +95,7 @@ class BaseTool:
 - **Cell Reading** (3): read_cells, list_cells, read_cell
 - **Cell Writing** (4): insert_cell, insert_execute_code_cell, overwrite_cell_source, delete_cell
 - **Cell Execution** (3): execute_cell_simple_timeout, execute_cell_streaming, execute_cell_with_progress
-- **Other** (3): execute_ipython, list_all_files, list_kernels
+- **Other** (3): execute_ipython, list_files, list_kernels
 
 **Dual-Mode Implementation Pattern**:
 ```python

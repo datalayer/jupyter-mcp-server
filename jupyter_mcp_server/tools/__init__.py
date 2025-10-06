@@ -35,7 +35,7 @@ from jupyter_mcp_server.tools.execute_cell_with_progress_tool import ExecuteCell
 
 # Import tool implementations - Other Tools
 from jupyter_mcp_server.tools.execute_ipython_tool import ExecuteIpythonTool
-from jupyter_mcp_server.tools.list_all_files_tool import ListAllFilesTool
+from jupyter_mcp_server.tools.list_files_tool import ListFilesTool
 from jupyter_mcp_server.tools.list_kernels_tool import ListKernelsTool
 
 __all__ = [
@@ -64,7 +64,7 @@ __all__ = [
     "ExecuteCellWithProgressTool",
     # Other Tools
     "ExecuteIpythonTool",
-    "ListAllFilesTool",
+    "ListFilesTool",
     "ListKernelsTool",
 ]
 
