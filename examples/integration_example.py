@@ -16,7 +16,6 @@ from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools._registry import get_tool_registry, register_tool
 from jupyter_mcp_server.tools.list_notebooks_tool import ListNotebooksTool
 from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
-from jupyter_mcp_server.config import get_config
 
 
 # Initialize and register tools

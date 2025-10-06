@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""List cell tool implementation."""
+"""List cells tool implementation."""
 
 from typing import Any, Optional
 from jupyter_server_api import JupyterServerClient
@@ -12,12 +12,12 @@ from jupyter_mcp_server.utils import format_cell_list
 from jupyter_mcp_server.config import get_config
 
 
-class ListCellTool(BaseTool):
+class ListCellsTool(BaseTool):
     """Tool to list basic information of all cells."""
     
     @property
     def name(self) -> str:
-        return "list_cell"
+        return "list_cells"
     
     @property
     def description(self) -> str:
@@ -75,7 +75,7 @@ Returns:
         notebook_manager: Optional[NotebookManager] = None,
         **kwargs
     ) -> str:
-        """Execute the list_cell tool.
+        """Execute the list_cells tool.
         
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)

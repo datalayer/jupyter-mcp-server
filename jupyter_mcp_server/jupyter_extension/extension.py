@@ -14,25 +14,7 @@ allowing MCP clients to connect to the Jupyter Server's MCP endpoints.
 """
 
 import logging
-from traitlets import Unicode, Bool
-from jupyter_server.extension.application import ExtensionApp, ExtensionAppJinjaMixin
-from jupyter_server.utils import url_path_join
-from tornado.wsgi import WSGIContainer
-from tornado.web import FallbackHandler
-
-from jupyter_mcp_server.jupyter_extension.context import get_server_context
-from jupyter_mcp_server.jupyter_extension.handlers import (
-    MCPHealthHandler,
-    MCPToolsListHandler,
-    MCPToolsCallHandler,
-)
-
-
-logger = logging.getLogger(__name__)
-
-import logging
-from typing import Optional
-from traitlets import Unicode, Bool
+from traitlets import Unicode
 from jupyter_server.extension.application import ExtensionApp, ExtensionAppJinjaMixin
 from jupyter_server.utils import url_path_join
 

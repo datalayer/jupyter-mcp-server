@@ -41,7 +41,7 @@ from jupyter_mcp_server.tools import (
     UnuseNotebookTool,
     # Cell Reading
     ReadAllCellsTool,
-    ListCellTool,
+    ListCellsTool,
     ReadCellTool,
     # Cell Writing
     InsertCellTool,
@@ -119,7 +119,7 @@ unuse_notebook_tool = UnuseNotebookTool()
 
 # Cell Reading Tools
 read_all_cells_tool = ReadAllCellsTool()
-list_cell_tool = ListCellTool()
+list_cells_tool = ListCellsTool()
 read_cell_tool = ReadCellTool()
 
 # Cell Writing Tools
@@ -748,7 +748,7 @@ async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, Ima
 
 
 @mcp.tool()
-async def list_cell() -> str:
+async def list_cells() -> str:
     """List the basic information of all cells in the notebook.
     
     Returns a formatted table showing the index, type, execution count (for code cells),
@@ -759,7 +759,7 @@ async def list_cell() -> str:
         str: Formatted table with cell information (Index, Type, Count, First Line)
     """
     return await __safe_notebook_operation(
-        lambda: list_cell_tool.execute(
+        lambda: list_cells_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,

@@ -97,7 +97,7 @@ JUPYTER_TOOLS = [
     "execute_cell_simple_timeout",
     "execute_cell_streaming",
     "read_all_cells",
-    "list_cell",
+    "list_cells",
     "read_cell",
     "delete_cell",
     "execute_ipython",
@@ -232,27 +232,27 @@ class MCPClient:
         return self._get_structured_content_safe(result)
 
     @requires_session
-    async def list_cell(self, max_retries=3):
+    async def list_cells(self, max_retries=3):
         """List cells with retry mechanism for Windows compatibility"""
         for attempt in range(max_retries):
             try:
-                result = await self._session.call_tool("list_cell")  # type: ignore
+                result = await self._session.call_tool("list_cells")  # type: ignore
                 text_result = self._extract_text_content(result)
                 if text_result is not None and not text_result.startswith("Error") and "Index\tType" in text_result:
                     return text_result
                 else:
-                    logging.warning(f"list_cell returned invalid result on attempt {attempt + 1}/{max_retries}: {text_result}")
+                    logging.warning(f"list_cells returned invalid result on attempt {attempt + 1}/{max_retries}: {text_result}")
                     if attempt < max_retries - 1:
                         import asyncio
                         await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
             except Exception as e:
-                logging.error(f"list_cell failed on attempt {attempt + 1}/{max_retries}: {e}")
+                logging.error(f"list_cells failed on attempt {attempt + 1}/{max_retries}: {e}")
                 if attempt < max_retries - 1:
                     import asyncio
                     await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
                 else:
                     # Return an error message instead of raising, to allow tests to handle gracefully
-                    return f"Error executing tool list_cell: {e}"
+                    return f"Error executing tool list_cells: {e}"
         return "Error: Failed to retrieve cell list after all retries"
 
     @requires_session
@@ -295,11 +295,11 @@ class MCPClient:
         """Append a markdown cell at the end of the notebook."""
         return await self.insert_cell(-1, "markdown", cell_source)
     
-    # Helper method to get cell count from list_cell output
+    # Helper method to get cell count from list_cells output
     @requires_session
     async def get_cell_count(self):
-        """Get the number of cells by parsing list_cell output"""
-        cell_list = await self.list_cell()
+        """Get the number of cells by parsing list_cells output"""
+        cell_list = await self.list_cells()
         if "Error" in cell_list or "Index\tType" not in cell_list:
             return 0
         lines = cell_list.split('\n')
@@ -581,17 +581,17 @@ async def test_code_cell(mcp_client, content="1 + 1"):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_list_cell(mcp_client: MCPClient):
-    """Test list_cell functionality"""
+async def test_list_cells(mcp_client: MCPClient):
+    """Test list_cells functionality"""
     async with mcp_client:
-        # Test initial list_cell (notebook.ipynb has multiple cells)
-        cell_list = await mcp_client.list_cell()
+        # Test initial list_cells (notebook.ipynb has multiple cells)
+        cell_list = await mcp_client.list_cells()
         logging.debug(f"Initial cell list: {cell_list}")
         assert isinstance(cell_list, str)
         
         # Check for error conditions and skip if network issues occur
-        if cell_list.startswith("Error executing tool list_cell") or cell_list.startswith("Error: Failed to retrieve"):
-            pytest.skip(f"Network timeout occurred during list_cell operation: {cell_list}")
+        if cell_list.startswith("Error executing tool list_cells") or cell_list.startswith("Error: Failed to retrieve"):
+            pytest.skip(f"Network timeout occurred during list_cells operation: {cell_list}")
         
         assert "Index\tType\tCount\tFirst Line" in cell_list
         # The notebook has both markdown and code cells - just verify structure
@@ -603,8 +603,8 @@ async def test_list_cell(mcp_client: MCPClient):
         markdown_content = "# Test Markdown Cell"
         await mcp_client.insert_cell(-1, "markdown", markdown_content)
         
-        # Check list_cell with added markdown cell
-        cell_list = await mcp_client.list_cell()
+        # Check list_cells with added markdown cell
+        cell_list = await mcp_client.list_cells()
         logging.debug(f"Cell list after adding markdown: {cell_list}")
         lines = cell_list.split('\n')
         
@@ -623,8 +623,8 @@ async def test_list_cell(mcp_client: MCPClient):
         long_code = "# This is a very long comment that should be truncated when displayed in the list because it exceeds the 50 character limit"
         await mcp_client.insert_execute_code_cell(-1, "print('Hello World')")
         
-        # Check list_cell with truncated content
-        cell_list = await mcp_client.list_cell()
+        # Check list_cells with truncated content
+        cell_list = await mcp_client.list_cells()
         logging.debug(f"Cell list after adding long code: {cell_list}")
         
         # Clean up by deleting added cells (in reverse order)
@@ -884,12 +884,12 @@ async def test_multi_notebook_cell_operations(mcp_client: MCPClient):
             await mcp_client.use_notebook("notebook_a")
             
             # Verify we're working with notebook A
-            cell_list_a = await mcp_client.list_cell()
+            cell_list_a = await mcp_client.list_cells()
             assert "This is notebook A" in cell_list_a
             
             # Switch to notebook B and verify
             await mcp_client.use_notebook("notebook_b")
-            cell_list_b = await mcp_client.list_cell()
+            cell_list_b = await mcp_client.list_cells()
             assert "This is notebook B" in cell_list_b
             
             # Clean up - unuse both notebooks

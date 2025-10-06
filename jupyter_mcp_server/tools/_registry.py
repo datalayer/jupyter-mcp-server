@@ -4,7 +4,7 @@
 
 """Tool registry and integration module."""
 
-from typing import Dict, Type, Any, Optional
+from typing import Dict, Any, Optional
 from jupyter_server_api import JupyterServerClient
 from jupyter_kernel_client import KernelClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode

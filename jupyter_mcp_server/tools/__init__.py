@@ -19,7 +19,7 @@ from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 
 # Import tool implementations - Cell Reading
 from jupyter_mcp_server.tools.read_all_cells_tool import ReadAllCellsTool
-from jupyter_mcp_server.tools.list_cell_tool import ListCellTool
+from jupyter_mcp_server.tools.list_cells_tool import ListCellsTool
 from jupyter_mcp_server.tools.read_cell_tool import ReadCellTool
 
 # Import tool implementations - Cell Writing
@@ -51,7 +51,7 @@ __all__ = [
     "UseNotebookTool",
     # Cell Reading
     "ReadAllCellsTool",
-    "ListCellTool",
+    "ListCellsTool",
     "ReadCellTool",
     # Cell Writing
     "InsertCellTool",

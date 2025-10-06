@@ -10,10 +10,9 @@ FastMCP, managing the MCP protocol lifecycle and request proxying.
 """
 
 import json
-import asyncio
 import logging
 import tornado.web
-from typing import Optional, Dict, Any
+from typing import Any
 from tornado.web import RequestHandler
 from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.extension.handler import ExtensionHandlerMixin
