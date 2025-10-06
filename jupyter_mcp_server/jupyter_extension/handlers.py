@@ -284,65 +284,13 @@ class MCPToolsListHandler(MCPHandler):
     """
     
     @tornado.web.authenticated
-    def get(self):
-        """Return list of available tools."""
-        tools = [
-            {
-                "name": "use_notebook",
-                "description": "Connect to a notebook file or create a new one",
-                "parameters": ["notebook_name", "notebook_path", "mode", "kernel_id"]
-            },
-            {
-                "name": "list_notebook",
-                "description": "List all notebooks in the Jupyter server",
-                "parameters": []
-            },
-            {
-                "name": "disconnect_notebook",
-                "description": "Disconnect from a notebook",
-                "parameters": ["notebook_name"]
-            },
-            {
-                "name": "restart_notebook",
-                "description": "Restart the kernel for a specific notebook",
-                "parameters": ["notebook_name"]
-            },
-            {
-                "name": "switch_notebook",
-                "description": "Switch the currently active notebook",
-                "parameters": ["notebook_name"]
-            },
-            {
-                "name": "read_cells",
-                "description": "Read cells from the current notebook",
-                "parameters": ["start_index", "end_index"]
-            },
-            {
-                "name": "insert_cell",
-                "description": "Insert a cell at specified position",
-                "parameters": ["cell_index", "cell_type", "cell_source"]
-            },
-            {
-                "name": "delete_cell",
-                "description": "Delete a cell from the notebook",
-                "parameters": ["cell_index"]
-            },
-            {
-                "name": "overwrite_cell",
-                "description": "Overwrite cell content",
-                "parameters": ["cell_index", "new_source"]
-            },
-            {
-                "name": "execute_cell_simple_timeout",
-                "description": "Execute a cell with simple timeout",
-                "parameters": ["cell_index", "timeout_seconds"]
-            },
-            {
-                "name": "execute_cell_with_progress",
-                "description": "Execute a cell with progress monitoring",
-                "parameters": ["cell_index", "timeout_seconds"]
-            },
-        ]
+    async def get(self):
+        """Return list of available tools dynamically from the tool registry."""
+        # Import here to avoid circular dependency
+        from jupyter_mcp_server.server import get_registered_tools
+        
+        # Get tools dynamically from the MCP server registry
+        tools = await get_registered_tools()
         
         response = {
             "tools": tools,

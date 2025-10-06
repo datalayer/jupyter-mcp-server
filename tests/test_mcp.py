@@ -463,7 +463,7 @@ def test_mcp_health(jupyter_mcp_server, kernel_expected_status):
 
 
 @pytest.mark.asyncio
-async def test_mcp_tool_list(mcp_client):
+async def test_mcp_tool_list(mcp_client: MCPClient):
     """Check that the list of tools can be retrieved and match"""
     async with mcp_client:
         tools = await mcp_client.list_tools()
@@ -583,7 +583,7 @@ async def test_code_cell(mcp_client, content="1 + 1"):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_list_cell(mcp_client):
+async def test_list_cell(mcp_client: MCPClient):
     """Test list_cell functionality"""
     async with mcp_client:
         # Test initial list_cell (notebook.ipynb has multiple cells)
@@ -638,7 +638,7 @@ async def test_list_cell(mcp_client):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_overwrite_cell_diff(mcp_client):
+async def test_overwrite_cell_diff(mcp_client: MCPClient):
     """Test overwrite_cell_source diff functionality"""
     async with mcp_client:
         # Get initial cell count
@@ -703,7 +703,7 @@ async def test_bad_index(mcp_client, index=99):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_multimodal_output(mcp_client):
+async def test_multimodal_output(mcp_client: MCPClient):
     """Test multimodal output functionality with image generation"""
     async with mcp_client:
         # Get initial cell count
@@ -789,7 +789,7 @@ display(IPythonImage(buffer.getvalue()))
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_multi_notebook_management(mcp_client):
+async def test_multi_notebook_management(mcp_client: MCPClient):
     """Test multi-notebook management functionality"""
     async with mcp_client:
         # Test initial state - should show default notebook or no notebooks
@@ -856,7 +856,7 @@ async def test_multi_notebook_management(mcp_client):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_multi_notebook_cell_operations(mcp_client):
+async def test_multi_notebook_cell_operations(mcp_client: MCPClient):
     """Test cell operations across multiple notebooks"""
     async with mcp_client:
         # Connect to the new notebook
@@ -906,7 +906,7 @@ async def test_multi_notebook_cell_operations(mcp_client):
 
 @pytest.mark.asyncio 
 @windows_timeout_wrapper(30)
-async def test_notebook_error_cases(mcp_client):
+async def test_notebook_error_cases(mcp_client: MCPClient):
     """Test error handling for notebook management"""
     async with mcp_client:
         # Test connecting to non-existent notebook
@@ -935,7 +935,7 @@ async def test_notebook_error_cases(mcp_client):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_execute_ipython_python_code(mcp_client):
+async def test_execute_ipython_python_code(mcp_client: MCPClient):
     """Test execute_ipython with basic Python code"""
     async with mcp_client:
         # Test simple Python code
@@ -968,7 +968,7 @@ async def test_execute_ipython_python_code(mcp_client):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_execute_ipython_magic_commands(mcp_client):
+async def test_execute_ipython_magic_commands(mcp_client: MCPClient):
     """Test execute_ipython with IPython magic commands"""
     async with mcp_client:
         # Test %who magic command (list variables)
@@ -1010,7 +1010,7 @@ async def test_execute_ipython_magic_commands(mcp_client):
 
 @pytest.mark.asyncio 
 @windows_timeout_wrapper(30)
-async def test_execute_ipython_shell_commands(mcp_client):
+async def test_execute_ipython_shell_commands(mcp_client: MCPClient):
     """Test execute_ipython with shell commands (! prefix)"""
     async with mcp_client:
         # Test basic shell command - echo (works on most systems)
@@ -1042,7 +1042,7 @@ async def test_execute_ipython_shell_commands(mcp_client):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_execute_ipython_timeout(mcp_client):
+async def test_execute_ipython_timeout(mcp_client: MCPClient):
     """Test execute_ipython timeout functionality"""
     async with mcp_client:
         # Test with very short timeout on a potentially long-running command
@@ -1061,7 +1061,7 @@ async def test_execute_ipython_timeout(mcp_client):
 
 @pytest.mark.asyncio
 @windows_timeout_wrapper(30)
-async def test_execute_ipython_error_handling(mcp_client):
+async def test_execute_ipython_error_handling(mcp_client: MCPClient):
     """Test execute_ipython error handling"""
     async with mcp_client:
         # Test syntax error

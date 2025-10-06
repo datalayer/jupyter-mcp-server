@@ -909,6 +909,48 @@ async def list_kernel() -> str:
 
 
 ###############################################################################
+# Helper Functions for Extension.
+
+
+async def get_registered_tools():
+    """
+    Get list of all registered MCP tools with their metadata.
+    
+    This function is used by the Jupyter extension to dynamically expose
+    the tool registry without hardcoding tool names and parameters.
+    
+    Returns:
+        list: List of tool dictionaries with name, description, and inputSchema
+    """
+    # Use FastMCP's list_tools method which returns Tool objects
+    tools_list = await mcp.list_tools()
+    
+    tools = []
+    for tool in tools_list:
+        tool_dict = {
+            "name": tool.name,
+            "description": tool.description,
+        }
+        
+        # Extract parameter names from inputSchema
+        if hasattr(tool, 'inputSchema') and tool.inputSchema:
+            input_schema = tool.inputSchema
+            if 'properties' in input_schema:
+                tool_dict["parameters"] = list(input_schema['properties'].keys())
+            else:
+                tool_dict["parameters"] = []
+            
+            # Include full inputSchema for MCP protocol compatibility
+            tool_dict["inputSchema"] = input_schema
+        else:
+            tool_dict["parameters"] = []
+        
+        tools.append(tool_dict)
+    
+    return tools
+
+
+###############################################################################
 # Commands.
 
 

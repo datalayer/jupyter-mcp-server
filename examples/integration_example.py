@@ -14,16 +14,16 @@ This demonstrates how to:
 from typing import Optional
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools._registry import get_tool_registry, register_tool
-from jupyter_mcp_server.tools.list_notebook_tool import ListNotebookTool
-from jupyter_mcp_server.tools.use_notebook import ConnectNotebookTool
+from jupyter_mcp_server.tools.list_notebooks_tool import ListNotebooksTool
+from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 from jupyter_mcp_server.config import get_config
 
 
 # Initialize and register tools
 def initialize_tools():
     """Register all tool instances."""
-    register_tool(ListNotebookTool())
-    register_tool(ConnectNotebookTool())
+    register_tool(ListNotebooksTool())
+    register_tool(UseNotebookTool())
     # ... register other tools as they are created
     
 
