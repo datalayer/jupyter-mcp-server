@@ -91,7 +91,7 @@ class BaseTool:
 ```
 
 **Tool Categories** (18 tools total):
-- **Notebook Management** (5): list_notebook, use_notebook, disconnect_notebook, restart_notebook, switch_notebook
+- **Notebook Management** (5): list_notebook, use_notebook, unuse_notebook, restart_notebook
 - **Cell Reading** (3): read_all_cells, list_cell, read_cell
 - **Cell Writing** (4): insert_cell, insert_execute_code_cell, overwrite_cell_source, delete_cell
 - **Cell Execution** (3): execute_cell_simple_timeout, execute_cell_streaming, execute_cell_with_progress

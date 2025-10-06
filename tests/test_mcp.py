@@ -88,8 +88,7 @@ JUPYTER_TOOLS = [
     "use_notebook",
     "list_notebook", 
     "restart_notebook",
-    "disconnect_notebook",
-    "switch_notebook",
+    "unuse_notebook",
     # Cell Tools
     "insert_cell",
     "insert_execute_code_cell",
@@ -184,13 +183,17 @@ class MCPClient:
 
     # Multi-Notebook Management Methods
     @requires_session
-    async def use_notebook(self, notebook_name, notebook_path, mode="connect", kernel_id=None):
-        result = await self._session.call_tool("use_notebook", arguments={
+    async def use_notebook(self, notebook_name, notebook_path=None, mode="connect", kernel_id=None):
+        arguments = {
             "notebook_name": notebook_name, 
-            "notebook_path": notebook_path, 
             "mode": mode,
             "kernel_id": kernel_id
-        })  # type: ignore
+        }
+        # Only add notebook_path if provided (for switching, it's optional)
+        if notebook_path is not None:
+            arguments["notebook_path"] = notebook_path
+        
+        result = await self._session.call_tool("use_notebook", arguments=arguments)  # type: ignore
         return self._extract_text_content(result)
     
     @requires_session
@@ -204,15 +207,10 @@ class MCPClient:
         return self._extract_text_content(result)
     
     @requires_session
-    async def disconnect_notebook(self, notebook_name):
-        result = await self._session.call_tool("disconnect_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
+    async def unuse_notebook(self, notebook_name):
+        result = await self._session.call_tool("unuse_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
         return self._extract_text_content(result)
     
-    @requires_session
-    async def switch_notebook(self, notebook_name):
-        result = await self._session.call_tool("switch_notebook", arguments={"notebook_name": notebook_name})  # type: ignore
-        return self._extract_text_content(result)
-
     @requires_session
     async def insert_cell(self, cell_index, cell_type, cell_source):
         result = await self._session.call_tool("insert_cell", arguments={"cell_index": cell_index, "cell_type": cell_type, "cell_source": cell_source})  # type: ignore
@@ -362,7 +360,7 @@ def jupyter_server():
     host = "localhost"
     port = 8888
     yield from _start_server(
-        name="Jupyter Lab",
+        name="JupyterLab",
         host=host,
         port=port,
         command=[
@@ -815,13 +813,13 @@ async def test_multi_notebook_management(mcp_client: MCPClient):
         
         # Test switching between notebooks
         if "default" in notebook_list:
-            switch_result = await mcp_client.switch_notebook("default")
-            logging.debug(f"Switch to default result: {switch_result}")
-            assert "Successfully switched to notebook 'default'" in switch_result
+            use_result = await mcp_client.use_notebook("default")
+            logging.debug(f"Switch to default result: {use_result}")
+            assert "Successfully switched to notebook 'default'" in use_result
             
             # Switch back to test notebook
-            switch_back_result = await mcp_client.switch_notebook("test_notebook")
-            assert "Successfully switched to notebook 'test_notebook'" in switch_back_result
+            use_back_result = await mcp_client.use_notebook("test_notebook")
+            assert "Successfully switched to notebook 'test_notebook'" in use_back_result
         
         # Test cell operations on the new notebook
         # First get the cell count of new.ipynb (should have some cells)
@@ -842,10 +840,10 @@ async def test_multi_notebook_management(mcp_client: MCPClient):
         logging.debug(f"Restart result: {restart_result}")
         assert "restarted successfully" in restart_result
         
-        # Test disconnect notebook
-        disconnect_result = await mcp_client.disconnect_notebook("test_notebook")
-        logging.debug(f"Disconnect result: {disconnect_result}")
-        assert "disconnected successfully" in disconnect_result
+        # Test unuse notebook
+        disconnect_result = await mcp_client.unuse_notebook("test_notebook")
+        logging.debug(f"Unuse result: {disconnect_result}")
+        assert "unused successfully" in disconnect_result
         
         # Verify notebook is no longer in the list
         final_list = await mcp_client.list_notebook()
@@ -874,7 +872,7 @@ async def test_multi_notebook_cell_operations(mcp_client: MCPClient):
             await mcp_client.use_notebook("notebook_b", "notebook.ipynb")
             
             # Switch to notebook B
-            await mcp_client.switch_notebook("notebook_b")
+            await mcp_client.use_notebook("notebook_b")
             
             # Get cell count for notebook B
             count_b = await mcp_client.get_cell_count()
@@ -883,25 +881,25 @@ async def test_multi_notebook_cell_operations(mcp_client: MCPClient):
             await mcp_client.insert_cell(-1, "markdown", "# This is notebook B")
             
             # Switch back to notebook A
-            await mcp_client.switch_notebook("notebook_a")
+            await mcp_client.use_notebook("notebook_a")
             
             # Verify we're working with notebook A
             cell_list_a = await mcp_client.list_cell()
             assert "This is notebook A" in cell_list_a
             
             # Switch to notebook B and verify
-            await mcp_client.switch_notebook("notebook_b")
+            await mcp_client.use_notebook("notebook_b")
             cell_list_b = await mcp_client.list_cell()
             assert "This is notebook B" in cell_list_b
             
-            # Clean up - disconnect both notebooks
-            await mcp_client.disconnect_notebook("notebook_a")
-            await mcp_client.disconnect_notebook("notebook_b")
+            # Clean up - unuse both notebooks
+            await mcp_client.unuse_notebook("notebook_a")
+            await mcp_client.unuse_notebook("notebook_b")
             
         except Exception as e:
             logging.warning(f"Could not test with notebook.ipynb: {e}")
             # Clean up notebook A only
-            await mcp_client.disconnect_notebook("notebook_a")
+            await mcp_client.unuse_notebook("notebook_a")
 
 
 @pytest.mark.asyncio 
@@ -914,15 +912,15 @@ async def test_notebook_error_cases(mcp_client: MCPClient):
         logging.debug(f"Nonexistent notebook result: {error_result}")
         assert "not found" in error_result.lower() or "not a valid file" in error_result.lower()
         
-        # Test operations on non-connected notebook
+        # Test operations on non-used notebook
         restart_error = await mcp_client.restart_notebook("nonexistent_notebook")
         assert "not connected" in restart_error
         
-        disconnect_error = await mcp_client.disconnect_notebook("nonexistent_notebook") 
+        disconnect_error = await mcp_client.unuse_notebook("nonexistent_notebook") 
         assert "not connected" in disconnect_error
         
-        switch_error = await mcp_client.switch_notebook("nonexistent_notebook")
-        assert "not connected" in switch_error
+        use_error = await mcp_client.use_notebook("nonexistent_notebook")
+        assert "not connected" in use_error
         
         # Test invalid notebook paths
         invalid_path_result = await mcp_client.use_notebook("test", "../invalid/path.ipynb")

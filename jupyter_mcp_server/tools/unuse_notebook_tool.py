@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""Disconnect notebook tool implementation."""
+"""Unuse notebook tool implementation."""
 
 from typing import Any, Optional
 from jupyter_server_api import JupyterServerClient
@@ -10,19 +10,19 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 
 
-class DisconnectNotebookTool(BaseTool):
-    """Tool to disconnect from a notebook and release its resources."""
+class UnuseNotebookTool(BaseTool):
+    """Tool to unuse from a notebook and release its resources."""
     
     @property
     def name(self) -> str:
-        return "disconnect_notebook"
+        return "unuse_notebook"
     
     @property
     def description(self) -> str:
-        return """Disconnect from a specific notebook and release its resources.
+        return """Unuse a specific notebook and release its resources.
     
 Args:
-    notebook_name: Notebook identifier to disconnect
+    notebook_name: Notebook identifier to unuse
     
 Returns:
     str: Success message"""
@@ -40,7 +40,7 @@ Returns:
         notebook_name: str = None,
         **kwargs
     ) -> str:
-        """Execute the disconnect_notebook tool.
+        """Execute the unuse_notebook tool.
         
         Args:
             mode: Server mode (mode-agnostic, uses notebook_manager)
@@ -61,7 +61,7 @@ Returns:
         success = notebook_manager.remove_notebook(notebook_name)
         
         if success:
-            message = f"Notebook '{notebook_name}' disconnected successfully."
+            message = f"Notebook '{notebook_name}' unused successfully."
             
             if was_current:
                 new_current = notebook_manager.get_current_notebook()

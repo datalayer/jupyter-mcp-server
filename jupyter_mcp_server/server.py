@@ -38,8 +38,7 @@ from jupyter_mcp_server.tools import (
     ListNotebooksTool,
     UseNotebookTool,
     RestartNotebookTool,
-    DisconnectNotebookTool,
-    SwitchNotebookTool,
+    UnuseNotebookTool,
     # Cell Reading
     ReadAllCellsTool,
     ListCellTool,
@@ -116,8 +115,7 @@ notebook_manager = NotebookManager()
 list_notebook_tool = ListNotebooksTool()
 use_notebook_tool = UseNotebookTool()
 restart_notebook_tool = RestartNotebookTool()
-disconnect_notebook_tool = DisconnectNotebookTool()
-switch_notebook_tool = SwitchNotebookTool()
+unuse_notebook_tool = UnuseNotebookTool()
 
 # Cell Reading Tools
 read_all_cells_tool = ReadAllCellsTool()
@@ -487,15 +485,16 @@ async def health_check(request: Request):
 @mcp.tool()
 async def use_notebook(
     notebook_name: str,
-    notebook_path: str,
+    notebook_path: Optional[str] = None,
     mode: Literal["connect", "create"] = "connect",
     kernel_id: Optional[str] = None,
 ) -> str:
-    """Use a notebook file (connect to existing or create new).
+    """Use a notebook file (connect to existing or create new, or switch to already-connected notebook).
     
     Args:
         notebook_name: Unique identifier for the notebook
-        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
+        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb"). 
+                      Optional - if not provided, switches to an already-connected notebook with the given name.
         mode: "connect" to connect to existing, "create" to create new
         kernel_id: Specific kernel ID to use (optional, will create new if not provided)
         
@@ -557,8 +556,8 @@ async def restart_notebook(notebook_name: str) -> str:
 
 
 @mcp.tool()
-async def disconnect_notebook(notebook_name: str) -> str:
-    """Disconnect from a specific notebook and release its resources.
+async def unuse_notebook(notebook_name: str) -> str:
+    """Unuse from a specific notebook and release its resources.
     
     Args:
         notebook_name: Notebook identifier to disconnect
@@ -566,28 +565,12 @@ async def disconnect_notebook(notebook_name: str) -> str:
     Returns:
         str: Success message
     """
-    return await disconnect_notebook_tool.execute(
+    return await unuse_notebook_tool.execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
     )
 
-
-@mcp.tool()
-async def switch_notebook(notebook_name: str) -> str:
-    """Switch the currently active notebook.
-    
-    Args:
-        notebook_name: Notebook identifier to switch to
-        
-    Returns:
-        str: Success message with new active notebook information
-    """
-    return await switch_notebook_tool.execute(
-        mode=server_context.mode,
-        notebook_name=notebook_name,
-        notebook_manager=notebook_manager,
-    )
 
 ###############################################################################
 # Cell Tools.

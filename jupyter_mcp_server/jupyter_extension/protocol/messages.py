@@ -149,12 +149,12 @@ class ConnectNotebookResponse(BaseModel):
     notebook_path: str = Field(..., description="Notebook path")
 
 
-class DisconnectNotebookRequest(BaseModel):
-    """Request to disconnect from a notebook"""
+class UnuseNotebookRequest(BaseModel):
+    """Request to unuse from a notebook"""
     notebook_name: str = Field(..., description="Notebook identifier to disconnect")
 
 
-class DisconnectNotebookResponse(BaseModel):
+class UnuseNotebookResponse(BaseModel):
     """Response after disconnecting"""
     message: str = Field(..., description="Success message")
 

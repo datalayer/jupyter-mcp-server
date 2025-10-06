@@ -21,11 +21,12 @@ class UseNotebookTool(BaseTool):
     
     @property
     def description(self) -> str:
-        return """Use a notebook file (connect to existing or create new).
+        return """Use a notebook file (connect to existing, create new, or switch to already-connected notebook).
     
 Args:
     notebook_name: Unique identifier for the notebook
-    notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
+    notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb").
+                  Optional - if not provided, switches to an already-connected notebook with the given name.
     mode: "connect" to connect to existing, "create" to create new
     kernel_id: Specific kernel ID to use (optional, will create new if not provided)
     
@@ -95,7 +96,7 @@ Returns:
         notebook_manager: Optional[NotebookManager] = None,
         # Tool-specific parameters
         notebook_name: str = None,
-        notebook_path: str = None,
+        notebook_path: Optional[str] = None,
         use_mode: Literal["connect", "create"] = "connect",
         kernel_id: Optional[str] = None,
         runtime_url: Optional[str] = None,
@@ -111,7 +112,7 @@ Returns:
             kernel_manager: Direct kernel manager for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             notebook_name: Unique identifier for the notebook
-            notebook_path: Path to the notebook file
+            notebook_path: Path to the notebook file (optional, if not provided switches to existing notebook)
             use_mode: "connect" or "create"
             kernel_id: Optional specific kernel ID
             runtime_url: Runtime URL for HTTP mode
@@ -121,8 +122,18 @@ Returns:
         Returns:
             Success message with notebook information
         """
+        # If no notebook_path provided, switch to already-connected notebook
+        if notebook_path is None:
+            if notebook_name not in notebook_manager:
+                return f"Notebook '{notebook_name}' is not connected. Please provide a notebook_path to connect to it first."
+            
+            # Switch to the existing notebook
+            notebook_manager.set_current_notebook(notebook_name)
+            return f"Successfully switched to notebook '{notebook_name}'."
+        
+        # Rest of the logic for connecting/creating new notebooks
         if notebook_name in notebook_manager:
-            return f"Notebook '{notebook_name}' is already using. Use disconnect_notebook first if you want to reconnect."
+            return f"Notebook '{notebook_name}' is already using. Use unuse_notebook first if you want to reconnect."
         
         # Check server connectivity (HTTP mode only)
         if mode == ServerMode.MCP_SERVER and server_client is not None:
