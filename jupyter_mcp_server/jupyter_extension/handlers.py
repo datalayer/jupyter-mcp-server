@@ -146,17 +146,48 @@ class MCPSSEHandler(RequestHandler):
                     # Use FastMCP's call_tool method
                     result = await mcp.call_tool(tool_name, tool_arguments)
                     
-                    logger.info(f"Tool result type: {type(result)}")
-                    
+                    # Handle tuple results from FastMCP
+                    if isinstance(result, tuple) and len(result) >= 1:
+                        # FastMCP returns (content_list, metadata_dict)
+                        content_list = result[0]
+                        if isinstance(content_list, list):
+                            # Serialize TextContent objects to dicts
+                            serialized_content = []
+                            for item in content_list:
+                                if hasattr(item, 'model_dump'):
+                                    serialized_content.append(item.model_dump())
+                                elif hasattr(item, 'dict'):
+                                    serialized_content.append(item.dict())
+                                elif isinstance(item, dict):
+                                    serialized_content.append(item)
+                                else:
+                                    serialized_content.append({"type": "text", "text": str(item)})
+                            result_dict = {"content": serialized_content}
+                        else:
+                            result_dict = {"content": [{"type": "text", "text": str(result)}]}
                     # Convert result to dict - it's a CallToolResult with content list
-                    if hasattr(result, 'model_dump'):
+                    elif hasattr(result, 'model_dump'):
                         result_dict = result.model_dump()
                     elif hasattr(result, 'dict'):
                         result_dict = result.dict()
+                    elif hasattr(result, 'content'):
+                        # Extract content directly if it has a content attribute
+                        result_dict = {"content": result.content}
                     else:
-                        result_dict = {"content": [{"type": "text", "text": str(result)}]}
+                        # Last resort: check if it's already a string
+                        if isinstance(result, str):
+                            result_dict = {"content": [{"type": "text", "text": result}]}
+                        else:
+                            # If it's some other type, try to serialize it
+                            result_dict = {"content": [{"type": "text", "text": str(result)}]}
+                            logger.warning(f"Used fallback str() conversion for type {type(result)}")
                     
                     logger.info(f"Converted result to dict")
+
+
+
+
+
                     
                     response = {
                         "jsonrpc": "2.0",

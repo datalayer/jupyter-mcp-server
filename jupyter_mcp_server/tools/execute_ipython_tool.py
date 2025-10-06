@@ -259,7 +259,27 @@ class ExecuteIpythonTool(BaseTool):
         # JUPYTER_SERVER mode: Use kernel_manager directly
         if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
             if kernel_id is None:
-                return ["[ERROR: kernel_id is required for JUPYTER_SERVER mode]"]
+                # Try to get kernel_id from context
+                from jupyter_mcp_server.utils import get_current_notebook_context
+                _, kernel_id = get_current_notebook_context(notebook_manager)
+            
+            if kernel_id is None:
+                # No kernel available - start a new one on demand
+                logger.info("No kernel_id available, starting new kernel for execute_ipython")
+                kernel_id = await kernel_manager.start_kernel()
+                
+                # Store the kernel in notebook_manager if available
+                if notebook_manager is not None:
+                    default_notebook = "default"
+                    kernel_info = {"id": kernel_id}
+                    notebook_manager.add_notebook(
+                        default_notebook,
+                        kernel_info,
+                        server_url="local",
+                        token=None,
+                        path="notebook.ipynb"  # Placeholder path
+                    )
+                    notebook_manager.set_current_notebook(default_notebook)
             
             logger.info(f"Executing IPython in JUPYTER_SERVER mode with kernel_id={kernel_id}")
             return await self._execute_via_kernel_manager(

@@ -155,20 +155,41 @@ class MCPClient:
             if text_content:
                 # Try to parse as JSON
                 try:
-                    return json.loads(text_content)
-                except json.JSONDecodeError as e:
-                    logging.warning(f"Failed to parse JSON from text content: {e}, content: {text_content[:200]}...")
+                    parsed = json.loads(text_content)
+                    # Wrap in result dict if not already wrapped
+                    if isinstance(parsed, dict) and "result" in parsed:
+                        return parsed
+                    else:
+                        return {"result": parsed}
+                except json.JSONDecodeError:
+                    # Not JSON - could be plain text or list representation
+                    # Try to evaluate as Python literal (for lists, etc.)
+                    try:
+                        import ast
+                        parsed = ast.literal_eval(text_content)
+                        return {"result": parsed}
+                    except (ValueError, SyntaxError):
+                        # Plain text - wrap in result dict
+                        return {"result": text_content}
             else:
                 logging.warning(f"No text content available in result: {type(result)}")
+                return None
         return content
     
     async def _call_tool_safe(self, tool_name, arguments=None):
         """Safely call a tool, returning None on error (for test compatibility)"""
         try:
             result = await self._session.call_tool(tool_name, arguments=arguments or {})  # type: ignore
+            
+            # Check if result contains error text (for MCP_SERVER mode where errors are wrapped in results)
+            text_content = self._extract_text_content(result)
+            if text_content and ("Error executing tool" in text_content or "is out of range" in text_content or "not found" in text_content):
+                logging.warning(f"Tool {tool_name} returned error in result: {text_content[:100]}")
+                return None
+            
             return result
         except Exception as e:
-            # Log the error but return None for test compatibility
+            # Log the error but return None for test compatibility (JUPYTER_SERVER mode)
             logging.warning(f"Tool {tool_name} raised error: {e}")
             return None
 

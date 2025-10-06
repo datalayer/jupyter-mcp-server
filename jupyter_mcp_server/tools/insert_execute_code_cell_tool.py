@@ -217,8 +217,21 @@ Returns:
                 kernel_manager, kernel_id, cell_source, 300, safe_extract_outputs_fn
             )
         else:
-            # YDoc not available - cannot execute without ydoc in JUPYTER_SERVER mode
-            raise RuntimeError("YDoc not available - notebook must be open for execution in JUPYTER_SERVER mode")
+            # YDoc not available - use file operations + direct kernel execution
+            # This path is used when notebook is not open in JupyterLab but we still have kernel access
+            logger.info("YDoc not available, using file operations + kernel execution fallback")
+            
+            # Insert cell using file operations
+            from jupyter_mcp_server.tools.insert_cell_tool import InsertCellTool
+            insert_tool = InsertCellTool()
+            
+            # Call the file-based insertion method directly
+            await insert_tool._insert_cell_file(notebook_path, cell_index, "code", cell_source)
+            
+            # Then execute directly via kernel_manager
+            return await self._execute_via_kernel_manager(
+                kernel_manager, kernel_id, cell_source, 300, safe_extract_outputs_fn
+            )
     
     async def _insert_execute_websocket(
         self,
