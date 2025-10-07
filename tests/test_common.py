@@ -265,7 +265,7 @@ class MCPClient:
         return self._extract_text_content(result)
     
     @requires_session
-    async def list_notebook(self):
+    async def list_notebooks(self):
         result = await self._session.call_tool("list_notebooks")  # type: ignore
         return self._extract_text_content(result)
     

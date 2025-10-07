@@ -397,24 +397,24 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
     """Test multi-notebook management functionality in both modes"""
     async with mcp_client_parametrized:
         # Test initial state - should show default notebook or no notebooks
-        initial_list = await mcp_client_parametrized.list_notebook()
+        initial_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Initial notebook list: {initial_list}")
         
         # Connect to a new notebook
-        connect_result = await mcp_client_parametrized.use_notebook("test_notebook", "new.ipynb", "connect")
+        connect_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb", "connect")
         logging.debug(f"Connect result: {connect_result}")
         assert "Successfully using notebook 'test_notebooks'" in connect_result
         assert "new.ipynb" in connect_result
         
         # List notebooks - should now show the connected notebook
-        notebook_list = await mcp_client_parametrized.list_notebook()
+        notebook_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Notebook list after connect: {notebook_list}")
-        assert "test_notebook" in notebook_list
+        assert "test_notebooks" in notebook_list
         assert "new.ipynb" in notebook_list
         assert "✓" in notebook_list  # Should be marked as current
         
         # Try to connect to the same notebook again (should fail)
-        duplicate_result = await mcp_client_parametrized.use_notebook("test_notebook", "new.ipynb")
+        duplicate_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
         assert "already using" in duplicate_result
         
         # Test switching between notebooks
@@ -424,7 +424,7 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
             assert "Successfully switched to notebook 'default'" in use_result
             
             # Switch back to test notebook
-            use_back_result = await mcp_client_parametrized.use_notebook("test_notebook")
+            use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks")
             assert "Successfully switched to notebook 'test_notebooks'" in use_back_result
         
         # Test cell operations on the new notebook
@@ -442,20 +442,20 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         assert "5" in str(execute_result["result"])
         
         # Test restart notebook
-        restart_result = await mcp_client_parametrized.restart_notebook("test_notebook")
+        restart_result = await mcp_client_parametrized.restart_notebook("test_notebooks")
         logging.debug(f"Restart result: {restart_result}")
         assert "restarted successfully" in restart_result
         
         # Test unuse notebook
-        disconnect_result = await mcp_client_parametrized.unuse_notebook("test_notebook")
+        disconnect_result = await mcp_client_parametrized.unuse_notebook("test_notebooks")
         logging.debug(f"Unuse result: {disconnect_result}")
         assert "unused successfully" in disconnect_result
         
         # Verify notebook is no longer in the list
-        final_list = await mcp_client_parametrized.list_notebook()
+        final_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Final notebook list: {final_list}")
         if "No notebooks are currently connected" not in final_list:
-            assert "test_notebook" not in final_list
+            assert "test_notebooks" not in final_list
 
 
 @pytest.mark.asyncio
@@ -510,7 +510,7 @@ async def test_multi_notebook_cell_operations(mcp_client_parametrized: MCPClient
 
 @pytest.mark.asyncio 
 @windows_timeout_wrapper(30)
-async def test_notebook_error_cases(mcp_client_parametrized: MCPClient):
+async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
     """Test error handling for notebook management in both modes"""
     async with mcp_client_parametrized:
         # Test connecting to non-existent notebook

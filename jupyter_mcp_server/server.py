@@ -521,7 +521,7 @@ async def use_notebook(
 
 
 @mcp.tool()
-async def list_notebook() -> str:
+async def list_notebooks() -> str:
     """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
     
     To interact with a notebook, it has to be "managed". If a notebook is not managed, you can use it with the `use_notebook` tool.
@@ -883,7 +883,7 @@ async def list_files(path: str = "", max_depth: int = 3) -> str:
 
 
 @mcp.tool()
-async def list_kernel() -> str:
+async def list_kernels() -> str:
     """List all available kernels in the Jupyter server.
     
     This tool shows all running and available kernel sessions on the Jupyter server,

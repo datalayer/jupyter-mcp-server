@@ -23,7 +23,7 @@ def test_config():
     # Test setting configuration
     new_config = set_config(
         runtime_url="http://localhost:9999",
-        document_id="test_notebook.ipynb",
+        document_id="test_notebooks.ipynb",
         provider="datalayer",
         runtime_token="test_token"
     )
