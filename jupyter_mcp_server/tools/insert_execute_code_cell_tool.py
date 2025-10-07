@@ -122,9 +122,13 @@ Returns:
                     if isawaitable(msg):
                         msg = await msg
                     
+                    logger.debug(f"IOPub message received: msg_type={msg.get('msg_type')}, parent_id={msg.get('parent_header', {}).get('msg_id')}, expected_id={msg_id['header']['msg_id']}")
+                    
                     if msg and msg.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
                         msg_type = msg.get('msg_type')
                         content = msg.get('content', {})
+                        
+                        logger.debug(f"Processing IOPub message: msg_type={msg_type}, content={content}")
                         
                         # Collect output messages
                         if msg_type == 'stream':
@@ -158,11 +162,13 @@ Returns:
             client.stop_channels()
             
             # Extract and format outputs
+            logger.info(f"Execution (JUPYTER_SERVER) collected {len(outputs)} raw outputs: {outputs}")
             if outputs:
                 result = safe_extract_outputs_fn(outputs)
-                logger.info(f"Execution (JUPYTER_SERVER) completed with {len(result)} outputs")
+                logger.info(f"Execution (JUPYTER_SERVER) completed with {len(result)} formatted outputs: {result}")
                 return result
             else:
+                logger.warning("Execution (JUPYTER_SERVER) completed with no outputs collected")
                 return ["[No output generated]"]
                 
         except Exception as e:
@@ -313,13 +319,29 @@ Returns:
             
             notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
             
-            # Resolve to absolute path
+            # Resolve to absolute path FIRST
             if serverapp and not Path(notebook_path).is_absolute():
                 root_dir = serverapp.root_dir
                 notebook_path = str(Path(root_dir) / notebook_path)
             
-            if not kernel_id:
-                raise ValueError("kernel_id (runtime_id) is required for JUPYTER_SERVER mode")
+            if kernel_id is None:
+                # No kernel available - start a new one on demand
+                logger.info("No kernel_id available, starting new kernel for insert_execute_code_cell")
+                kernel_id = await kernel_manager.start_kernel()
+                
+                # Wait a bit for kernel to initialize
+                await asyncio.sleep(1.0)
+                logger.info(f"Kernel {kernel_id} started and initialized")
+                
+                # Store the kernel with ABSOLUTE path in notebook_manager
+                if notebook_manager is not None:
+                    kernel_info = {"id": kernel_id}
+                    notebook_manager.add_notebook(
+                        name=notebook_path,
+                        kernel=kernel_info,
+                        server_url="local",
+                        path=notebook_path
+                    )
             
             if serverapp:
                 return await self._insert_execute_ydoc(

@@ -66,12 +66,37 @@ class ExecuteCellSimpleTimeoutTool(BaseTool):
         """
         if mode == ServerMode.JUPYTER_SERVER:
             # JUPYTER_SERVER mode: Use centralized local execution
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+            
+            context = get_server_context()
+            serverapp = context.serverapp
+            
             if serverapp is None:
                 raise ValueError("serverapp is required for JUPYTER_SERVER mode")
             if kernel_manager is None:
                 raise ValueError("kernel_manager is required for JUPYTER_SERVER mode")
             
             notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
+            
+            # Check if kernel needs to be started
+            if kernel_id is None:
+                # No kernel available - start a new one on demand
+                logger.info("No kernel_id available, starting new kernel for execute_cell_simple_timeout")
+                kernel_id = await kernel_manager.start_kernel()
+                
+                # Wait a bit for kernel to initialize
+                await asyncio.sleep(1.0)
+                logger.info(f"Kernel {kernel_id} started and initialized")
+                
+                # Store the kernel in notebook_manager if available
+                if notebook_manager is not None:
+                    kernel_info = {"id": kernel_id}
+                    notebook_manager.add_notebook(
+                        name=notebook_path,
+                        kernel=kernel_info,
+                        server_url="local",
+                        path=notebook_path
+                    )
             
             logger.info(f"Executing cell {cell_index} in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)")
             

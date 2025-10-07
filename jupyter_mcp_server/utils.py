@@ -590,6 +590,8 @@ async def execute_code_local(
         import logging
         logger = logging.getLogger(__name__)
     
+    logger.info(f"execute_code_local: kernel_id={kernel_id}, code_length={len(code)}, code_preview={code[:50]}...")
+    
     try:
         # Get kernel manager
         kernel_manager = serverapp.kernel_manager

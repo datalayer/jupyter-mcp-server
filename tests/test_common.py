@@ -212,6 +212,10 @@ class MCPClient:
         try:
             result = await self._session.call_tool(tool_name, arguments=arguments or {})  # type: ignore
             
+            # Log raw result for debugging
+            logging.debug(f"_call_tool_safe({tool_name}): raw result type={type(result)}")
+            logging.debug(f"_call_tool_safe({tool_name}): raw result={result}")
+            
             # Check if result contains error text (for MCP_SERVER mode where errors are wrapped in results)
             text_content = self._extract_text_content(result)
             if text_content and ("Error executing tool" in text_content or "is out of range" in text_content or "not found" in text_content):
@@ -266,7 +270,18 @@ class MCPClient:
     @requires_session
     async def insert_execute_code_cell(self, cell_index, cell_source):
         result = await self._call_tool_safe("insert_execute_code_cell", {"cell_index": cell_index, "cell_source": cell_source})
-        return self._get_structured_content_safe(result) if result else None
+        structured = self._get_structured_content_safe(result) if result else None
+        
+        # Special handling for insert_execute_code_cell: tool returns list[str | ImageContent]
+        # In JUPYTER_SERVER mode, the list gets flattened to a single string in TextContent
+        # In MCP_SERVER mode, it's properly wrapped in structured content as {"result": [...]}
+        if structured and "result" in structured:
+            result_value = structured["result"]
+            # If result is not already a list, wrap it in a list to match the tool's return type
+            if not isinstance(result_value, list):
+                # Wrap the single value in a list
+                structured["result"] = [result_value]
+        return structured
 
     @requires_session
     async def read_cell(self, cell_index):
@@ -332,12 +347,26 @@ class MCPClient:
     @requires_session
     async def execute_cell_with_progress(self, cell_index):
         result = await self._call_tool_safe("execute_cell_with_progress", {"cell_index": cell_index})
-        return self._get_structured_content_safe(result) if result else None
+        structured = self._get_structured_content_safe(result) if result else None
+        
+        # Handle JUPYTER_SERVER mode flattening list responses to single string
+        if structured and "result" in structured:
+            result_value = structured["result"]
+            if not isinstance(result_value, list):
+                structured["result"] = [result_value]
+        return structured
     
     @requires_session
     async def execute_cell_simple_timeout(self, cell_index):
         result = await self._call_tool_safe("execute_cell_simple_timeout", {"cell_index": cell_index})
-        return self._get_structured_content_safe(result) if result else None
+        structured = self._get_structured_content_safe(result) if result else None
+        
+        # Handle JUPYTER_SERVER mode flattening list responses to single string
+        if structured and "result" in structured:
+            result_value = structured["result"]
+            if not isinstance(result_value, list):
+                structured["result"] = [result_value]
+        return structured
 
     @requires_session
     async def overwrite_cell_source(self, cell_index, cell_source):

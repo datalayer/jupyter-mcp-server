@@ -134,10 +134,9 @@ async def test_code_cell(mcp_client_parametrized: MCPClient, content="1 + 1"):
         assert cell_info["type"] == "code"
         assert "".join(cell_info["source"]) == content
         # reading all cells
-        result = await client.read_cells()
-        cells_info = result["result"]
+        cells_info = await client.read_cells()
         logging.debug(f"cells_info: {cells_info}")
-        # Check that our cell is in the expected position with correct content
+        # read_cells returns the list directly (unwrapped)
         assert "".join(cells_info[index]["source"]) == content
         # delete created cell
         result = await client.delete_cell(index)
@@ -154,7 +153,11 @@ async def test_code_cell(mcp_client_parametrized: MCPClient, content="1 + 1"):
         code_result = await mcp_client_parametrized.insert_execute_code_cell(-1, content)
         logging.debug(f"code_result: {code_result}")
         assert code_result is not None, "insert_execute_code_cell result should not be None"
-        assert int(code_result["result"][0]) == eval(content)
+        assert len(code_result["result"]) > 0, "insert_execute_code_cell should return non-empty result"
+        # The first output should be the execution result, convert to int for comparison
+        first_output = code_result["result"][0]
+        first_output_value = int(first_output) if isinstance(first_output, str) else first_output
+        assert first_output_value == eval(content), f"Expected {eval(content)}, got {first_output_value}"
         await check_and_delete_code_cell(mcp_client_parametrized, index, content)
         
         # insert and execute code cell at the end (safer than index 0)
