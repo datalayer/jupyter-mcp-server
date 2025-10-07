@@ -74,7 +74,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 > 
 > - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
 > - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
-> 
+> - **Optional:** If you meet same issue as [issue #96](https://github.com/datalayer/jupyter-mcp-server/issues/96), set `FORCE_SAVE` to `true`, the MCP client can automatically save the notebook after each change.
 
 #### MacOS and Windows
 
@@ -91,6 +91,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "-e", "RUNTIME_URL",
         "-e", "RUNTIME_TOKEN",
         "-e", "ALLOW_IMG_OUTPUT",
+        "-e", "FORCE_SAVE",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
@@ -99,7 +100,8 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://host.docker.internal:8888",
         "RUNTIME_TOKEN": "MY_TOKEN",
-        "ALLOW_IMG_OUTPUT": "true"
+        "ALLOW_IMG_OUTPUT": "true",
+        "FORCE_SAVE": "false"
       }
     }
   }
@@ -121,6 +123,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "-e", "RUNTIME_URL",
         "-e", "RUNTIME_TOKEN",
         "-e", "ALLOW_IMG_OUTPUT",
+        "-e", "FORCE_SAVE",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
       ],
@@ -130,7 +133,8 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://localhost:8888",
         "RUNTIME_TOKEN": "MY_TOKEN",
-        "ALLOW_IMG_OUTPUT": "true"
+        "ALLOW_IMG_OUTPUT": "true",
+        "FORCE_SAVE": "false"
       }
     }
   }

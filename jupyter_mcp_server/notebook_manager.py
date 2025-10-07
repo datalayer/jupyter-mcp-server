@@ -15,8 +15,10 @@ from contextlib import asynccontextmanager
 
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from jupyter_kernel_client import KernelClient
+from jupyter_server_api import JupyterServerClient
 
 from .config import get_config
+from .config_env import FORCE_SAVE
 
 
 class NotebookConnection:
@@ -50,6 +52,11 @@ class NotebookConnection:
     ) -> None:
         """Exit context, clean up connection."""
         if self._notebook:
+            if FORCE_SAVE:
+                config = get_config()
+                server_client = JupyterServerClient(config.document_url, config.document_token)
+                server_client.contents.save_notebook(self.notebook_info["path"], self._notebook.as_dict())
+                server_client.close()
             await self._notebook.__aexit__(exc_type, exc_val, exc_tb)
 
 

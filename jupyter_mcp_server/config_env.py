@@ -45,3 +45,4 @@ def _get_env_bool(env_name: str, default_value: bool = True) -> bool:
 # Multimodal Output Configuration
 # Environment variable controls whether to return actual image content or text placeholder
 ALLOW_IMG_OUTPUT: bool = _get_env_bool("ALLOW_IMG_OUTPUT", True)
+FORCE_SAVE: bool = _get_env_bool("FORCE_SAVE", False)
