@@ -590,8 +590,6 @@ async def execute_code_local(
         import logging
         logger = logging.getLogger(__name__)
     
-    logger.info(f"execute_code_local: kernel_id={kernel_id}, code_length={len(code)}, code_preview={code[:50]}...")
-    
     try:
         # Get kernel manager
         kernel_manager = serverapp.kernel_manager
@@ -625,6 +623,8 @@ async def execute_code_local(
         # Prepare to collect outputs
         outputs = []
         execution_done = False
+        grace_period_ms = 100  # Wait 100ms after shell reply for remaining IOPub messages
+        execution_done_time = None
         
         # Poll for messages with timeout
         poller = zmq.asyncio.Poller()
@@ -636,16 +636,25 @@ async def execute_code_local(
         timeout_ms = timeout * 1000
         start_time = asyncio.get_event_loop().time()
         
-        while not execution_done:
+        while not execution_done or (execution_done_time and (asyncio.get_event_loop().time() - execution_done_time) * 1000 < grace_period_ms):
             elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
             remaining_ms = max(0, timeout_ms - elapsed_ms)
+            
+            # If execution is done and grace period expired, exit
+            if execution_done and execution_done_time and (asyncio.get_event_loop().time() - execution_done_time) * 1000 >= grace_period_ms:
+                break
             
             if remaining_ms <= 0:
                 client.stop_channels()
                 logger.warning(f"Code execution timeout after {timeout}s, collected {len(outputs)} outputs")
                 return [f"[TIMEOUT ERROR: Code execution exceeded {timeout} seconds]"]
             
-            events = dict(await poller.poll(remaining_ms))
+            # Use shorter poll timeout during grace period
+            poll_timeout = min(remaining_ms, grace_period_ms / 2) if execution_done else remaining_ms
+            events = dict(await poller.poll(poll_timeout))
+            
+            if not events:
+                continue  # No messages, continue polling
             
             # IMPORTANT: Process IOPub messages BEFORE shell to collect outputs before marking done
             # Check for IOPub messages (outputs)
@@ -703,6 +712,7 @@ async def execute_code_local(
                 if reply and reply.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
                     logger.debug(f"Execution complete, reply status: {reply.get('content', {}).get('status')}")
                     execution_done = True
+                    execution_done_time = asyncio.get_event_loop().time()
         
         # Clean up
         client.stop_channels()
@@ -731,9 +741,9 @@ async def execute_cell_local(
     """Execute a cell in a notebook and return outputs (JUPYTER_SERVER mode).
     
     This function:
-    1. Reads the cell source from the notebook file
+    1. Reads the cell source from the notebook (YDoc or file)
     2. Executes the code using execute_code_local
-    3. Writes the outputs back to the notebook file
+    3. Writes the outputs back to the notebook (YDoc or file)
     4. Returns the formatted outputs
     
     Args:
@@ -754,13 +764,89 @@ async def execute_cell_local(
         logger = logging.getLogger(__name__)
     
     try:
-        # Read notebook
-        with open(notebook_path, 'r', encoding='utf-8') as f:
-            notebook = nbformat.read(f, as_version=nbformat.NO_CONVERT)
+        # Try to get YDoc first (for collaborative editing)
+        file_id_manager = serverapp.web_app.settings.get("file_id_manager")
+        ydoc = None
         
-        # Validate cell index
-        if cell_index < 0 or cell_index >= len(notebook.cells):
-            raise ValueError(f"Cell index {cell_index} out of range. Notebook has {len(notebook.cells)} cells.")
+        if file_id_manager:
+            file_id = file_id_manager.get_id(notebook_path)
+            yroom_manager = serverapp.web_app.settings.get("yroom_manager")
+            
+            if yroom_manager:
+                room_id = f"json:notebook:{file_id}"
+                if yroom_manager.has_room(room_id):
+                    try:
+                        yroom = yroom_manager.get_room(room_id)
+                        ydoc = await yroom.get_jupyter_ydoc()
+                        logger.info(f"Using YDoc for cell {cell_index} execution")
+                    except Exception as e:
+                        logger.debug(f"Could not get YDoc: {e}")
+        
+        # Execute using YDoc or file
+        if ydoc:
+            # YDoc path - read from collaborative document
+            if cell_index < 0 or cell_index >= len(ydoc.ycells):
+                raise ValueError(f"Cell index {cell_index} out of range. Notebook has {len(ydoc.ycells)} cells.")
+            
+            cell = ydoc.ycells[cell_index]
+            
+            # Only execute code cells
+            cell_type = cell.get("cell_type", "")
+            if cell_type != "code":
+                return [f"[Cell {cell_index} is not a code cell (type: {cell_type})]"]
+            
+            source_raw = cell.get("source", "")
+            if isinstance(source_raw, list):
+                source = "".join(source_raw)
+            else:
+                source = str(source_raw)
+            
+            if not source:
+                return ["[Cell is empty]"]
+            
+            logger.info(f"Cell {cell_index} source from YDoc: {source[:100]}...")
+            
+            # Execute the code
+            outputs = await execute_code_local(
+                serverapp=serverapp,
+                notebook_path=notebook_path,
+                code=source,
+                kernel_id=kernel_id,
+                timeout=timeout,
+                logger=logger
+            )
+            
+            logger.info(f"Execution completed with {len(outputs)} outputs: {outputs}")
+            
+            # Update execution count in YDoc
+            max_count = 0
+            for c in ydoc.ycells:
+                if c.get("cell_type") == "code" and c.get("execution_count"):
+                    max_count = max(max_count, c["execution_count"])
+            
+            cell["execution_count"] = max_count + 1
+            
+            # Update outputs in YDoc (simplified - just store formatted strings)
+            # YDoc outputs should match nbformat structure
+            cell["outputs"] = []
+            for output in outputs:
+                if isinstance(output, str):
+                    cell["outputs"].append({
+                        "output_type": "stream",
+                        "name": "stdout",
+                        "text": output
+                    })
+            
+            return outputs
+        else:
+            # File path - original logic
+            # Read notebook
+            with open(notebook_path, 'r', encoding='utf-8') as f:
+                notebook = nbformat.read(f, as_version=nbformat.NO_CONVERT)
+            
+            # Validate cell index
+            if cell_index < 0 or cell_index >= len(notebook.cells):
+                raise ValueError(f"Cell index {cell_index} out of range. Notebook has {len(notebook.cells)} cells.")
         
         cell = notebook.cells[cell_index]
         

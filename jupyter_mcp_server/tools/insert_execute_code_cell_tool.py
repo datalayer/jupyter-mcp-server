@@ -71,6 +71,12 @@ Returns:
             session = lkm.session
             client = lkm.client()
             
+            # Ensure channels are started (critical for receiving IOPub messages!)
+            if not client.channels_running:
+                client.start_channels()
+                # Wait for channels to be ready
+                await asyncio.sleep(0.1)
+            
             # Send execute request
             shell_channel = client.shell_channel
             msg_id = session.msg("execute_request", {
