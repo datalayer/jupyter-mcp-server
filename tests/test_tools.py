@@ -403,7 +403,7 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         # Connect to a new notebook
         connect_result = await mcp_client_parametrized.use_notebook("test_notebook", "new.ipynb", "connect")
         logging.debug(f"Connect result: {connect_result}")
-        assert "Successfully using notebook 'test_notebook'" in connect_result
+        assert "Successfully using notebook 'test_notebooks'" in connect_result
         assert "new.ipynb" in connect_result
         
         # List notebooks - should now show the connected notebook
@@ -425,7 +425,7 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
             
             # Switch back to test notebook
             use_back_result = await mcp_client_parametrized.use_notebook("test_notebook")
-            assert "Successfully switched to notebook 'test_notebook'" in use_back_result
+            assert "Successfully switched to notebook 'test_notebooks'" in use_back_result
         
         # Test cell operations on the new notebook
         # First get the cell count of new.ipynb (should have some cells)
