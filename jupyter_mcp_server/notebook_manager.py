@@ -9,9 +9,8 @@ This module provides centralized management for Jupyter notebooks and kernels,
 replacing the scattered global variable approach with a unified architecture.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable, Union
 from types import TracebackType
-from contextlib import asynccontextmanager
 
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from jupyter_kernel_client import KernelClient
@@ -87,7 +86,7 @@ class NotebookManager:
     def add_notebook(
         self, 
         name: str, 
-        kernel,  # Can be KernelClient or dict with kernel metadata
+        kernel: Union[KernelClient, Dict[str, Any]],  # Can be KernelClient or dict with kernel metadata
         server_url: Optional[str] = None,
         token: Optional[str] = None,
         path: Optional[str] = None
@@ -162,7 +161,7 @@ class NotebookManager:
             return True
         return False
     
-    def get_kernel(self, name: str) -> KernelClient:
+    def get_kernel(self, name: str) -> Optional[Union[KernelClient, Dict[str, Any]]]:
         """
         Get the kernel for a specific notebook.
         
@@ -251,7 +250,7 @@ class NotebookManager:
         """Check if the manager is empty (no notebooks)."""
         return len(self._notebooks) == 0
     
-    def ensure_kernel_alive(self, name: str, kernel_factory) -> KernelClient:
+    def ensure_kernel_alive(self, name: str, kernel_factory: Callable[[], KernelClient]) -> KernelClient:
         """
         Ensure a kernel is alive, create if necessary.
         

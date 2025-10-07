@@ -90,9 +90,8 @@ async def test_markdown_cell(mcp_client_parametrized: MCPClient, content="Hello 
         # TODO: don't now if it's normal to get a list of characters instead of a string
         assert "".join(cell_info["source"]) == content
         # reading all cells
-        result = await client.read_cells()
-        assert result is not None, "read_cells result should not be None"
-        cells_info = result["result"]
+        cells_info = await client.read_cells()
+        assert cells_info is not None, "read_cells result should not be None"
         logging.debug(f"cells_info: {cells_info}")
         # Check that our cell is in the expected position with correct content
         assert "".join(cells_info[index]["source"]) == content

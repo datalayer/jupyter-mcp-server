@@ -47,22 +47,11 @@ Returns:
             )
         
         cell = cells[cell_index]
-        cell_info = {
-            "index": cell_index,
-            "cell_type": cell.get('cell_type', 'unknown'),
-            "source": cell.get('source', '')
-        }
         
-        # Add execution count for code cells
-        if cell.get('cell_type') == 'code':
-            cell_info["execution_count"] = cell.get('execution_count')
-            
-            # Add outputs if present
-            outputs = cell.get('outputs', [])
-            if outputs:
-                cell_info["outputs"] = outputs
+        # Use CellInfo.from_cell to normalize the structure (ensures "type" field not "cell_type")
+        cell_info = CellInfo.from_cell(cell_index=cell_index, cell=cell)
         
-        return cell_info
+        return cell_info.model_dump(exclude_none=True)
     
     async def execute(
         self,

@@ -176,10 +176,19 @@ class MCPClient:
                 try:
                     parsed = json.loads(text_content)
                     logging.debug(f"_get_structured_content_safe: JSON parsed successfully, type={type(parsed)}")
-                    # Wrap in result dict if not already wrapped
-                    if isinstance(parsed, dict) and "result" in parsed:
-                        return parsed
+                    # Check if it's already a wrapped result or a direct response object
+                    if isinstance(parsed, dict):
+                        # If it has "result" key, it's already wrapped
+                        if "result" in parsed:
+                            return parsed
+                        # If it has keys like "index", "type", "source" it's a direct object (like CellInfo)
+                        elif any(key in parsed for key in ["index", "type", "source", "cells"]):
+                            return parsed
+                        # Otherwise wrap it
+                        else:
+                            return {"result": parsed}
                     else:
+                        # Lists, strings, etc. - wrap them
                         return {"result": parsed}
                 except json.JSONDecodeError:
                     # Not JSON - could be plain text or list representation
@@ -190,12 +199,9 @@ class MCPClient:
                         logging.debug(f"_get_structured_content_safe: ast.literal_eval succeeded, type={type(parsed)}, value={repr(parsed)}")
                         return {"result": parsed}
                     except (ValueError, SyntaxError):
-                        # Plain text - could be a single output from a list
-                        # If it looks like a single string output, wrap it in a list for consistency
-                        # This handles the case where safe_extract_outputs returns ["output"] but
-                        # FastMCP creates one TextContent, so we extract just the text
-                        logging.debug(f"_get_structured_content_safe: Plain text, wrapping in result dict as list")
-                        return {"result": [text_content]}  # Wrap as single-element list
+                        # Plain text - return as-is
+                        logging.debug(f"_get_structured_content_safe: Plain text, wrapping in result dict")
+                        return {"result": text_content}
             else:
                 logging.warning(f"No text content available in result: {type(result)}")
                 return None
@@ -270,7 +276,21 @@ class MCPClient:
     @requires_session
     async def read_cells(self):
         result = await self._session.call_tool("read_cells")  # type: ignore
-        return self._get_structured_content_safe(result)
+        structured = self._get_structured_content_safe(result)
+        
+        # read_cells returns a list of cell dicts directly
+        # If wrapped in {"result": ...}, unwrap it
+        if structured and "result" in structured:
+            cells_list = structured["result"]
+            # If the result is a list of JSON strings, parse each one
+            if isinstance(cells_list, list) and len(cells_list) > 0 and isinstance(cells_list[0], str):
+                try:
+                    import json
+                    cells_list = [json.loads(cell_str) for cell_str in cells_list]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return cells_list
+        return structured
 
     @requires_session
     async def list_cells(self, max_retries=3):
@@ -327,7 +347,20 @@ class MCPClient:
     @requires_session
     async def execute_ipython(self, code, timeout=60):
         result = await self._session.call_tool("execute_ipython", arguments={"code": code, "timeout": timeout})  # type: ignore
-        return self._get_structured_content_safe(result)
+        structured = self._get_structured_content_safe(result)
+        
+        # execute_ipython should always return a list of outputs
+        # If we got a plain string, wrap it as a list
+        if structured and "result" in structured:
+            result_val = structured["result"]
+            if isinstance(result_val, str):
+                # Single output string, wrap as list
+                structured["result"] = [result_val]
+            elif not isinstance(result_val, list):
+                # Some other type, wrap as list
+                structured["result"] = [result_val]
+        
+        return structured
 
     @requires_session
     async def append_execute_code_cell(self, cell_source):

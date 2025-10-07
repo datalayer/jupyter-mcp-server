@@ -40,25 +40,12 @@ Returns:
         notebook_content = model['content']
         cells = notebook_content.get('cells', [])
         
-        # Convert cells to the expected format
+        # Convert cells to the expected format using CellInfo for consistency
         result = []
         for idx, cell in enumerate(cells):
-            cell_info = {
-                "index": idx,
-                "cell_type": cell.get('cell_type', 'unknown'),
-                "source": cell.get('source', '')
-            }
-            
-            # Add execution count for code cells
-            if cell.get('cell_type') == 'code':
-                cell_info["execution_count"] = cell.get('execution_count')
-                
-                # Add outputs if present
-                outputs = cell.get('outputs', [])
-                if outputs:
-                    cell_info["outputs"] = outputs
-            
-            result.append(cell_info)
+            # Use CellInfo.from_cell to ensure consistent structure and output processing
+            cell_info = CellInfo.from_cell(cell_index=idx, cell=cell)
+            result.append(cell_info.model_dump(exclude_none=True))
         
         return result
     
