@@ -29,7 +29,7 @@ from mcp.client.streamable_http import streamablehttp_client
 JUPYTER_TOOLS = [
     # Multi-Notebook Management Tools
     "use_notebook",
-    "list_notebook", 
+    "list_notebooks", 
     "restart_notebook",
     "unuse_notebook",
     # Cell Tools
@@ -45,7 +45,7 @@ JUPYTER_TOOLS = [
     "delete_cell",
     "execute_ipython",
     "list_files",
-    "list_kernel",
+    "list_kernels",
 ]
 
 
@@ -266,7 +266,7 @@ class MCPClient:
     
     @requires_session
     async def list_notebook(self):
-        result = await self._session.call_tool("list_notebook")  # type: ignore
+        result = await self._session.call_tool("list_notebooks")  # type: ignore
         return self._extract_text_content(result)
     
     @requires_session

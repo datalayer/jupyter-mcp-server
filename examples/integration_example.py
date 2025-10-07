@@ -51,7 +51,7 @@ def register_mcp_tools(mcp, notebook_manager):
         
         # Execute the tool
         return await registry.execute_tool(
-            "list_notebook",
+            "list_notebooks",
             mode=mode
         )
     

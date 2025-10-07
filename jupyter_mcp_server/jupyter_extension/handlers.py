@@ -398,7 +398,7 @@ class MCPToolsCallHandler(MCPHandler):
         # TODO: Implement actual tool routing
         # For now, return a simple response
         
-        if tool_name == "list_notebook":
+        if tool_name == "list_notebooks":
             notebooks = await backend.list_notebooks()
             return {"notebooks": notebooks}
         

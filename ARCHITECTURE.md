@@ -270,7 +270,7 @@ c.JupyterMCPServerExtensionApp.runtime_url = "local"
 
 ```
 MCP Client
-  → POST /mcp/tools/call {"tool_name": "list_notebook"}
+  → POST /mcp/tools/call {"tool_name": "list_notebooks"}
     → MCPSSEHandler (or MCPToolsCallHandler)
       → FastMCP calls @mcp.tool() wrapper
         → list_notebook_tool.execute(
