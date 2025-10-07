@@ -7,11 +7,11 @@
 import asyncio
 import logging
 from typing import Union
-from inspect import isawaitable
-import zmq.asyncio
+
 from mcp.types import ImageContent
 
 from ._base import BaseTool, ServerMode
+from ..notebook_manager import NotebookManager
 
 logger = logging.getLogger(__name__)
 
@@ -50,121 +50,26 @@ class ExecuteIpythonTool(BaseTool):
     ) -> list[Union[str, ImageContent]]:
         """Execute code using kernel_manager (JUPYTER_SERVER mode).
         
-        This follows the pattern from jupyter-resource-usage KernelUsageHandler:
-        1. Get kernel from kernel_manager
-        2. Create a client
-        3. Send execute_request via shell channel
-        4. Poll for response with timeout
-        5. Collect outputs
-        6. Stop channels
+        Uses execute_code_local which handles ZMQ message collection properly.
         """
-        try:
-            # Get the kernel using pinned_superclass pattern
-            lkm = kernel_manager.pinned_superclass.get_kernel(kernel_manager, kernel_id)
-            session = lkm.session
-            client = lkm.client()
-            
-            # Send execute request
-            shell_channel = client.shell_channel
-            msg_id = session.msg("execute_request", {
-                "code": code,
-                "silent": False,
-                "store_history": True,
-                "user_expressions": {},
-                "allow_stdin": False,
-                "stop_on_error": False
-            })
-            shell_channel.send(msg_id)
-            
-            # Prepare to collect outputs
-            outputs = []
-            execution_done = False
-            
-            # Poll for messages with timeout
-            poller = zmq.asyncio.Poller()
-            iopub_socket = client.iopub_channel.socket
-            shell_socket = shell_channel.socket
-            poller.register(iopub_socket, zmq.POLLIN)
-            poller.register(shell_socket, zmq.POLLIN)
-            
-            timeout_ms = timeout * 1000
-            start_time = asyncio.get_event_loop().time()
-            
-            while not execution_done:
-                elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-                remaining_ms = max(0, timeout_ms - elapsed_ms)
-                
-                if remaining_ms <= 0:
-                    client.stop_channels()
-                    return [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds]"]
-                
-                events = dict(await poller.poll(remaining_ms))
-                
-                # Check for shell reply (execution complete)
-                if shell_socket in events:
-                    reply = client.shell_channel.get_msg(timeout=0)
-                    if isawaitable(reply):
-                        reply = await reply
-                    
-                    if reply and reply.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
-                        execution_done = True
-                
-                # Check for IOPub messages (outputs)
-                if iopub_socket in events:
-                    msg = client.iopub_channel.get_msg(timeout=0)
-                    if isawaitable(msg):
-                        msg = await msg
-                    
-                    if msg and msg.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
-                        msg_type = msg.get('msg_type')
-                        content = msg.get('content', {})
-                        
-                        # Collect output messages
-                        if msg_type == 'stream':
-                            outputs.append({
-                                'output_type': 'stream',
-                                'name': content.get('name', 'stdout'),
-                                'text': content.get('text', '')
-                            })
-                        elif msg_type == 'execute_result':
-                            outputs.append({
-                                'output_type': 'execute_result',
-                                'data': content.get('data', {}),
-                                'metadata': content.get('metadata', {}),
-                                'execution_count': content.get('execution_count')
-                            })
-                        elif msg_type == 'display_data':
-                            outputs.append({
-                                'output_type': 'display_data',
-                                'data': content.get('data', {}),
-                                'metadata': content.get('metadata', {})
-                            })
-                        elif msg_type == 'error':
-                            outputs.append({
-                                'output_type': 'error',
-                                'ename': content.get('ename', ''),
-                                'evalue': content.get('evalue', ''),
-                                'traceback': content.get('traceback', [])
-                            })
-            
-            # Clean up
-            client.stop_channels()
-            
-            # Extract and format outputs
-            if outputs:
-                result = safe_extract_outputs_fn(outputs)
-                logger.info(f"IPython execution (JUPYTER_SERVER) completed with {len(result)} outputs")
-                return result
-            else:
-                return ["[No output generated]"]
-                
-        except Exception as e:
-            logger.error(f"Error executing via kernel_manager: {e}")
-            return [f"[ERROR: {str(e)}]"]
+        from jupyter_mcp_server.utils import execute_code_local
+        
+        # Get serverapp from kernel_manager
+        serverapp = kernel_manager.parent
+        
+        # Use centralized execute_code_local function
+        return await execute_code_local(
+            serverapp=serverapp,
+            notebook_path="",  # Not needed for execute_ipython
+            code=code,
+            kernel_id=kernel_id,
+            timeout=timeout,
+            logger=logger
+        )
     
     async def _execute_via_notebook_manager(
         self,
-        notebook_manager,
+        notebook_manager: NotebookManager,
         code: str,
         timeout: int,
         ensure_kernel_alive_fn,

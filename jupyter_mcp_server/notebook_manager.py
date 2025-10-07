@@ -162,7 +162,7 @@ class NotebookManager:
             return True
         return False
     
-    def get_kernel(self, name: str):
+    def get_kernel(self, name: str) -> KernelClient:
         """
         Get the kernel for a specific notebook.
         

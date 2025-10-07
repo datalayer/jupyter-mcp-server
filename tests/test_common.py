@@ -130,16 +130,34 @@ class MCPClient:
                 result = result[0]  # Get the content list from the tuple
             
             if hasattr(result, 'content') and result.content and len(result.content) > 0:
-                if isinstance(result.content[0], types.TextContent):
-                    text = result.content[0].text
-                    logging.debug(f"_extract_text_content: extracted from result.content[0].text, length={len(text)}")
-                    return text
+                # Check if all items are TextContent
+                if all(isinstance(item, types.TextContent) for item in result.content):
+                    # If multiple TextContent items, return as JSON list
+                    if len(result.content) > 1:
+                        texts = [item.text for item in result.content]
+                        import json
+                        text = json.dumps(texts)
+                        logging.debug(f"_extract_text_content: extracted {len(texts)} TextContent items as JSON list")
+                        return text
+                    else:
+                        text = result.content[0].text
+                        logging.debug(f"_extract_text_content: extracted from result.content[0].text, length={len(text)}")
+                        return text
             # Handle list results directly
             elif isinstance(result, list) and len(result) > 0:
-                if isinstance(result[0], types.TextContent):
-                    text = result[0].text
-                    logging.debug(f"_extract_text_content: extracted from list[0].text, length={len(text)}")
-                    return text
+                # Check if all items are TextContent
+                if all(isinstance(item, types.TextContent) for item in result):
+                    # If multiple TextContent items, return as JSON list
+                    if len(result) > 1:
+                        texts = [item.text for item in result]
+                        import json
+                        text = json.dumps(texts)
+                        logging.debug(f"_extract_text_content: extracted {len(texts)} TextContent items as JSON list")
+                        return text
+                    else:
+                        text = result[0].text
+                        logging.debug(f"_extract_text_content: extracted from list[0].text, length={len(text)}")
+                        return text
         except (AttributeError, IndexError, TypeError) as e:
             logging.debug(f"_extract_text_content error: {e}, result type: {type(result)}")
         
@@ -152,10 +170,12 @@ class MCPClient:
         if content is None:
             # Try to extract from text content as fallback
             text_content = self._extract_text_content(result)
+            logging.debug(f"_get_structured_content_safe: text_content={repr(text_content[:200] if text_content else None)}")
             if text_content:
                 # Try to parse as JSON
                 try:
                     parsed = json.loads(text_content)
+                    logging.debug(f"_get_structured_content_safe: JSON parsed successfully, type={type(parsed)}")
                     # Wrap in result dict if not already wrapped
                     if isinstance(parsed, dict) and "result" in parsed:
                         return parsed
@@ -167,10 +187,15 @@ class MCPClient:
                     try:
                         import ast
                         parsed = ast.literal_eval(text_content)
+                        logging.debug(f"_get_structured_content_safe: ast.literal_eval succeeded, type={type(parsed)}, value={repr(parsed)}")
                         return {"result": parsed}
                     except (ValueError, SyntaxError):
-                        # Plain text - wrap in result dict
-                        return {"result": text_content}
+                        # Plain text - could be a single output from a list
+                        # If it looks like a single string output, wrap it in a list for consistency
+                        # This handles the case where safe_extract_outputs returns ["output"] but
+                        # FastMCP creates one TextContent, so we extract just the text
+                        logging.debug(f"_get_structured_content_safe: Plain text, wrapping in result dict as list")
+                        return {"result": [text_content]}  # Wrap as single-element list
             else:
                 logging.warning(f"No text content available in result: {type(result)}")
                 return None

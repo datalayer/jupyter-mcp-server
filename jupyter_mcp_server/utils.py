@@ -594,12 +594,18 @@ async def execute_code_local(
         # Get kernel manager
         kernel_manager = serverapp.kernel_manager
         
-        # Get the kernel using pinned_superclass pattern (from jupyter-resource-usage)
+        # Get the kernel using pinned_superclass pattern (like KernelUsageHandler)
         lkm = kernel_manager.pinned_superclass.get_kernel(kernel_manager, kernel_id)
         session = lkm.session
         client = lkm.client()
         
-        # Send execute request
+        # Ensure channels are started (critical for receiving IOPub messages!)
+        if not client.channels_running:
+            client.start_channels()
+            # Wait for channels to be ready
+            await asyncio.sleep(0.1)
+        
+        # Send execute request on shell channel
         shell_channel = client.shell_channel
         msg_id = session.msg("execute_request", {
             "code": code,
@@ -610,6 +616,9 @@ async def execute_code_local(
             "stop_on_error": False
         })
         shell_channel.send(msg_id)
+        
+        # Give a moment for messages to start flowing
+        await asyncio.sleep(0.01)
         
         # Prepare to collect outputs
         outputs = []
@@ -631,29 +640,24 @@ async def execute_code_local(
             
             if remaining_ms <= 0:
                 client.stop_channels()
-                logger.warning(f"Code execution timeout after {timeout}s")
+                logger.warning(f"Code execution timeout after {timeout}s, collected {len(outputs)} outputs")
                 return [f"[TIMEOUT ERROR: Code execution exceeded {timeout} seconds]"]
             
             events = dict(await poller.poll(remaining_ms))
             
-            # Check for shell reply (execution complete)
-            if shell_socket in events:
-                reply = client.shell_channel.get_msg(timeout=0)
-                if isawaitable(reply):
-                    reply = await reply
-                
-                if reply and reply.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
-                    execution_done = True
-            
+            # IMPORTANT: Process IOPub messages BEFORE shell to collect outputs before marking done
             # Check for IOPub messages (outputs)
             if iopub_socket in events:
                 msg = client.iopub_channel.get_msg(timeout=0)
+                # Handle async get_msg (like KernelUsageHandler)
                 if isawaitable(msg):
                     msg = await msg
                 
                 if msg and msg.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
                     msg_type = msg.get('msg_type')
                     content = msg.get('content', {})
+                    
+                    logger.debug(f"IOPub message: {msg_type}")
                     
                     # Collect output messages
                     if msg_type == 'stream':
@@ -662,6 +666,7 @@ async def execute_code_local(
                             'name': content.get('name', 'stdout'),
                             'text': content.get('text', '')
                         })
+                        logger.debug(f"Collected stream output: {len(content.get('text', ''))} chars")
                     elif msg_type == 'execute_result':
                         outputs.append({
                             'output_type': 'execute_result',
@@ -669,12 +674,14 @@ async def execute_code_local(
                             'metadata': content.get('metadata', {}),
                             'execution_count': content.get('execution_count')
                         })
+                        logger.debug(f"Collected execute_result, count: {content.get('execution_count')}")
                     elif msg_type == 'display_data':
                         outputs.append({
                             'output_type': 'display_data',
                             'data': content.get('data', {}),
                             'metadata': content.get('metadata', {})
                         })
+                        logger.debug("Collected display_data")
                     elif msg_type == 'error':
                         outputs.append({
                             'output_type': 'error',
@@ -682,6 +689,18 @@ async def execute_code_local(
                             'evalue': content.get('evalue', ''),
                             'traceback': content.get('traceback', [])
                         })
+                        logger.debug(f"Collected error: {content.get('ename')}")
+            
+            # Check for shell reply (execution complete) - AFTER processing IOPub
+            if shell_socket in events:
+                reply = client.shell_channel.get_msg(timeout=0)
+                # Handle async get_msg (like KernelUsageHandler)
+                if isawaitable(reply):
+                    reply = await reply
+                
+                if reply and reply.get('parent_header', {}).get('msg_id') == msg_id['header']['msg_id']:
+                    logger.debug(f"Execution complete, reply status: {reply.get('content', {}).get('status')}")
+                    execution_done = True
         
         # Clean up
         client.stop_channels()
