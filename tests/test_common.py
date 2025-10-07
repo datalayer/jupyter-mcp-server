@@ -222,6 +222,23 @@ class MCPClient:
                 logging.warning(f"Tool {tool_name} returned error in result: {text_content[:100]}")
                 return None
             
+            # Also check structured content for errors (for JUPYTER_SERVER mode)
+            structured_content = self._get_structured_content_safe(result)
+            if structured_content:
+                # Check if result contains error messages
+                result_value = structured_content.get("result")
+                if result_value:
+                    # Handle both string and list results
+                    error_text = ""
+                    if isinstance(result_value, str):
+                        error_text = result_value
+                    elif isinstance(result_value, list) and len(result_value) > 0:
+                        error_text = str(result_value[0])
+                    
+                    if error_text and ("[ERROR:" in error_text or "is out of range" in error_text or "not found" in error_text):
+                        logging.warning(f"Tool {tool_name} returned error in structured result: {error_text[:100]}")
+                        return None
+            
             return result
         except Exception as e:
             # Log the error but return None for test compatibility (JUPYTER_SERVER mode)
