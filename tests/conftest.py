@@ -332,8 +332,8 @@ async def mcp_client(jupyter_mcp_server):
     return MCPClient(jupyter_mcp_server)
 
 
-@pytest_asyncio.fixture(scope="function")
-async def mcp_client_parametrized(mcp_server_url):
+@pytest.fixture(scope="function")
+def mcp_client_parametrized(mcp_server_url):
     """MCP client that works with both server modes via parametrization
     
     This fixture creates an MCPClient that can connect to either:

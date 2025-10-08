@@ -100,10 +100,10 @@ class ListKernelsTool(BaseTool):
     ) -> List[Dict[str, str]]:
         """List kernels using local kernel_manager API (JUPYTER_SERVER mode)."""
         try:
-            # Get all running kernels
-            kernel_ids = list(kernel_manager.list_kernels())
+            # Get all running kernels - list_kernels() returns dicts with kernel info
+            kernel_infos = list(kernel_manager.list_kernels())
             
-            if not kernel_ids:
+            if not kernel_infos:
                 return []
             
             # Get kernel specifications
@@ -111,36 +111,29 @@ class ListKernelsTool(BaseTool):
             
             # Create enhanced kernel information list
             output = []
-            for kernel_id in kernel_ids:
-                kernel = kernel_manager.get_kernel(kernel_id)
+            for kernel_info_dict in kernel_infos:
+                # kernel_info_dict is already a dict with kernel information
+                kernel_id = kernel_info_dict.get('id', 'unknown')
+                kernel_name = kernel_info_dict.get('name', 'unknown')
                 
                 kernel_info = {
-                    "id": kernel_id or "unknown",
-                    "name": kernel.kernel_name if hasattr(kernel, 'kernel_name') else "unknown",
-                    "state": "unknown",
-                    "connections": "unknown",
+                    "id": kernel_id,
+                    "name": kernel_name,
+                    "state": kernel_info_dict.get('execution_state', 'unknown'),
+                    "connections": str(kernel_info_dict.get('connections', 'unknown')),
                     "last_activity": "unknown",
                     "display_name": "unknown",
                     "language": "unknown",
                     "env": "unknown"
                 }
                 
-                # Get kernel state
-                if hasattr(kernel, 'execution_state'):
-                    kernel_info["state"] = kernel.execution_state
-                elif hasattr(kernel, 'state'):
-                    kernel_info["state"] = kernel.state
-                
-                # Get connection count
-                if hasattr(kernel, 'connections'):
-                    kernel_info["connections"] = str(kernel.connections)
-                
-                # Get last activity
-                if hasattr(kernel, 'last_activity') and kernel.last_activity:
-                    if hasattr(kernel.last_activity, 'strftime'):
-                        kernel_info["last_activity"] = kernel.last_activity.strftime("%Y-%m-%d %H:%M:%S")
+                # Format last activity if present
+                last_activity = kernel_info_dict.get('last_activity')
+                if last_activity:
+                    if hasattr(last_activity, 'strftime'):
+                        kernel_info["last_activity"] = last_activity.strftime("%Y-%m-%d %H:%M:%S")
                     else:
-                        kernel_info["last_activity"] = str(kernel.last_activity)
+                        kernel_info["last_activity"] = str(last_activity)
                 
                 output.append(kernel_info)
             

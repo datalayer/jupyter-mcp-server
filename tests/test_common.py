@@ -352,6 +352,12 @@ class MCPClient:
         return "Error: Failed to retrieve cell list after all retries"
 
     @requires_session
+    async def list_kernels(self):
+        """List all available kernels"""
+        result = await self._session.call_tool("list_kernels")  # type: ignore
+        return self._extract_text_content(result)
+
+    @requires_session
     async def delete_cell(self, cell_index):
         result = await self._call_tool_safe("delete_cell", {"cell_index": cell_index})
         return self._get_structured_content_safe(result) if result else None
