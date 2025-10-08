@@ -103,8 +103,6 @@ async def test_markdown_cell(mcp_client_parametrized: MCPClient, content="Hello 
     async with mcp_client_parametrized:
         # Get initial cell count
         initial_count = await mcp_client_parametrized.get_cell_count()
-        if initial_count == 0:
-            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # append markdown cell using -1 index
         result = await mcp_client_parametrized.insert_cell(-1, "markdown", content)
@@ -145,8 +143,6 @@ async def test_code_cell(mcp_client_parametrized: MCPClient, content="1 + 1"):
     async with mcp_client_parametrized:
         # Get initial cell count
         initial_count = await mcp_client_parametrized.get_cell_count()
-        if initial_count == 0:
-            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # append and execute code cell using -1 index
         index = initial_count
@@ -247,8 +243,6 @@ async def test_overwrite_cell_diff(mcp_client_parametrized: MCPClient):
     async with mcp_client_parametrized:
         # Get initial cell count
         initial_count = await mcp_client_parametrized.get_cell_count()
-        if initial_count == 0:
-            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # Add a code cell with initial content
         initial_content = "x = 10\nprint(x)"
@@ -312,8 +306,6 @@ async def test_multimodal_output(mcp_client_parametrized: MCPClient):
     async with mcp_client_parametrized:
         # Get initial cell count
         initial_count = await mcp_client_parametrized.get_cell_count()
-        if initial_count == 0:
-            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         # Test image generation code using PIL (lightweight)
         image_code = """

@@ -99,8 +99,6 @@ async def test_list_kernels_format(mcp_client_parametrized: MCPClient):
     async with mcp_client_parametrized:
         # Ensure we have a running kernel by executing code
         initial_count = await mcp_client_parametrized.get_cell_count()
-        if initial_count == 0:
-            pytest.skip("Could not retrieve cell count - likely a platform-specific network issue")
         
         await mcp_client_parametrized.insert_execute_code_cell(-1, "print('hello')")
         

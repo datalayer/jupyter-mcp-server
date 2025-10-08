@@ -76,6 +76,16 @@ class MCPSSEHandler(RequestHandler):
             
             logger.info(f"MCP request: method={method}, id={request_id}")
             
+            # Handle notifications (id is None) - these don't require a response per JSON-RPC 2.0
+            # But in HTTP transport, we need to acknowledge the request
+            if request_id is None:
+                logger.info(f"Received notification: {method} - acknowledging without result")
+                # Return empty response - the client should handle notifications without expecting a result
+                # Some clients may send this as POST and expect HTTP 200 with no JSON-RPC response
+                self.set_status(200)
+                self.finish()
+                return
+            
             # Handle different MCP methods
             if method == "initialize":
                 # Return server capabilities
