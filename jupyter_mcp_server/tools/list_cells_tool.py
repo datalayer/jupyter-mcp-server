@@ -88,6 +88,12 @@ Returns:
         """
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # Local mode: read notebook directly from file system
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+            from pathlib import Path
+            
+            context = get_server_context()
+            serverapp = context.serverapp
+            
             # Get current notebook path from notebook_manager if available, else use config
             notebook_path = None
             if notebook_manager:
@@ -95,6 +101,18 @@ Returns:
             if not notebook_path:
                 config = get_config()
                 notebook_path = config.document_id
+            
+            # contents_manager expects path relative to serverapp.root_dir
+            # If we have an absolute path, convert it to relative
+            if serverapp and Path(notebook_path).is_absolute():
+                root_dir = Path(serverapp.root_dir)
+                abs_path = Path(notebook_path)
+                try:
+                    notebook_path = str(abs_path.relative_to(root_dir))
+                except ValueError:
+                    # Path is not under root_dir, use as-is
+                    pass
+            
             return await self._list_cells_local(contents_manager, notebook_path)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document

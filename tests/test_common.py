@@ -203,6 +203,28 @@ class MCPClient:
                         logging.debug(f"_get_structured_content_safe: Plain text, wrapping in result dict")
                         return {"result": text_content}
             else:
+                # No text content - check if we have ImageContent or mixed content
+                if hasattr(result, 'content') and result.content:
+                    # Extract mixed content (ImageContent + TextContent)
+                    content_list = []
+                    for item in result.content:
+                        if isinstance(item, types.ImageContent):
+                            # Convert ImageContent to dict format
+                            content_list.append({
+                                'type': 'image',
+                                'data': item.data,
+                                'mimeType': item.mimeType,
+                                'annotations': getattr(item, 'annotations', None),
+                                'meta': getattr(item, 'meta', None)
+                            })
+                        elif isinstance(item, types.TextContent):
+                            # Include text content if present
+                            content_list.append(item.text)
+                    
+                    if content_list:
+                        logging.debug(f"_get_structured_content_safe: extracted {len(content_list)} items from mixed content")
+                        return {"result": content_list}
+                
                 logging.warning(f"No text content available in result: {type(result)}")
                 return None
         return content
