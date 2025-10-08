@@ -84,6 +84,7 @@ async def auto_enroll_document(
             kernel_id=kernel_id_to_use,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
+            session_manager=server_context.session_manager,
             notebook_manager=notebook_manager,
             runtime_url=config.runtime_url if config.runtime_url != "local" else None,
             runtime_token=config.runtime_token,

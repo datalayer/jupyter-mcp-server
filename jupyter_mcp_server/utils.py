@@ -5,7 +5,7 @@
 import re
 from typing import Any, Union
 from mcp.types import ImageContent
-from .config_env import ALLOW_IMG_OUTPUT
+from .env import ALLOW_IMG_OUTPUT
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -122,6 +122,22 @@ def strip_ansi_codes(text: str) -> str:
     """Remove ANSI escape sequences from text."""
     ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
     return ansi_escape.sub('', text)
+
+
+def _clean_notebook_outputs(notebook):
+    """Remove transient fields from all cell outputs.
+    
+    The 'transient' field is part of the Jupyter kernel messaging protocol
+    but is NOT part of the nbformat schema. This causes validation errors.
+    
+    Args:
+        notebook: nbformat notebook object to clean (modified in place)
+    """
+    for cell in notebook.cells:
+        if cell.cell_type == 'code' and hasattr(cell, 'outputs'):
+            for output in cell.outputs:
+                if isinstance(output, dict) and 'transient' in output:
+                    del output['transient']
 
 
 def safe_extract_outputs(outputs: Any) -> list[Union[str, ImageContent]]:
@@ -801,6 +817,8 @@ async def execute_code_local(
                         })
                         logger.debug(f"Collected execute_result, count: {content.get('execution_count')}")
                     elif msg_type == 'display_data':
+                        # Note: 'transient' field from kernel messages is NOT part of nbformat schema
+                        # Only include 'output_type', 'data', and 'metadata' fields
                         outputs.append({
                             'output_type': 'display_data',
                             'data': content.get('data', {}),
@@ -954,9 +972,12 @@ async def execute_cell_local(
             return outputs
         else:
             # File path - original logic
-            # Read notebook
+            # Read notebook as version 4 (latest) for consistency
             with open(notebook_path, 'r', encoding='utf-8') as f:
-                notebook = nbformat.read(f, as_version=nbformat.NO_CONVERT)
+                notebook = nbformat.read(f, as_version=4)
+            
+            # Clean transient fields from outputs
+            _clean_notebook_outputs(notebook)
             
             # Validate cell index
             if cell_index < 0 or cell_index >= len(notebook.cells):

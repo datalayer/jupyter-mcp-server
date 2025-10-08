@@ -123,10 +123,23 @@ Returns:
             # Call the file-based insertion method directly
             await insert_tool._insert_cell_file(notebook_path, cell_index, "code", cell_source)
             
+            # Calculate actual index where cell was inserted
+            import nbformat
+            with open(notebook_path, 'r', encoding='utf-8') as f:
+                notebook = nbformat.read(f, as_version=4)
+            total_cells = len(notebook.cells)
+            actual_index = cell_index if cell_index != -1 else total_cells - 1
+            
             # Then execute directly via ExecutionStack (without RTC metadata since notebook not open)
-            return await execute_via_execution_stack(
+            outputs = await execute_via_execution_stack(
                 serverapp, kernel_id, cell_source, timeout=300, logger=logger
             )
+            
+            # CRITICAL: Write outputs back to the notebook file so they're visible in UI
+            logger.info(f"Writing {len(outputs)} outputs back to notebook cell {actual_index}")
+            await self._write_outputs_to_cell(notebook_path, actual_index, outputs)
+            
+            return outputs
     
     async def _insert_execute_websocket(
         self,
@@ -167,6 +180,82 @@ Returns:
             ydoc = notebook._doc
             outputs = ydoc._ycells[actual_index]["outputs"]
             return safe_extract_outputs(outputs)
+    
+    async def _write_outputs_to_cell(
+        self,
+        notebook_path: str,
+        cell_index: int,
+        outputs: List[Union[str, ImageContent]]
+    ):
+        """Write execution outputs back to a notebook cell.
+        
+        This is critical for making outputs visible in JupyterLab when using
+        file-based execution (when YDoc/RTC is not available).
+        
+        Args:
+            notebook_path: Path to the notebook file
+            cell_index: Index of the cell to update
+            outputs: List of output strings or ImageContent objects
+        """
+        import nbformat
+        from jupyter_mcp_server.utils import _clean_notebook_outputs
+        
+        # Read the notebook
+        with open(notebook_path, 'r', encoding='utf-8') as f:
+            notebook = nbformat.read(f, as_version=4)
+        
+        # Clean any transient fields
+        _clean_notebook_outputs(notebook)
+        
+        if cell_index < 0 or cell_index >= len(notebook.cells):
+            logger.warning(f"Cell index {cell_index} out of range, cannot write outputs")
+            return
+        
+        cell = notebook.cells[cell_index]
+        if cell.cell_type != 'code':
+            logger.warning(f"Cell {cell_index} is not a code cell, cannot write outputs")
+            return
+        
+        # Convert formatted outputs to nbformat structure
+        cell.outputs = []
+        for output in outputs:
+            if isinstance(output, ImageContent):
+                # Image output
+                cell.outputs.append(nbformat.v4.new_output(
+                    output_type='display_data',
+                    data={output.mimeType: output.data},
+                    metadata={}
+                ))
+            elif isinstance(output, str):
+                # Text output - determine if it's an error or regular output
+                if output.startswith('[ERROR:') or output.startswith('[TIMEOUT ERROR:'):
+                    # Error output
+                    cell.outputs.append(nbformat.v4.new_output(
+                        output_type='stream',
+                        name='stderr',
+                        text=output
+                    ))
+                else:
+                    # Regular output (assume execute_result for simplicity)
+                    cell.outputs.append(nbformat.v4.new_output(
+                        output_type='execute_result',
+                        data={'text/plain': output},
+                        metadata={},
+                        execution_count=None
+                    ))
+        
+        # Update execution count
+        max_count = 0
+        for c in notebook.cells:
+            if c.cell_type == 'code' and c.execution_count:
+                max_count = max(max_count, c.execution_count)
+        cell.execution_count = max_count + 1
+        
+        # Write back to file
+        with open(notebook_path, 'w', encoding='utf-8') as f:
+            nbformat.write(notebook, f)
+        
+        logger.info(f"Wrote {len(outputs)} outputs to cell {cell_index} in {notebook_path}")
     
     async def execute(
         self,

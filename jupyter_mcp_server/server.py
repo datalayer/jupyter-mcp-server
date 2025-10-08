@@ -471,6 +471,7 @@ async def use_notebook(
             ensure_kernel_alive_fn=__ensure_kernel_alive,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
+            session_manager=server_context.session_manager,
             notebook_manager=notebook_manager,
             runtime_url=config.runtime_url if config.runtime_url != "local" else None,
             runtime_token=config.runtime_token,

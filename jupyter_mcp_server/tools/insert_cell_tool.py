@@ -168,7 +168,11 @@ Returns:
         """
         # Read notebook file
         with open(notebook_path, "r", encoding="utf-8") as f:
-            notebook = nbformat.read(f, as_version=nbformat.NO_CONVERT)
+            # Read as version 4 (latest) to ensure consistency and support for cell IDs
+            notebook = nbformat.read(f, as_version=4)
+        
+        # Clean any transient fields from existing outputs (kernel protocol field not in nbformat schema)
+        self._clean_notebook_outputs(notebook)
         
         total_cells = len(notebook.cells)
         actual_index = cell_index if cell_index != -1 else total_cells
@@ -197,6 +201,22 @@ Returns:
         surrounding_info = self._get_surrounding_cells_info_file(notebook, actual_index, new_total_cells)
         
         return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
+    
+    def _clean_notebook_outputs(self, notebook):
+        """Remove transient fields from all cell outputs.
+        
+        The 'transient' field is part of the Jupyter kernel messaging protocol
+        but is NOT part of the nbformat schema. This causes validation errors.
+        
+        Args:
+            notebook: nbformat notebook object to clean (modified in place)
+        """
+        # Clean transient fields from outputs
+        for cell in notebook.cells:
+            if cell.cell_type == 'code' and hasattr(cell, 'outputs'):
+                for output in cell.outputs:
+                    if isinstance(output, dict) and 'transient' in output:
+                        del output['transient']
     
     def _get_surrounding_cells_info_file(self, notebook, center_index: int, total_cells: int) -> str:
         """Get info about surrounding cells from nbformat notebook."""

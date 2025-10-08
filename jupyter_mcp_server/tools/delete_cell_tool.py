@@ -124,9 +124,13 @@ Returns:
         Returns:
             Success message
         """
-        # Read notebook file
+        # Read notebook file as version 4 for consistency
         with open(notebook_path, "r", encoding="utf-8") as f:
-            notebook = nbformat.read(f, as_version=nbformat.NO_CONVERT)
+            notebook = nbformat.read(f, as_version=4)
+        
+        # Clean transient fields from outputs
+        from jupyter_mcp_server.utils import _clean_notebook_outputs
+        _clean_notebook_outputs(notebook)
         
         # Validate index
         if cell_index < 0 or cell_index >= len(notebook.cells):

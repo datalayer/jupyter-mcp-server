@@ -4,12 +4,15 @@
 
 """Use notebook tool implementation."""
 
+import logging
 from typing import Any, Optional, Literal
 from pathlib import Path
 from jupyter_server_api import JupyterServerClient, NotFoundError
 from jupyter_kernel_client import KernelClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
+
+logger = logging.getLogger(__name__)
 
 
 class UseNotebookTool(BaseTool):
@@ -93,6 +96,7 @@ Returns:
         contents_manager: Optional[Any] = None,
         kernel_manager: Optional[Any] = None,
         kernel_spec_manager: Optional[Any] = None,
+        session_manager: Optional[Any] = None,
         notebook_manager: Optional[NotebookManager] = None,
         # Tool-specific parameters
         notebook_name: str = None,
@@ -110,6 +114,7 @@ Returns:
             server_client: HTTP client for MCP_SERVER mode
             contents_manager: Direct API access for JUPYTER_SERVER mode
             kernel_manager: Direct kernel manager for JUPYTER_SERVER mode
+            session_manager: Session manager for creating kernel-notebook associations
             notebook_manager: Notebook manager instance
             notebook_name: Unique identifier for the notebook
             notebook_path: Path to the notebook file (optional, if not provided switches to existing notebook)
@@ -179,7 +184,58 @@ Returns:
             else:
                 # Start a new kernel using local API
                 kernel_id = await kernel_manager.start_kernel()
+                logger.info(f"Started kernel '{kernel_id}', waiting for it to be ready...")
+                
+                # CRITICAL: Wait for the kernel to actually start and be ready
+                # The start_kernel() call returns immediately, but kernel takes time to start
+                import asyncio
+                max_wait_time = 30  # seconds
+                wait_interval = 0.5  # seconds
+                elapsed = 0
+                kernel_ready = False
+                
+                while elapsed < max_wait_time:
+                    try:
+                        # Get kernel model to check its state
+                        kernel_model = kernel_manager.get_kernel(kernel_id)
+                        if kernel_model is not None:
+                            # Kernel exists, check if it's ready
+                            # In Jupyter, we can try to get connection info which indicates readiness
+                            try:
+                                kernel_manager.get_connection_info(kernel_id)
+                                kernel_ready = True
+                                logger.info(f"Kernel '{kernel_id}' is ready (took {elapsed:.1f}s)")
+                                break
+                            except:
+                                # Connection info not available yet, kernel still starting
+                                pass
+                    except Exception as e:
+                        logger.debug(f"Waiting for kernel to start: {e}")
+                    
+                    await asyncio.sleep(wait_interval)
+                    elapsed += wait_interval
+                
+                if not kernel_ready:
+                    logger.warning(f"Kernel '{kernel_id}' may not be fully ready after {max_wait_time}s wait")
+                
                 kernel_info = {"id": kernel_id}
+            
+            # Create a Jupyter session to associate the kernel with the notebook
+            # This is CRITICAL for JupyterLab to recognize the kernel-notebook connection
+            if session_manager is not None:
+                try:
+                    # create_session is an async method, so we await it directly
+                    session_dict = await session_manager.create_session(
+                        path=notebook_path,
+                        kernel_id=kernel_id,
+                        type="notebook",
+                        name=notebook_path
+                    )
+                    logger.info(f"Created Jupyter session '{session_dict.get('id')}' for notebook '{notebook_path}' with kernel '{kernel_id}'")
+                except Exception as e:
+                    logger.warning(f"Failed to create Jupyter session: {e}. Notebook may not be properly connected in JupyterLab UI.")
+            else:
+                logger.warning("No session_manager available. Notebook may not be properly connected in JupyterLab UI.")
             
             # For JUPYTER_SERVER mode, store kernel info (not KernelClient object)
             # The actual kernel is managed by kernel_manager
