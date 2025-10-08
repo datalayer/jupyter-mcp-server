@@ -12,7 +12,6 @@ from typing import Union, List
 from mcp.types import ImageContent
 
 from ._base import BaseTool, ServerMode
-from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.utils import get_current_notebook_context, execute_via_execution_stack, safe_extract_outputs
 
 logger = logging.getLogger(__name__)
@@ -148,6 +147,11 @@ class ExecuteCellStreamingTool(BaseTool):
             # JUPYTER_SERVER mode: Use ExecutionStack with YDoc awareness
             # Note: Streaming progress requires WebSocket (MCP_SERVER mode)
             # In JUPYTER_SERVER mode, we get final results without intermediate updates
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+            
+            context = get_server_context()
+            serverapp = context.serverapp
+            
             if serverapp is None:
                 raise ValueError("serverapp is required for JUPYTER_SERVER mode")
             if kernel_manager is None:
