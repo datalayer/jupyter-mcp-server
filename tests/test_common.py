@@ -46,6 +46,7 @@ JUPYTER_TOOLS = [
     "execute_ipython",
     "list_files",
     "list_kernels",
+    "assign_kernel_to_notebook",
 ]
 
 

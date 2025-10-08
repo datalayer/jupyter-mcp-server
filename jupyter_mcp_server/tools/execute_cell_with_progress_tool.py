@@ -6,11 +6,11 @@
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Union, List
 from mcp.types import ImageContent
 
 from ._base import BaseTool, ServerMode
-from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.utils import get_current_notebook_context, execute_via_execution_stack, safe_extract_outputs
 
 logger = logging.getLogger(__name__)
@@ -178,18 +178,19 @@ class ExecuteCellWithProgressTool(BaseTool):
             logger.info(f"Executing cell {cell_index} with progress monitoring in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)")
             logger.info("Note: Real-time progress monitoring requires MCP_SERVER mode with WebSocket")
             
-            # Resolve notebook path
-            from pathlib import Path
-            notebook_path_abs = Path(notebook_path).resolve()
+            # Resolve to absolute path
+            if serverapp and not Path(notebook_path).is_absolute():
+                root_dir = serverapp.root_dir
+                notebook_path = str(Path(root_dir) / notebook_path)
             
             # Get file_id from file_id_manager
             file_id_manager = serverapp.web_app.settings.get("file_id_manager")
             if file_id_manager is None:
                 raise RuntimeError("file_id_manager not available in serverapp")
             
-            file_id = file_id_manager.get_id(str(notebook_path_abs))
+            file_id = file_id_manager.get_id(notebook_path)
             if file_id is None:
-                file_id = file_id_manager.index(str(notebook_path_abs))
+                file_id = file_id_manager.index(notebook_path)
             
             # Try to get YDoc if notebook is open
             ydoc = await self._get_jupyter_ydoc(serverapp, file_id)
@@ -226,7 +227,7 @@ class ExecuteCellWithProgressTool(BaseTool):
                 logger.info(f"Notebook {file_id} not open, using file mode")
                 
                 import nbformat
-                with open(notebook_path_abs, 'r', encoding='utf-8') as f:
+                with open(notebook_path, 'r', encoding='utf-8') as f:
                     notebook = nbformat.read(f, as_version=4)
                 
                 if cell_index < 0 or cell_index >= len(notebook.cells):
@@ -249,7 +250,7 @@ class ExecuteCellWithProgressTool(BaseTool):
                 )
                 
                 # Write outputs back to file
-                await self._write_outputs_to_cell(str(notebook_path_abs), cell_index, outputs)
+                await self._write_outputs_to_cell(notebook_path, cell_index, outputs)
                 
                 return safe_extract_outputs(outputs)
         
