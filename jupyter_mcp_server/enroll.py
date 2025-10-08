@@ -5,15 +5,18 @@
 """Auto-enrollment functionality for Jupyter MCP Server."""
 
 import logging
-from typing import Optional, Any
+from typing import Any
+
+from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 
 logger = logging.getLogger(__name__)
 
 
 async def auto_enroll_document(
     config: Any,
-    notebook_manager: Any,
-    use_notebook_tool: Any,
+    notebook_manager: NotebookManager,
+    use_notebook_tool: UseNotebookTool,
     server_context: Any,
 ) -> None:
     """Automatically enroll the configured document_id as a managed notebook.

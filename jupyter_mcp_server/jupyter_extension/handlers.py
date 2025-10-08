@@ -194,11 +194,6 @@ class MCPSSEHandler(RequestHandler):
                     
                     logger.info(f"Converted result to dict")
 
-
-
-
-
-                    
                     response = {
                         "jsonrpc": "2.0",
                         "id": request_id,
@@ -243,10 +238,6 @@ class MCPSSEHandler(RequestHandler):
                 }
             }))
             self.finish()
-
-
-# MCPHealthHandler, MCPToolsListHandler, MCPToolsCallHandler are defined below
-# with the existing implementations from the original code
 
 
 class MCPHandler(ExtensionHandlerMixin, JupyterHandler):

@@ -133,16 +133,16 @@ start-jupyter-server-extension: ## start jupyter server with MCP extension
 	  --ServerApp.root_dir ./dev/content \
 	  --port 4040
 
-#		--ServerApp.root_dir ./dev/content
 jupyterlab: ## start jupyterlab for the mcp server
 	pip uninstall -y pycrdt datalayer_pycrdt
 	pip install datalayer_pycrdt
 	@exec echo
 	@exec echo curl http://localhost:8888/lab?token=MY_TOKEN
 	@exec echo
-	cd dev/content && jupyter lab \
+	jupyter lab \
 		--port 8888 \
 		--ip 0.0.0.0 \
+		--ServerApp.root_dir ./dev/content \
 		--IdentityProvider.token MY_TOKEN
 
 publish-pypi: # publish the pypi package

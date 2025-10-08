@@ -137,6 +137,17 @@ class ServerContext:
             return self._serverapp.kernel_spec_manager
         return None
     
+    def get_session_manager(self):
+        """
+        Get the Jupyter session manager (only available in JUPYTER_SERVER mode with local access).
+        
+        Returns:
+            SessionManager instance or None
+        """
+        if self._serverapp is not None:
+            return self._serverapp.session_manager
+        return None
+    
     def reset(self):
         """Reset to default MCP_SERVER mode."""
         with self._lock:

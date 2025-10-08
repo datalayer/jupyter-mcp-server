@@ -151,19 +151,32 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         })
         
         # Trigger auto-enrollment if document_id is configured
-        if self.document_id and (self.start_new_runtime or self.runtime_id):
-            import asyncio
+        # Note: Auto-enrollment supports 3 modes:
+        # 1. With existing kernel (runtime_id set)
+        # 2. With new kernel (start_new_runtime=True)
+        # 3. Without kernel - notebook-only mode (both False/None)
+        if self.document_id:
+            from tornado.ioloop import IOLoop
             from jupyter_mcp_server.enroll import auto_enroll_document
-            from jupyter_mcp_server.notebook_manager import NotebookManager
-            from jupyter_mcp_server.tools import UseNotebookTool
+            from jupyter_mcp_server.server import notebook_manager, use_notebook_tool, server_context
             
-            # Initialize notebook manager if needed
-            try:
-                # Get or create notebook manager (this will be created by server.py normally)
-                # For now, just log that we'll defer auto-enrollment to first request
-                logger.info(f"Auto-enrollment scheduled for document '{self.document_id}' on first request")
-            except Exception as e:
-                logger.warning(f"Could not schedule auto-enrollment: {e}")
+            # Schedule auto-enrollment to run after Jupyter Server is fully started
+            async def _run_auto_enrollment():
+                try:
+                    logger.info(f"Running auto-enrollment for document '{self.document_id}'")
+                    await auto_enroll_document(
+                        config=config,
+                        notebook_manager=notebook_manager,
+                        use_notebook_tool=use_notebook_tool,
+                        server_context=server_context,
+                    )
+                    logger.info(f"Auto-enrollment completed for document '{self.document_id}'")
+                except Exception as e:
+                    logger.error(f"Failed to auto-enroll document: {e}", exc_info=True)
+            
+            # Schedule the enrollment to run on the IOLoop after server starts
+            # Use callback with delay to ensure server is fully initialized
+            IOLoop.current().call_later(1.0, lambda: IOLoop.current().add_callback(_run_auto_enrollment))
         
         logger.info("Jupyter MCP Server Extension settings initialized")
     
@@ -190,21 +203,22 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         handlers = [
             # MCP protocol endpoint - SSE-based handler
             # Match /mcp with or without trailing slash
-            (url_path_join(base_url, "/mcp/?"), MCPSSEHandler),
+            (url_path_join(base_url, "mcp/?"), MCPSSEHandler),
             # Utility endpoints (optional, for debugging)
-            (url_path_join(base_url, "/mcp/healthz"), MCPHealthHandler),
-            (url_path_join(base_url, "/mcp/tools/list"), MCPToolsListHandler),
-            (url_path_join(base_url, "/mcp/tools/call"), MCPToolsCallHandler),
+            (url_path_join(base_url, "mcp/healthz"), MCPHealthHandler),
+            (url_path_join(base_url, "mcp/tools/list"), MCPToolsListHandler),
+            (url_path_join(base_url, "mcp/tools/call"), MCPToolsCallHandler),
         ]
         
         # Register handlers
         self.handlers.extend(handlers)
         
-        logger.info(f"Registered MCP handlers at {base_url}/mcp/")
-        logger.info(f"  - MCP protocol: {base_url}/mcp (SSE-based)")
-        logger.info(f"  - Health check: {base_url}/mcp/healthz")
-        logger.info(f"  - List tools: {base_url}/mcp/tools/list")
-        logger.info(f"  - Call tool: {base_url}/mcp/tools/call")
+        # Log registered endpoints using url_path_join for consistent formatting
+        logger.info(f"Registered MCP handlers at {url_path_join(base_url, 'mcp/')}")
+        logger.info(f"  - MCP protocol: {url_path_join(base_url, 'mcp')} (SSE-based)")
+        logger.info(f"  - Health check: {url_path_join(base_url, 'mcp/healthz')}")
+        logger.info(f"  - List tools: {url_path_join(base_url, 'mcp/tools/list')}")
+        logger.info(f"  - Call tool: {url_path_join(base_url, 'mcp/tools/call')}")
     
     def initialize_templates(self):
         """

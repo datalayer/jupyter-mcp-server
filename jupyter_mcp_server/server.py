@@ -54,6 +54,7 @@ from jupyter_mcp_server.tools import (
     ExecuteCellStreamingTool,
     ExecuteCellWithProgressTool,
     # Other Tools
+    AssignKernelToNotebookTool,
     ExecuteIpythonTool,
     ListFilesTool,
     ListKernelsTool,
@@ -135,6 +136,7 @@ execute_cell_streaming_tool = ExecuteCellStreamingTool()
 execute_cell_with_progress_tool = ExecuteCellWithProgressTool()
 
 # Other Tools
+assign_kernel_to_notebook_tool = AssignKernelToNotebookTool()
 execute_ipython_tool = ExecuteIpythonTool()
 list_files_tool = ListFilesTool()
 list_kernel_tool = ListKernelsTool()
@@ -150,6 +152,7 @@ class ServerContext:
     _contents_manager = None
     _kernel_manager = None
     _kernel_spec_manager = None
+    _session_manager = None
     _server_client = None
     _kernel_client = None
     _initialized = False
@@ -169,6 +172,7 @@ class ServerContext:
             cls._instance._contents_manager = None
             cls._instance._kernel_manager = None
             cls._instance._kernel_spec_manager = None
+            cls._instance._session_manager = None
             cls._instance._server_client = None
             cls._instance._kernel_client = None
     
@@ -186,6 +190,7 @@ class ServerContext:
                 self._contents_manager = context.get_contents_manager()
                 self._kernel_manager = context.get_kernel_manager()
                 self._kernel_spec_manager = context.get_kernel_spec_manager() if hasattr(context, 'get_kernel_spec_manager') else None
+                self._session_manager = context.get_session_manager() if hasattr(context, 'get_session_manager') else None
             else:
                 self._mode = ServerMode.MCP_SERVER
                 # Initialize HTTP clients for MCP_SERVER mode
@@ -256,6 +261,12 @@ class ServerContext:
         if not self._initialized:
             self.initialize()
         return self._kernel_spec_manager
+    
+    @property
+    def session_manager(self):
+        if not self._initialized:
+            self.initialize()
+        return self._session_manager
     
     @property
     def server_client(self):
@@ -846,6 +857,40 @@ async def list_kernels() -> str:
             server_client=server_context.server_client,
             kernel_manager=server_context.kernel_manager,
             kernel_spec_manager=server_context.kernel_spec_manager,
+        )
+    )
+
+
+@mcp.tool()
+async def assign_kernel_to_notebook(
+    notebook_path: str,
+    kernel_id: str,
+    session_name: str = None
+) -> str:
+    """Assign a kernel to a notebook by creating a Jupyter session.
+    
+    This creates a Jupyter server session that connects a notebook file to a kernel,
+    enabling code execution in the notebook. Sessions are the mechanism Jupyter uses
+    to maintain the relationship between notebooks and their kernels.
+    
+    Args:
+        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
+        kernel_id: ID of the kernel to assign to the notebook
+        session_name: Optional name for the session (defaults to notebook path)
+    
+    Returns:
+        str: Success message with session information including session ID
+    """
+    return await __safe_notebook_operation(
+        lambda: assign_kernel_to_notebook_tool.execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            session_manager=server_context.session_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_path=notebook_path,
+            kernel_id=kernel_id,
+            session_name=session_name,
         )
     )
 
