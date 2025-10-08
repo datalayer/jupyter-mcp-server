@@ -86,7 +86,7 @@ def windows_timeout_wrapper(timeout_seconds=30):
 JUPYTER_TOOLS = [
     # Multi-Notebook Management Tools
     "connect_notebook",
-    "list_notebook", 
+    "list_notebooks", 
     "restart_notebook",
     "disconnect_notebook",
     "switch_notebook",
@@ -97,13 +97,13 @@ JUPYTER_TOOLS = [
     "execute_cell_with_progress",
     "execute_cell_simple_timeout",
     "execute_cell_streaming",
-    "read_all_cells",
+    "read_cells",
     "list_cell",
     "read_cell",
     "delete_cell",
     "execute_ipython",
-    "list_all_files",
-    "list_kernel",
+    "list_files",
+    "list_kernels",
 ]
 
 
@@ -194,8 +194,8 @@ class MCPClient:
         return self._extract_text_content(result)
     
     @requires_session
-    async def list_notebook(self):
-        result = await self._session.call_tool("list_notebook")  # type: ignore
+    async def list_notebooks(self):
+        result = await self._session.call_tool("list_notebooks")  # type: ignore
         return self._extract_text_content(result)
     
     @requires_session
@@ -229,8 +229,8 @@ class MCPClient:
         return self._get_structured_content_safe(result)
 
     @requires_session
-    async def read_all_cells(self):
-        result = await self._session.call_tool("read_all_cells")  # type: ignore
+    async def read_cells(self):
+        result = await self._session.call_tool("read_cells")  # type: ignore
         return self._get_structured_content_safe(result)
 
     @requires_session
@@ -488,8 +488,8 @@ async def test_markdown_cell(mcp_client, content="Hello **World** !"):
         # TODO: don't now if it's normal to get a list of characters instead of a string
         assert "".join(cell_info["source"]) == content
         # reading all cells
-        result = await mcp_client.read_all_cells()
-        assert result is not None, "read_all_cells result should not be None"
+        result = await mcp_client.read_cells()
+        assert result is not None, "read_cells result should not be None"
         cells_info = result["result"]
         logging.debug(f"cells_info: {cells_info}")
         # Check that our cell is in the expected position with correct content
@@ -533,7 +533,7 @@ async def test_code_cell(mcp_client, content="1 + 1"):
         assert cell_info["type"] == "code"
         assert "".join(cell_info["source"]) == content
         # reading all cells
-        result = await mcp_client.read_all_cells()
+        result = await mcp_client.read_cells()
         cells_info = result["result"]
         logging.debug(f"cells_info: {cells_info}")
         # Check that our cell is in the expected position with correct content
@@ -793,7 +793,7 @@ async def test_multi_notebook_management(mcp_client):
     """Test multi-notebook management functionality"""
     async with mcp_client:
         # Test initial state - should show default notebook or no notebooks
-        initial_list = await mcp_client.list_notebook()
+        initial_list = await mcp_client.list_notebooks()
         logging.debug(f"Initial notebook list: {initial_list}")
         
         # Connect to a new notebook
@@ -803,7 +803,7 @@ async def test_multi_notebook_management(mcp_client):
         assert "new.ipynb" in connect_result
         
         # List notebooks - should now show the connected notebook
-        notebook_list = await mcp_client.list_notebook()
+        notebook_list = await mcp_client.list_notebooks()
         logging.debug(f"Notebook list after connect: {notebook_list}")
         assert "test_notebook" in notebook_list
         assert "new.ipynb" in notebook_list
@@ -848,7 +848,7 @@ async def test_multi_notebook_management(mcp_client):
         assert "disconnected successfully" in disconnect_result
         
         # Verify notebook is no longer in the list
-        final_list = await mcp_client.list_notebook()
+        final_list = await mcp_client.list_notebooks()
         logging.debug(f"Final notebook list: {final_list}")
         if "No notebooks are currently connected" not in final_list:
             assert "test_notebook" not in final_list

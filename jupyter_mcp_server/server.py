@@ -520,7 +520,7 @@ async def connect_notebook(
 
 
 @mcp.tool()
-async def list_notebook() -> str:
+async def list_notebooks() -> str:
     """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
     
     To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `connect_notebook` tool.
@@ -993,7 +993,7 @@ async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, pr
     return await __safe_notebook_operation(_execute_streaming, max_retries=1)
 
 @mcp.tool()
-async def read_all_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:
+async def read_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:
     """Read all cells from the Jupyter notebook.
     Returns:
         list[dict]: List of cell information including index, type, source,
@@ -1151,7 +1151,7 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
 
 
 @mcp.tool()
-async def list_all_files(path: str = "", max_depth: int = 3) -> str:
+async def list_files(path: str = "", max_depth: int = 3) -> str:
     """List all files and directories in the Jupyter server's file system.
     
     This tool recursively lists files and directories from the Jupyter server's content API,
@@ -1188,7 +1188,7 @@ async def list_all_files(path: str = "", max_depth: int = 3) -> str:
 
 
 @mcp.tool()
-async def list_kernel() -> str:
+async def list_kernels() -> str:
     """List all available kernels in the Jupyter server.
     
     This tool shows all running and available kernel sessions on the Jupyter server,

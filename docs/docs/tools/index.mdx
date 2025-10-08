@@ -14,7 +14,7 @@ The server currently offers 18 tools organized into 3 categories:
   - `kernel_id`(string, optional): Specific kernel ID to use (optional, will create new if not provided)
 - Returns: Success message with notebook information
 
-#### 2. `list_notebook`
+#### 2. `list_notebooks`
 
 - List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed by the notebook manager.     To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `connect_notebook` tool.
 - Input: None
@@ -48,7 +48,7 @@ The server currently offers 18 tools organized into 3 categories:
 
 ## Server Management Tools (2 tools)
 
-#### 6. `list_all_files`
+#### 6. `list_files`
 
 - List all files and directories in the Jupyter server's file system.
 - This tool recursively lists files and directories from the Jupyter server's content API, showing the complete file structure including notebooks, data files, scripts, and directories.
@@ -61,7 +61,7 @@ The server currently offers 18 tools organized into 3 categories:
   - **Size**: File size formatted as B, KB, or MB (empty for directories)
   - **Last_Modified**: Last modification timestamp in YYYY-MM-DD HH:MM:SS format
 
-#### 7. `list_kernel`
+#### 7. `list_kernels`
 
 - List all available kernels in the Jupyter server.
 - This tool shows all running and available kernel sessions on the Jupyter server, including their IDs, names, states, connection information, and kernel specifications. Useful for monitoring kernel resources and identifying specific kernels for connection.
@@ -109,7 +109,7 @@ The server currently offers 18 tools organized into 3 categories:
   - `cell_index`(int): Index of the cell to read (0-based).
 - Returns: Dictionary with cell index, type, source, and outputs (for code cells).
 
-#### 12. `read_all_cells`
+#### 12. `read_cells`
 
 - Read all cells from the notebook.
 - Returns:  List of cell information including index, type, source, and outputs (for code cells).
