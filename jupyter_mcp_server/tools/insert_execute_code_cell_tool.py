@@ -56,6 +56,97 @@ Returns:
         
         return None
     
+    async def _execute_via_execution_stack(
+        self,
+        serverapp: Any,
+        kernel_id: str,
+        code: str,
+        document_id: Optional[str] = None,
+        cell_id: Optional[str] = None,
+        timeout: int = 300,
+        poll_interval: float = 0.1
+    ) -> List[Union[str, ImageContent]]:
+        """Execute code using ExecutionStack (JUPYTER_SERVER mode with jupyter-server-nbmodel).
+        
+        This uses the ExecutionStack from jupyter-server-nbmodel extension directly,
+        avoiding the reentrant HTTP call issue.
+        
+        Args:
+            serverapp: Jupyter server application instance
+            kernel_id: Kernel ID to execute in
+            code: Code to execute
+            document_id: Optional document ID for RTC integration
+            cell_id: Optional cell ID for RTC integration
+            timeout: Maximum time to wait for execution (seconds)
+            poll_interval: Time between polling for results (seconds)
+            
+        Returns:
+            List of formatted outputs
+        """
+        try:
+            # Get the ExecutionStack from the jupyter_server_nbmodel extension
+            nbmodel_extensions = serverapp.extension_manager.extension_apps.get("jupyter_server_nbmodel", set())
+            if not nbmodel_extensions:
+                raise RuntimeError("jupyter_server_nbmodel extension not found. Please install it.")
+            
+            nbmodel_ext = next(iter(nbmodel_extensions))
+            execution_stack = nbmodel_ext._Extension__execution_stack
+            
+            # Build metadata for RTC integration if available
+            metadata = {}
+            if document_id and cell_id:
+                metadata = {
+                    "document_id": document_id,
+                    "cell_id": cell_id
+                }
+            
+            # Submit execution request
+            logger.info(f"Submitting execution request to kernel {kernel_id}")
+            request_id = execution_stack.put(kernel_id, code, metadata)
+            logger.info(f"Execution request {request_id} submitted")
+            
+            # Poll for results
+            start_time = asyncio.get_event_loop().time()
+            while True:
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed > timeout:
+                    raise TimeoutError(f"Execution timed out after {timeout} seconds")
+                
+                # Get result (returns None if pending, result dict if complete)
+                result = execution_stack.get(kernel_id, request_id)
+                
+                if result is not None:
+                    # Execution complete
+                    logger.info(f"Execution request {request_id} completed")
+                    
+                    # Check for errors
+                    if "error" in result:
+                        error_info = result["error"]
+                        logger.error(f"Execution error: {error_info}")
+                        return [f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"]
+                    
+                    # Check for pending input (shouldn't happen with allow_stdin=False)
+                    if "input_request" in result:
+                        logger.warning("Unexpected input request during execution")
+                        return ["[ERROR: Unexpected input request]"]
+                    
+                    # Extract outputs
+                    outputs = result.get("outputs", [])
+                    if outputs:
+                        formatted = safe_extract_outputs(outputs)
+                        logger.info(f"Execution completed with {len(formatted)} outputs")
+                        return formatted
+                    else:
+                        logger.info("Execution completed with no outputs")
+                        return ["[No output generated]"]
+                
+                # Still pending, wait before next poll
+                await asyncio.sleep(poll_interval)
+                
+        except Exception as e:
+            logger.error(f"Error executing via ExecutionStack: {e}", exc_info=True)
+            return [f"[ERROR: {str(e)}]"]
+    
     async def _execute_via_kernel_manager(
         self,
         kernel_manager,
@@ -64,7 +155,7 @@ Returns:
         timeout: int,
         safe_extract_outputs_fn
     ) -> list[Union[str, ImageContent]]:
-        """Execute code using kernel_manager (JUPYTER_SERVER mode)."""
+        """Execute code using kernel_manager (JUPYTER_SERVER mode - FALLBACK)."""
         try:
             # Get the kernel
             lkm = kernel_manager.pinned_superclass.get_kernel(kernel_manager, kernel_id)
@@ -224,18 +315,36 @@ Returns:
             else:
                 ydoc.ycells.insert(actual_index, ycell)
             
-            # Execute the cell
-            return await self._execute_via_kernel_manager(
-                kernel_manager, kernel_id, cell_source, 300, safe_extract_outputs_fn
+            # Get the inserted cell's ID for RTC metadata
+            inserted_cell_id = ycell.get("id")
+            
+            # Build document_id for RTC (format: json:notebook:<file_id>)
+            document_id = f"json:notebook:{file_id}"
+            
+            # Execute the cell using ExecutionStack with RTC metadata
+            # This will automatically update the cell outputs in the YDoc
+            return await self._execute_via_execution_stack(
+                serverapp, kernel_id, cell_source, 
+                document_id=document_id, 
+                cell_id=inserted_cell_id,
+                timeout=300
             )
         else:
             # YDoc not available - use file operations + direct kernel execution
             # This path is used when notebook is not open in JupyterLab but we still have kernel access
-            logger.info("YDoc not available, using file operations + kernel execution fallback")
+            logger.info("YDoc not available, using file operations + ExecutionStack execution fallback")
             
             # Insert cell using file operations
             from jupyter_mcp_server.tools.insert_cell_tool import InsertCellTool
             insert_tool = InsertCellTool()
+            
+            # Call the file-based insertion method directly
+            await insert_tool._insert_cell_file(notebook_path, cell_index, "code", cell_source)
+            
+            # Then execute directly via ExecutionStack (without RTC metadata since notebook not open)
+            return await self._execute_via_execution_stack(
+                serverapp, kernel_id, cell_source, timeout=300
+            )
             
             # Call the file-based insertion method directly
             await insert_tool._insert_cell_file(notebook_path, cell_index, "code", cell_source)

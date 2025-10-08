@@ -354,12 +354,20 @@ display(IPythonImage(buffer.getvalue()))
                     has_image_output = True
                     break
             elif isinstance(output, dict):
-                # Check for ImageContent dictionary format
+                # Check for ImageContent dictionary format (from safe_extract_outputs)
                 if (output.get('type') == 'image' and 
                     'data' in output and 
                     output.get('mimeType') == 'image/png'):
                     has_image_output = True
                     logging.info(f"Found ImageContent object with {len(output['data'])} bytes of PNG data")
+                    break
+                # Check for nbformat output structure (from ExecutionStack)
+                elif (output.get('output_type') == 'display_data' and 
+                      'data' in output and 
+                      'image/png' in output['data']):
+                    has_image_output = True
+                    png_data = output['data']['image/png']
+                    logging.info(f"Found nbformat display_data with {len(png_data)} bytes of PNG data")
                     break
             elif hasattr(output, 'data') and hasattr(output, 'mimeType'):
                 # This would be an actual ImageContent object

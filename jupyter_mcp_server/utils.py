@@ -3,7 +3,7 @@
 # BSD 3-Clause License
 
 import re
-from typing import Any, Union, Tuple, Optional
+from typing import Any, Union
 from mcp.types import ImageContent
 from .config_env import ALLOW_IMG_OUTPUT
 
