@@ -127,6 +127,7 @@ start-jupyter-server-extension: ## start jupyter server with MCP extension
 	  --JupyterMCPServerExtensionApp.document_url local \
 	  --JupyterMCPServerExtensionApp.runtime_url local \
 	  --JupyterMCPServerExtensionApp.document_id notebook.ipynb \
+	  --JupyterMCPServerExtensionApp.start_new_runtime True \
 	  --ServerApp.disable_check_xsrf True \
 	  --IdentityProvider.token MY_TOKEN \
 	  --ServerApp.root_dir ./dev/content \

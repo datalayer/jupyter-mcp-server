@@ -14,7 +14,7 @@ allowing MCP clients to connect to the Jupyter Server's MCP endpoints.
 """
 
 import logging
-from traitlets import Unicode
+from traitlets import Unicode, Bool
 from jupyter_server.extension.application import ExtensionApp, ExtensionAppJinjaMixin
 from jupyter_server.utils import url_path_join
 
@@ -40,6 +40,8 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         c.JupyterMCPServerExtensionApp.document_url = "local"  # or http://...
         c.JupyterMCPServerExtensionApp.runtime_url = "local"   # or http://...
         c.JupyterMCPServerExtensionApp.document_id = "notebook.ipynb"
+        c.JupyterMCPServerExtensionApp.start_new_runtime = True  # Start new kernel
+        c.JupyterMCPServerExtensionApp.runtime_id = "kernel-id"  # Or connect to existing
     """
     
     # Extension metadata
@@ -64,6 +66,18 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         "notebook.ipynb",
         config=True,
         help='Default document ID (notebook path)'
+    )
+    
+    start_new_runtime = Bool(
+        False,
+        config=True,
+        help='Whether to start a new kernel runtime on initialization'
+    )
+    
+    runtime_id = Unicode(
+        "",
+        config=True,
+        help='Existing kernel ID to connect to (if not starting new runtime)'
     )
     
     document_token = Unicode(
@@ -98,6 +112,9 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         logger.info(f"  Document URL: {self.document_url}")
         logger.info(f"  Runtime URL: {self.runtime_url}")
         logger.info(f"  Document ID: {self.document_id}")
+        logger.info(f"  Start New Runtime: {self.start_new_runtime}")
+        if self.runtime_id:
+            logger.info(f"  Runtime ID: {self.runtime_id}")
         
         # Update the global server context
         context = get_server_context()
@@ -108,6 +125,18 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             runtime_url=self.runtime_url
         )
         
+        # Update global MCP configuration
+        from jupyter_mcp_server.config import get_config
+        config = get_config()
+        config.document_url = self.document_url
+        config.runtime_url = self.runtime_url
+        config.document_id = self.document_id
+        config.document_token = self.document_token if self.document_token else None
+        config.runtime_token = self.runtime_token if self.runtime_token else None
+        config.start_new_runtime = self.start_new_runtime
+        config.runtime_id = self.runtime_id if self.runtime_id else None
+        config.provider = self.provider
+        
         # Store configuration in settings for handlers
         self.settings.update({
             "mcp_document_url": self.document_url,
@@ -115,9 +144,26 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             "mcp_document_id": self.document_id,
             "mcp_document_token": self.document_token,
             "mcp_runtime_token": self.runtime_token,
+            "mcp_start_new_runtime": self.start_new_runtime,
+            "mcp_runtime_id": self.runtime_id,
             "mcp_provider": self.provider,
             "mcp_serverapp": self.serverapp,
         })
+        
+        # Trigger auto-enrollment if document_id is configured
+        if self.document_id and (self.start_new_runtime or self.runtime_id):
+            import asyncio
+            from jupyter_mcp_server.enroll import auto_enroll_document
+            from jupyter_mcp_server.notebook_manager import NotebookManager
+            from jupyter_mcp_server.tools import UseNotebookTool
+            
+            # Initialize notebook manager if needed
+            try:
+                # Get or create notebook manager (this will be created by server.py normally)
+                # For now, just log that we'll defer auto-enrollment to first request
+                logger.info(f"Auto-enrollment scheduled for document '{self.document_id}' on first request")
+            except Exception as e:
+                logger.warning(f"Could not schedule auto-enrollment: {e}")
         
         logger.info("Jupyter MCP Server Extension settings initialized")
     
