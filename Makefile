@@ -23,7 +23,25 @@ install:
 dev:
 	pip install ".[test,lint,typing]"
 
-test: ## run the integration tests
+test: ## run the unit tests
+	git checkout ./dev/content && \
+	TEST_MCP_SERVER=true \
+	TEST_JUPYTER_SERVER=true \
+	pytest
+
+test-mcp-server: ## run the unit tests for mcp server
+	git checkout ./dev/content && \
+	TEST_MCP_SERVER=true \
+	TEST_JUPYTER_SERVER=false \
+	pytest
+
+test-jupyter-server: ## run the unit tests for jupyter server
+	git checkout ./dev/content && \
+	TEST_MCP_SERVER=false \
+	TEST_JUPYTER_SERVER=true \
+	pytest
+
+test-integration: ## run the integration tests
 	hatch test
 
 build:
@@ -80,7 +98,7 @@ start: ## start the jupyter mcp server with streamable-http transport
 	  --runtime-token MY_TOKEN \
 	  --port 4040
 
-start-no-runtime: ## start the jupyter mcp server with streamable-http transport and no runtime
+start-empty: ## start the jupyter mcp server with streamable-http transport and no document nor runtime
 	@exec echo
 	@exec echo curl http://localhost:4040/api/healthz
 	@exec echo
@@ -89,16 +107,38 @@ start-no-runtime: ## start the jupyter mcp server with streamable-http transport
 	jupyter-mcp-server start \
 	  --transport streamable-http \
 	  --document-url http://localhost:8888 \
-	  --document-id notebook.ipynb \
 	  --document-token MY_TOKEN \
 	  --runtime-url http://localhost:8888 \
 	  --start-new-runtime false \
 	  --runtime-token MY_TOKEN \
 	  --port 4040
 
+start-jupyter-server-extension: ## start jupyter server with MCP extension
+	@exec echo
+	@exec echo 🚀 Starting Jupyter Server with MCP Extension
+	@exec echo 📍 Using local serverapp access - document_url=local, runtime_url=local
+	@exec echo
+	@exec echo 🔗 JupyterLab will be available at http://localhost:4040/lab
+	@exec echo 🔗 MCP endpoints will be available at http://localhost:4040/mcp
+	@exec echo
+	@exec echo "Test with: curl http://localhost:4040/mcp/healthz"
+	@exec echo
+	jupyter lab \
+	  --JupyterMCPServerExtensionApp.document_url local \
+	  --JupyterMCPServerExtensionApp.runtime_url local \
+	  --JupyterMCPServerExtensionApp.document_id notebook.ipynb \
+	  --JupyterMCPServerExtensionApp.start_new_runtime True \
+	  --ServerApp.disable_check_xsrf True \
+	  --IdentityProvider.token MY_TOKEN \
+	  --ServerApp.root_dir ./dev/content \
+	  --port 4040
+
 jupyterlab: ## start jupyterlab for the mcp server
 	pip uninstall -y pycrdt datalayer_pycrdt
 	pip install datalayer_pycrdt
+	@exec echo
+	@exec echo curl http://localhost:8888/lab?token=MY_TOKEN
+	@exec echo
 	jupyter lab \
 		--port 8888 \
 		--ip 0.0.0.0 \

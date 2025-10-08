@@ -9,9 +9,8 @@ This module provides centralized management for Jupyter notebooks and kernels,
 replacing the scattered global variable approach with a unified architecture.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable, Union
 from types import TracebackType
-from contextlib import asynccontextmanager
 
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from jupyter_kernel_client import KernelClient
@@ -23,14 +22,24 @@ class NotebookConnection:
     """
     Context manager for Notebook connections that handles the lifecycle
     of NbModelClient instances.
+    
+    Note: This is only used in MCP_SERVER mode with remote Jupyter servers that have RTC enabled.
+    In JUPYTER_SERVER mode (local), notebook content is accessed directly via contents_manager.
     """
     
-    def __init__(self, notebook_info: Dict[str, str]):
+    def __init__(self, notebook_info: Dict[str, str], is_local: bool = False):
         self.notebook_info = notebook_info
+        self.is_local = is_local
         self._notebook: Optional[NbModelClient] = None
     
     async def __aenter__(self) -> NbModelClient:
         """Enter context, establish notebook connection."""
+        if self.is_local:
+            raise ValueError(
+                "NotebookConnection cannot be used in local/JUPYTER_SERVER mode. "
+                "Cell operations in local mode should use contents_manager directly to read notebook JSON files."
+            )
+        
         config = get_config()
         ws_url = get_notebook_websocket_url(
             server_url=self.notebook_info.get("server_url", config.document_url),
@@ -77,7 +86,7 @@ class NotebookManager:
     def add_notebook(
         self, 
         name: str, 
-        kernel: KernelClient,
+        kernel: Union[KernelClient, Dict[str, Any]],  # Can be KernelClient or dict with kernel metadata
         server_url: Optional[str] = None,
         token: Optional[str] = None,
         path: Optional[str] = None
@@ -87,14 +96,19 @@ class NotebookManager:
         
         Args:
             name: Unique identifier for the notebook
-            kernel: Kernel client instance
-            server_url: Jupyter server URL (optional, uses config default)
+            kernel: Kernel client instance (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode)
+            server_url: Jupyter server URL (optional, uses config default). Use "local" for JUPYTER_SERVER mode.
             token: Authentication token (optional, uses config default)
             path: Notebook file path (optional, uses config default)
         """
         config = get_config()
+        
+        # Determine if this is local (JUPYTER_SERVER) mode or HTTP (MCP_SERVER) mode
+        is_local_mode = server_url == "local"
+        
         self._notebooks[name] = {
             "kernel": kernel,
+            "is_local": is_local_mode,
             "notebook_info": {
                 "server_url": server_url or config.document_url,
                 "token": token or config.document_token,
@@ -119,8 +133,13 @@ class NotebookManager:
         """
         if name in self._notebooks:
             try:
-                kernel = self._notebooks[name]["kernel"]
-                if kernel and hasattr(kernel, 'stop'):
+                notebook_data = self._notebooks[name]
+                is_local = notebook_data.get("is_local", False)
+                kernel = notebook_data["kernel"]
+                
+                # Only stop kernel if it's an HTTP KernelClient (MCP_SERVER mode)
+                # In JUPYTER_SERVER mode, kernel is just metadata, actual kernel managed elsewhere
+                if not is_local and kernel and hasattr(kernel, 'stop'):
                     kernel.stop()
             except Exception:
                 # Ignore errors during kernel cleanup
@@ -142,7 +161,7 @@ class NotebookManager:
             return True
         return False
     
-    def get_kernel(self, name: str) -> Optional[KernelClient]:
+    def get_kernel(self, name: str) -> Optional[Union[KernelClient, Dict[str, Any]]]:
         """
         Get the kernel for a specific notebook.
         
@@ -150,11 +169,44 @@ class NotebookManager:
             name: Notebook identifier
             
         Returns:
-            Kernel client or None if not found
+            Kernel client (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode), or None if not found
         """
         if name in self._notebooks:
             return self._notebooks[name]["kernel"]
         return None
+    
+    def get_kernel_id(self, name: str) -> Optional[str]:
+        """
+        Get the kernel ID for a specific notebook.
+        
+        Args:
+            name: Notebook identifier
+            
+        Returns:
+            Kernel ID string or None if not found
+        """
+        if name in self._notebooks:
+            kernel = self._notebooks[name]["kernel"]
+            # Handle both KernelClient objects and kernel metadata dicts
+            if isinstance(kernel, dict):
+                return kernel.get("id")
+            elif hasattr(kernel, 'kernel_id'):
+                return kernel.kernel_id
+        return None
+    
+    def is_local_notebook(self, name: str) -> bool:
+        """
+        Check if a notebook is using local (JUPYTER_SERVER) mode.
+        
+        Args:
+            name: Notebook identifier
+            
+        Returns:
+            True if local mode, False otherwise
+        """
+        if name in self._notebooks:
+            return self._notebooks[name].get("is_local", False)
+        return False
     
     def get_notebook_connection(self, name: str) -> NotebookConnection:
         """
@@ -198,7 +250,7 @@ class NotebookManager:
         """Check if the manager is empty (no notebooks)."""
         return len(self._notebooks) == 0
     
-    def ensure_kernel_alive(self, name: str, kernel_factory) -> KernelClient:
+    def ensure_kernel_alive(self, name: str, kernel_factory: Callable[[], KernelClient]) -> KernelClient:
         """
         Ensure a kernel is alive, create if necessary.
         
@@ -266,6 +318,18 @@ class NotebookManager:
             })
         
         return self.get_notebook_connection(current)
+    
+    def get_current_notebook_path(self) -> Optional[str]:
+        """
+        Get the file path of the currently active notebook.
+        
+        Returns:
+            Notebook file path or None if no active notebook
+        """
+        current = self._current_notebook or self._default_notebook_name
+        if current in self._notebooks:
+            return self._notebooks[current]["notebook_info"].get("path")
+        return None
     
     def list_all_notebooks(self) -> Dict[str, Dict[str, Any]]:
         """

@@ -2,6 +2,4 @@
 #
 # BSD 3-Clause License
 
-"""Jupyter MCP Server."""
-
-__version__ = "0.15.0"
+"""MCP Protocol implementation for Jupyter Server extension"""

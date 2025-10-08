@@ -21,9 +21,13 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
+    "jupyter-server-nbmodel",
     "jupyter-kernel-client>=0.7.3",
     "jupyter-nbmodel-client>=0.13.5",
     "jupyter-server-api",
+    "jupyter_server>=1.6,<3",
+    "tornado>=6.1",
+    "traitlets>=5.0",
     "mcp[cli]>=1.10.1",
     "pydantic",
     "uvicorn",
@@ -57,6 +61,16 @@ Home = "https://github.com/datalayer/jupyter-mcp-server"
 
 [tool.hatch.version]
 path = "jupyter_mcp_server/__version__.py"
+
+[tool.hatch.build]
+include = [
+  "jupyter_mcp_server/**/*.py",
+  "jupyter-config/**/*.json"
+]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"jupyter-config/jupyter_server_config.d" = "etc/jupyter/jupyter_server_config.d"
+"jupyter-config/jupyter_notebook_config.d" = "etc/jupyter/jupyter_notebook_config.d"
 
 [tool.pytest.ini_options]
 filterwarnings = [

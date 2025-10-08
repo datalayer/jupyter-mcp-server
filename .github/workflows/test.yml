@@ -36,4 +36,5 @@ jobs:
 
       - name: Test the extension
         run: |
-          pytest .
+          make test-mcp-server
+          make test-jupyter-server
