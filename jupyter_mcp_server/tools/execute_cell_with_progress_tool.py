@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Union, List
 from mcp.types import ImageContent
 
-from ._base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import get_current_notebook_context, execute_via_execution_stack, safe_extract_outputs
 
 logger = logging.getLogger(__name__)
@@ -271,12 +271,8 @@ class ExecuteCellWithProgressTool(BaseTool):
             await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
             
             async with notebook_manager.get_current_connection() as notebook:
-                ydoc = notebook._doc
-
-                if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                    raise ValueError(
-                        f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
-                    )
+                if cell_index < 0 or cell_index >= len(notebook):
+                    raise ValueError(f"Cell index {cell_index} out of range")
 
                 logger.info(f"Starting execution of cell {cell_index} with {timeout_seconds}s timeout")
                 
@@ -285,8 +281,7 @@ class ExecuteCellWithProgressTool(BaseTool):
                     await execute_cell_with_forced_sync_fn(notebook, cell_index, kernel, timeout_seconds)
 
                     # Get final outputs
-                    ydoc = notebook._doc
-                    outputs = ydoc._ycells[cell_index]["outputs"]
+                    outputs = notebook[cell_index].get("outputs", [])
                     result = safe_extract_outputs_fn(outputs)
                     
                     logger.info(f"Cell {cell_index} completed successfully with {len(result)} outputs")
@@ -303,7 +298,7 @@ class ExecuteCellWithProgressTool(BaseTool):
                     
                     # Return partial outputs if available
                     try:
-                        outputs = ydoc._ycells[cell_index].get("outputs", [])
+                        outputs = notebook[cell_index].get("outputs", [])
                         partial_outputs = safe_extract_outputs_fn(outputs)
                         partial_outputs.append(f"[TIMEOUT ERROR: Execution exceeded {timeout_seconds} seconds]")
                         return partial_outputs

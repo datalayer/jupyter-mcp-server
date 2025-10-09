@@ -8,8 +8,9 @@ from typing import Any, Optional
 from jupyter_server_api import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import format_cell_list
 from jupyter_mcp_server.config import get_config
+from jupyter_nbmodel_client import NbModelClient
+from jupyter_mcp_server.utils import normalize_cell_source, format_TSV
 
 
 class ListCellsTool(BaseTool):
@@ -42,8 +43,8 @@ Returns:
         cells = notebook_content.get('cells', [])
         
         # Format the cells into a table
-        lines = ["Index\tType\tCount\tFirst Line"]
-        lines.append("-" * 80)
+        headers = ["Index", "Type", "Count", "First Line"]
+        rows = []
         
         for idx, cell in enumerate(cells):
             cell_type = cell.get('cell_type', 'unknown')
@@ -53,16 +54,46 @@ Returns:
             source = cell.get('source', '')
             if isinstance(source, list):
                 first_line = source[0] if source else ''
+                lines = len(source)
             else:
                 first_line = source.split('\n')[0] if source else ''
+                lines = len(source.split('\n'))
             
-            # Truncate first line if too long
-            if len(first_line) > 60:
-                first_line = first_line[:57] + "..."
+            if lines > 1:
+                first_line += f"...({lines - 1} lines hidden)"
             
-            lines.append(f"{idx}\t{cell_type}\t{execution_count}\t{first_line}")
+            rows.append([idx, cell_type, execution_count, first_line])
         
-        return "\n".join(lines)
+        return format_TSV(headers, rows)
+    
+    def _list_cells_websocket(self, notebook: NbModelClient) -> str:
+        """List cells using WebSocket connection (MCP_SERVER mode)."""
+        total_cells = len(notebook)
+        
+        if total_cells == 0:
+            return "Notebook is empty, no cells found."
+        
+        # Create header
+        headers = ["Index", "Type", "Count", "First Line"]
+        rows = []
+        
+        # Process each cell
+        for i in range(total_cells):
+            cell_data = notebook[i]
+            cell_type = cell_data.get("cell_type", "unknown")
+            
+            # Get execution count for code cells
+            execution_count = (cell_data.get("execution_count") or "None") if cell_type == "code" else "N/A"
+            # Get first line of source
+            source_lines = normalize_cell_source(cell_data.get("source", ""))
+            first_line = source_lines[0] if source_lines else ""
+            if len(source_lines) > 1:
+                first_line += f"...({len(source_lines) - 1} lines hidden)"
+            
+            # Add to table
+            rows.append([i, cell_type, execution_count, first_line])
+        
+        return format_TSV(headers, rows)
     
     async def execute(
         self,
@@ -117,7 +148,6 @@ Returns:
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
             async with notebook_manager.get_current_connection() as notebook:
-                ydoc = notebook._doc
-                return format_cell_list(ydoc._ycells)
+                return self._list_cells_websocket(notebook)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

@@ -160,15 +160,11 @@ Returns:
     ) -> str:
         """Overwrite cell using WebSocket connection (MCP_SERVER mode)."""
         async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
-                )
+            if cell_index < 0 or cell_index >= len(notebook):
+                raise ValueError(f"Cell index {cell_index} out of range")
             
             # Get original cell content
-            old_source_raw = ydoc._ycells[cell_index].get("source", "")
+            old_source_raw = notebook[cell_index].get("source", "")
             if isinstance(old_source_raw, list):
                 old_source = "".join(old_source_raw)
             else:

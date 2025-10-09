@@ -7,7 +7,8 @@
 from typing import Any, Optional, List, Dict
 from jupyter_server_api import JupyterServerClient
 
-from ._base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.utils import format_TSV
 
 
 class ListKernelsTool(BaseTool):
@@ -191,12 +192,13 @@ class ListKernelsTool(BaseTool):
         
         try:
             # Create TSV formatted output
-            lines = ["ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment"]
+            headers = ["ID", "Name", "Display_Name", "Language", "State", "Connections", "Last_Activity", "Environment"]
+            rows = []
             
             for kernel in kernel_list:
-                lines.append(f"{kernel['id']}\t{kernel['name']}\t{kernel['display_name']}\t{kernel['language']}\t{kernel['state']}\t{kernel['connections']}\t{kernel['last_activity']}\t{kernel['env']}")
+                rows.append([kernel['id'], kernel['name'], kernel['display_name'], kernel['language'], kernel['state'], kernel['connections'], kernel['last_activity'], kernel['env']])
             
-            return "\n".join(lines)
+            return format_TSV(headers, rows)
             
         except Exception as e:
             return f"Error formatting kernel list: {str(e)}"

@@ -253,29 +253,14 @@ Returns:
             Success message with surrounding cells info
         """
         async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-            total_cells = len(ydoc._ycells)
+            actual_index = cell_index if cell_index != -1 else len(notebook)
+            if actual_index < 0 or actual_index >= len(notebook):
+                raise ValueError(f"Cell index {cell_index} out of range")
             
-            actual_index = cell_index if cell_index != -1 else total_cells
-                
-            if actual_index < 0 or actual_index > total_cells:
-                raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {total_cells} cells. Use -1 to append at end."
-                )
-            
-            if cell_type == "code":
-                if actual_index == total_cells:
-                    notebook.add_code_cell(cell_source)
-                else:
-                    notebook.insert_code_cell(actual_index, cell_source)
-            elif cell_type == "markdown":
-                if actual_index == total_cells:
-                    notebook.add_markdown_cell(cell_source)
-                else:
-                    notebook.insert_markdown_cell(actual_index, cell_source)
+            notebook.insert_cell(actual_index, cell_source, cell_type)
             
             # Get surrounding cells info
-            new_total_cells = len(ydoc._ycells)
+            new_total_cells = len(notebook)
             surrounding_info = get_surrounding_cells_info(notebook, actual_index, new_total_cells)
             
             return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"

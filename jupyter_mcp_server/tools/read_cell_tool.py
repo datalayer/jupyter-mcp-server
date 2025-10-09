@@ -108,14 +108,10 @@ Returns:
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
             async with notebook_manager.get_current_connection() as notebook:
-                ydoc = notebook._doc
+                if cell_index < 0 or cell_index >= len(notebook):
+                    raise ValueError(f"Cell index {cell_index} out of range")
 
-                if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                    raise ValueError(
-                        f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
-                    )
-
-                cell = ydoc._ycells[cell_index]
+                cell = notebook[cell_index]
                 return CellInfo.from_cell(cell_index=cell_index, cell=cell).model_dump(exclude_none=True)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

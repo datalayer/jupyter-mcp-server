@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Optional, Union, List
 from mcp.types import ImageContent
 
-from ._base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.utils import get_current_notebook_context, execute_via_execution_stack, safe_extract_outputs
 
@@ -267,8 +267,7 @@ class ExecuteCellSimpleTimeoutTool(BaseTool):
             await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
             
             async with notebook_manager.get_current_connection() as notebook:
-                ydoc = notebook._doc
-                if cell_index < 0 or cell_index >= len(ydoc._ycells):
+                if cell_index < 0 or cell_index >= len(notebook):
                     raise ValueError(f"Cell index {cell_index} is out of range.")
 
                 # Simple execution with timeout
@@ -285,7 +284,7 @@ class ExecuteCellSimpleTimeoutTool(BaseTool):
                     return [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds]"]
 
                 # Get final outputs
-                outputs = ydoc._ycells[cell_index]["outputs"]
+                outputs = notebook[cell_index].get("outputs", [])
                 result = safe_extract_outputs_fn(outputs)
                 
                 return result

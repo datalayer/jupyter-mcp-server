@@ -8,6 +8,7 @@ from typing import Any, Optional, List
 from jupyter_server_api import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.utils import format_TSV
 
 
 class ListNotebooksTool(BaseTool):
@@ -106,8 +107,8 @@ Returns:
             return "No notebooks found in the Jupyter server."
         
         # Create TSV formatted output
-        lines = ["Path\tManaged\tName\tStatus\tCurrent"]
-        lines.append("-" * 100)
+        headers = ["Path", "Managed", "Name", "Status", "Current"]
+        rows = []
         
         # Create a set of managed notebook paths for quick lookup
         managed_paths = {info["path"] for info in managed_notebooks.values()}
@@ -128,16 +129,16 @@ Returns:
                 
                 if managed_info:
                     current_marker = "✓" if managed_info["is_current"] else ""
-                    lines.append(f"{notebook_path}\tYes\t{managed_name}\t{managed_info['kernel_status']}\t{current_marker}")
+                    rows.append([notebook_path, "Yes", managed_name, managed_info['kernel_status'], current_marker])
                 else:
-                    lines.append(f"{notebook_path}\tYes\t-\t-\t")
+                    rows.append([notebook_path, "Yes", "-", "-", ""])
             else:
-                lines.append(f"{notebook_path}\tNo\t-\t-\t")
+                rows.append([notebook_path, "No", "-", "-", ""])
         
         # Add any managed notebooks that weren't found in the server (edge case)
         for name, info in managed_notebooks.items():
             if info["path"] not in all_notebooks:
                 current_marker = "✓" if info["is_current"] else ""
-                lines.append(f"{info['path']}\tYes (not found)\t{name}\t{info['kernel_status']}\t{current_marker}")
+                rows.append([info['path'], "Yes (not found)", name, info['kernel_status'], current_marker])
         
-        return "\n".join(lines)
+        return format_TSV(headers, rows)
