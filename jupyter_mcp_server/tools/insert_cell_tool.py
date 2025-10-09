@@ -254,7 +254,7 @@ Returns:
         """
         async with notebook_manager.get_current_connection() as notebook:
             actual_index = cell_index if cell_index != -1 else len(notebook)
-            if actual_index < 0 or actual_index >= len(notebook):
+            if actual_index < 0 or actual_index > len(notebook):
                 raise ValueError(f"Cell index {cell_index} out of range")
             
             notebook.insert_cell(actual_index, cell_source, cell_type)
