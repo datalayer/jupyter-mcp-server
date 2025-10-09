@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Union, List
 from mcp.types import ImageContent
 
-from ._base import BaseTool, ServerMode
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.utils import get_current_notebook_context, execute_via_execution_stack, safe_extract_outputs
 
@@ -251,9 +251,8 @@ class ExecuteCellStreamingTool(BaseTool):
             outputs_log = []
             
             async with notebook_manager.get_current_connection() as notebook:
-                ydoc = notebook._doc
-                if cell_index < 0 or cell_index >= len(ydoc._ycells):
-                    raise ValueError(f"Cell index {cell_index} is out of range.")
+                if cell_index < 0 or cell_index >= len(notebook):
+                    raise ValueError(f"Cell index {cell_index} out of range")
 
                 # Start execution in background
                 execution_task = asyncio.create_task(
@@ -280,7 +279,7 @@ class ExecuteCellStreamingTool(BaseTool):
                     
                     # Check for new outputs
                     try:
-                        current_outputs = ydoc._ycells[cell_index].get("outputs", [])
+                        current_outputs = notebook[cell_index].get("outputs", [])
                         if len(current_outputs) > last_output_count:
                             new_outputs = current_outputs[last_output_count:]
                             for output in new_outputs:

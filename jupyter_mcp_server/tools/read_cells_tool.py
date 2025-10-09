@@ -96,11 +96,11 @@ Returns:
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
             async with notebook_manager.get_current_connection() as notebook:
-                ydoc = notebook._doc
                 cells = []
+                total_cells = len(notebook)
 
-                for i, cell in enumerate(ydoc._ycells):
-                    cells.append(CellInfo.from_cell(i, cell).model_dump(exclude_none=True))
+                for i in range(total_cells):
+                    cells.append(CellInfo.from_cell(i, notebook[i]).model_dump(exclude_none=True))
                 
                 return cells
         else:

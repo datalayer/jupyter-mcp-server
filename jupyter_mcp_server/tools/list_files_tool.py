@@ -7,8 +7,9 @@
 from typing import Any, Optional, List, Dict
 from jupyter_server_api import JupyterServerClient
 
-from ._base import BaseTool, ServerMode
-from ..config import get_config
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.utils import format_TSV
 
 
 class ListFilesTool(BaseTool):
@@ -123,8 +124,9 @@ class ListFilesTool(BaseTool):
         all_files.sort(key=lambda x: x['path'])
         
         # Create TSV formatted output
-        lines = ["Path\tType\tSize\tLast_Modified"]
+        headers = ["Path", "Type", "Size", "Last_Modified"]
+        rows = []
         for file_info in all_files:
-            lines.append(f"{file_info['path']}\t{file_info['type']}\t{file_info['size']}\t{file_info['last_modified']}")
+            rows.append([file_info['path'], file_info['type'], file_info['size'], file_info['last_modified']])
         
-        return "\n".join(lines)
+        return format_TSV(headers, rows)

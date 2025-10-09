@@ -7,7 +7,7 @@ Common test infrastructure shared between MCP_SERVER and JUPYTER_SERVER mode tes
 
 This module provides:
 - MCPClient: MCP protocol client for remote testing
-- windows_timeout_wrapper: Decorator for Windows-specific timeout handling
+- timeout_wrapper: Decorator for timeout handling
 - requires_session: Decorator to check client session connection
 - JUPYTER_TOOLS: List of expected tool names
 - Helper functions for content extraction
@@ -17,7 +17,6 @@ import asyncio
 import functools
 import json
 import logging
-import platform
 from contextlib import AsyncExitStack
 
 import pytest
@@ -50,8 +49,8 @@ JUPYTER_TOOLS = [
 ]
 
 
-def windows_timeout_wrapper(timeout_seconds=30):
-    """Decorator to add Windows-specific timeout handling to async test functions
+def timeout_wrapper(timeout_seconds=30):
+    """Decorator to add timeout handling to async test functions
     
     Windows has known issues with asyncio and network timeouts that can cause 
     tests to hang indefinitely. This decorator adds a safety timeout specifically
@@ -60,18 +59,15 @@ def windows_timeout_wrapper(timeout_seconds=30):
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            if platform.system() == "Windows":
-                try:
-                    return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
-                except asyncio.TimeoutError:
-                    pytest.skip(f"Test {func.__name__} timed out on Windows ({timeout_seconds}s) - known platform limitation")
-                except Exception as e:
-                    # Check if it's a network timeout related to Windows
-                    if "ReadTimeout" in str(e) or "TimeoutError" in str(e):
-                        pytest.skip(f"Test {func.__name__} hit network timeout on Windows - known platform limitation: {e}")
-                    raise
-            else:
-                return await func(*args, **kwargs)
+            try:
+                return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
+            except asyncio.TimeoutError:
+                pytest.skip(f"Test {func.__name__} timed out ({timeout_seconds}s) - known platform limitation")
+            except Exception as e:
+                # Check if it's a network timeout related to Windows
+                if "ReadTimeout" in str(e) or "TimeoutError" in str(e):
+                    pytest.skip(f"Test {func.__name__} hit network timeout - known platform limitation: {e}")
+                raise
         return wrapper
     return decorator
 

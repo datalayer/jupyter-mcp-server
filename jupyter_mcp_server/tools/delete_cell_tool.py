@@ -164,19 +164,13 @@ Returns:
             Success message
         """
         async with notebook_manager.get_current_connection() as notebook:
-            ydoc = notebook._doc
-
-            if cell_index < 0 or cell_index >= len(ydoc._ycells):
+            if cell_index < 0 or cell_index >= len(notebook):
                 raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc._ycells)} cells."
+                    f"Cell index {cell_index} is out of range. Notebook has {len(notebook)} cells."
                 )
 
-            cell_type = ydoc._ycells[cell_index].get("cell_type", "unknown")
-
-            # Delete the cell
-            del ydoc._ycells[cell_index]
-
-            return f"Cell {cell_index} ({cell_type}) deleted successfully."
+            deleted_content = notebook.delete_cell(cell_index)
+            return f"Cell {cell_index} ({deleted_content['cell_type']}) deleted successfully."
     
     async def execute(
         self,

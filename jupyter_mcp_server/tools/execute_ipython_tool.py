@@ -10,8 +10,8 @@ from typing import Union
 
 from mcp.types import ImageContent
 
-from ._base import BaseTool, ServerMode
-from ..notebook_manager import NotebookManager
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.notebook_manager import NotebookManager
 
 logger = logging.getLogger(__name__)
 

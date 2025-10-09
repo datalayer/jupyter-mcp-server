@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "jupyter-server-nbmodel",
     "jupyter-kernel-client>=0.7.3",
-    "jupyter-nbmodel-client>=0.13.5",
+    "jupyter-nbmodel-client>=0.14.2",
     "jupyter-server-api",
     "jupyter_server>=1.6,<3",
     "tornado>=6.1",

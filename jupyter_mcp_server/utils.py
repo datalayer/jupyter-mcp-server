@@ -172,50 +172,6 @@ def safe_extract_outputs(outputs: Any) -> list[Union[str, ImageContent]]:
     
     return result
 
-
-def format_cell_list(ydoc_cells: Any) -> str:
-    """
-    Format notebook cells into a readable table format.
-    
-    Args:
-        ydoc_cells: The cells from the notebook's Y document
-        
-    Returns:
-        str: Formatted table string with cell information
-    """
-    total_cells = len(ydoc_cells)
-    
-    if total_cells == 0:
-        return "Notebook is empty, no cells found."
-    
-    # Create header
-    lines = ["Index\tType\tCount\tFirst Line"]
-    lines.append("-" * 60)  # Separator line
-    
-    # Process each cell
-    for i, cell_data in enumerate(ydoc_cells):
-        cell_type = cell_data.get("cell_type", "unknown")
-        
-        # Get execution count for code cells
-        if cell_type == "code":
-            execution_count = cell_data.get("execution_count") or "None"
-        else:
-            execution_count = "N/A"
-        
-        # Get first line of source
-        source_lines = normalize_cell_source(cell_data.get("source", ""))
-        first_line = source_lines[0] if source_lines else ""
-        
-        # Get just the first line and truncate if too long
-        first_line = first_line.split('\n')[0]
-        if len(first_line) > 50:
-            first_line = first_line[:47] + "..."
-        
-        # Add to table
-        lines.append(f"{i}\t{cell_type}\t{execution_count}\t{first_line}")
-    
-    return "\n".join(lines)
-
 def normalize_cell_source(source: Any) -> list[str]:
     """
     Normalize cell source to a list of strings (lines).
@@ -256,6 +212,30 @@ def normalize_cell_source(source: Any) -> list[str]:
     # Fallback: convert to string and split
     return str(source).splitlines(keepends=True)
 
+def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
+    """
+    Format data as TSV (Tab-Separated Values)
+    
+    Args:
+        headers: The list of headers
+        rows: The list of data rows, each row is a list of strings
+    
+    Returns:
+        The formatted TSV string
+    """
+    if not headers or not rows:
+        return "No data to display"
+    
+    result = []
+    
+    header_row = "\t".join(headers)
+    result.append(header_row)
+    
+    for row in rows:
+        data_row = "\t".join(str(cell) for cell in row)
+        result.append(data_row)
+    
+    return "\n".join(result)
 
 def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> str:
     """Get information about surrounding cells for context."""
@@ -265,38 +245,25 @@ def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> s
     if total_cells == 0:
         return "Notebook is now empty, no cells remaining"
     
-    lines = ["Index\tType\tCount\tFirst Line"]
-    lines.append("-" * 60)
+    headers = ["Index", "Type", "Count", "First Line"]
+    rows = []
     
     for i in range(start_index, end_index):
         if i >= total_cells:
             break
             
-        ydoc = notebook._doc
-        cell_data = ydoc._ycells[i]
+        cell_data = notebook[i]
         cell_type = cell_data.get("cell_type", "unknown")
         
-        # Get execution count for code cells
-        if cell_type == "code":
-            execution_count = cell_data.get("execution_count") or "None"
-        else:
-            execution_count = "N/A"
-        
+        execution_count = (cell_data.get("execution_count") or "None") if cell_type == "code" else "N/A"
         # Get first line of source
         source_lines = normalize_cell_source(cell_data.get("source", ""))
         first_line = source_lines[0] if source_lines else ""
-        
-        # Get just the first line and truncate if too long
-        first_line = first_line.split('\n')[0]
-        if len(first_line) > 50:
-            first_line = first_line[:47] + "..."
-        
         # Mark the target cell
-        marker = " ← inserted" if i == cell_index else ""
-        
-        lines.append(f"{i}\t{cell_type}\t{execution_count}\t{first_line}{marker}")
+        marker = " <-- NEW" if i == cell_index else ""
+        rows.append([i, cell_type, execution_count, first_line+marker])
     
-    return "\n".join(lines)
+    return format_TSV(headers, rows)
 
 
 ###############################################################################
