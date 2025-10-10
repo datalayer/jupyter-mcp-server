@@ -1,0 +1,48 @@
+# As a Jupyter Server Extension
+
+## 1. Start JupyterLab and the MCP Server
+
+### Environment setup
+
+Make sure you have the following packages installed in your environment. The collaboration package is needed as the modifications made on the notebook can be seen thanks to [Jupyter Real Time Collaboration](https://jupyterlab.readthedocs.io/en/stable/user/rtc.html).
+
+```bash
+pip install "jupyter-mcp-server>=0.15.0" "jupyterlab==4.4.1" "jupyter-collaboration==4.0.2" "ipykernel"
+pip uninstall -y pycrdt datalayer_pycrdt
+pip install datalayer_pycrdt==0.12.17
+```
+
+### JupyterLab and MCP start
+
+Then, start JupyterLab with the following command.
+
+```bash
+jupyter lab \
+	  --JupyterMCPServerExtensionApp.document_url local \
+	  --JupyterMCPServerExtensionApp.runtime_url local \
+	  --JupyterMCPServerExtensionApp.document_id notebook.ipynb \
+	  --JupyterMCPServerExtensionApp.start_new_runtime True \
+	  --ServerApp.disable_check_xsrf True \
+	  --IdentityProvider.token MY_TOKEN \
+	  --ServerApp.root_dir ./dev/content \
+	  --port 4040
+  ```
+
+You can also run `start-jupyter-server-extension` if you cloned the repository.
+
+This will start JupyterLab at [http://127.0.0.1:4040](http://127.0.0.1:4040) and the MCP server will be started in the same process.
+
+## 2. Configure your MCP Client
+
+Use the following configuration for you MCP client to connect to a running Jupyter MCP Server.
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+        "command": "npx",
+        "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
+    }
+  }
+}
+```
