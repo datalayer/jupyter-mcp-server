@@ -36,7 +36,7 @@ For JupyterHub:
 
 ## 2. Setup Jupyter MCP Server
 
-Use the following configuration file to set up the Jupyter MCP Server for your preferred MCP client. Note that the configuration is dependent on the operating system you are using.
+You can choose between two deployment methods: **uvx** (lightweight and faster, recommended for first try) or **Docker** (recommended for production).
 
 :::important
 
@@ -44,13 +44,50 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
 
 - In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and are actually the Jupyter Token.
 
-- The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.  
+- The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.
   - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
   - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
 
 - More environment variables can be set, refer to the [server configuration](/configure) for more details. If not specified, the server will use the default values.
 
 :::
+
+### Using UVX (Quick Start)
+
+Make sure you have `uv` installed. You can install it via pip:
+
+```bash
+pip install uv
+uv --version
+# should be 0.6.14 or higher
+```
+See more details on [uv installation](https://docs.astral.sh/uv/getting-started/installation/).
+
+Use the following configuration file to set up the Jupyter MCP Server for your preferred MCP client.
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server"],
+      "env": {
+        "DOCUMENT_URL": "http://localhost:8888",
+        "DOCUMENT_TOKEN": "MY_TOKEN",
+        "DOCUMENT_ID": "notebook.ipynb",
+        "RUNTIME_URL": "http://localhost:8888",
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
+      }
+    }
+  }
+}
+```
+
+### Using Docker (Production)
+
+Use the following configuration file to set up the Jupyter MCP Server for your preferred MCP client. Note that the configuration is dependent on the operating system you are using.
+
 
 #### For MacOS and Windows
 

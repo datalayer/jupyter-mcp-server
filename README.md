@@ -38,7 +38,7 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 
 ## 🏁 Getting Started
 
-For comprehensive setup instructions—including `Streamable HTTP` transport and advanced configuration—check out [our documentation](https://jupyter-mcp-server.datalayer.tech/). Or, get started quickly with `JupyterLab` and `stdio` transport here below.
+For comprehensive setup instructions—including `Streamable HTTP` transport, running as a Jupyter Server extension and advanced configuration—check out [our documentation](https://jupyter-mcp-server.datalayer.tech/). Or, get started quickly with `JupyterLab` and `STDIO` transport here below.
 
 ### 1. Set Up Your Environment
 
@@ -61,26 +61,13 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 > - Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
 > - Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 
-
 ### 3. Configure Your Preferred MCP Client
-
-> [!TIP]
->
-> 1. Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
->
-> 2. In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and is actually the Jupyter Token.
->
-> 3. The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.  
-> 
-> - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
-> - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
-> 
 
 You can choose between two deployment methods: **uvx** (lightweight and faster, recommended for first try) or **Docker** (recommended for production).
 
 <details>
 
-<summary>using uvx (Quick Start)</summary>
+<summary><b>Using uvx (Quick Start)</b></summary>
 
 ```bash
 pip install uv
@@ -88,7 +75,7 @@ uv --version
 # should be 0.6.14 or higher
 ```
 
-see more details on [uv installation](https://docs.astral.sh/uv/getting-started/installation/)
+See more details on [uv installation](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```json
 {
@@ -111,10 +98,9 @@ see more details on [uv installation](https://docs.astral.sh/uv/getting-started/
 
 </details>
 
-
 <details>
 
-<summary>using Docker (Production)</summary>
+<summary><b> Using Docker (Production)</b></summary>
 
 **MacOS and Windows**
 
@@ -178,6 +164,17 @@ see more details on [uv installation](https://docs.astral.sh/uv/getting-started/
 ```
 
 </details>
+
+> [!TIP]
+>
+> 1. Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
+>
+> 1. In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and is actually the Jupyter Token.
+>
+> 1. The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.
+>
+> - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
+> - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
 

@@ -1,4 +1,4 @@
-# Streamable HTTP Transport
+# As a Standalone Server
 
 ## 1. Start JupyterLab
 
@@ -38,25 +38,36 @@ For JupyterHub:
 
 Jupyter MCP Server also supports streamable HTTP transport, which allows you to connect to the Jupyter MCP Server using a URL. To start the server, you can either use `python` or `docker`. The server will listen on port `4040`, you can access it via http://localhost:4040.
 
-#### 1. Run the Jupyter MCP Server
+### Run the Jupyter MCP Server
 
-##### Run with Python
+#### Run with Python
 
 Clone the repository and use `pip install -e .` or just install the `jupyter-mcp-server package` from PyPI with `pip install jupyter-mcp-server`.
 
-Then, you can start JupyterLab and Jupyter MCP Server with the following commands.
+Then, you can start Jupyter MCP Server with the following commands.
 
 ```bash
-make jupyterlab
+# make start
+jupyter-mcp-server start \
+	  --transport streamable-http \
+	  --document-url http://localhost:8888 \
+	  --document-id notebook.ipynb \
+	  --document-token MY_TOKEN \
+	  --runtime-url http://localhost:8888 \
+	  --start-new-runtime true \
+	  --runtime-token MY_TOKEN \
+	  --port 4040
 ```
 
-```bash
-make start-streamable-http
-```
+#### Run with Docker
 
-###### Run with Docker
+:::note
 
-You can also run the Jupyter MCP Server using Docker. Use the following command to start the server on MacOS.
+  You can set the `DOCUMENT_URL` (JupyterLab Server URL), `RUNTIME_TOKEN`, and `DOCUMENT_ID` environment variables to configure the server with the `-e` option in the `docker run` command. If not set, the defaults will be used. Refer to the [server configuration](/configure) for more details on the available environment variables and their defaults.
+
+:::
+
+You can also run the Jupyter MCP Server using Docker. Use the following command to start the server on **MacOS**.
 
 ```bash
 docker run \
@@ -66,13 +77,7 @@ docker run \
   --transport streamable-http
 ```
 
-:::note
-
-  You can set the `DOCUMENT_URL` (JupyterLab Server URL), `RUNTIME_TOKEN`, and `DOCUMENT_ID` environment variables to configure the server with the `-e` option in the `docker run` command. If not set, the defaults will be used. Refer to the [server configuration](/configure) for more details on the available environment variables and their defaults.
-
-:::
-
-Use the following command to start the server on Linux.
+Use the following command to start the server on **Linux**.
 
 ```bash
 docker run \
@@ -95,7 +100,7 @@ npx -y @smithery/cli install @datalayer/jupyter-mcp-server --client claude
 
 -->
 
-#### 2. Configure your MCP Client
+### Configure your MCP Client
 
 Use the following configuration for you MCP client to connect to a running Jupyter MCP Server.
 
