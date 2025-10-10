@@ -23,7 +23,7 @@ class JupyterMCPConfig(BaseModel):
     
     # Document configuration
     document_url: str = Field(default="http://localhost:8888", description="The document URL to use, or 'local' for direct serverapp access")
-    document_id: str = Field(default="notebook.ipynb", description="The document id to use")
+    document_id: Optional[str] = Field(default=None, description="The document id to use. Optional - if omitted, can list and select notebooks interactively")
     document_token: Optional[str] = Field(default=None, description="The document token to use for authentication")
     
     # Server configuration
@@ -67,12 +67,12 @@ def set_config(**kwargs) -> JupyterMCPConfig:
         return isinstance(value, str) and value.lower() in ("none", "null", "")
     
     # Filter out string "None" values and let defaults be used instead
-    # For optional fields (tokens, runtime_id), convert to actual None
+    # For optional fields (tokens, runtime_id, document_id), convert to actual None
     normalized_kwargs = {}
     for key, value in kwargs.items():
         if should_skip(value):
             # For optional fields, set to None; for required fields, skip (use default)
-            if key in ("runtime_token", "document_token", "runtime_id"):
+            if key in ("runtime_token", "document_token", "runtime_id", "document_id"):
                 normalized_kwargs[key] = None
             # For required string fields like runtime_url, document_url, skip the key
             # to let the default value be used

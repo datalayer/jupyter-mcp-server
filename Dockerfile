@@ -7,7 +7,8 @@ FROM python:3.10-slim
 WORKDIR /app
 
 COPY pyproject.toml LICENSE README.md ./
-COPY jupyter_mcp_server/* jupyter_mcp_server/
+COPY jupyter_mcp_server/ jupyter_mcp_server/
+COPY jupyter-config/ jupyter-config/
 
 RUN pip install --no-cache-dir -e . && \
     pip uninstall -y pycrdt datalayer_pycrdt && \
