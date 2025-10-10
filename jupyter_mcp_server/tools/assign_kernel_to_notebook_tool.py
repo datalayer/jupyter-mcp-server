@@ -76,7 +76,8 @@ Returns:
             if mode == ServerMode.MCP_SERVER and server_client is not None:
                 # Check notebook exists using HTTP API
                 try:
-                    server_client.contents.get_file(notebook_path)
+                    # FIXED: contents.get_file -> contents.get
+                    server_client.contents.get(notebook_path)
                 except NotFoundError:
                     return f"Error: Notebook '{notebook_path}' not found on Jupyter server"
             elif mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:

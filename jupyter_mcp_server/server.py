@@ -942,62 +942,205 @@ async def get_registered_tools():
 # Commands.
 
 
-@click.group()
-def server():
-    """Manages Jupyter MCP Server."""
-    pass
+# Shared options decorator to reduce code duplication
+def _common_options(f):
+    """Decorator that adds common start options to a command."""
+    options = [
+        click.option(
+            "--provider",
+            envvar="PROVIDER",
+            type=click.Choice(["jupyter", "datalayer"]),
+            default="jupyter",
+            help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
+        ),
+        click.option(
+            "--runtime-url",
+            envvar="RUNTIME_URL",
+            type=click.STRING,
+            default="http://localhost:8888",
+            help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.",
+        ),
+        click.option(
+            "--runtime-id",
+            envvar="RUNTIME_ID",
+            type=click.STRING,
+            default=None,
+            help="The kernel ID to use. If not provided, a new kernel should be started.",
+        ),
+        click.option(
+            "--runtime-token",
+            envvar="RUNTIME_TOKEN",
+            type=click.STRING,
+            default=None,
+            help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+        ),
+        click.option(
+            "--document-url",
+            envvar="DOCUMENT_URL",
+            type=click.STRING,
+            default="http://localhost:8888",
+            help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
+        ),
+        click.option(
+            "--document-id",
+            envvar="DOCUMENT_ID",
+            type=click.STRING,
+            default=None,
+            help="The document id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path. Optional - if omitted, you can list and select notebooks interactively.",
+        ),
+        click.option(
+            "--document-token",
+            envvar="DOCUMENT_TOKEN",
+            type=click.STRING,
+            default=None,
+            help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+        )
+    ]
+    # Apply decorators in reverse order
+    for option in reversed(options):
+        f = option(f)
+    return f
+
+def _do_start(
+    transport: str,
+    start_new_runtime: bool,
+    runtime_url: str,
+    runtime_id: str,
+    runtime_token: str,
+    document_url: str,
+    document_id: str,
+    document_token: str,
+    port: int,
+    provider: str,
+):
+    """Internal function to execute the start logic."""
+    
+    # Log the received configuration for diagnostics
+    # Note: set_config() will automatically normalize string "None" values
+    logger.info(
+        f"Start command received - runtime_url: {repr(runtime_url)}, "
+        f"document_url: {repr(document_url)}, provider: {provider}, "
+        f"transport: {transport}"
+    )
+
+    # Set configuration using the singleton
+    # String "None" values will be automatically normalized by set_config()
+    config = set_config(
+        transport=transport,
+        provider=provider,
+        runtime_url=runtime_url,
+        start_new_runtime=start_new_runtime,
+        runtime_id=runtime_id,
+        runtime_token=runtime_token,
+        document_url=document_url,
+        document_id=document_id,
+        document_token=document_token,
+        port=port
+    )
+    
+    # Reset ServerContext to pick up new configuration
+    ServerContext.reset()
+
+    # Determine startup behavior based on configuration
+    if config.document_id:
+        # If document_id is provided, auto-enroll the notebook
+        # Kernel creation depends on start_new_runtime and runtime_id flags
+        try:
+            import asyncio
+            # Run the async enrollment in the event loop
+            asyncio.run(__auto_enroll_document())
+        except Exception as e:
+            logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
+            # Fallback to legacy kernel-only mode if enrollment fails
+            if config.start_new_runtime or config.runtime_id:
+                try:
+                    __start_kernel()
+                except Exception as e2:
+                    logger.error(f"Failed to start kernel on startup: {e2}")
+    elif config.start_new_runtime or config.runtime_id:
+        # If no document_id but start_new_runtime/runtime_id is set, just create kernel
+        # This is for backward compatibility - kernel without managed notebook
+        try:
+            __start_kernel()
+        except Exception as e:
+            logger.error(f"Failed to start kernel on startup: {e}")
+    # else: No startup action - user must manually enroll notebooks or create kernels
+
+    logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
+
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+    elif transport == "streamable-http":
+        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=port)  # noqa: S104
+    else:
+        raise Exception("Transport should be `stdio` or `streamable-http`.")
+
+
+@click.group(invoke_without_command=True)
+@_common_options
+@click.option(
+    "--transport",
+    envvar="TRANSPORT",
+    type=click.Choice(["stdio", "streamable-http"]),
+    default="stdio",
+    help="The transport to use for the MCP server. Defaults to 'stdio'.",
+)
+@click.option(
+    "--start-new-runtime",
+    envvar="START_NEW_RUNTIME",
+    type=click.BOOL,
+    default=True,
+    help="Start a new runtime or use an existing one.",
+)
+@click.option(
+    "--port",
+    envvar="PORT",
+    type=click.INT,
+    default=4040,
+    help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.",
+)
+@click.pass_context
+def server(
+    ctx,
+    transport: str,
+    start_new_runtime: bool,
+    runtime_url: str,
+    runtime_id: str,
+    runtime_token: str,
+    document_url: str,
+    document_id: str,
+    document_token: str,
+    port: int,
+    provider: str,
+):
+    """Manages Jupyter MCP Server.
+    
+    When invoked without subcommands, starts the MCP server directly.
+    This allows for quick startup with: uvx jupyter-mcp-server
+    
+    Subcommands (start, connect, stop) are still available for advanced use cases.
+    """
+    # If a subcommand is invoked, let it handle the execution
+    if ctx.invoked_subcommand is not None:
+        return
+    
+    # No subcommand provided - execute the default start behavior
+    _do_start(
+        transport=transport,
+        start_new_runtime=start_new_runtime,
+        runtime_url=runtime_url,
+        runtime_id=runtime_id,
+        runtime_token=runtime_token,
+        document_url=document_url,
+        document_id=document_id,
+        document_token=document_token,
+        port=port,
+        provider=provider,
+    )
 
 
 @server.command("connect")
-@click.option(
-    "--provider",
-    envvar="PROVIDER",
-    type=click.Choice(["jupyter", "datalayer"]),
-    default="jupyter",
-    help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
-)
-@click.option(
-    "--runtime-url",
-    envvar="RUNTIME_URL",
-    type=click.STRING,
-    default="http://localhost:8888",
-    help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.",
-)
-@click.option(
-    "--runtime-id",
-    envvar="RUNTIME_ID",
-    type=click.STRING,
-    default=None,
-    help="The kernel ID to use. If not provided, a new kernel should be started.",
-)
-@click.option(
-    "--runtime-token",
-    envvar="RUNTIME_TOKEN",
-    type=click.STRING,
-    default=None,
-    help="The runtime token to use for authentication with the provider.  For the jupyter provider, this is the jupyter token. For the datalayer provider, this is the datalayer token. If not provided, the provider should accept anonymous requests.",
-)
-@click.option(
-    "--document-url",
-    envvar="DOCUMENT_URL",
-    type=click.STRING,
-    default="http://localhost:8888",
-    help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
-)
-@click.option(
-    "--document-id",
-    envvar="DOCUMENT_ID",
-    type=click.STRING,
-    default="notebook.ipynb",
-    help="The document id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.",
-)
-@click.option(
-    "--document-token",
-    envvar="DOCUMENT_TOKEN",
-    type=click.STRING,
-    default=None,
-    help="The document token to use for authentication with the provider. For the jupyter provider, this is the jupyter token. For the datalayer provider, this is the datalayer token. If not provided, the provider should accept anonymous requests.",
-)
+@_common_options
 @click.option(
     "--jupyter-mcp-server-url",
     envvar="JUPYTER_MCP_SERVER_URL",
@@ -1067,6 +1210,7 @@ def stop_command(jupyter_mcp_server_url: str):
 
 
 @server.command("start")
+@_common_options
 @click.option(
     "--transport",
     envvar="TRANSPORT",
@@ -1075,60 +1219,11 @@ def stop_command(jupyter_mcp_server_url: str):
     help="The transport to use for the MCP server. Defaults to 'stdio'.",
 )
 @click.option(
-    "--provider",
-    envvar="PROVIDER",
-    type=click.Choice(["jupyter", "datalayer"]),
-    default="jupyter",
-    help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
-)
-@click.option(
-    "--runtime-url",
-    envvar="RUNTIME_URL",
-    type=click.STRING,
-    default="http://localhost:8888",
-    help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.",
-)
-@click.option(
     "--start-new-runtime",
     envvar="START_NEW_RUNTIME",
     type=click.BOOL,
     default=True,
     help="Start a new runtime or use an existing one.",
-)
-@click.option(
-    "--runtime-id",
-    envvar="RUNTIME_ID",
-    type=click.STRING,
-    default=None,
-    help="The kernel ID to use. If not provided, a new kernel should be started.",
-)
-@click.option(
-    "--runtime-token",
-    envvar="RUNTIME_TOKEN",
-    type=click.STRING,
-    default=None,
-    help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
-)
-@click.option(
-    "--document-url",
-    envvar="DOCUMENT_URL",
-    type=click.STRING,
-    default="http://localhost:8888",
-    help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
-)
-@click.option(
-    "--document-id",
-    envvar="DOCUMENT_ID",
-    type=click.STRING,
-    default="notebook.ipynb",
-    help="The document id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path.",
-)
-@click.option(
-    "--document-token",
-    envvar="DOCUMENT_TOKEN",
-    type=click.STRING,
-    default=None,
-    help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
 )
 @click.option(
     "--port",
@@ -1150,66 +1245,18 @@ def start_command(
     provider: str,
 ):
     """Start the Jupyter MCP server with a transport."""
-
-    # Log the received configuration for diagnostics
-    # Note: set_config() will automatically normalize string "None" values
-    logger.info(
-        f"Start command received - runtime_url: {repr(runtime_url)}, "
-        f"document_url: {repr(document_url)}, provider: {provider}, "
-        f"transport: {transport}"
-    )
-
-    # Set configuration using the singleton
-    # String "None" values will be automatically normalized by set_config()
-    config = set_config(
+    _do_start(
         transport=transport,
-        provider=provider,
-        runtime_url=runtime_url,
         start_new_runtime=start_new_runtime,
+        runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
-        port=port
+        port=port,
+        provider=provider,
     )
-    
-    # Reset ServerContext to pick up new configuration
-    ServerContext.reset()
-
-    # Determine startup behavior based on configuration
-    if config.document_id:
-        # If document_id is provided, auto-enroll the notebook
-        # Kernel creation depends on start_new_runtime and runtime_id flags
-        try:
-            import asyncio
-            # Run the async enrollment in the event loop
-            asyncio.run(__auto_enroll_document())
-        except Exception as e:
-            logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
-            # Fallback to legacy kernel-only mode if enrollment fails
-            if config.start_new_runtime or config.runtime_id:
-                try:
-                    __start_kernel()
-                except Exception as e2:
-                    logger.error(f"Failed to start kernel on startup: {e2}")
-    elif config.start_new_runtime or config.runtime_id:
-        # If no document_id but start_new_runtime/runtime_id is set, just create kernel
-        # This is for backward compatibility - kernel without managed notebook
-        try:
-            __start_kernel()
-        except Exception as e:
-            logger.error(f"Failed to start kernel on startup: {e}")
-    # else: No startup action - user must manually enroll notebooks or create kernels
-
-    logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
-
-    if transport == "stdio":
-        mcp.run(transport="stdio")
-    elif transport == "streamable-http":
-        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=port)  # noqa: S104
-    else:
-        raise Exception("Transport should be `stdio` or `streamable-http`.")
 
 
 ###############################################################################

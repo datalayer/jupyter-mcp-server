@@ -167,11 +167,23 @@ Returns:
         
         # Create notebook if needed
         if use_mode == "create":
+            content = {
+                "cells": [{
+                    "cell_type": "markdown",
+                    "metadata": {},
+                    "source": [
+                        "New Notebook Created by Jupyter MCP Server",
+                    ]
+                }],
+                "metadata": {},
+                "nbformat": 4,
+                "nbformat_minor": 4
+            }
             if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
                 # Use local API to create notebook
                 await contents_manager.new(model={'type': 'notebook'}, path=notebook_path)
             elif mode == ServerMode.MCP_SERVER and server_client is not None:
-                server_client.contents.create_notebook(notebook_path)
+                server_client.contents.create_notebook(notebook_path, content=content)
         
         # Create/connect to kernel based on mode
         if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
