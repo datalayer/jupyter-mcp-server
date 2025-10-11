@@ -301,7 +301,7 @@ class ExecuteCellStreamingTool(BaseTool):
                 if not execution_task.cancelled():
                     try:
                         await execution_task
-                        final_outputs = ydoc._ycells[cell_index].get("outputs", [])
+                        final_outputs = notebook[cell_index].get("outputs", [])
                         outputs_log.append(f"[COMPLETED in {time.time() - start_time:.1f}s]")
                         
                         # Add any final outputs not captured during monitoring
