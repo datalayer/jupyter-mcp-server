@@ -229,8 +229,8 @@ For detailed instructions on configuring various MCP clients—including [Claude
 
 ## ✅ Best Practices
 
-- Interact with a large model that supports multimodal input (like Gemini 2.5 Pro) to fully utilize advanced multimodal understanding capabilities.
-- Use a client that supports returning image data via the MCP protocol and can parse it (like Cursor, Gemini CLI, etc.), as some clients may not support this feature.
+- Interact with LLMs that supports multimodal input (like Gemini 2.5 Pro) to fully utilize advanced multimodal understanding capabilities.
+- Use a MCP client that supports returning image data and can parse it (like Cursor, Gemini CLI, etc.), as some clients may not support this feature.
 - Break down complex tasks (like the whole data science workflow) into multiple sub-tasks (like data cleaning, feature engineering, model training, model evaluation, etc.) and execute them step-by-step.
 
 ## 🤝 Contributing
