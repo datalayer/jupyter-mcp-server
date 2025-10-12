@@ -23,8 +23,8 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 
-[![MseeP.ai Security Assessment](https://img.shields.io/static/v1?label=MseeP.ai&message=4.3&logo=MseeP.ai&style=flat&color=1ABC9C)](https://mseep.ai/app/datalayer-jupyter-mcp-server)
-[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server)](https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server)
+<a href="https://mseep.ai/app/datalayer-jupyter-mcp-server"><img src="https://mseep.net/pr/datalayer-jupyter-mcp-server-badge.png" alt="MseeP.ai Security Assessment Badge" width="100"></a>
+<a href="https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server"><img src="https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server" alt="Trust Score" width="150"></a>
 
 
 > 🚨 **NEW IN 0.14.0:** Multi-notebook support! You can now seamlessly switch between multiple notebooks in a single session. [Read more in the release notes.](https://jupyter-mcp-server.datalayer.tech/releases)
