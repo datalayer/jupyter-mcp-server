@@ -45,7 +45,7 @@ Returns:
         """Check if path exists using HTTP API."""
         path = Path(notebook_path)
         try:
-            parent_path = str(path.parent) if str(path.parent) != "." else ""
+            parent_path = path.parent.as_posix() if path.parent.as_posix() != "." else ""
             
             if parent_path:
                 dir_contents = server_client.contents.list_directory(parent_path)
@@ -59,7 +59,7 @@ Returns:
             
             return True, None
         except NotFoundError:
-            parent_dir = str(path.parent) if str(path.parent) != "." else "root directory"
+            parent_dir = path.parent.as_posix() if path.parent.as_posix() != "." else "root directory"
             return False, f"'{parent_dir}' not found in jupyter server, please check the directory path already exists."
         except Exception as e:
             return False, f"Failed to check the path '{notebook_path}': {e}"
