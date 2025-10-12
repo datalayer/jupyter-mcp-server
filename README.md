@@ -35,10 +35,9 @@
 
 ## 📖 Table of Contents
 - [Key Features](#-key-features)
+- [Tools Overview](#-tools-overview)
 - [Getting Started](#-getting-started)
-  - [Set Up Your Environment](#1-set-up-your-environment)
-  - [Start JupyterLab](#2-start-jupyterlab)
-  - [Configure Your Preferred MCP Client](#3-configure-your-preferred-mcp-client)
+- [Best Practices](#-best-practices)
 - [Contributing](#-contributing)
 - [Resources](#-resources)
 
@@ -54,7 +53,44 @@
 
 Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai/) hosted Notebooks.
 
-🛠️ This MCP offers multiple tools such as `insert_cell`, `execute_cell`, `list_files`, `read_cell`, and more, enabling advanced interactions with Jupyter notebooks. Explore our [tools documentation](https://jupyter-mcp-server.datalayer.tech/tools) to learn about all the tools powering Jupyter MCP Server.
+## 🔧 Tools Overview
+
+The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows:
+
+### Server Management
+
+| Name | Description |
+|:---|:---|
+| `list_files` | Recursively list files and directories in the Jupyter server's file system. |
+| `list_kernels` | List all available and running kernel sessions on the Jupyter server. |
+| `assign_kernel_to_notebook` | Create a Jupyter session to connect a notebook file to a specific kernel. |
+
+### Multi-Notebook Management
+
+| Name | Description |
+|:---|:---|
+| `use_notebook` | Connect to a notebook file, create a new one, or switch between already-connected notebooks. |
+| `list_notebooks` | List all notebooks available on the Jupyter server and their status (managed, kernel state, etc.). |
+| `restart_notebook` | Restart the kernel for a specific managed notebook. |
+| `unuse_notebook` | Disconnect from a specific notebook and release its resources. |
+
+### Cell Operations and Execution
+
+| Name | Description |
+|:---|:---|
+| `list_cells` | List basic information for all cells to provide a quick overview of the notebook structure. |
+| `read_cell` | Read the full content (source and outputs) of a single cell. |
+| `read_cells` | Read the full content of all cells in the notebook. |
+| `insert_cell` | Insert a new code or markdown cell at a specified position. |
+| `delete_cell` | Delete a cell at a specified index. |
+| `overwrite_cell_source` | Overwrite the source code of an existing cell. |
+| `execute_cell_simple_timeout` | Execute a cell with a simple timeout. Best for short-running cells. |
+| `execute_cell_streaming` | Execute a long-running cell and receive progress updates. |
+| `execute_cell_with_progress` | Execute a cell with timeout and progress monitoring. |
+| `insert_execute_code_cell` | A convenient tool to insert a new code cell and execute it in one step. |
+| `execute_ipython` | Execute IPython code directly in the kernel, including magic and shell commands. |
+
+For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
 
 ## 🏁 Getting Started
 
@@ -190,6 +226,12 @@ Then, configure your client:
 >    - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
+
+## ✅ Best Practices
+
+- Interact with a large model that supports multimodal input (like Gemini 2.5 Pro) to fully utilize advanced multimodal understanding capabilities.
+- Use a client that supports returning image data via the MCP protocol and can parse it (like Cursor, Gemini CLI, etc.), as some clients may not support this feature.
+- Break down complex tasks (like the whole data science workflow) into multiple sub-tasks (like data cleaning, feature engineering, model training, model evaluation, etc.) and execute them step-by-step.
 
 ## 🤝 Contributing
 
