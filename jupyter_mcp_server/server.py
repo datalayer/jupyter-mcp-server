@@ -550,9 +550,75 @@ async def get_registered_tools():
     This function is used by the Jupyter extension to dynamically expose
     the tool registry without hardcoding tool names and parameters.
     
+    For JUPYTER_SERVER mode, it queries the jupyter-mcp-tools extension.
+    For MCP_SERVER mode, it uses the local FastMCP registry.
+    
     Returns:
         list: List of tool dictionaries with name, description, and inputSchema
     """
+    context = ServerContext.get_instance()
+    mode = context._mode
+    
+    # For JUPYTER_SERVER mode, query jupyter-mcp-tools extension
+    if mode == ServerMode.JUPYTER_SERVER:
+        try:
+            from jupyter_mcp_tools import get_tools
+            
+            # Query for a specific tool as the first implementation
+            # Get the base_url and token from context
+            # For now, use localhost with assumption the extension is running
+            base_url = "http://localhost:8888"  # TODO: Get from context
+            token = None  # TODO: Get from context if available
+            
+            tools_data = await get_tools(
+                base_url=base_url,
+                token=token,
+                query="console_create",  # Start with just one tool
+                enabled_only=True
+            )
+            
+            # Validate that exactly one tool was returned
+            if len(tools_data) != 1:
+                raise ValueError(
+                    f"Expected exactly 1 tool matching 'console_create', "
+                    f"but got {len(tools_data)} tools"
+                )
+            
+            # Convert jupyter-mcp-tools format to MCP format
+            tools = []
+            for tool_data in tools_data:
+                tool_dict = {
+                    "name": tool_data.get('id', ''),  # Use command ID as name
+                    "description": tool_data.get('caption', tool_data.get('label', '')),
+                }
+                
+                # Convert parameters to inputSchema
+                params = tool_data.get('parameters', {})
+                if params and isinstance(params, dict):
+                    tool_dict["inputSchema"] = params
+                    if 'properties' in params:
+                        tool_dict["parameters"] = list(params['properties'].keys())
+                    else:
+                        tool_dict["parameters"] = []
+                else:
+                    tool_dict["parameters"] = []
+                    tool_dict["inputSchema"] = {
+                        "type": "object",
+                        "properties": {},
+                        "description": tool_data.get('usage', '')
+                    }
+                
+                tools.append(tool_dict)
+            
+            logger.info(f"Retrieved {len(tools)} tool(s) from jupyter-mcp-tools extension")
+            return tools
+            
+        except Exception as e:
+            logger.error(f"Error querying jupyter-mcp-tools extension: {e}", exc_info=True)
+            # Re-raise the exception since we require exactly 1 tool
+            raise
+    
+    # For MCP_SERVER mode, use local FastMCP registry
     # Use FastMCP's list_tools method which returns Tool objects
     tools_list = await mcp.list_tools()
     

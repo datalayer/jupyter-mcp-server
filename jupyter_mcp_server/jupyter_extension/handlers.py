@@ -107,17 +107,17 @@ class MCPSSEHandler(RequestHandler):
                 }
                 logger.info(f"Sending initialize response: {response}")
             elif method == "tools/list":
-                # List available tools from FastMCP
+                # List available tools from FastMCP and jupyter_mcp_tools
                 from jupyter_mcp_server.server import mcp
                 
-                logger.info("Calling mcp.list_tools()...")
+                logger.info("Listing tools from FastMCP and jupyter_mcp_tools...")
                 
                 try:
-                    # Use FastMCP's list_tools method - returns list of Tool objects
+                    # Get FastMCP tools
                     tools_list = await mcp.list_tools()
                     logger.info(f"Got {len(tools_list)} tools from FastMCP")
                     
-                    # Convert to MCP protocol format
+                    # Convert FastMCP tools to MCP protocol format
                     tools = []
                     for tool in tools_list:
                         tools.append({
@@ -126,7 +126,64 @@ class MCPSSEHandler(RequestHandler):
                             "inputSchema": tool.inputSchema
                         })
                     
-                    logger.info(f"Converted {len(tools)} tools to MCP format")
+                    # Get tools from jupyter_mcp_tools extension
+                    try:
+                        from jupyter_mcp_tools import get_tools
+                        
+                        # Get the server's base URL dynamically
+                        # The server is running on the port configured in settings
+                        port = self.settings.get('port', 4040)  # Default to 4040 if not set
+                        base_url = f"http://localhost:{port}"
+                        
+                        # Get token from settings if available
+                        token = self.settings.get('token', None)
+                        
+                        logger.info(f"Querying jupyter_mcp_tools at {base_url}")
+                        
+                        jupyter_tools_data = await get_tools(
+                            base_url=base_url,
+                            token=token,
+                            query="console_create",
+                            enabled_only=True,
+                            wait_timeout=5  # Short timeout
+                        )
+                        
+                        logger.info(f"Got {len(jupyter_tools_data)} tools from jupyter_mcp_tools extension")
+                        
+                        # Validate that exactly one tool was returned
+                        if len(jupyter_tools_data) != 1:
+                            logger.warning(
+                                f"Expected exactly 1 tool matching 'console_create', "
+                                f"but got {len(jupyter_tools_data)} tools"
+                            )
+                        else:
+                            # Convert jupyter_mcp_tools format to MCP format and add to tools list
+                            for tool_data in jupyter_tools_data:
+                                tool_dict = {
+                                    "name": tool_data.get('id', ''),
+                                    "description": tool_data.get('caption', tool_data.get('label', '')),
+                                }
+                                
+                                # Convert parameters to inputSchema
+                                params = tool_data.get('parameters', {})
+                                if params and isinstance(params, dict):
+                                    tool_dict["inputSchema"] = params
+                                else:
+                                    tool_dict["inputSchema"] = {
+                                        "type": "object",
+                                        "properties": {},
+                                        "description": tool_data.get('usage', '')
+                                    }
+                                
+                                tools.append(tool_dict)
+                            
+                            logger.info(f"Added {len(jupyter_tools_data)} tool(s) from jupyter_mcp_tools")
+                    
+                    except Exception as jupyter_error:
+                        # Log but don't fail - just return FastMCP tools
+                        logger.warning(f"Could not fetch tools from jupyter_mcp_tools: {jupyter_error}")
+                    
+                    logger.info(f"Returning total of {len(tools)} tools")
                     
                     response = {
                         "jsonrpc": "2.0",
@@ -152,47 +209,95 @@ class MCPSSEHandler(RequestHandler):
                 tool_name = params.get("name")
                 tool_arguments = params.get("arguments", {})
                 
-                logger.info(f"Calling tool: {tool_name} with args: {tool_arguments}")
+                logger.info(f"Calling tool: {tool_name}")
                 
                 try:
-                    # Use FastMCP's call_tool method
-                    result = await mcp.call_tool(tool_name, tool_arguments)
-                    
-                    # Handle tuple results from FastMCP
-                    if isinstance(result, tuple) and len(result) >= 1:
-                        # FastMCP returns (content_list, metadata_dict)
-                        content_list = result[0]
-                        if isinstance(content_list, list):
-                            # Serialize TextContent objects to dicts
-                            serialized_content = []
-                            for item in content_list:
-                                if hasattr(item, 'model_dump'):
-                                    serialized_content.append(item.model_dump())
-                                elif hasattr(item, 'dict'):
-                                    serialized_content.append(item.dict())
-                                elif isinstance(item, dict):
-                                    serialized_content.append(item)
+                    # Check if this is a jupyter_mcp_tools tool (e.g., console_create)
+                    if tool_name == "console_create":
+                        # Route to jupyter_mcp_tools extension via HTTP execute endpoint
+                        logger.info(f"Routing {tool_name} to jupyter_mcp_tools extension")
+                        
+                        # Get server configuration
+                        port = self.settings.get('port', 4040)
+                        base_url = f"http://localhost:{port}"
+                        token = self.settings.get('token', None)
+                        
+                        # Use the MCPToolsClient to execute the tool
+                        from jupyter_mcp_tools.client import MCPToolsClient
+                        
+                        try:
+                            async with MCPToolsClient(base_url=base_url, token=token) as client:
+                                execution_result = await client.execute_tool(
+                                    tool_id=tool_name,
+                                    parameters=tool_arguments
+                                )
+                                
+                                if execution_result.get('success'):
+                                    result_data = execution_result.get('result', {})
+                                    result_text = str(result_data) if result_data else "Tool executed successfully"
+                                    result_dict = {
+                                        "content": [{
+                                            "type": "text",
+                                            "text": result_text
+                                        }]
+                                    }
                                 else:
-                                    serialized_content.append({"type": "text", "text": str(item)})
-                            result_dict = {"content": serialized_content}
-                        else:
-                            result_dict = {"content": [{"type": "text", "text": str(result)}]}
-                    # Convert result to dict - it's a CallToolResult with content list
-                    elif hasattr(result, 'model_dump'):
-                        result_dict = result.model_dump()
-                    elif hasattr(result, 'dict'):
-                        result_dict = result.dict()
-                    elif hasattr(result, 'content'):
-                        # Extract content directly if it has a content attribute
-                        result_dict = {"content": result.content}
+                                    error_msg = execution_result.get('error', 'Unknown error')
+                                    result_dict = {
+                                        "content": [{
+                                            "type": "text",
+                                            "text": f"Error executing tool: {error_msg}"
+                                        }],
+                                        "isError": True
+                                    }
+                        except Exception as exec_error:
+                            logger.error(f"Error executing {tool_name}: {exec_error}")
+                            result_dict = {
+                                "content": [{
+                                    "type": "text",
+                                    "text": f"Failed to execute tool: {str(exec_error)}"
+                                }],
+                                "isError": True
+                            }
                     else:
-                        # Last resort: check if it's already a string
-                        if isinstance(result, str):
-                            result_dict = {"content": [{"type": "text", "text": result}]}
+                        # Use FastMCP's call_tool method for regular tools
+                        result = await mcp.call_tool(tool_name, tool_arguments)
+                        
+                        # Handle tuple results from FastMCP
+                        if isinstance(result, tuple) and len(result) >= 1:
+                            # FastMCP returns (content_list, metadata_dict)
+                            content_list = result[0]
+                            if isinstance(content_list, list):
+                                # Serialize TextContent objects to dicts
+                                serialized_content = []
+                                for item in content_list:
+                                    if hasattr(item, 'model_dump'):
+                                        serialized_content.append(item.model_dump())
+                                    elif hasattr(item, 'dict'):
+                                        serialized_content.append(item.dict())
+                                    elif isinstance(item, dict):
+                                        serialized_content.append(item)
+                                    else:
+                                        serialized_content.append({"type": "text", "text": str(item)})
+                                result_dict = {"content": serialized_content}
+                            else:
+                                result_dict = {"content": [{"type": "text", "text": str(result)}]}
+                        # Convert result to dict - it's a CallToolResult with content list
+                        elif hasattr(result, 'model_dump'):
+                            result_dict = result.model_dump()
+                        elif hasattr(result, 'dict'):
+                            result_dict = result.dict()
+                        elif hasattr(result, 'content'):
+                            # Extract content directly if it has a content attribute
+                            result_dict = {"content": result.content}
                         else:
-                            # If it's some other type, try to serialize it
-                            result_dict = {"content": [{"type": "text", "text": str(result)}]}
-                            logger.warning(f"Used fallback str() conversion for type {type(result)}")
+                            # Last resort: check if it's already a string
+                            if isinstance(result, str):
+                                result_dict = {"content": [{"type": "text", "text": result}]}
+                            else:
+                                # If it's some other type, try to serialize it
+                                result_dict = {"content": [{"type": "text", "text": str(result)}]}
+                                logger.warning(f"Used fallback str() conversion for type {type(result)}")
                     
                     logger.info(f"Converted result to dict")
 
