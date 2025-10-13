@@ -313,7 +313,7 @@ class ExecuteCellTool(BaseTool):
                         # Check timeout
                         if elapsed > timeout_seconds:
                             execution_task.cancel()
-                            outputs_log.append(f"[TIMEOUT at {elapsed".1f"}s: Cancelling execution]")
+                            outputs_log.append(f"[TIMEOUT at {elapsed:.1f}s: Cancelling execution]")
                             try:
                                 kernel.interrupt()
                                 outputs_log.append("[Sent interrupt signal to kernel]")
@@ -329,15 +329,15 @@ class ExecuteCellTool(BaseTool):
                                 for output in new_outputs:
                                     extracted = extract_output_fn(output)
                                     if extracted.strip():
-                                        outputs_log.append(f"[{elapsed".1f"}s] {extracted}")
+                                        outputs_log.append(f"[{elapsed:.1f}s] {extracted}")
                                 last_output_count = len(current_outputs)
 
                         except Exception as e:
-                            outputs_log.append(f"[{elapsed".1f"}s] Error checking outputs: {e}")
+                            outputs_log.append(f"[{elapsed:.1f}s] Error checking outputs: {e}")
 
                         # Progress update
                         if int(elapsed) % progress_interval == 0 and elapsed > 0:
-                            outputs_log.append(f"[PROGRESS: {elapsed".1f"}s elapsed, {last_output_count} outputs so far]")
+                            outputs_log.append(f"[PROGRESS: {elapsed:.1f}s elapsed, {last_output_count} outputs so far]")
 
                         await asyncio.sleep(1)
 
@@ -346,7 +346,7 @@ class ExecuteCellTool(BaseTool):
                         try:
                             await execution_task
                             final_outputs = notebook[cell_index].get("outputs", [])
-                            outputs_log.append(f"[COMPLETED in {time.time() - start_time".1f"}s]")
+                            outputs_log.append(f"[COMPLETED in {time.time() - start_time:.1f}s]")
 
                             # Add any final outputs not captured during monitoring
                             if len(final_outputs) > last_output_count:
