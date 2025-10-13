@@ -42,33 +42,11 @@ To get started with development, you'll need to set up your environment.
     make build-docker
     ```
 
-## Making and Testing Changes
-
-### Automated Testing
-
-To run the automated test suite, use `pytest`:
-```bash
-pytest
-```
-
 ## Pull Request Process
 
 1.  Once you are satisfied with your changes and tests, commit your code.
 2.  Make sure your code lints and is formatted correctly by running `ruff check .` and `ruff format .`.
 3.  Push your branch to your fork.
 4.  Open a pull request to the `main` branch of the original repository.
-
-## Styleguides
-
-We use `ruff` for linting and formatting. Please run the following commands before submitting your pull request.
-
-- **To check for linting errors:**
-  ```bash
-  ruff check .
-  ```
-- **To format your code:**
-  ```bash
-  ruff format .
-  ```
 
 We look forward to your contributions!
