@@ -36,17 +36,77 @@ To get started with development, you'll need to set up your environment.
     pip install -e ".[test]"
     ```
 
-3.  **(Optional) Build the Docker image:**
-    If you plan to work with Docker, you can build the image from the source:
+3.  **Make Some Amazing Changes!**
     ```bash
-    make build-docker
+    # Make some amazing changes to the source code!
     ```
+
+4.  **Run Tests:**
+    ```bash
+    make test
+    ```
+
+## (Optional) Manual Agent Testing
+
+1.  **Build Python Package:**
+    ```bash
+    make build
+    ```
+
+2. **Set Up Your Environment:**
+    ```bash
+    pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel
+    pip uninstall -y pycrdt datalayer_pycrdt
+    pip install datalayer_pycrdt==0.12.17
+    ```
+
+3.  **Start Jupyter Server:**
+    ```bash
+    jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
+    ```
+
+4.  **Set Up Your MCP Client:**
+    We recommend using `uvx` to start the MCP server, first install `uvx` with `pip install uv`.
+
+    ```bash
+    pip install uv
+    uv --version
+    # should be 0.6.14 or higher
+    ```
+
+    Then, set up your MCP client with the following configuration file.
+
+    ```json
+    {
+        "mcpServers": {
+            "Jupyter-MCP": {
+                "command": "uvx",
+                "args": [
+                    "--from",
+                    "your/path/to/jupyter-mcp-server/dist/jupyter_mcp_server-x.x.x-py3-none-any.whl",
+                    "jupyter-mcp-server"
+                ],
+                "env": {
+                    "DOCUMENT_URL": "http://localhost:8888",
+                    "DOCUMENT_TOKEN": "MY_TOKEN",
+                    "DOCUMENT_ID": "notebook.ipynb",
+                    "RUNTIME_URL": "http://localhost:8888",
+                    "RUNTIME_TOKEN": "MY_TOKEN",
+                    "ALLOW_IMG_OUTPUT": "true"
+                }
+            }
+        }
+    }
+    ```
+
+5.  **Test Your Changes:**
+
+    You Can Test Your Changes with your favorite MCP client(e.g. Cursor, Gemini CLI, etc.).
 
 ## Pull Request Process
 
 1.  Once you are satisfied with your changes and tests, commit your code.
-2.  Make sure your code lints and is formatted correctly by running `ruff check .` and `ruff format .`.
-3.  Push your branch to your fork.
-4.  Open a pull request to the `main` branch of the original repository.
+2.  Push your branch to your fork and attach with detailed description of the changes you made.
+3.  Open a pull request to the `main` branch of the original repository.
 
 We look forward to your contributions!

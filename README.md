@@ -84,9 +84,7 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 | `insert_cell` | Insert a new code or markdown cell at a specified position. |
 | `delete_cell` | Delete a cell at a specified index. |
 | `overwrite_cell_source` | Overwrite the source code of an existing cell. |
-| `execute_cell_simple_timeout` | Execute a cell with a simple timeout. Best for short-running cells. |
-| `execute_cell_streaming` | Execute a long-running cell and receive progress updates. |
-| `execute_cell_with_progress` | Execute a cell with timeout and progress monitoring. |
+| `execute_cell` | Execute a cell with timeout, it supports multimodal output including images. |
 | `insert_execute_code_cell` | A convenient tool to insert a new code cell and execute it in one step. |
 | `execute_ipython` | Execute IPython code directly in the kernel, including magic and shell commands. |
 
