@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Contributing to Jupyter MCP Server
 
 First off, thank you for considering contributing to Jupyter MCP Server! It's people like you that make this project great. Your contributions help us improve the project and make it more useful for everyone!
