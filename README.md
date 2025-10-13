@@ -118,7 +118,10 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 
 ### 3. Configure Your Preferred MCP Client
 
-You can choose between two deployment methods: **uvx** (lightweight and faster, recommended for first try) or **Docker** (recommended for production).
+Next, configure your MCP client to connect to the server. We offer two primary methods—choose the one that best fits your needs:
+
+- **📦 Using `uvx` (Recommended for Quick Start):** A lightweight and fast method using `uv`. Ideal for local development and first-time users.
+- **🐳 Using `Docker` (Recommended for Production):** A containerized approach that ensures a consistent and isolated environment, perfect for production or complex setups.
 
 <details>
 <summary><b>📦 Using uvx (Quick Start)</b></summary>
