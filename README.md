@@ -7,27 +7,32 @@
 [![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
+
+
 <div align="center">
 
 <!-- omit in toc -->
-
 # 🪐✨ Jupyter MCP Server
 
-<strong>An [MCP](https://modelcontextprotocol.io) service specifically developed for AI to connect and manage Jupyter Notebooks in real-time</strong>
+**An [MCP](https://modelcontextprotocol.io) service specifically developed for AI to connect and manage Jupyter Notebooks in real-time**
 
 *Developed by [Datalayer](https://github.com/datalayer)*
 
-[![PyPI - Version](https://img.shields.io/pypi/v/jupyter-mcp-server)](https://pypi.org/project/jupyter-mcp-server)
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server)](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![PyPI - Version](https://img.shields.io/pypi/v/jupyter-mcp-server?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/jupyter-mcp-server)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server?style=for-the-badge&logo=docker&logoColor=white&color=2496ED)](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
 
 <a href="https://mseep.ai/app/datalayer-jupyter-mcp-server"><img src="https://mseep.net/pr/datalayer-jupyter-mcp-server-badge.png" alt="MseeP.ai Security Assessment Badge" width="100"></a>
 <a href="https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server"><img src="https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server" alt="Trust Score" width="150"></a>
 
 
-> 🚨 **NEW IN 0.14.0:** Multi-notebook support! You can now seamlessly switch between multiple notebooks in a single session. [Read more in the release notes.](https://jupyter-mcp-server.datalayer.tech/releases)
+### 🚨 **Latest Release: v0.14.0**
+
+> ✨ **Multi-notebook support!** You can now seamlessly switch between multiple notebooks in a single session.
+>
+> [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
