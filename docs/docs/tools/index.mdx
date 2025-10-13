@@ -1,6 +1,6 @@
 # Tools
 
-The server currently offers 18 tools organized into 3 categories:
+The server currently offers 16 tools organized into 3 categories:
 
 ## Multi-Notebook Management Tools (4 tools)
 
@@ -79,7 +79,7 @@ The server currently offers 18 tools organized into 3 categories:
   - `session_name`(string, optional): Optional name for the session (defaults to notebook path)
 - Returns: Success message with session information including session ID
 
-## Cell Tools (11 tools)
+## Cell Tools (9 tools)
 
 #### 8. `insert_cell`
 
@@ -133,35 +133,20 @@ The server currently offers 18 tools organized into 3 categories:
   - `cell_source`(string): New cell source - must match existing cell type.
 - Returns: Success message and diff style.
 
-#### 15. `execute_cell_streaming`
+#### 15. `execute_cell`
 
-- Execute cell with streaming progress updates. To be used for long-running cells.
+- Execute a cell with configurable timeout and optional streaming progress updates.
 - Input:
   - `cell_index`: Index of the cell to execute (0-based)
   - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
-  - `progress_interval`: Seconds between progress updates (default: 5s)
-- Returns:
-  - `list[Union[str, ImageContent]]`: List of outputs including progress updates (supports multimodal output including images)
-
-#### 16. `execute_cell_simple_timeout`
-
-- Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells. This won't force real-time updates but will work reliably.
-- Input:
-  - `cell_index`: Index of the cell to execute (0-based)
-  - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
+  - `stream`: Enable streaming progress updates for long-running cells (default: False)
+  - `progress_interval`: Seconds between progress updates when stream=True (default: 5s)
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs from the executed cell (supports multimodal output including images)
+- Use `stream=False` for short-running cells (more reliable)
+- Use `stream=True` for long-running cells (provides real-time feedback)
 
-#### 17. `execute_cell_with_progress`
-
-- Execute a specific cell with timeout and progress monitoring.
-- Input:
-  - `cell_index`: Index of the cell to execute (0-based)
-  - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
-- Returns:
-  - `list[Union[str, ImageContent]]`: List of outputs from the executed cell (supports multimodal output including images)
-
-#### 18. `execute_ipython`
+#### 16. `execute_ipython`
 
 - Execute IPython code directly in the kernel on the current active notebook.
 - This powerful tool supports:
