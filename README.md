@@ -28,11 +28,7 @@
 <a href="https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server"><img src="https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server" alt="Trust Score" width="150"></a>
 
 
-### 🚨 **Latest Release: v0.14.0**
-
-> ✨ **Multi-notebook support!** You can now seamlessly switch between multiple notebooks in a single session.
->
-> [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
+> 🚨 **Latest Release: v0.14.0**: **Multi-notebook support!** You can now seamlessly switch between multiple notebooks in a single session. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
@@ -74,8 +70,8 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 
 | Name | Description |
 |:---|:---|
-| `use_notebook` | Connect to a notebook file, create a new one, or switch between already-connected notebooks. |
-| `list_notebooks` | List all notebooks available on the Jupyter server and their status (managed, kernel state, etc.). |
+| `use_notebook` | Connect to a notebook file, create a new one, or switch between notebooks. |
+| `list_notebooks` | List all notebooks available on the Jupyter server and their status  |
 | `restart_notebook` | Restart the kernel for a specific managed notebook. |
 | `unuse_notebook` | Disconnect from a specific notebook and release its resources. |
 
@@ -83,7 +79,7 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 
 | Name | Description |
 |:---|:---|
-| `list_cells` | List basic information for all cells to provide a quick overview of the notebook structure. |
+| `list_cells` | List basic information for all cells to provide a quick overview of notebook |
 | `read_cell` | Read the full content (source and outputs) of a single cell. |
 | `read_cells` | Read the full content of all cells in the notebook. |
 | `insert_cell` | Insert a new code or markdown cell at a specified position. |
@@ -141,7 +137,7 @@ Then, configure your client:
   "mcpServers": {
     "jupyter": {
       "command": "uvx",
-      "args": ["jupyter-mcp-server"],
+      "args": ["jupyter-mcp-server@latest"],
       "env": {
         "DOCUMENT_URL": "http://localhost:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
@@ -234,7 +230,7 @@ For detailed instructions on configuring various MCP clients—including [Claude
 
 - Interact with LLMs that supports multimodal input (like Gemini 2.5 Pro) to fully utilize advanced multimodal understanding capabilities.
 - Use a MCP client that supports returning image data and can parse it (like Cursor, Gemini CLI, etc.), as some clients may not support this feature.
-- Break down complex tasks (like the whole data science workflow) into multiple sub-tasks (like data cleaning, feature engineering, model training, model evaluation, etc.) and execute them step-by-step.
+- Break down complex task (like the whole data science workflow) into multiple sub-tasks (like data cleaning, feature engineering, model training, model evaluation, etc.) and execute them step-by-step.
 
 ## 🤝 Contributing
 
