@@ -70,7 +70,7 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
   "mcpServers": {
     "jupyter": {
       "command": "uvx",
-      "args": ["jupyter-mcp-server"],
+      "args": ["jupyter-mcp-server@latest"],
       "env": {
         "DOCUMENT_URL": "http://localhost:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
@@ -97,19 +97,12 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
     "jupyter": {
       "command": "docker",
       "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "DOCUMENT_URL",
-        "-e",
-        "DOCUMENT_TOKEN",
-        "-e",
-        "DOCUMENT_ID",
-        "-e",
-        "RUNTIME_URL",
-        "-e",
-        "RUNTIME_TOKEN",
+        "run", "-i", "--rm",
+        "-e", "DOCUMENT_URL",
+        "-e", "DOCUMENT_TOKEN",
+        "-e", "DOCUMENT_ID",
+        "-e", "RUNTIME_URL",
+        "-e", "RUNTIME_TOKEN",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
@@ -132,19 +125,12 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
     "jupyter": {
       "command": "docker",
       "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "DOCUMENT_URL",
-        "-e",
-        "DOCUMENT_TOKEN",
-        "-e",
-        "DOCUMENT_ID",
-        "-e",
-        "RUNTIME_URL",
-        "-e",
-        "RUNTIME_TOKEN",
+        "run", "-i", "--rm",
+        "-e", "DOCUMENT_URL",
+        "-e", "DOCUMENT_TOKEN",
+        "-e", "DOCUMENT_ID",
+        "-e", "RUNTIME_URL",
+        "-e", "RUNTIME_TOKEN",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
       ],
