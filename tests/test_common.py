@@ -35,9 +35,7 @@ JUPYTER_TOOLS = [
     "insert_cell",
     "insert_execute_code_cell",
     "overwrite_cell_source",
-    "execute_cell_with_progress",
-    "execute_cell_simple_timeout",
-    "execute_cell_streaming",
+    "execute_cell",
     "read_cells",
     "list_cells",
     "read_cell",
@@ -402,7 +400,24 @@ class MCPClient:
     async def execute_cell_simple_timeout(self, cell_index):
         result = await self._call_tool_safe("execute_cell_simple_timeout", {"cell_index": cell_index})
         structured = self._get_structured_content_safe(result) if result else None
-        
+
+        # Handle JUPYTER_SERVER mode flattening list responses to single string
+        if structured and "result" in structured:
+            result_value = structured["result"]
+            if not isinstance(result_value, list):
+                structured["result"] = [result_value]
+        return structured
+
+    @requires_session
+    async def execute_cell(self, cell_index, timeout_seconds=300, stream=False, progress_interval=5):
+        result = await self._call_tool_safe("execute_cell", {
+            "cell_index": cell_index,
+            "timeout_seconds": timeout_seconds,
+            "stream": stream,
+            "progress_interval": progress_interval
+        })
+        structured = self._get_structured_content_safe(result) if result else None
+
         # Handle JUPYTER_SERVER mode flattening list responses to single string
         if structured and "result" in structured:
             result_value = structured["result"]
