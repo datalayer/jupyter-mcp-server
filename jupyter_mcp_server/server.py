@@ -50,9 +50,7 @@ from jupyter_mcp_server.tools import (
     OverwriteCellSourceTool,
     DeleteCellTool,
     # Cell Execution
-    ExecuteCellSimpleTimeoutTool,
-    ExecuteCellStreamingTool,
-    ExecuteCellWithProgressTool,
+    ExecuteCellTool,
     # Other Tools
     AssignKernelToNotebookTool,
     ExecuteIpythonTool,
@@ -131,9 +129,7 @@ overwrite_cell_source_tool = OverwriteCellSourceTool()
 delete_cell_tool = DeleteCellTool()
 
 # Cell Execution Tools
-execute_cell_simple_timeout_tool = ExecuteCellSimpleTimeoutTool()
-execute_cell_streaming_tool = ExecuteCellStreamingTool()
-execute_cell_with_progress_tool = ExecuteCellWithProgressTool()
+execute_cell_tool = ExecuteCellTool()
 
 # Other Tools
 assign_kernel_to_notebook_tool = AssignKernelToNotebookTool()
@@ -616,16 +612,19 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     )
 
 @mcp.tool()
-async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300) -> list[Union[str, ImageContent]]:
-    """Execute a specific cell with timeout and progress monitoring.
+async def execute_cell(cell_index: int, timeout_seconds: int = 300, stream: bool = False, progress_interval: int = 5) -> list[Union[str, ImageContent]]:
+    """Execute a cell with configurable timeout and optional streaming progress updates.
+
     Args:
         cell_index: Index of the cell to execute (0-based)
         timeout_seconds: Maximum time to wait for execution (default: 300s)
+        stream: Enable streaming progress updates for long-running cells (default: False)
+        progress_interval: Seconds between progress updates when stream=True (default: 5s)
     Returns:
         list[Union[str, ImageContent]]: List of outputs from the executed cell
     """
     return await __safe_notebook_operation(
-        lambda: execute_cell_with_progress_tool.execute(
+        lambda: execute_cell_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -633,63 +632,17 @@ async def execute_cell_with_progress(cell_index: int, timeout_seconds: int = 300
             notebook_manager=notebook_manager,
             cell_index=cell_index,
             timeout_seconds=timeout_seconds,
+            stream=stream,
+            progress_interval=progress_interval,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
             wait_for_kernel_idle_fn=__wait_for_kernel_idle,
             safe_extract_outputs_fn=safe_extract_outputs,
             execute_cell_with_forced_sync_fn=__execute_cell_with_forced_sync,
-        ),
-        max_retries=1
-    )
-
-# Simpler real-time monitoring without forced sync
-@mcp.tool()
-async def execute_cell_simple_timeout(cell_index: int, timeout_seconds: int = 300) -> list[Union[str, ImageContent]]:
-    """Execute a cell with simple timeout (no forced real-time sync). To be used for short-running cells.
-    This won't force real-time updates but will work reliably.
-    """
-    return await __safe_notebook_operation(
-        lambda: execute_cell_simple_timeout_tool.execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            kernel_manager=server_context.kernel_manager,
-            notebook_manager=notebook_manager,
-            cell_index=cell_index,
-            timeout_seconds=timeout_seconds,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
-            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
-            safe_extract_outputs_fn=safe_extract_outputs,
-        ),
-        max_retries=1
-    )
-
-
-@mcp.tool()
-async def execute_cell_streaming(cell_index: int, timeout_seconds: int = 300, progress_interval: int = 5) -> list[Union[str, ImageContent]]:
-    """Execute cell with streaming progress updates. To be used for long-running cells.
-    Args:
-        cell_index: Index of the cell to execute (0-based)
-        timeout_seconds: Maximum time to wait for execution (default: 300s)  
-        progress_interval: Seconds between progress updates (default: 5s)
-    Returns:
-        list[Union[str, ImageContent]]: List of outputs including progress updates
-    """
-    return await __safe_notebook_operation(
-        lambda: execute_cell_streaming_tool.execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            kernel_manager=server_context.kernel_manager,
-            notebook_manager=notebook_manager,
-            cell_index=cell_index,
-            timeout_seconds=timeout_seconds,
-            progress_interval=progress_interval,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
-            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
             extract_output_fn=extract_output,
         ),
         max_retries=1
     )
+
 
 @mcp.tool()
 async def read_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:

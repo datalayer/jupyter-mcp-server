@@ -29,9 +29,7 @@ from jupyter_mcp_server.tools.overwrite_cell_source_tool import OverwriteCellSou
 from jupyter_mcp_server.tools.delete_cell_tool import DeleteCellTool
 
 # Import tool implementations - Cell Execution
-from jupyter_mcp_server.tools.execute_cell_simple_timeout_tool import ExecuteCellSimpleTimeoutTool
-from jupyter_mcp_server.tools.execute_cell_streaming_tool import ExecuteCellStreamingTool
-from jupyter_mcp_server.tools.execute_cell_with_progress_tool import ExecuteCellWithProgressTool
+from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
 
 # Import tool implementations - Other Tools
 from jupyter_mcp_server.tools.assign_kernel_to_notebook_tool import AssignKernelToNotebookTool
@@ -60,9 +58,7 @@ __all__ = [
     "OverwriteCellSourceTool",
     "DeleteCellTool",
     # Cell Execution
-    "ExecuteCellSimpleTimeoutTool",
-    "ExecuteCellStreamingTool",
-    "ExecuteCellWithProgressTool",
+    "ExecuteCellTool",
     # Other Tools
     "AssignKernelToNotebookTool",
     "ExecuteIpythonTool",

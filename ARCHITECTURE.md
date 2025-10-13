@@ -94,7 +94,7 @@ class BaseTool:
 - **Notebook Management** (5): list_notebook, use_notebook, unuse_notebook, restart_notebook
 - **Cell Reading** (3): read_cells, list_cells, read_cell
 - **Cell Writing** (4): insert_cell, insert_execute_code_cell, overwrite_cell_source, delete_cell
-- **Cell Execution** (3): execute_cell_simple_timeout, execute_cell_streaming, execute_cell_with_progress
+- **Cell Execution** (3): execute_cell
 - **Other** (3): execute_ipython, list_files, list_kernels
 
 **Dual-Mode Implementation Pattern**:
@@ -313,9 +313,9 @@ MCP Client
 
 ```
 MCP Client
-  → Call execute_cell_simple_timeout tool
+  → Call execute_cell tool
     → FastMCP calls wrapper
-      → execute_cell_simple_timeout_tool.execute(
+      → execute_cell_tool.execute(
           mode=MCP_SERVER,
           server_client=JupyterServerClient(...),
           kernel_client=KernelClient(...)
