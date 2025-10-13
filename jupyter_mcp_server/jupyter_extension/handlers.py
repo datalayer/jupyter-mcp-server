@@ -34,6 +34,9 @@ class MCPSSEHandler(RequestHandler):
     The MCP protocol uses SSE for streaming responses from the server to the client.
     """
     
+    # Cache of jupyter_mcp_tools tool names for routing decisions
+    _jupyter_tool_names = set()
+    
     def check_xsrf_cookie(self):
         """Disable XSRF checking for MCP protocol requests."""
         pass
@@ -113,75 +116,102 @@ class MCPSSEHandler(RequestHandler):
                 logger.info("Listing tools from FastMCP and jupyter_mcp_tools...")
                 
                 try:
-                    # Get FastMCP tools
+                    # Get FastMCP tools first
                     tools_list = await mcp.list_tools()
                     logger.info(f"Got {len(tools_list)} tools from FastMCP")
                     
-                    # Convert FastMCP tools to MCP protocol format
-                    tools = []
-                    for tool in tools_list:
-                        tools.append({
-                            "name": tool.name,
-                            "description": tool.description,
-                            "inputSchema": tool.inputSchema
-                        })
+                    # Map FastMCP tool names to their jupyter-mcp-tools equivalents
+                    fastmcp_to_jupyter_mapping = {
+                        "insert_execute_code_cell": "notebook_append-execute",
+                        # Add more mappings as needed
+                    }
                     
-                    # Get tools from jupyter_mcp_tools extension
+                    # Track jupyter_mcp_tools tool names to check for duplicates
+                    jupyter_tool_names = set()
+                    
+                    # Get tools from jupyter_mcp_tools extension first to identify duplicates
+                    jupyter_tools_data = []
                     try:
                         from jupyter_mcp_tools import get_tools
                         
-                        # Get the server's base URL dynamically
-                        # The server is running on the port configured in settings
-                        port = self.settings.get('port', 4040)  # Default to 4040 if not set
-                        base_url = f"http://localhost:{port}"
-                        
-                        # Get token from settings if available
-                        token = self.settings.get('token', None)
+                        # Get the server's base URL dynamically from ServerApp
+                        context = get_server_context()
+                        if context.serverapp is not None:
+                            base_url = context.serverapp.connection_url
+                            token = context.serverapp.token
+                            logger.info(f"Using Jupyter ServerApp connection URL: {base_url}")
+                        else:
+                            # Fallback to hardcoded localhost (should not happen in JUPYTER_SERVER mode)
+                            port = self.settings.get('port', 8888)
+                            base_url = f"http://localhost:{port}"
+                            token = self.settings.get('token', None)
+                            logger.warning(f"ServerApp not available, using fallback: {base_url}")
                         
                         logger.info(f"Querying jupyter_mcp_tools at {base_url}")
                         
+                        # Get ALL tools from jupyter_mcp_tools (no query filter)
                         jupyter_tools_data = await get_tools(
                             base_url=base_url,
                             token=token,
-                            query="console_create",
+                            query=None,  # Get all tools
                             enabled_only=True,
                             wait_timeout=5  # Short timeout
                         )
                         
                         logger.info(f"Got {len(jupyter_tools_data)} tools from jupyter_mcp_tools extension")
                         
-                        # Validate that exactly one tool was returned
-                        if len(jupyter_tools_data) != 1:
-                            logger.warning(
-                                f"Expected exactly 1 tool matching 'console_create', "
-                                f"but got {len(jupyter_tools_data)} tools"
-                            )
-                        else:
-                            # Convert jupyter_mcp_tools format to MCP format and add to tools list
-                            for tool_data in jupyter_tools_data:
-                                tool_dict = {
-                                    "name": tool_data.get('id', ''),
-                                    "description": tool_data.get('caption', tool_data.get('label', '')),
-                                }
-                                
-                                # Convert parameters to inputSchema
-                                params = tool_data.get('parameters', {})
-                                if params and isinstance(params, dict):
-                                    tool_dict["inputSchema"] = params
-                                else:
-                                    tool_dict["inputSchema"] = {
-                                        "type": "object",
-                                        "properties": {},
-                                        "description": tool_data.get('usage', '')
-                                    }
-                                
-                                tools.append(tool_dict)
-                            
-                            logger.info(f"Added {len(jupyter_tools_data)} tool(s) from jupyter_mcp_tools")
+                        # Build set of jupyter tool names and cache it for routing decisions
+                        jupyter_tool_names = {tool_data.get('id', '') for tool_data in jupyter_tools_data}
+                        MCPSSEHandler._jupyter_tool_names = jupyter_tool_names
+                        logger.info(f"Cached {len(jupyter_tool_names)} jupyter_mcp_tools names for routing: {jupyter_tool_names}")
                     
                     except Exception as jupyter_error:
                         # Log but don't fail - just return FastMCP tools
                         logger.warning(f"Could not fetch tools from jupyter_mcp_tools: {jupyter_error}")
+                    
+                    # Convert FastMCP tools to MCP protocol format, excluding duplicates
+                    tools = []
+                    for tool in tools_list:
+                        # Check if this FastMCP tool has a jupyter-mcp-tools equivalent
+                        jupyter_equivalent = fastmcp_to_jupyter_mapping.get(tool.name)
+                        
+                        if jupyter_equivalent and jupyter_equivalent in jupyter_tool_names:
+                            logger.info(f"Skipping FastMCP tool '{tool.name}' - equivalent '{jupyter_equivalent}' available from jupyter-mcp-tools")
+                            continue
+                        
+                        tools.append({
+                            "name": tool.name,
+                            "description": tool.description,
+                            "inputSchema": tool.inputSchema
+                        })
+                    
+                    # Now add jupyter_mcp_tools
+                    for tool_data in jupyter_tools_data:
+                        # Only include MCP protocol fields (exclude internal fields like commandId)
+                        tool_dict = {
+                            "name": tool_data.get('id', ''),
+                            "description": tool_data.get('caption', tool_data.get('label', '')),
+                        }
+                        
+                        # Convert parameters to inputSchema
+                        # The parameters field contains the JSON Schema for the tool's arguments
+                        params = tool_data.get('parameters', {})
+                        if params and isinstance(params, dict) and params.get('properties'):
+                            # Tool has parameters - use them as inputSchema
+                            tool_dict["inputSchema"] = params
+                            logger.debug(f"Tool {tool_dict['name']} has parameters: {list(params.get('properties', {}).keys())}")
+                        else:
+                            # Tool has no parameters - use empty schema
+                            tool_dict["inputSchema"] = {
+                                "type": "object",
+                                "properties": {},
+                                "description": tool_data.get('usage', '')
+                            }
+                        
+                        tools.append(tool_dict)
+                    
+                    logger.info(f"Added {len(jupyter_tools_data)} tool(s) from jupyter_mcp_tools")
+
                     
                     logger.info(f"Returning total of {len(tools)} tools")
                     
@@ -212,15 +242,24 @@ class MCPSSEHandler(RequestHandler):
                 logger.info(f"Calling tool: {tool_name}")
                 
                 try:
-                    # Check if this is a jupyter_mcp_tools tool (e.g., console_create)
-                    if tool_name == "console_create":
+                    # Check if this is a jupyter_mcp_tools tool
+                    # Use the cached set of jupyter tool names from tools/list
+                    if tool_name in MCPSSEHandler._jupyter_tool_names:
                         # Route to jupyter_mcp_tools extension via HTTP execute endpoint
-                        logger.info(f"Routing {tool_name} to jupyter_mcp_tools extension")
+                        logger.info(f"Routing {tool_name} to jupyter_mcp_tools extension (recognized from cache)")
                         
-                        # Get server configuration
-                        port = self.settings.get('port', 4040)
-                        base_url = f"http://localhost:{port}"
-                        token = self.settings.get('token', None)
+                        # Get server configuration from ServerApp
+                        context = get_server_context()
+                        if context.serverapp is not None:
+                            base_url = context.serverapp.connection_url
+                            token = context.serverapp.token
+                            logger.info(f"Using Jupyter ServerApp connection URL: {base_url}")
+                        else:
+                            # Fallback to hardcoded localhost (should not happen in JUPYTER_SERVER mode)
+                            port = self.settings.get('port', 8888)
+                            base_url = f"http://localhost:{port}"
+                            token = self.settings.get('token', None)
+                            logger.warning(f"ServerApp not available, using fallback: {base_url}")
                         
                         # Use the MCPToolsClient to execute the tool
                         from jupyter_mcp_tools.client import MCPToolsClient
@@ -261,6 +300,7 @@ class MCPSSEHandler(RequestHandler):
                             }
                     else:
                         # Use FastMCP's call_tool method for regular tools
+                        logger.info(f"Routing {tool_name} to FastMCP (not in jupyter_mcp_tools cache)")
                         result = await mcp.call_tool(tool_name, tool_arguments)
                         
                         # Handle tuple results from FastMCP
