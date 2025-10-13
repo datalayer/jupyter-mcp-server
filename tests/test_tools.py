@@ -170,14 +170,8 @@ async def test_code_cell(mcp_client_parametrized: MCPClient, content="1 + 1"):
         # The server returns a message with diff content
         assert "Cell" in result["result"] and "overwritten successfully" in result["result"]
         assert "diff" in result["result"]  # Should contain diff output
-        code_result = await mcp_client_parametrized.execute_cell_with_progress(index)
+        code_result = await mcp_client_parametrized.execute_cell(index)
         assert int(code_result["result"][0]) == expected_result
-        code_result = await mcp_client_parametrized.execute_cell_simple_timeout(index)
-        # Handle case where execute_cell_simple_timeout might return None result
-        if code_result and code_result.get("result") is not None:
-            assert int(code_result["result"][0]) == expected_result
-        else:
-            logging.warning("execute_cell_simple_timeout returned None result, skipping assertion")
         await check_and_delete_code_cell(mcp_client_parametrized, index, content)
 
 
@@ -294,8 +288,7 @@ async def test_bad_index(mcp_client_parametrized: MCPClient, index=99):
         assert await mcp_client_parametrized.insert_cell(index, "markdown", "test") is None
         assert await mcp_client_parametrized.insert_execute_code_cell(index, "1 + 1") is None
         assert await mcp_client_parametrized.overwrite_cell_source(index, "1 + 1") is None
-        assert await mcp_client_parametrized.execute_cell_with_progress(index) is None
-        assert await mcp_client_parametrized.execute_cell_simple_timeout(index) is None
+        assert await mcp_client_parametrized.execute_cell(index) is None
         assert await mcp_client_parametrized.delete_cell(index) is None
 
 
