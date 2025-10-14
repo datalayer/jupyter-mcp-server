@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # 🚀 Jupyter MCP Server Release Guide
 
 This document provides detailed instructions on how to release the Jupyter MCP Server project using GitHub Actions.
