@@ -14,7 +14,7 @@
 <!-- omit in toc -->
 # 🪐✨ Jupyter MCP Server
 
-**An [MCP](https://modelcontextprotocol.io) service specifically developed for AI to connect and manage Jupyter Notebooks in real-time**
+**An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage Jupyter Notebooks in real-time**
 
 *Developed by [Datalayer](https://github.com/datalayer)*
 
