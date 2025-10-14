@@ -68,8 +68,13 @@ class ExecuteCellTool(BaseTool):
 
         _clean_notebook_outputs(notebook)
 
-        if cell_index < 0 or cell_index >= len(notebook.cells):
-            logger.warning(f"Cell index {cell_index} out of range, cannot write outputs")
+        # Handle negative indices (e.g., -1 for last cell)
+        num_cells = len(notebook.cells)
+        if cell_index < 0:
+            cell_index = num_cells + cell_index
+        
+        if cell_index < 0 or cell_index >= num_cells:
+            logger.warning(f"Cell index {cell_index} out of range (notebook has {num_cells} cells), cannot write outputs")
             return
 
         cell = notebook.cells[cell_index]
@@ -211,8 +216,13 @@ class ExecuteCellTool(BaseTool):
                 # Notebook is open - use YDoc and RTC
                 logger.info(f"Notebook {file_id} is open, using RTC mode")
 
-                if cell_index < 0 or cell_index >= len(ydoc.ycells):
-                    raise ValueError(f"Cell index {cell_index} out of range")
+                # Handle negative indices (e.g., -1 for last cell)
+                num_cells = len(ydoc.ycells)
+                if cell_index < 0:
+                    cell_index = num_cells + cell_index
+                
+                if cell_index < 0 or cell_index >= num_cells:
+                    raise ValueError(f"Cell index {cell_index} out of range (notebook has {num_cells} cells)")
 
                 cell_id = ydoc.ycells[cell_index].get("id")
                 cell_source = ydoc.ycells[cell_index].get("source")
@@ -242,8 +252,13 @@ class ExecuteCellTool(BaseTool):
                 with open(notebook_path, 'r', encoding='utf-8') as f:
                     notebook = nbformat.read(f, as_version=4)
 
-                if cell_index < 0 or cell_index >= len(notebook.cells):
-                    raise ValueError(f"Cell index {cell_index} out of range")
+                # Handle negative indices (e.g., -1 for last cell)
+                num_cells = len(notebook.cells)
+                if cell_index < 0:
+                    cell_index = num_cells + cell_index
+                
+                if cell_index < 0 or cell_index >= num_cells:
+                    raise ValueError(f"Cell index {cell_index} out of range (notebook has {num_cells} cells)")
 
                 cell = notebook.cells[cell_index]
                 if cell.cell_type != 'code':
@@ -289,8 +304,13 @@ class ExecuteCellTool(BaseTool):
             await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
 
             async with notebook_manager.get_current_connection() as notebook:
-                if cell_index < 0 or cell_index >= len(notebook):
-                    raise ValueError(f"Cell index {cell_index} out of range")
+                # Handle negative indices (e.g., -1 for last cell)
+                num_cells = len(notebook)
+                if cell_index < 0:
+                    cell_index = num_cells + cell_index
+                
+                if cell_index < 0 or cell_index >= num_cells:
+                    raise ValueError(f"Cell index {cell_index} out of range (notebook has {num_cells} cells)")
 
                 if stream:
                     # Streaming mode: Real-time monitoring with progress updates
