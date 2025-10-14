@@ -16,20 +16,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install build twine
-      
+
       - name: Build package
         run: python -m build
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -52,7 +52,7 @@ jobs:
         with:
           name: python-package
           path: dist
-      
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -81,13 +81,13 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -111,12 +111,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch complete history for release creation
-      
+
       - name: Extract version
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
-      
+
+
       - name: Create Release
         uses: actions/create-release@v1
         env:
@@ -133,3 +133,4 @@ jobs:
             - [Docker Hub](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
           draft: false
           prerelease: false
+          generate_release_notes: true
