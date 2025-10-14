@@ -95,7 +95,9 @@ class MCPSSEHandler(RequestHandler):
                     "result": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {
-                            "tools": {}
+                            "tools": {},
+                            "prompts": {},
+                            "resources": {}
                         },
                         "serverInfo": {
                             "name": "Jupyter MCP Server",
@@ -209,6 +211,26 @@ class MCPSSEHandler(RequestHandler):
                             "message": f"Internal error calling tool: {str(e)}"
                         }
                     }
+            elif method == "prompts/list":
+                # List available prompts - return empty list if no prompts defined
+                logger.info("Listing prompts...")
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "prompts": []
+                    }
+                }
+            elif method == "resources/list":
+                # List available resources - return empty list if no resources defined  
+                logger.info("Listing resources...")
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "resources": []
+                    }
+                }
             else:
                 # Method not supported
                 response = {
