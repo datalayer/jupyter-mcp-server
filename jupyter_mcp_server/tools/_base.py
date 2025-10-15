@@ -56,15 +56,3 @@ class BaseTool(ABC):
             Tool execution result (type varies by tool)
         """
         pass
-    
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Return the tool name."""
-        pass
-    
-    @property
-    @abstractmethod
-    def description(self) -> str:
-        """Return the tool description."""
-        pass

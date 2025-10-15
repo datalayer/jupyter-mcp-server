@@ -14,19 +14,6 @@ from jupyter_mcp_server.utils import format_TSV
 class ListNotebooksTool(BaseTool):
     """Tool to list all notebooks in the Jupyter server."""
     
-    @property
-    def name(self) -> str:
-        return "list_notebooks"
-    
-    @property
-    def description(self) -> str:
-        return """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
-    
-To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `use_notebook` tool.
-
-Returns:
-    str: TSV formatted table with notebook information including management status"""
-    
     def _list_notebooks_http(self, server_client: JupyterServerClient, path: str = "", notebooks: Optional[List[str]] = None) -> List[str]:
         """List notebooks using HTTP API (MCP_SERVER mode)."""
         if notebooks is None:

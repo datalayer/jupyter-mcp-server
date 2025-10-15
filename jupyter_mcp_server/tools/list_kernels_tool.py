@@ -12,20 +12,7 @@ from jupyter_mcp_server.utils import format_TSV
 
 
 class ListKernelsTool(BaseTool):
-    """List all available kernels in the Jupyter server.
-    
-    This tool shows all running and available kernel sessions on the Jupyter server,
-    including their IDs, names, states, connection information, and kernel specifications.
-    Useful for monitoring kernel resources and identifying specific kernels for connection.
-    """
-    
-    @property
-    def name(self) -> str:
-        return "list_kernels"
-    
-    @property
-    def description(self) -> str:
-        return "List all available kernels in the Jupyter server"
+    """List all available kernels in the Jupyter server."""
     
     def _list_kernels_http(self, server_client: JupyterServerClient) -> List[Dict[str, str]]:
         """List kernels using HTTP API (MCP_SERVER mode)."""

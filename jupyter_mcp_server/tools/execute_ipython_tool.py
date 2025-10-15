@@ -17,28 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExecuteIpythonTool(BaseTool):
-    """Execute IPython code directly in the kernel on the current active notebook.
-    
-    This powerful tool supports:
-    1. Magic commands (e.g., %timeit, %who, %load, %run, %matplotlib)
-    2. Shell commands (e.g., !pip install, !ls, !cat)
-    3. Python code (e.g., print(df.head()), df.info())
-    
-    Use cases:
-    - Performance profiling and debugging
-    - Environment exploration and package management
-    - Variable inspection and data analysis
-    - File system operations on Jupyter server
-    - Temporary calculations and quick tests
-    """
-    
-    @property
-    def name(self) -> str:
-        return "execute_ipython"
-    
-    @property
-    def description(self) -> str:
-        return "Execute IPython code directly in the kernel (supports magic commands, shell commands, and Python code)"
+    """Execute IPython code directly in the kernel on the current active notebook"""
     
     async def _execute_via_kernel_manager(
         self,

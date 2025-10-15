@@ -18,24 +18,6 @@ logger = logging.getLogger(__name__)
 class UseNotebookTool(BaseTool):
     """Tool to use (connect to or create) a notebook file."""
     
-    @property
-    def name(self) -> str:
-        return "use_notebook"
-    
-    @property
-    def description(self) -> str:
-        return """Use a notebook file (connect to existing, create new, or switch to already-connected notebook).
-    
-Args:
-    notebook_name: Unique identifier for the notebook
-    notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb").
-                  Optional - if not provided, switches to an already-connected notebook with the given name.
-    mode: "connect" to connect to existing, "create" to create new
-    kernel_id: Specific kernel ID to use (optional, will create new if not provided)
-    
-Returns:
-    str: Success message with notebook information"""
-    
     async def _check_path_http(
         self, 
         server_client: JupyterServerClient, 

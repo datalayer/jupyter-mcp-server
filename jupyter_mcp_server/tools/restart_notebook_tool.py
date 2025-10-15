@@ -14,24 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class RestartNotebookTool(BaseTool):
-    """Tool to restart the kernel for a specific notebook.
-    
-    Supports both MCP_SERVER and JUPYTER_SERVER modes.
-    """
-    
-    @property
-    def name(self) -> str:
-        return "restart_notebook"
-    
-    @property
-    def description(self) -> str:
-        return """Restart the kernel for a specific notebook.
-    
-Args:
-    notebook_name: Notebook identifier to restart
-    
-Returns:
-    str: Success message"""
+    """Tool to restart the kernel for a specific notebook."""
     
     async def execute(
         self,

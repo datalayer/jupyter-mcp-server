@@ -9,7 +9,6 @@ that can operate in either MCP_SERVER or JUPYTER_SERVER mode.
 """
 
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
-from jupyter_mcp_server.tools._registry import ToolRegistry, get_tool_registry, register_tool
 
 # Import tool implementations - Notebook Management
 from jupyter_mcp_server.tools.list_notebooks_tool import ListNotebooksTool
@@ -40,9 +39,6 @@ from jupyter_mcp_server.tools.list_kernels_tool import ListKernelsTool
 __all__ = [
     "BaseTool",
     "ServerMode",
-    "ToolRegistry",
-    "get_tool_registry",
-    "register_tool",
     # Notebook Management
     "ListNotebooksTool",
     "RestartNotebookTool",
