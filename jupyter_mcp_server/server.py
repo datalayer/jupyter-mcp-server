@@ -2,7 +2,6 @@
 #
 # BSD 3-Clause License
 
-import logging
 import click
 import httpx
 import uvicorn
@@ -12,10 +11,11 @@ from fastapi import Request
 from jupyter_kernel_client import KernelClient
 from jupyter_server_api import JupyterServerClient
 from mcp.server import FastMCP
+from mcp.types import ImageContent
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
-
+from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.utils import (
     extract_output, 
@@ -23,9 +23,7 @@ from jupyter_mcp_server.utils import (
     create_kernel,
     start_kernel,
     ensure_kernel_alive,
-    execute_cell_with_timeout,
     execute_cell_with_forced_sync,
-    is_kernel_busy,
     wait_for_kernel_idle,
     safe_notebook_operation,
     list_files_recursively,
@@ -58,14 +56,6 @@ from jupyter_mcp_server.tools import (
     ListFilesTool,
     ListKernelsTool,
 )
-from typing import Literal, Union
-from mcp.types import ImageContent
-
-
-###############################################################################
-
-
-logger = logging.getLogger(__name__)
 
 
 ###############################################################################
@@ -285,17 +275,10 @@ server_context = ServerContext.get_instance()
 ###############################################################################
 
 
-def __create_kernel() -> KernelClient:
-    """Create a new kernel instance using current configuration."""
-    config = get_config()
-    return create_kernel(config, logger)
-
-
 def __start_kernel():
     """Start the Jupyter kernel with error handling (for backward compatibility)."""
     config = get_config()
     start_kernel(notebook_manager, config, logger)
-
 
 async def __auto_enroll_document():
     """Wrapper for auto_enroll_document that uses server context."""
@@ -309,38 +292,12 @@ async def __auto_enroll_document():
 
 def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
+    def __create_kernel() -> KernelClient:
+        """Create a new kernel instance using current configuration."""
+        config = get_config()
+        return create_kernel(config, logger)
     current_notebook = notebook_manager.get_current_notebook() or "default"
     return ensure_kernel_alive(notebook_manager, current_notebook, __create_kernel)
-
-
-async def __execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds=300):
-    """Execute a cell with timeout and real-time output sync."""
-    return await execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds, logger)
-
-
-async def __execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds=300):
-    """Execute cell with forced real-time synchronization."""
-    return await execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds, logger)
-
-
-def __is_kernel_busy(kernel):
-    """Check if kernel is currently executing something."""
-    return is_kernel_busy(kernel)
-
-
-async def __wait_for_kernel_idle(kernel, max_wait_seconds=60):
-    """Wait for kernel to become idle before proceeding."""
-    return await wait_for_kernel_idle(kernel, logger, max_wait_seconds)
-
-
-async def __safe_notebook_operation(operation_func, max_retries=3):
-    """Safely execute notebook operations with connection recovery."""
-    return await safe_notebook_operation(operation_func, logger, max_retries)
-
-
-def _list_files_recursively(server_client, current_path="", current_depth=0, files=None, max_depth=3):
-    """Recursively list all files and directories in the Jupyter server."""
-    return list_files_recursively(server_client, current_path, current_depth, files, max_depth)
 
 
 ###############################################################################
@@ -446,14 +403,14 @@ async def list_files(
     This tool recursively lists files and directories from the Jupyter server's content API,
     showing the complete file structure including notebooks, data files, scripts, and directories.
     """
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: list_files_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
             path=path,
             max_depth=max_depth,
-            list_files_recursively_fn=_list_files_recursively,
+            list_files_recursively_fn=list_files_recursively,
         )
     )
 
@@ -466,7 +423,7 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
     including their IDs, names, states, connection information, and kernel specifications.
     Useful for monitoring kernel resources and identifying specific kernels for connection.
     """
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: list_kernel_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -488,7 +445,7 @@ async def assign_kernel_to_notebook(
     enabling code execution in the notebook. Sessions are the mechanism Jupyter uses
     to maintain the relationship between notebooks and their kernels.
     """
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: assign_kernel_to_notebook_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -515,7 +472,7 @@ async def use_notebook(
 ) -> Annotated[str, Field(description="Success message with notebook information")]:
     """Use a notebook file (connect to existing or create new, or switch to already-connected notebook)."""
     config = get_config()
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: use_notebook_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -585,7 +542,7 @@ async def insert_cell(
     cell_source: Annotated[str, Field(description="Source content for the cell")],
 ) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)")]:
     """Insert a cell to specified position."""
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: insert_cell_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -605,7 +562,7 @@ async def insert_execute_code_cell(
     cell_source: Annotated[str, Field(description="Code source")],
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Insert and execute a code cell in a Jupyter notebook."""
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: insert_execute_code_cell_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -625,7 +582,7 @@ async def overwrite_cell_source(
     cell_source: Annotated[str, Field(description="New cell source - must match existing cell type")],
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
     """Overwrite the source of an existing cell. Note this does not execute the modified cell by itself."""
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: overwrite_cell_source_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -645,7 +602,7 @@ async def execute_cell(
     progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True (default: 5s)")] = 5,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Execute a cell with configurable timeout and optional streaming progress updates."""
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: execute_cell_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -657,9 +614,9 @@ async def execute_cell(
             stream=stream,
             progress_interval=progress_interval,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
-            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
+            wait_for_kernel_idle_fn=wait_for_kernel_idle,
             safe_extract_outputs_fn=safe_extract_outputs,
-            execute_cell_with_forced_sync_fn=__execute_cell_with_forced_sync,
+            execute_cell_with_forced_sync_fn=execute_cell_with_forced_sync,
             extract_output_fn=extract_output,
         ),
         max_retries=1
@@ -669,7 +626,7 @@ async def execute_cell(
 @mcp.tool()
 async def read_cells() -> Annotated[list[dict[str, str | int | list[str | ImageContent]]], Field(description="List of cell information including index, type, source, and outputs (for code cells)")]:
     """Read all cells from the Jupyter notebook."""
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: read_cells_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -685,7 +642,7 @@ async def list_cells() -> Annotated[str, Field(description="Tab-separated table 
     
     This provides a quick overview of the notebook structure and is useful for locating specific cells for operations like delete or insert.
     """
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: list_cells_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -700,7 +657,7 @@ async def read_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)")],
 ) -> Annotated[dict[str, str | int | list[str | ImageContent]], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
     """Read a specific cell from the Jupyter notebook."""
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: read_cell_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -715,7 +672,7 @@ async def delete_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to delete (0-based)")],
 ) -> Annotated[str, Field(description="Success message")]:
     """Delete a specific cell from the Jupyter notebook."""
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: delete_cell_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -755,7 +712,7 @@ async def execute_ipython(
         # Note: kernel_id might be None here if notebook not in manager,
         # but the tool will fall back to config values via get_current_notebook_context()
     
-    return await __safe_notebook_operation(
+    return await safe_notebook_operation(
         lambda: execute_ipython_tool.execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -765,7 +722,7 @@ async def execute_ipython(
             timeout=timeout,
             kernel_id=kernel_id,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
-            wait_for_kernel_idle_fn=__wait_for_kernel_idle,
+            wait_for_kernel_idle_fn=wait_for_kernel_idle,
             safe_extract_outputs_fn=safe_extract_outputs,
         ),
         max_retries=1
