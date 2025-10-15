@@ -58,41 +58,11 @@ from jupyter_mcp_server.tools import (
 
 
 ###############################################################################
-
+# Globals.
 
 mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
-
-# Initialize all tool instances (no arguments needed - tools receive dependencies via execute())
-# Notebook Management Tools
-list_notebook_tool = ListNotebooksTool()
-use_notebook_tool = UseNotebookTool()
-restart_notebook_tool = RestartNotebookTool()
-unuse_notebook_tool = UnuseNotebookTool()
-
-# Cell Reading Tools
-read_cells_tool = ReadCellsTool()
-list_cells_tool = ListCellsTool()
-read_cell_tool = ReadCellTool()
-
-# Cell Writing Tools
-insert_cell_tool = InsertCellTool()
-insert_execute_code_cell_tool = InsertExecuteCodeCellTool()
-overwrite_cell_source_tool = OverwriteCellSourceTool()
-delete_cell_tool = DeleteCellTool()
-
-# Cell Execution Tools
-execute_cell_tool = ExecuteCellTool()
-
-# Other Tools
-assign_kernel_to_notebook_tool = AssignKernelToNotebookTool()
-execute_ipython_tool = ExecuteIpythonTool()
-list_files_tool = ListFilesTool()
-list_kernel_tool = ListKernelsTool()
-
-###############################################################################
-
 
 def __start_kernel():
     """Start the Jupyter kernel with error handling (for backward compatibility)."""
@@ -104,7 +74,7 @@ async def __auto_enroll_document():
     await auto_enroll_document(
         config=get_config(),
         notebook_manager=notebook_manager,
-        use_notebook_tool=use_notebook_tool,
+        use_notebook_tool=UseNotebookTool(),
         server_context=server_context,
     )
 
@@ -223,7 +193,7 @@ async def list_files(
     showing the complete file structure including notebooks, data files, scripts, and directories.
     """
     return await safe_notebook_operation(
-        lambda: list_files_tool.execute(
+        lambda: ListFilesTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -243,7 +213,7 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
     Useful for monitoring kernel resources and identifying specific kernels for connection.
     """
     return await safe_notebook_operation(
-        lambda: list_kernel_tool.execute(
+        lambda: ListKernelsTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             kernel_manager=server_context.kernel_manager,
@@ -265,7 +235,7 @@ async def assign_kernel_to_notebook(
     to maintain the relationship between notebooks and their kernels.
     """
     return await safe_notebook_operation(
-        lambda: assign_kernel_to_notebook_tool.execute(
+        lambda: AssignKernelToNotebookTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -292,7 +262,7 @@ async def use_notebook(
     """Use a notebook file (connect to existing or create new, or switch to already-connected notebook)."""
     config = get_config()
     return await safe_notebook_operation(
-        lambda: use_notebook_tool.execute(
+        lambda: UseNotebookTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             notebook_name=notebook_name,
@@ -316,7 +286,7 @@ async def list_notebooks() -> Annotated[str, Field(description="TSV formatted ta
     
     To interact with a notebook, it has to be "managed". If a notebook is not managed, you can use it with the `use_notebook` tool.
     """
-    return await list_notebook_tool.execute(
+    return await ListNotebooksTool().execute(
         mode=server_context.mode,
         server_client=server_context.server_client,
         contents_manager=server_context.contents_manager,
@@ -330,7 +300,7 @@ async def restart_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to restart")],
 ) -> Annotated[str, Field(description="Success message")]:
     """Restart the kernel for a specific notebook."""
-    return await restart_notebook_tool.execute(
+    return await RestartNotebookTool().execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
@@ -343,7 +313,7 @@ async def unuse_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
 ) -> Annotated[str, Field(description="Success message")]:
     """Unuse from a specific notebook and release its resources."""
-    return await unuse_notebook_tool.execute(
+    return await UnuseNotebookTool().execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
@@ -362,7 +332,7 @@ async def insert_cell(
 ) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)")]:
     """Insert a cell to specified position."""
     return await safe_notebook_operation(
-        lambda: insert_cell_tool.execute(
+        lambda: InsertCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -382,7 +352,7 @@ async def insert_execute_code_cell(
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Insert and execute a code cell in a Jupyter notebook."""
     return await safe_notebook_operation(
-        lambda: insert_execute_code_cell_tool.execute(
+        lambda: InsertExecuteCodeCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -402,7 +372,7 @@ async def overwrite_cell_source(
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
     """Overwrite the source of an existing cell. Note this does not execute the modified cell by itself."""
     return await safe_notebook_operation(
-        lambda: overwrite_cell_source_tool.execute(
+        lambda: OverwriteCellSourceTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -422,7 +392,7 @@ async def execute_cell(
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Execute a cell with configurable timeout and optional streaming progress updates."""
     return await safe_notebook_operation(
-        lambda: execute_cell_tool.execute(
+        lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -446,7 +416,7 @@ async def execute_cell(
 async def read_cells() -> Annotated[list[dict[str, str | int | list[str | ImageContent]]], Field(description="List of cell information including index, type, source, and outputs (for code cells)")]:
     """Read all cells from the Jupyter notebook."""
     return await safe_notebook_operation(
-        lambda: read_cells_tool.execute(
+        lambda: ReadCellsTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -462,7 +432,7 @@ async def list_cells() -> Annotated[str, Field(description="Tab-separated table 
     This provides a quick overview of the notebook structure and is useful for locating specific cells for operations like delete or insert.
     """
     return await safe_notebook_operation(
-        lambda: list_cells_tool.execute(
+        lambda: ListCellsTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -477,7 +447,7 @@ async def read_cell(
 ) -> Annotated[dict[str, str | int | list[str | ImageContent]], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
     """Read a specific cell from the Jupyter notebook."""
     return await safe_notebook_operation(
-        lambda: read_cell_tool.execute(
+        lambda: ReadCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -492,7 +462,7 @@ async def delete_cell(
 ) -> Annotated[str, Field(description="Success message")]:
     """Delete a specific cell from the Jupyter notebook."""
     return await safe_notebook_operation(
-        lambda: delete_cell_tool.execute(
+        lambda: DeleteCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -532,7 +502,7 @@ async def execute_ipython(
         # but the tool will fall back to config values via get_current_notebook_context()
     
     return await safe_notebook_operation(
-        lambda: execute_ipython_tool.execute(
+        lambda: ExecuteIpythonTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             kernel_manager=server_context.kernel_manager,
