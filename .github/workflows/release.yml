@@ -112,10 +112,26 @@ jobs:
         with:
           fetch-depth: 0  # Fetch complete history for release creation
 
-      - name: Extract version
+      - name: Extract version and tag info
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: Get git tag info
+        id: git_info
+        run: |
+          # Get the latest tag message if available
+          TAG_MESSAGE=$(git tag -l --format='%(contents)' ${{ steps.version.outputs.TAG_NAME }} 2>/dev/null || echo "")
+          echo "TAG_MESSAGE<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Get repository info
+        id: repo
+        run: |
+          echo "REPO_URL=${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: actions/create-release@v1
@@ -126,6 +142,8 @@ jobs:
           release_name: Release ${{ steps.version.outputs.VERSION }}
           body: |
             ## 🚀 Release ${{ steps.version.outputs.VERSION }}
+
+            ${{ steps.git_info.outputs.TAG_MESSAGE }}
 
             ### 🔗 Links
 
