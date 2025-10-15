@@ -248,7 +248,7 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
 async def assign_kernel_to_notebook(
     notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')")],
     kernel_id: Annotated[str, Field(description="ID of the kernel to assign to the notebook")],
-    session_name: Annotated[str, Field(description="Optional name for the session (defaults to notebook path)")] = None,
+    session_name: Annotated[str, Field(description="Name for the session (If is empty, defaults to notebook path)")] = "",
 ) -> Annotated[str, Field(description="Success message with session information including session ID")]:
     """Assign a kernel to a notebook by creating a Jupyter session.
 
@@ -256,6 +256,8 @@ async def assign_kernel_to_notebook(
     enabling code execution in the notebook. Sessions are the mechanism Jupyter uses
     to maintain the relationship between notebooks and their kernels.
     """
+    if session_name == "":
+        session_name = notebook_path
     return await safe_notebook_operation(
         lambda: AssignKernelToNotebookTool().execute(
             mode=server_context.mode,
@@ -277,12 +279,16 @@ async def assign_kernel_to_notebook(
 @mcp.tool()
 async def use_notebook(
     notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
-    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb'). If not provided, switches to an already-connected notebook with the given name.")] = None,
+    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb'). If is empty, switches to an already-connected notebook with the given name.")] = "",
     mode: Annotated[Literal["connect", "create"], Field(description="Mode to use for the notebook. 'connect' to connect to existing, 'create' to create new")] = "connect",
-    kernel_id: Annotated[str, Field(description="Specific kernel ID to use (optional, will create new if not provided)")] = None,
+    kernel_id: Annotated[str, Field(description="Specific kernel ID to use (will create new if is empty)")] = "",
 ) -> Annotated[str, Field(description="Success message with notebook information")]:
     """Use a notebook file (connect to existing or create new, or switch to already-connected notebook)."""
     config = get_config()
+    if notebook_path == "":
+        notebook_path = None
+    if kernel_id == "":
+        kernel_id = None
     return await safe_notebook_operation(
         lambda: UseNotebookTool().execute(
             mode=server_context.mode,
