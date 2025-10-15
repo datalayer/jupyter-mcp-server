@@ -6,7 +6,8 @@ import logging
 import click
 import httpx
 import uvicorn
-from typing import Union, Optional
+from typing import Annotated, Literal
+from pydantic import Field
 from fastapi import Request
 from jupyter_kernel_client import KernelClient
 from jupyter_server_api import JupyterServerClient
@@ -433,28 +434,86 @@ async def health_check(request: Request):
 ###############################################################################
 
 ###############################################################################
+# Server Management Tools.
+
+@mcp.tool()
+async def list_files(
+    path: Annotated[str, Field(description="The starting path to list from (empty string means root directory)")] = "",
+    max_depth: Annotated[int, Field(description="Maximum depth to recurse into subdirectories (default: 3)")] = 3,
+) -> Annotated[str, Field(description="Tab-separated table with columns: Path, Type, Size, Last_Modified")]:
+    """List all files and directories in the Jupyter server's file system.
+
+    This tool recursively lists files and directories from the Jupyter server's content API,
+    showing the complete file structure including notebooks, data files, scripts, and directories.
+    """
+    return await __safe_notebook_operation(
+        lambda: list_files_tool.execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            path=path,
+            max_depth=max_depth,
+            list_files_recursively_fn=_list_files_recursively,
+        )
+    )
+
+
+@mcp.tool()
+async def list_kernels() -> Annotated[str, Field(description="Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment")]:
+    """List all available kernels in the Jupyter server.
+    
+    This tool shows all running and available kernel sessions on the Jupyter server,
+    including their IDs, names, states, connection information, and kernel specifications.
+    Useful for monitoring kernel resources and identifying specific kernels for connection.
+    """
+    return await __safe_notebook_operation(
+        lambda: list_kernel_tool.execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            kernel_manager=server_context.kernel_manager,
+            kernel_spec_manager=server_context.kernel_spec_manager,
+        )
+    )
+
+
+@mcp.tool()
+async def assign_kernel_to_notebook(
+    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')")],
+    kernel_id: Annotated[str, Field(description="ID of the kernel to assign to the notebook")],
+    session_name: Annotated[str, Field(description="Optional name for the session (defaults to notebook path)")] = None,
+) -> Annotated[str, Field(description="Success message with session information including session ID")]:
+    """Assign a kernel to a notebook by creating a Jupyter session.
+
+    This creates a Jupyter server session that connects a notebook file to a kernel,
+    enabling code execution in the notebook. Sessions are the mechanism Jupyter uses
+    to maintain the relationship between notebooks and their kernels.
+    """
+    return await __safe_notebook_operation(
+        lambda: assign_kernel_to_notebook_tool.execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            session_manager=server_context.session_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_path=notebook_path,
+            kernel_id=kernel_id,
+            session_name=session_name,
+        )
+    )
+
+
+###############################################################################
 # Multi-Notebook Management Tools.
 
 
 @mcp.tool()
 async def use_notebook(
-    notebook_name: str,
-    notebook_path: Optional[str] = None,
-    mode: Literal["connect", "create"] = "connect",
-    kernel_id: Optional[str] = None,
-) -> str:
-    """Use a notebook file (connect to existing or create new, or switch to already-connected notebook).
-    
-    Args:
-        notebook_name: Unique identifier for the notebook
-        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb"). 
-                      Optional - if not provided, switches to an already-connected notebook with the given name.
-        mode: "connect" to connect to existing, "create" to create new
-        kernel_id: Specific kernel ID to use (optional, will create new if not provided)
-        
-    Returns:
-        str: Success message with notebook information
-    """
+    notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
+    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb'). If not provided, switches to an already-connected notebook with the given name.")] = None,
+    mode: Annotated[Literal["connect", "create"], Field(description="Mode to use for the notebook. 'connect' to connect to existing, 'create' to create new")] = "connect",
+    kernel_id: Annotated[str, Field(description="Specific kernel ID to use (optional, will create new if not provided)")] = None,
+) -> Annotated[str, Field(description="Success message with notebook information")]:
+    """Use a notebook file (connect to existing or create new, or switch to already-connected notebook)."""
     config = get_config()
     return await __safe_notebook_operation(
         lambda: use_notebook_tool.execute(
@@ -476,13 +535,10 @@ async def use_notebook(
 
 
 @mcp.tool()
-async def list_notebooks() -> str:
+async def list_notebooks() -> Annotated[str, Field(description="TSV formatted table with notebook information including management status")]:
     """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
     
     To interact with a notebook, it has to be "managed". If a notebook is not managed, you can use it with the `use_notebook` tool.
-    
-    Returns:
-        str: TSV formatted table with notebook information including management status
     """
     return await list_notebook_tool.execute(
         mode=server_context.mode,
@@ -494,15 +550,10 @@ async def list_notebooks() -> str:
 
 
 @mcp.tool()
-async def restart_notebook(notebook_name: str) -> str:
-    """Restart the kernel for a specific notebook.
-    
-    Args:
-        notebook_name: Notebook identifier to restart
-        
-    Returns:
-        str: Success message
-    """
+async def restart_notebook(
+    notebook_name: Annotated[str, Field(description="Notebook identifier to restart")],
+) -> Annotated[str, Field(description="Success message")]:
+    """Restart the kernel for a specific notebook."""
     return await restart_notebook_tool.execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
@@ -512,15 +563,10 @@ async def restart_notebook(notebook_name: str) -> str:
 
 
 @mcp.tool()
-async def unuse_notebook(notebook_name: str) -> str:
-    """Unuse from a specific notebook and release its resources.
-    
-    Args:
-        notebook_name: Notebook identifier to disconnect
-        
-    Returns:
-        str: Success message
-    """
+async def unuse_notebook(
+    notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
+) -> Annotated[str, Field(description="Success message")]:
+    """Unuse from a specific notebook and release its resources."""
     return await unuse_notebook_tool.execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
@@ -534,20 +580,11 @@ async def unuse_notebook(notebook_name: str) -> str:
 
 @mcp.tool()
 async def insert_cell(
-    cell_index: int,
-    cell_type: Literal["code", "markdown"],
-    cell_source: str,
-) -> str:
-    """Insert a cell to specified position.
-
-    Args:
-        cell_index: target index for insertion (0-based). Use -1 to append at end.
-        cell_type: Type of cell to insert ("code" or "markdown")
-        cell_source: Source content for the cell
-
-    Returns:
-        str: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)
-    """
+    cell_index: Annotated[int, Field(description="Target index for insertion (0-based). Use -1 to append at end.")],
+    cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
+    cell_source: Annotated[str, Field(description="Source content for the cell")],
+) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)")]:
+    """Insert a cell to specified position."""
     return await __safe_notebook_operation(
         lambda: insert_cell_tool.execute(
             mode=server_context.mode,
@@ -563,16 +600,11 @@ async def insert_cell(
 
 
 @mcp.tool()
-async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Union[str, ImageContent]]:
-    """Insert and execute a code cell in a Jupyter notebook.
-
-    Args:
-        cell_index: Index of the cell to insert (0-based). Use -1 to append at end and execute.
-        cell_source: Code source
-
-    Returns:
-        list[Union[str, ImageContent]]: List of outputs from the executed cell
-    """
+async def insert_execute_code_cell(
+    cell_index: Annotated[int, Field(description="Index of the cell to insert (0-based). Use -1 to append at end and execute.")],
+    cell_source: Annotated[str, Field(description="Code source")],
+) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
+    """Insert and execute a code cell in a Jupyter notebook."""
     return await __safe_notebook_operation(
         lambda: insert_execute_code_cell_tool.execute(
             mode=server_context.mode,
@@ -588,17 +620,11 @@ async def insert_execute_code_cell(cell_index: int, cell_source: str) -> list[Un
 
 
 @mcp.tool()
-async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
-    """Overwrite the source of an existing cell.
-       Note this does not execute the modified cell by itself.
-
-    Args:
-        cell_index: Index of the cell to overwrite (0-based)
-        cell_source: New cell source - must match existing cell type
-
-    Returns:
-        str: Success message with diff showing changes made
-    """
+async def overwrite_cell_source(
+    cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)")],
+    cell_source: Annotated[str, Field(description="New cell source - must match existing cell type")],
+) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
+    """Overwrite the source of an existing cell. Note this does not execute the modified cell by itself."""
     return await __safe_notebook_operation(
         lambda: overwrite_cell_source_tool.execute(
             mode=server_context.mode,
@@ -612,17 +638,13 @@ async def overwrite_cell_source(cell_index: int, cell_source: str) -> str:
     )
 
 @mcp.tool()
-async def execute_cell(cell_index: int, timeout_seconds: int = 300, stream: bool = False, progress_interval: int = 5) -> list[Union[str, ImageContent]]:
-    """Execute a cell with configurable timeout and optional streaming progress updates.
-
-    Args:
-        cell_index: Index of the cell to execute (0-based)
-        timeout_seconds: Maximum time to wait for execution (default: 300s)
-        stream: Enable streaming progress updates for long-running cells (default: False)
-        progress_interval: Seconds between progress updates when stream=True (default: 5s)
-    Returns:
-        list[Union[str, ImageContent]]: List of outputs from the executed cell
-    """
+async def execute_cell(
+    cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)")],
+    timeout_seconds: Annotated[int, Field(description="Maximum time to wait for execution (default: 300s)")] = 300,
+    stream: Annotated[bool, Field(description="Enable streaming progress updates for long-running cells (default: False)")] = False,
+    progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True (default: 5s)")] = 5,
+) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
+    """Execute a cell with configurable timeout and optional streaming progress updates."""
     return await __safe_notebook_operation(
         lambda: execute_cell_tool.execute(
             mode=server_context.mode,
@@ -645,12 +667,8 @@ async def execute_cell(cell_index: int, timeout_seconds: int = 300, stream: bool
 
 
 @mcp.tool()
-async def read_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageContent]]]]]:
-    """Read all cells from the Jupyter notebook.
-    Returns:
-        list[dict]: List of cell information including index, type, source,
-                    and outputs (for code cells)
-    """
+async def read_cells() -> Annotated[list[dict[str, str | int | list[str | ImageContent]]], Field(description="List of cell information including index, type, source, and outputs (for code cells)")]:
+    """Read all cells from the Jupyter notebook."""
     return await __safe_notebook_operation(
         lambda: read_cells_tool.execute(
             mode=server_context.mode,
@@ -662,15 +680,10 @@ async def read_cells() -> list[dict[str, Union[str, int, list[Union[str, ImageCo
 
 
 @mcp.tool()
-async def list_cells() -> str:
+async def list_cells() -> Annotated[str, Field(description="Tab-separated table with columns: Index, Type, Count, First Line")]:
     """List the basic information of all cells in the notebook.
     
-    Returns a formatted table showing the index, type, execution count (for code cells),
-    and first line of each cell. This provides a quick overview of the notebook structure
-    and is useful for locating specific cells for operations like delete or insert.
-    
-    Returns:
-        str: Formatted table with cell information (Index, Type, Count, First Line)
+    This provides a quick overview of the notebook structure and is useful for locating specific cells for operations like delete or insert.
     """
     return await __safe_notebook_operation(
         lambda: list_cells_tool.execute(
@@ -683,13 +696,10 @@ async def list_cells() -> str:
 
 
 @mcp.tool()
-async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str, ImageContent]]]]:
-    """Read a specific cell from the Jupyter notebook.
-    Args:
-        cell_index: Index of the cell to read (0-based)
-    Returns:
-        dict: Cell information including index, type, source, and outputs (for code cells)
-    """
+async def read_cell(
+    cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)")],
+) -> Annotated[dict[str, str | int | list[str | ImageContent]], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
+    """Read a specific cell from the Jupyter notebook."""
     return await __safe_notebook_operation(
         lambda: read_cell_tool.execute(
             mode=server_context.mode,
@@ -701,13 +711,10 @@ async def read_cell(cell_index: int) -> dict[str, Union[str, int, list[Union[str
     )
 
 @mcp.tool()
-async def delete_cell(cell_index: int) -> str:
-    """Delete a specific cell from the Jupyter notebook.
-    Args:
-        cell_index: Index of the cell to delete (0-based)
-    Returns:
-        str: Success message
-    """
+async def delete_cell(
+    cell_index: Annotated[int, Field(description="Index of the cell to delete (0-based)")],
+) -> Annotated[str, Field(description="Success message")]:
+    """Delete a specific cell from the Jupyter notebook."""
     return await __safe_notebook_operation(
         lambda: delete_cell_tool.execute(
             mode=server_context.mode,
@@ -721,26 +728,23 @@ async def delete_cell(cell_index: int) -> str:
 
 
 @mcp.tool()
-async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, ImageContent]]:
+async def execute_ipython(
+    code: Annotated[str, Field(description="IPython code to execute (supports magic commands, shell commands with !, and Python code)")],
+    timeout: Annotated[int, Field(description="Execution timeout in seconds (default: 60s)")] = 60,
+) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed code")]:
     """Execute IPython code directly in the kernel on the current active notebook.
-    
+
     This powerful tool supports:
     1. Magic commands (e.g., %timeit, %who, %load, %run, %matplotlib)
     2. Shell commands (e.g., !pip install, !ls, !cat)
     3. Python code (e.g., print(df.head()), df.info())
-    
+
     Use cases:
     - Performance profiling and debugging
     - Environment exploration and package management
     - Variable inspection and data analysis
     - File system operations on Jupyter server
     - Temporary calculations and quick tests
-
-    Args:
-        code: IPython code to execute (supports magic commands, shell commands with !, and Python code)
-        timeout: Execution timeout in seconds (default: 60s)
-    Returns:
-        List of outputs from the executed code
     """
     # Get kernel_id for JUPYTER_SERVER mode
     # Let the tool handle getting kernel_id via get_current_notebook_context()
@@ -766,88 +770,6 @@ async def execute_ipython(code: str, timeout: int = 60) -> list[Union[str, Image
         ),
         max_retries=1
     )
-
-
-@mcp.tool()
-async def list_files(path: str = "", max_depth: int = 3) -> str:
-    """List all files and directories in the Jupyter server's file system.
-    
-    This tool recursively lists files and directories from the Jupyter server's content API,
-    showing the complete file structure including notebooks, data files, scripts, and directories.
-    
-    Args:
-        path: The starting path to list from (empty string means root directory)
-        max_depth: Maximum depth to recurse into subdirectories (default: 3)
-        
-    Returns:
-        str: Tab-separated table with columns: Path, Type, Size, Last_Modified
-    """
-    return await __safe_notebook_operation(
-        lambda: list_files_tool.execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            path=path,
-            max_depth=max_depth,
-            list_files_recursively_fn=_list_files_recursively,
-        )
-    )
-
-
-@mcp.tool()
-async def list_kernels() -> str:
-    """List all available kernels in the Jupyter server.
-    
-    This tool shows all running and available kernel sessions on the Jupyter server,
-    including their IDs, names, states, connection information, and kernel specifications.
-    Useful for monitoring kernel resources and identifying specific kernels for connection.
-    
-    Returns:
-        str: Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
-    """
-    return await __safe_notebook_operation(
-        lambda: list_kernel_tool.execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            kernel_manager=server_context.kernel_manager,
-            kernel_spec_manager=server_context.kernel_spec_manager,
-        )
-    )
-
-
-@mcp.tool()
-async def assign_kernel_to_notebook(
-    notebook_path: str,
-    kernel_id: str,
-    session_name: str = None
-) -> str:
-    """Assign a kernel to a notebook by creating a Jupyter session.
-    
-    This creates a Jupyter server session that connects a notebook file to a kernel,
-    enabling code execution in the notebook. Sessions are the mechanism Jupyter uses
-    to maintain the relationship between notebooks and their kernels.
-    
-    Args:
-        notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
-        kernel_id: ID of the kernel to assign to the notebook
-        session_name: Optional name for the session (defaults to notebook path)
-    
-    Returns:
-        str: Success message with session information including session ID
-    """
-    return await __safe_notebook_operation(
-        lambda: assign_kernel_to_notebook_tool.execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            session_manager=server_context.session_manager,
-            kernel_manager=server_context.kernel_manager,
-            notebook_path=notebook_path,
-            kernel_id=kernel_id,
-            session_name=session_name,
-        )
-    )
-
 
 ###############################################################################
 # Helper Functions for Extension.
@@ -886,10 +808,15 @@ async def get_registered_tools():
         else:
             tool_dict["parameters"] = []
         
+        # Include full outputSchema for MCP protocol compatibility
+        if hasattr(tool, 'outputSchema') and tool.outputSchema:
+            tool_dict["outputSchema"] = tool.outputSchema
+        else:
+            tool_dict["outputSchema"] = []
+        
         tools.append(tool_dict)
     
     return tools
-
 
 ###############################################################################
 # Commands.
