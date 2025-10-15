@@ -24,20 +24,6 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Get git tag info
-        id: git_info
-        run: |
-          # Get the tag message using git show with format
-          TAG_MESSAGE=$(git show ${{ steps.version.outputs.TAG_NAME }} --format=%B -s 2>/dev/null || echo "")
-          echo "TAG_MESSAGE<<EOF" >> $GITHUB_OUTPUT
-          echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Get repository info
-        id: repo
-        run: |
-          echo "REPO_URL=${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_OUTPUT
-
       - name: Create Release
         uses: actions/create-release@v1
         env:
@@ -47,13 +33,6 @@ jobs:
           release_name: Release ${{ steps.version.outputs.VERSION }}
           body: |
             ## 🚀 Release ${{ steps.version.outputs.VERSION }}
-
-            ${{ steps.git_info.outputs.TAG_MESSAGE }}
-
-            ### 🔗 Links
-
-            - [PyPI](https://pypi.org/project/jupyter-mcp-server/${{ steps.version.outputs.VERSION }}/)
-            - [Docker Hub](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
           draft: false
           prerelease: false
           generate_release_notes: true
