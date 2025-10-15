@@ -26,8 +26,8 @@ jobs:
       - name: Get git tag info
         id: git_info
         run: |
-          # Get the tag message using git show with format
-          TAG_MESSAGE=$(git show ${{ steps.version.outputs.TAG_NAME }} --format=%B -s 2>/dev/null || echo "No tag message found")
+          # Get the tag message using git show without format option first
+          TAG_MESSAGE=$(git show ${{ steps.version.outputs.TAG_NAME }} 2>/dev/null | sed -n '/^$/q;p' | head -n -1 | tail -n +2 || echo "No tag message found")
           echo "TAG_MESSAGE<<EOF" >> $GITHUB_OUTPUT
           echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
