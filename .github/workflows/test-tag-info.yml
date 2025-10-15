@@ -1,0 +1,70 @@
+name: Test Tag Info
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v1.0.0
+
+jobs:
+  test-tag-info:
+    name: Test Tag Information Extraction
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch complete history for tag information
+
+      - name: Extract version and tag info
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "GITHUB_REF=${GITHUB_REF}" >> $GITHUB_OUTPUT
+
+      - name: Get git tag info
+        id: git_info
+        run: |
+          # Get the latest tag message if available
+          TAG_MESSAGE=$(git tag -l --format='%(contents)' ${{ steps.version.outputs.TAG_NAME }} 2>/dev/null || echo "No tag message found")
+          echo "TAG_MESSAGE<<EOF" >> $GITHUB_OUTPUT
+          echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Get repository info
+        id: repo
+        run: |
+          echo "REPO_URL=${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_OUTPUT
+
+      - name: Display extracted information
+        run: |
+          echo "=== TAG INFORMATION TEST ==="
+          echo "Version: ${{ steps.version.outputs.VERSION }}"
+          echo "Tag Name: ${{ steps.version.outputs.TAG_NAME }}"
+          echo "GitHub Ref: ${{ steps.version.outputs.GITHUB_REF }}"
+          echo ""
+          echo "=== TAG MESSAGE ==="
+          echo "${{ steps.git_info.outputs.TAG_MESSAGE }}"
+          echo ""
+          echo "=== REPOSITORY INFO ==="
+          echo "Repository URL: ${{ steps.repo.outputs.REPO_URL }}"
+          echo ""
+          echo "=== POTENTIAL RELEASE BODY ==="
+          cat << 'EOF'
+          ## 🚀 Release ${{ steps.version.outputs.VERSION }}
+
+          ${{ steps.git_info.outputs.TAG_MESSAGE }}
+
+          ### 🔗 Links
+
+          - [PyPI](https://pypi.org/project/jupyter-mcp-server/${{ steps.version.outputs.VERSION }}/)
+          - [Docker Hub](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
+
+          ### 📚 Resources
+
+          - [Documentation](https://datalayer.github.io/jupyter-mcp-server/)
+          - [Source Code](${{ steps.repo.outputs.REPO_URL }})
+          - [Issues & Bugs](${{ steps.repo.outputs.REPO_URL }}/issues)
+          - [Discussions](${{ steps.repo.outputs.REPO_URL }}/discussions)
+          EOF
