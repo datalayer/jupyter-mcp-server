@@ -272,11 +272,14 @@ class MCPClient:
         arguments = {
             "notebook_name": notebook_name, 
             "mode": mode,
-            "kernel_id": kernel_id
         }
         # Only add notebook_path if provided (for switching, it's optional)
         if notebook_path is not None:
             arguments["notebook_path"] = notebook_path
+        
+        # Only add kernel_id if provided (not None)
+        if kernel_id is not None:
+            arguments["kernel_id"] = kernel_id
         
         result = await self._session.call_tool("use_notebook", arguments=arguments)  # type: ignore
         return self._extract_text_content(result)
