@@ -7,7 +7,7 @@ import asyncio
 import time
 from typing import Any, Union
 from mcp.types import ImageContent
-from .env import ALLOW_IMG_OUTPUT
+from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 
 
 def get_current_notebook_context(notebook_manager=None):
