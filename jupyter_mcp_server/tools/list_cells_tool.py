@@ -16,21 +16,6 @@ from jupyter_mcp_server.utils import normalize_cell_source, format_TSV
 class ListCellsTool(BaseTool):
     """Tool to list basic information of all cells."""
     
-    @property
-    def name(self) -> str:
-        return "list_cells"
-    
-    @property
-    def description(self) -> str:
-        return """List the basic information of all cells in the notebook.
-    
-Returns a formatted table showing the index, type, execution count (for code cells),
-and first line of each cell. This provides a quick overview of the notebook structure
-and is useful for locating specific cells for operations like delete or insert.
-
-Returns:
-    str: Formatted table with cell information (Index, Type, Count, First Line)"""
-    
     async def _list_cells_local(self, contents_manager: Any, path: str) -> str:
         """List cells using local contents_manager (JUPYTER_SERVER mode)."""
         # Read the notebook file directly

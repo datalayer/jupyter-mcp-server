@@ -3,9 +3,11 @@
 # BSD 3-Clause License
 
 import re
+import asyncio
+import time
 from typing import Any, Union
 from mcp.types import ImageContent
-from .env import ALLOW_IMG_OUTPUT
+from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -319,56 +321,9 @@ def ensure_kernel_alive(notebook_manager, current_notebook, create_kernel_fn):
     return notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn)
 
 
-async def execute_cell_with_timeout(notebook, cell_index, kernel, timeout_seconds, logger):
-    """Execute a cell with timeout and real-time output sync."""
-    import asyncio
-    import time
-    from concurrent.futures import ThreadPoolExecutor
-    
-    start_time = time.time()
-    
-    def _execute_sync():
-        return notebook.execute_cell(cell_index, kernel)
-    
-    executor = ThreadPoolExecutor(max_workers=1)
-    try:
-        future = executor.submit(_execute_sync)
-        
-        while not future.done():
-            elapsed = time.time() - start_time
-            if elapsed > timeout_seconds:
-                future.cancel()
-                raise asyncio.TimeoutError(f"Cell execution timed out after {timeout_seconds} seconds")
-            
-            await asyncio.sleep(2)
-            try:
-                # Try to force document sync using the correct method
-                ydoc = notebook._doc
-                if hasattr(ydoc, 'flush') and callable(ydoc.flush):
-                    ydoc.flush()  # Flush pending changes
-                elif hasattr(notebook, '_websocket') and notebook._websocket:
-                    # Force a small update to trigger sync
-                    pass  # The websocket should auto-sync
-                
-                if cell_index < len(ydoc._ycells):
-                    outputs = ydoc._ycells[cell_index].get("outputs", [])
-                    if outputs:
-                        logger.info(f"Cell {cell_index} executing... ({elapsed:.1f}s) - {len(outputs)} outputs so far")
-            except Exception as e:
-                logger.debug(f"Sync attempt failed: {e}")
-                pass
-        
-        result = future.result()
-        return result
-        
-    finally:
-        executor.shutdown(wait=False)
-
-
-async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds, logger):
+async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds = 300):
     """Execute cell with forced real-time synchronization."""
-    import asyncio
-    import time
+    from jupyter_mcp_server.log import logger
     
     start_time = time.time()
     
@@ -440,10 +395,9 @@ def is_kernel_busy(kernel):
         return False
 
 
-async def wait_for_kernel_idle(kernel, logger, max_wait_seconds=60):
+async def wait_for_kernel_idle(kernel, max_wait_seconds=60):
     """Wait for kernel to become idle before proceeding."""
-    import asyncio
-    import time
+    from jupyter_mcp_server.log import logger
     
     start_time = time.time()
     while is_kernel_busy(kernel):
@@ -455,9 +409,9 @@ async def wait_for_kernel_idle(kernel, logger, max_wait_seconds=60):
         await asyncio.sleep(1)
 
 
-async def safe_notebook_operation(operation_func, logger, max_retries=3):
+async def safe_notebook_operation(operation_func, max_retries=3):
     """Safely execute notebook operations with connection recovery."""
-    import asyncio
+    from jupyter_mcp_server.log import logger
     
     for attempt in range(max_retries):
         try:
@@ -570,7 +524,6 @@ async def execute_via_execution_stack(
         RuntimeError: If jupyter-server-nbmodel extension is not installed
         TimeoutError: If execution exceeds timeout
     """
-    import asyncio
     import logging as default_logging
     
     if logger is None:
@@ -679,7 +632,6 @@ async def execute_code_local(
     Returns:
         List of formatted outputs (strings or ImageContent)
     """
-    import asyncio
     import zmq.asyncio
     from inspect import isawaitable
     

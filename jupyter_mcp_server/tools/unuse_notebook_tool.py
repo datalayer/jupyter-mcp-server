@@ -14,24 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class UnuseNotebookTool(BaseTool):
-    """Tool to unuse from a notebook and release its resources.
-    
-    Supports both MCP_SERVER and JUPYTER_SERVER modes.
-    """
-    
-    @property
-    def name(self) -> str:
-        return "unuse_notebook"
-    
-    @property
-    def description(self) -> str:
-        return """Unuse a specific notebook and release its resources.
-    
-Args:
-    notebook_name: Notebook identifier to unuse
-    
-Returns:
-    str: Success message"""
+    """Tool to unuse from a notebook and release its resources"""
     
     async def execute(
         self,

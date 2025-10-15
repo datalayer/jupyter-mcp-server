@@ -72,11 +72,6 @@ Both modes share the same tool implementations, with automatic backend selection
 **BaseTool** - Abstract base class for all tools:
 ```python
 class BaseTool:
-    @property
-    def name(self) -> str: ...
-    
-    @property
-    def description(self) -> str: ...
     
     async def execute(
         self,

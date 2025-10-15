@@ -16,23 +16,7 @@ from jupyter_mcp_server.utils import get_surrounding_cells_info
 
 class InsertCellTool(BaseTool):
     """Tool to insert a cell at a specified position."""
-    
-    @property
-    def name(self) -> str:
-        return "insert_cell"
-    
-    @property
-    def description(self) -> str:
-        return """Insert a cell to specified position.
 
-Args:
-    cell_index: target index for insertion (0-based). Use -1 to append at end.
-    cell_type: Type of cell to insert ("code" or "markdown")
-    cell_source: Source content for the cell
-
-Returns:
-    str: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)"""
-    
     async def _get_jupyter_ydoc(self, serverapp: Any, file_id: str):
         """Get the YNotebook document if it's currently open in a collaborative session.
         

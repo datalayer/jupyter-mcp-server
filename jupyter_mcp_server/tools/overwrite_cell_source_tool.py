@@ -17,22 +17,6 @@ from jupyter_mcp_server.utils import get_current_notebook_context
 class OverwriteCellSourceTool(BaseTool):
     """Tool to overwrite the source of an existing cell."""
     
-    @property
-    def name(self) -> str:
-        return "overwrite_cell_source"
-    
-    @property
-    def description(self) -> str:
-        return """Overwrite the source of an existing cell.
-Note this does not execute the modified cell by itself.
-
-Args:
-    cell_index: Index of the cell to overwrite (0-based)
-    cell_source: New cell source - must match existing cell type
-
-Returns:
-    str: Success message with diff showing changes made"""
-    
     async def _get_jupyter_ydoc(self, serverapp: Any, file_id: str):
         """Get the YNotebook document if it's currently open in a collaborative session."""
         try:

@@ -16,20 +16,6 @@ from jupyter_mcp_server.utils import get_current_notebook_context
 class DeleteCellTool(BaseTool):
     """Tool to delete a specific cell from a notebook."""
     
-    @property
-    def name(self) -> str:
-        return "delete_cell"
-    
-    @property
-    def description(self) -> str:
-        return """Delete a specific cell from the Jupyter notebook.
-    
-Args:
-    cell_index: Index of the cell to delete (0-based)
-    
-Returns:
-    str: Success message"""
-    
     async def _get_jupyter_ydoc(self, serverapp: Any, file_id: str):
         """Get the YNotebook document if it's currently open in a collaborative session.
         

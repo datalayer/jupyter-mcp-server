@@ -19,21 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExecuteCellTool(BaseTool):
-    """Execute a cell with configurable timeout and optional streaming progress updates.
-
-    Supports both MCP_SERVER (with WebSocket) and JUPYTER_SERVER modes.
-    The stream parameter controls execution behavior:
-    - stream=False: Use forced sync approach (more reliable for short-running cells)
-    - stream=True: Use real-time monitoring approach (better for long-running cells)
-    """
-
-    @property
-    def name(self) -> str:
-        return "execute_cell"
-
-    @property
-    def description(self) -> str:
-        return "Execute a cell with configurable timeout and optional streaming progress updates"
+    """Execute a cell with configurable timeout and optional streaming progress updates"""
 
     async def _get_jupyter_ydoc(self, serverapp, file_id: str):
         """Get the YNotebook document if it's currently open in a collaborative session."""

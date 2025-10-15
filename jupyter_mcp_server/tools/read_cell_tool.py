@@ -16,20 +16,6 @@ from mcp.types import ImageContent
 class ReadCellTool(BaseTool):
     """Tool to read a specific cell from a notebook."""
     
-    @property
-    def name(self) -> str:
-        return "read_cell"
-    
-    @property
-    def description(self) -> str:
-        return """Read a specific cell from the Jupyter notebook.
-    
-Args:
-    cell_index: Index of the cell to read (0-based)
-    
-Returns:
-    dict: Cell information including index, type, source, and outputs (for code cells)"""
-    
     async def _read_cell_local(self, contents_manager: Any, path: str, cell_index: int) -> Dict[str, Any]:
         """Read a specific cell using local contents_manager (JUPYTER_SERVER mode)."""
         # Read the notebook file directly

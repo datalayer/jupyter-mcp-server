@@ -13,19 +13,7 @@ from jupyter_mcp_server.utils import format_TSV
 
 
 class ListFilesTool(BaseTool):
-    """List files and directories in the Jupyter server's file system.
-    
-    This tool recursively lists files and directories from the Jupyter server's content API,
-    showing the complete file structure including notebooks, data files, scripts, and directories.
-    """
-    
-    @property
-    def name(self) -> str:
-        return "list_files"
-    
-    @property
-    def description(self) -> str:
-        return "List all files and directories in the Jupyter server's file system"
+    """List files and directories in the Jupyter server's file system"""
     
     async def _list_files_local(
         self,

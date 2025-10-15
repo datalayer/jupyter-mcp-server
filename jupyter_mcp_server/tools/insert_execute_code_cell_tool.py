@@ -20,21 +20,6 @@ logger = logging.getLogger(__name__)
 class InsertExecuteCodeCellTool(BaseTool):
     """Tool to insert and execute a code cell."""
     
-    @property
-    def name(self) -> str:
-        return "insert_execute_code_cell"
-    
-    @property
-    def description(self) -> str:
-        return """Insert and execute a code cell in a Jupyter notebook.
-
-Args:
-    cell_index: Index of the cell to insert (0-based). Use -1 to append at end and execute.
-    cell_source: Code source
-
-Returns:
-    list[Union[str, ImageContent]]: List of outputs from the executed cell"""
-    
     async def _get_jupyter_ydoc(self, serverapp: Any, file_id: str):
         """Get the YNotebook document if it's currently open in a collaborative session."""
         try:

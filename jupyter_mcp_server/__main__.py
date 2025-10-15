@@ -2,8 +2,14 @@
 #
 # BSD 3-Clause License
 
-from jupyter_mcp_server.server import server
+"""
+Entry point for running jupyter_mcp_server as a module.
+
+This allows the package to be run with: python -m jupyter_mcp_server
+"""
+
+from jupyter_mcp_server.CLI import server
 
 if __name__ == "__main__":
-    """Start the Jupyter MCP Server."""
     server()
+

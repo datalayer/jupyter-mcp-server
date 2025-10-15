@@ -12,26 +12,6 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 class AssignKernelToNotebookTool(BaseTool):
     """Tool to assign a kernel to a notebook by creating a Jupyter session."""
     
-    @property
-    def name(self) -> str:
-        return "assign_kernel_to_notebook"
-    
-    @property
-    def description(self) -> str:
-        return """Assign a kernel to a notebook by creating a Jupyter session.
-    
-This creates a Jupyter server session that connects a notebook file to a kernel,
-enabling code execution in the notebook. Sessions are the mechanism Jupyter uses
-to maintain the relationship between notebooks and their kernels.
-
-Args:
-    notebook_path: Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
-    kernel_id: ID of the kernel to assign to the notebook
-    session_name: Optional name for the session (defaults to notebook path)
-    
-Returns:
-    str: Success message with session information including session ID"""
-    
     async def execute(
         self,
         mode: ServerMode,

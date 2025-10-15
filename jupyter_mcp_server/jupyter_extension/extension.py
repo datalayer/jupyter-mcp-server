@@ -158,7 +158,8 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         if self.document_id:
             from tornado.ioloop import IOLoop
             from jupyter_mcp_server.enroll import auto_enroll_document
-            from jupyter_mcp_server.server import notebook_manager, use_notebook_tool, server_context
+            from jupyter_mcp_server.server import notebook_manager, server_context
+            from jupyter_mcp_server.tools import UseNotebookTool
             
             # Schedule auto-enrollment to run after Jupyter Server is fully started
             async def _run_auto_enrollment():
@@ -167,7 +168,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
                     await auto_enroll_document(
                         config=config,
                         notebook_manager=notebook_manager,
-                        use_notebook_tool=use_notebook_tool,
+                        use_notebook_tool=UseNotebookTool(),
                         server_context=server_context,
                     )
                     logger.info(f"Auto-enrollment completed for document '{self.document_id}'")
