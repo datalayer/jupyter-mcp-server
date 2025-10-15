@@ -8,13 +8,11 @@ import uvicorn
 from typing import Annotated, Literal
 from pydantic import Field
 from fastapi import Request
+from jupyter_mcp_server.mcp import FastMCPWithCORS
 from jupyter_kernel_client import KernelClient
 from jupyter_server_api import JupyterServerClient
-from mcp.server import FastMCP
 from mcp.types import ImageContent
-from starlette.applications import Starlette
 from starlette.responses import JSONResponse
-from starlette.middleware.cors import CORSMiddleware
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.utils import (
@@ -60,45 +58,8 @@ from jupyter_mcp_server.tools import (
 
 ###############################################################################
 
-class FastMCPWithCORS(FastMCP):
-    def streamable_http_app(self) -> Starlette:
-        """Return StreamableHTTP server app with CORS middleware
-        See: https://github.com/modelcontextprotocol/python-sdk/issues/187
-        """
-        # Get the original Starlette app
-        app = super().streamable_http_app()
-        
-        # Add CORS middleware
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],  # In production, should set specific domains
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-        return app
-    
-    def sse_app(self, mount_path: str | None = None) -> Starlette:
-        """Return SSE server app with CORS middleware"""
-        # Get the original Starlette app
-        app = super().sse_app(mount_path)
-        # Add CORS middleware
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],  # In production, should set specific domains
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )        
-        return app
-
-
-###############################################################################
-
 
 mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
-
-# Initialize the unified notebook manager
 notebook_manager = NotebookManager()
 
 # Initialize all tool instances (no arguments needed - tools receive dependencies via execute())
