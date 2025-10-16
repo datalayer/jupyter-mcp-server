@@ -38,7 +38,7 @@ def _common_options(f):
             "--runtime-url",
             envvar="RUNTIME_URL",
             type=click.STRING,
-            default="http://localhost:8888",
+            default=None,
             help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.",
         ),
         click.option(
@@ -59,7 +59,7 @@ def _common_options(f):
             "--document-url",
             envvar="DOCUMENT_URL",
             type=click.STRING,
-            default="http://localhost:8888",
+            default=None,
             help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
         ),
         click.option(
@@ -75,12 +75,76 @@ def _common_options(f):
             type=click.STRING,
             default=None,
             help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+        ),
+        click.option(
+            "--jupyter-url",
+            envvar="JUPYTER_URL",
+            type=click.STRING,
+            default=None,
+            help="The Jupyter URL to use as default for both document and runtime URLs. If not provided, individual URL settings take precedence.",
+        ),
+        click.option(
+            "--jupyter-token",
+            envvar="JUPYTER_TOKEN",
+            type=click.STRING,
+            default=None,
+            help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
         )
     ]
     # Apply decorators in reverse order
     for option in reversed(options):
         f = option(f)
     return f
+
+
+def _resolve_url_and_token_variables(
+    jupyter_url, jupyter_token,
+    document_url, document_token,
+    runtime_url, runtime_token,
+) -> tuple[str, str | None, str, str | None]:
+    """Resolve URL and token variables based on priority logic.
+
+    Priority order:
+    1. Individual URL/token variables take precedence if set
+    2. JUPYTER_URL/JUPYTER_TOKEN used as fallback if individual variables are None
+    3. Keep original default values if neither individual nor merged variables are set
+
+    Args:
+        jupyter_url: The merged Jupyter URL variable
+        jupyter_token: The merged Jupyter token variable
+        document_url: The individual document URL (takes precedence if set)
+        document_token: The individual document token (takes precedence if set)
+        runtime_url: The individual runtime URL (takes precedence if set)
+        runtime_token: The individual runtime token (takes precedence if set)
+
+    Returns:
+        Tuple of (resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token)
+    """
+
+    # Resolve document_url
+    if document_url is not None:
+        resolved_document_url = document_url
+    elif jupyter_url is not None:
+        resolved_document_url = jupyter_url
+    else:
+        resolved_document_url = "http://localhost:8888"
+
+    # Resolve runtime_url
+    if runtime_url is not None:
+        resolved_runtime_url = runtime_url
+    elif jupyter_url is not None:
+        resolved_runtime_url = jupyter_url
+    else:
+        resolved_runtime_url = "http://localhost:8888"
+
+    # Resolve document_token
+    resolved_document_token = document_token or jupyter_token
+
+    # Resolve runtime_token
+    resolved_runtime_token = runtime_token or jupyter_token
+
+    return resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token
+
 
 def _do_start(
     transport: str,
@@ -191,6 +255,8 @@ def server(
     document_url: str,
     document_id: str,
     document_token: str,
+    jupyter_url: str,
+    jupyter_token: str,
     port: int,
     provider: str,
 ):
@@ -206,15 +272,25 @@ def server(
         return
 
     # No subcommand provided - execute the default start behavior
+    # Resolve URL and token variables based on priority logic
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+        jupyter_url=jupyter_url,
+        jupyter_token=jupyter_token,
+        document_url=document_url,
+        document_token=document_token,
+        runtime_url=runtime_url,
+        runtime_token=runtime_token,
+    )
+
     _do_start(
         transport=transport,
         start_new_runtime=start_new_runtime,
-        runtime_url=runtime_url,
+        runtime_url=resolved_runtime_url,
         runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        document_url=document_url,
+        runtime_token=resolved_runtime_token,
+        document_url=resolved_document_url,
         document_id=document_id,
-        document_token=document_token,
+        document_token=resolved_document_token,
         port=port,
         provider=provider,
     )
@@ -322,19 +398,31 @@ def start_command(
     document_url: str,
     document_id: str,
     document_token: str,
+    jupyter_url: str,
+    jupyter_token: str,
     port: int,
     provider: str,
 ):
     """Start the Jupyter MCP server with a transport."""
+    # Resolve URL and token variables based on priority logic
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+        jupyter_url=jupyter_url,
+        jupyter_token=jupyter_token,
+        document_url=document_url,
+        document_token=document_token,
+        runtime_url=runtime_url,
+        runtime_token=runtime_token,
+    )
+
     _do_start(
         transport=transport,
         start_new_runtime=start_new_runtime,
-        runtime_url=runtime_url,
+        runtime_url=resolved_runtime_url,
         runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        document_url=document_url,
+        runtime_token=resolved_runtime_token,
+        document_url=resolved_document_url,
         document_id=document_id,
-        document_token=document_token,
+        document_token=resolved_document_token,
         port=port,
         provider=provider,
     )
