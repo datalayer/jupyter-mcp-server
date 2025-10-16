@@ -142,11 +142,8 @@ Then, configure your client:
       "command": "uvx",
       "args": ["jupyter-mcp-server@latest"],
       "env": {
-        "DOCUMENT_URL": "http://localhost:8888",
-        "DOCUMENT_TOKEN": "MY_TOKEN",
-        "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://localhost:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "JUPYTER_URL": "http://localhost:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }
@@ -167,20 +164,14 @@ Then, configure your client:
       "command": "docker",
       "args": [
         "run", "-i", "--rm",
-        "-e", "DOCUMENT_URL",
-        "-e", "DOCUMENT_TOKEN",
-        "-e", "DOCUMENT_ID",
-        "-e", "RUNTIME_URL",
-        "-e", "RUNTIME_TOKEN",
+        "-e", "JUPYTER_URL",
+        "-e", "JUPYTER_TOKEN",
         "-e", "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
-        "DOCUMENT_URL": "http://host.docker.internal:8888",
-        "DOCUMENT_TOKEN": "MY_TOKEN",
-        "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "JUPYTER_URL": "http://host.docker.internal:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }
@@ -196,21 +187,15 @@ Then, configure your client:
       "command": "docker",
       "args": [
         "run", "-i", "--rm",
-        "-e", "DOCUMENT_URL",
-        "-e", "DOCUMENT_TOKEN",
-        "-e", "DOCUMENT_ID",
-        "-e", "RUNTIME_URL",
-        "-e", "RUNTIME_TOKEN",
+        "-e", "JUPYTER_URL",
+        "-e", "JUPYTER_TOKEN",
         "-e", "ALLOW_IMG_OUTPUT",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
-        "DOCUMENT_URL": "http://localhost:8888",
-        "DOCUMENT_TOKEN": "MY_TOKEN",
-        "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://localhost:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "JUPYTER_URL": "http://localhost:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }
@@ -221,9 +206,10 @@ Then, configure your client:
 </details>
 
 > [!TIP]
-> 1. Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
-> 2. In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and is actually the Jupyter Token.
-> 3. The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.
+> 1. **Port Configuration**: Ensure the `port` in your Jupyter URLs matches the one used in the `jupyter lab` command. For simplified config, set this in `JUPYTER_URL`.
+> 2. **Server Separation**: The different URL and token variables exist because some deployments separate notebook storage (`DOCUMENT_*`) from kernel execution (`RUNTIME_*`). Use `JUPYTER_URL` and `JUPYTER_TOKEN` when both services are on the same server, or set individual variables for advanced deployments.
+> 3. **Authentication**: In most cases, document and runtime services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `RUNTIME_TOKEN` individually for different credentials.
+> 4. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.
 >    - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
 >    - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
 
