@@ -11,9 +11,6 @@ The server currently offers 16 tools organized into 3 categories:
 - Input:
   - `path`(string, optional): The starting path to list from (empty string means root directory)
   - `max_depth`(int, optional): Maximum depth to recurse into subdirectories (default: 1)
-  - `start_index`(int, optional): Starting index for pagination (default: 25)
-  - `limit`(int, optional): Maximum number of items to return (0 means no limit) (default: 25)
-  - `pattern`(string, optional): Regex pattern to filter file paths (default: "")
 - Returns: Tab-separated table with columns: Path, Type, Size, Last_Modified
   - **Path**: Full path to the file or directory
   - **Type**: File type ("file", "directory", "notebook", or "error" if inaccessible)

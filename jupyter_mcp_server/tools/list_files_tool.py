@@ -4,7 +4,7 @@
 
 """List all files and directories tool."""
 
-import re
+import fnmatch
 from typing import Any, Optional, List, Dict
 from jupyter_server_api import JupyterServerClient
 
@@ -187,7 +187,7 @@ class ListFilesTool(BaseTool):
             max_depth: Maximum depth to recurse into subdirectories (0 means list current directory only, default: 1)
             start_index: Starting index for pagination (0-based, default: 0)
             limit: Maximum number of items to return (0 means no limit, default: 25)
-            pattern: Regex pattern to filter file paths (default: "")
+            pattern: Glob pattern to filter file paths (e.g., '*.py', '**/*.ipynb', default: "")
             **kwargs: Additional parameters
             
         Returns:
@@ -214,14 +214,13 @@ class ListFilesTool(BaseTool):
         # Sort files by path for better readability
         all_files.sort(key=lambda x: x['path'])
         
-        # Apply regex pattern filter if provided
+        # Apply glob pattern filter if provided
         if pattern:
             try:
-                regex = re.compile(pattern)
-                filtered_files = [f for f in all_files if regex.search(f['path'])]
+                filtered_files = [f for f in all_files if fnmatch.fnmatch(f['path'], pattern)]
                 all_files = filtered_files
             except Exception:
-                result += f"[WARNING] Invalid regex pattern '{pattern}', skipping pattern filter. \n"
+                result += f"[WARNING] Invalid glob pattern '{pattern}', skipping pattern filter. \n"
         
         # Calculate pagination
         total_files = len(all_files)

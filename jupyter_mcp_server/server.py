@@ -209,7 +209,7 @@ async def list_files(
     max_depth: Annotated[int, Field(description="Maximum depth to recurse into subdirectories", ge=0, le=3)] = 1,
     start_index: Annotated[int, Field(description="Starting index for pagination (0-based)", ge=0)] = 0,
     limit: Annotated[int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)] = 25,
-    pattern: Annotated[str, Field(description="Regex pattern to filter file paths")] = "",
+    pattern: Annotated[str, Field(description="Glob pattern to filter file paths")] = "",
 ) -> Annotated[str, Field(description="Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header.")]:
     """
     List all files and directories recursively in the Jupyter server's file system.
