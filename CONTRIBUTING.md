@@ -52,6 +52,14 @@ To get started with development, you'll need to set up your environment.
     make test
     ```
 
+5.  **Build Python Package/Docker Image:**
+    ```bash
+    # Build the Python package
+    make build
+    # Build the Docker image
+    make build-docker
+    ```
+
 ## (Optional) Manual Agent Testing
 
 1.  **Build Python Package:**
@@ -93,11 +101,8 @@ To get started with development, you'll need to set up your environment.
                     "jupyter-mcp-server"
                 ],
                 "env": {
-                    "DOCUMENT_URL": "http://localhost:8888",
-                    "DOCUMENT_TOKEN": "MY_TOKEN",
-                    "DOCUMENT_ID": "notebook.ipynb",
-                    "RUNTIME_URL": "http://localhost:8888",
-                    "RUNTIME_TOKEN": "MY_TOKEN",
+                    "JUPYTER_URL": "http://localhost:8888",
+                    "JUPYTER_TOKEN": "MY_TOKEN",
                     "ALLOW_IMG_OUTPUT": "true"
                 }
             }

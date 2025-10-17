@@ -207,11 +207,10 @@ Then, configure your client:
 
 > [!TIP]
 > 1. **Port Configuration**: Ensure the `port` in your Jupyter URLs matches the one used in the `jupyter lab` command. For simplified config, set this in `JUPYTER_URL`.
-> 2. **Server Separation**: The different URL and token variables exist because some deployments separate notebook storage (`DOCUMENT_*`) from kernel execution (`RUNTIME_*`). Use `JUPYTER_URL` and `JUPYTER_TOKEN` when both services are on the same server, or set individual variables for advanced deployments.
+> 2. **Server Separation**: Use `JUPYTER_URL` when both services are on the same server, or set individual variables for advanced deployments. The different URL variables exist because some deployments separate notebook storage (`DOCUMENT_URL`) from kernel execution (`RUNTIME_URL`). 
 > 3. **Authentication**: In most cases, document and runtime services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `RUNTIME_TOKEN` individually for different credentials.
-> 4. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.
->    - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
->    - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
+> 4. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook the MCP client default to connect. It should be relative to the directory where JupyterLab was started. If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
+> 5. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
 
@@ -244,7 +243,7 @@ Looking for blog posts, videos, or other materials about Jupyter MCP Server?
 
 👉 Visit the [**Resources section**](https://jupyter-mcp-server.datalayer.tech/resources) in our documentation for more!
 
-<a href="https://star-history.com/#/repos/datalayer/jupyter-mcp-server&type=Date">
+<a href="https://star-history.com/#datalayer/jupyter-mcp-server&type=Date">
   <img src="https://api.star-history.com/svg?repos=datalayer/jupyter-mcp-server&type=Date" alt="Star History Chart">
 </a>
 
