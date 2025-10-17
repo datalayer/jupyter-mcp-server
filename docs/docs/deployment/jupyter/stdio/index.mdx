@@ -36,34 +36,44 @@ For JupyterHub:
 
 ## 2. Setup Jupyter MCP Server
 
-You can choose between two deployment methods: **uvx** (lightweight and faster, recommended for first try) or **Docker** (recommended for production).
+Choose your deployment method: **uvx** (lightweight, recommended for first try) or **Docker** (production-ready).
 
 :::important
-
-- Ensure the `port` of the `DOCUMENT_URL` and `RUNTIME_URL` match those used in the `jupyter lab` command.
-
-- In a basic setup, `DOCUMENT_URL` and `RUNTIME_URL` are the same. `DOCUMENT_TOKEN`, and `RUNTIME_TOKEN` are also the same and are actually the Jupyter Token.
-
-- The `DOCUMENT_ID` parameter specifies the path to the notebook you want to connect to. It should be relative to the directory where JupyterLab was started.
-  - **Optional:** If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
-  - **Flexible:** Even if you set `DOCUMENT_ID`, the MCP client can still browse, list, switch to, or even create new notebooks at any time.
-
-- More environment variables can be set, refer to the [server configuration](/configure) for more details. If not specified, the server will use the default values.
-
+**Before You Start:**
+- Ensure the port in your configuration matches your `jupyter lab` command port
+- See the [server configuration guide](/configure) for all available options and detailed examples
 :::
 
 ### Using UVX (Quick Start)
 
-Make sure you have `uv` installed. You can install it via pip:
+First, install `uv`:
 
 ```bash
 pip install uv
-uv --version
-# should be 0.6.14 or higher
+uv --version  # should be 0.6.14 or higher
 ```
-See more details on [uv installation](https://docs.astral.sh/uv/getting-started/installation/).
 
-Use the following configuration file to set up the Jupyter MCP Server for your preferred MCP client.
+**Simplified Configuration (Recommended):**
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "JUPYTER_URL": "http://localhost:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
+      }
+    }
+  }
+}
+```
+
+<details>
+<summary><b>Advanced Configuration (Optional)</b></summary>
+
+For deployments requiring separate document storage and runtime execution:
 
 ```json
 {
@@ -84,12 +94,41 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
 }
 ```
 
+</details>
+
 ### Using Docker (Production)
 
-Use the following configuration file to set up the Jupyter MCP Server for your preferred MCP client. Note that the configuration is dependent on the operating system you are using.
-
+Configuration varies by operating system. For complete configuration options, see the [server configuration guide](/configure).
 
 #### For MacOS and Windows
+
+**Simplified Configuration (Recommended):**
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "JUPYTER_URL",
+        "-e", "JUPYTER_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
+        "datalayer/jupyter-mcp-server:latest"
+      ],
+      "env": {
+        "JUPYTER_URL": "http://host.docker.internal:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
+      }
+    }
+  }
+}
+```
+
+<details>
+<summary><b>Advanced Configuration (Optional)</b></summary>
+
+For deployments requiring separate document storage and runtime execution:
 
 ```json
 {
@@ -103,6 +142,7 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
         "-e", "DOCUMENT_ID",
         "-e", "RUNTIME_URL",
         "-e", "RUNTIME_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
@@ -110,14 +150,46 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }
 }
 ```
 
+</details>
+
 #### For Linux
+
+**Simplified Configuration (Recommended):**
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "JUPYTER_URL",
+        "-e", "JUPYTER_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
+        "--network=host",
+        "datalayer/jupyter-mcp-server:latest"
+      ],
+      "env": {
+        "JUPYTER_URL": "http://localhost:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
+      }
+    }
+  }
+}
+```
+
+<details>
+<summary><b>Advanced Configuration (Optional)</b></summary>
+
+For deployments requiring separate document storage and runtime execution:
 
 ```json
 {
@@ -131,6 +203,7 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
         "-e", "DOCUMENT_ID",
         "-e", "RUNTIME_URL",
         "-e", "RUNTIME_TOKEN",
+        "-e", "ALLOW_IMG_OUTPUT",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
       ],
@@ -139,9 +212,30 @@ Use the following configuration file to set up the Jupyter MCP Server for your p
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://localhost:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }
 }
 ```
+
+</details>
+
+For advanced configurations with separate document storage and runtime execution, see the [complete configuration examples](/configure#configuration-examples).
+
+## Troubleshooting
+
+### Common Issues
+
+**Connection refused or invalid JSON:**
+- Verify Jupyter server is running: `curl http://localhost:8888`
+- Check `JUPYTER_TOKEN` matches your server token
+- For Docker on macOS/Windows: Use `http://host.docker.internal:8888`
+- For Docker on Linux: Add `--network=host` flag
+
+**Authentication errors:**
+- Test token: `curl -H "Authorization: token YOUR_TOKEN" http://localhost:8888/api/sessions`
+- Check token in Jupyter server logs or URL parameters
+
+For detailed troubleshooting and advanced configuration, see the [configuration guide](/configure).

@@ -1,72 +1,172 @@
-# Configure
+# Server Configuration
 
-## Options
+## Overview
 
-Check the help for the Jupyter MCP Server to see the available configuration options.
+The Jupyter MCP Server supports flexible configuration through environment variables and command-line options to accommodate different deployment scenarios from simple local setups to complex distributed environments.
+
+## Server Modes
+
+The server automatically detects the appropriate mode based on deployment context:
+
+| Mode | Description | When Used |
+|------|-------------|-----------|
+| **MCP_SERVER** | Standalone server connecting via HTTP | Docker, remote deployments |
+| **JUPYTER_SERVER** | Runs as Jupyter extension with direct API access | Local deployments, high-performance |
+
+### JupyterLab Mode
+**Environment Variable:** `JUPYTERLAB=true` (default)
+
+- **Enabled**: Automatic notebook opening, enhanced UI tools, `notebook_run-all-cells` tool
+- **Disabled**: Basic operations only, headless usage
+
+## Transport & Providers
+
+### Transport Options
+
+| Transport | Use Case | Configuration |
+|-----------|----------|---------------|
+| **STDIO** (default) | Desktop apps, Docker | `--transport stdio` |
+| **Streamable HTTP** | Web apps, multiple clients | `--transport streamable-http --port 4040` |
+
+### Providers
+
+| Provider | Description | Configuration |
+|----------|-------------|---------------|
+| **jupyter** (default) | Standard JupyterLab/Hub | `--provider jupyter` |
+| **datalayer** | Enterprise hosting | `--provider datalayer` |
+
+## Environment Variables
+
+The server supports both simplified and advanced configuration approaches:
+
+### Simplified Configuration (Recommended)
+
+For most users with standard JupyterLab setups:
+
+| Variable | Description | Example | Default | Required |
+|----------|-------------|---------|---------|----------|
+| `JUPYTER_URL` | URL of your Jupyter server | `http://localhost:8888` | `http://localhost:8888` | No |
+| `JUPYTER_TOKEN` | Authentication token for Jupyter server | `my-secret-token` | `None` | No* |
+| `DOCUMENT_ID` | Default notebook path (relative to Jupyter root) | `notebook.ipynb` | `None` | No |
+| `ALLOW_IMG_OUTPUT` | Enable multimodal image support | `true` / `false` | `true` | No |
+
+*Required for authentication when connecting to secured Jupyter servers
+
+### Advanced Configuration (Complex Deployments)
+
+For deployments requiring granular control over document storage and runtime execution:
+
+#### Document Storage Variables
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `DOCUMENT_URL` | URL for notebook file operations | `http://notebook-storage:8888` | `http://localhost:8888` |
+| `DOCUMENT_TOKEN` | Authentication for document operations | `storage-access-token` | `None` |
+| `DOCUMENT_ID` | Notebook path/ID | `shared/analysis.ipynb` | `None` |
+
+#### Runtime Execution Variables  
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `RUNTIME_URL` | URL for kernel/execution operations | `http://compute-cluster:8888` | `http://localhost:8888` |
+| `RUNTIME_TOKEN` | Authentication for runtime operations | `compute-access-token` | `None` |
+| `RUNTIME_ID` | Specific kernel ID to use | `kernel-abc123` | `None` |
+
+#### Additional Configuration Variables
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `START_NEW_RUNTIME` | Create new runtime vs use existing | `true` / `false` | `false` |
+| `PROVIDER` | Provider type for document and runtime | `jupyter` / `datalayer` | `jupyter` |
+| `TRANSPORT` | Transport method for MCP | `stdio` / `streamable-http` | `stdio` |
+| `PORT` | Port for streamable HTTP transport | `4040` | `4040` |
+| `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
+
+### Configuration Priority
+
+Variables are resolved in this order:
+1. **Individual variables** (`DOCUMENT_*`, `RUNTIME_*`) - highest priority
+2. **Simplified variables** (`JUPYTER_*`) - fallback
+3. **Default values** - when no variables are set
+
+## Configuration Examples
+
+### Standard JupyterLab Setup
+```bash
+JUPYTER_URL=http://localhost:8888
+JUPYTER_TOKEN=my-token
+DOCUMENT_ID=my-notebook.ipynb
+ALLOW_IMG_OUTPUT=true
+```
+
+### JupyterHub with Separate Services
+```bash
+DOCUMENT_URL=http://hub.example.com:8000
+DOCUMENT_TOKEN=hub-api-token
+RUNTIME_URL=http://user-server:8888
+RUNTIME_TOKEN=user-server-token
+DOCUMENT_ID=shared/analysis.ipynb
+```
+
+### Distributed Computing Setup  
+```bash
+DOCUMENT_URL=http://file-server:8888
+DOCUMENT_TOKEN=file-access-token
+RUNTIME_URL=http://compute-node:8888
+RUNTIME_TOKEN=compute-access-token
+ALLOW_IMG_OUTPUT=false
+```
+
+### Development Setup
+```bash
+JUPYTER_URL=http://localhost:8888
+JUPYTER_TOKEN=dev-token
+# DOCUMENT_ID omitted
+```
+
+## Command Line Options
+
+For advanced use cases, you can configure the server using command-line flags:
 
 ```bash
 jupyter-mcp-server start --help
 
 Usage: jupyter-mcp-server start [OPTIONS]
 
-  Start the Jupyter MCP server with a transport.
-
 Options:
-  --transport [stdio|streamable-http]
-                                  The transport to use for the MCP server.
-                                  Defaults to 'stdio'.
-  --provider [jupyter|datalayer]  The provider to use for the document and
-                                  runtime. Defaults to 'jupyter'.
-  --jupyterlab BOOLEAN           Enable JupyterLab mode for enhanced UI
-                                  integration like automatic notebook opening.
-                                  Defaults to True.
-  --runtime-url TEXT              The runtime URL to use. For the jupyter
-                                  provider, this is the Jupyter server URL.
-                                  For the datalayer provider, this is the
-                                  Datalayer runtime URL.
-  --start-new-runtime BOOLEAN     Start a new runtime or use an existing one.
-  --runtime-id TEXT               The kernel ID to use. If not provided, a new
-                                  kernel should be started.
-  --runtime-token TEXT            The runtime token to use for authentication
-                                  with the provider. If not provided, the
-                                  provider should accept anonymous requests.
-  --document-url TEXT             The document URL to use. For the jupyter
-                                  provider, this is the Jupyter server URL.
-                                  For the datalayer provider, this is the
-                                  Datalayer document URL.
-  --document-id TEXT              The document id to use. For the jupyter
-                                  provider, this is the notebook path. For the
-                                  datalayer provider, this is the notebook
-                                  path.
-  --document-token TEXT           The document token to use for authentication
-                                  with the provider. If not provided, the
-                                  provider should accept anonymous requests.
-  --port INTEGER                  The port to use for the Streamable HTTP
-                                  transport. Ignored for stdio transport.
-  --help                          Show this message and exit
+  --transport [stdio|streamable-http]  Transport type (default: stdio)
+  --provider [jupyter|datalayer]      Provider type (default: jupyter)  
+  --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
+  --runtime-url TEXT                  Runtime URL for kernel operations (default: http://localhost:8888)
+  --runtime-token TEXT                Runtime authentication token (default: None)
+  --runtime-id TEXT                   Specific kernel ID to use (default: None)
+  --start-new-runtime BOOLEAN         Create new runtime vs use existing (default: false)
+  --document-url TEXT                 Document URL for notebook operations (default: http://localhost:8888)
+  --document-id TEXT                  Notebook path/ID (default: None)
+  --document-token TEXT               Document authentication token (default: None)
+  --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```
 
-## Starting then Connecting to Existing Runtime
-
-For example, you can start the MCP Server with the following command that will not create a new Runtime.
-
+**Example:**
 ```bash
 jupyter-mcp-server start \
   --transport streamable-http \
-  --runtime-token MY_TOKEN \
   --document-url http://localhost:8888 \
+  --document-token MY_TOKEN \
+  --port 4040
+```
+
+## Advanced Usage
+
+### Connecting to Existing Runtime
+
+Start server without creating new runtime:
+```bash
+jupyter-mcp-server start \
+  --transport streamable-http \
   --runtime-url http://localhost:8888 \
+  --runtime-token MY_TOKEN \
   --start-new-runtime false
 ```
 
-Only after you can start a local JupyterLab and open a Notebook with a Runtime.
-
-```bash
-make jupyterlab
-```
-
-Then, you can assign a document and runtime via the `/connect` endpoint by running this command.
-
+Then connect via endpoint:
 ```bash
 jupyter-mcp-server connect \
   --provider datalayer \
@@ -100,35 +200,6 @@ Controls whether to return actual image content or text placeholders.
 - **Default**: `true`
 - **Values**: `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off`, `enable`, `disable`, `enabled`, `disabled`
 
-**Example Docker Configuration:**
-
-```json
-{
-  "mcpServers": {
-    "jupyter": {
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-e", "DOCUMENT_URL",
-        "-e", "DOCUMENT_TOKEN",
-        "-e", "DOCUMENT_ID",
-        "-e", "RUNTIME_URL",
-        "-e", "RUNTIME_TOKEN",
-        "-e", "ALLOW_IMG_OUTPUT",
-        "datalayer/jupyter-mcp-server:latest"
-      ],
-      "env": {
-        "DOCUMENT_URL": "http://host.docker.internal:8888",
-        "DOCUMENT_TOKEN": "MY_TOKEN",
-        "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
-        "ALLOW_IMG_OUTPUT": "true"
-      }
-    }
-  }
-}
-```
 
 ### Output Behavior
 

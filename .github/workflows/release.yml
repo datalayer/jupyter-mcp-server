@@ -127,9 +127,5 @@ jobs:
 
           - [PyPI](https://pypi.org/project/jupyter-mcp-server/${{ steps.version.outputs.VERSION }}/)
           - [Docker Hub](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
-
-          ---
-
-          ### What's Changed"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

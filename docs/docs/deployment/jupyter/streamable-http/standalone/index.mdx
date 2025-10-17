@@ -36,57 +36,45 @@ For JupyterHub:
 
 ## 2. Setup Jupyter MCP Server
 
-Jupyter MCP Server also supports streamable HTTP transport, which allows you to connect to the Jupyter MCP Server using a URL. To start the server, you can either use `python` or `docker`. The server will listen on port `4040`, you can access it via http://localhost:4040.
+The server runs on port `4040` and provides a streamable HTTP endpoint at `http://localhost:4040/mcp`.
 
-### Run the Jupyter MCP Server
+### Using Python
 
-#### Run with Python
-
-Clone the repository and use `pip install -e .` or just install the `jupyter-mcp-server package` from PyPI with `pip install jupyter-mcp-server`.
-
-Then, you can start Jupyter MCP Server with the following commands.
+Install and start the server:
 
 ```bash
-# make start
+pip install jupyter-mcp-server
 jupyter-mcp-server start \
-	  --transport streamable-http \
-	  --document-url http://localhost:8888 \
-	  --document-id notebook.ipynb \
-	  --document-token MY_TOKEN \
-	  --runtime-url http://localhost:8888 \
-	  --start-new-runtime true \
-	  --runtime-token MY_TOKEN \
-	  --port 4040
+  --transport streamable-http \
+  --document-url http://localhost:8888 \
+  --document-token MY_TOKEN \
+  --port 4040
 ```
 
-#### Run with Docker
+### Using Docker
 
-:::note
-
-  You can set the `DOCUMENT_URL` (JupyterLab Server URL), `RUNTIME_TOKEN`, and `DOCUMENT_ID` environment variables to configure the server with the `-e` option in the `docker run` command. If not set, the defaults will be used. Refer to the [server configuration](/configure) for more details on the available environment variables and their defaults.
-
-:::
-
-You can also run the Jupyter MCP Server using Docker. Use the following command to start the server on **MacOS**.
-
+**MacOS/Windows:**
 ```bash
 docker run \
-  -e DOCUMENT_URL="http://localhost:8888" \
+  -e JUPYTER_URL="http://host.docker.internal:8888" \
+  -e JUPYTER_TOKEN="MY_TOKEN" \
   -p 4040:4040 \
   datalayer/jupyter-mcp-server:latest \
   --transport streamable-http
 ```
 
-Use the following command to start the server on **Linux**.
-
+**Linux:**
 ```bash
 docker run \
   --network=host \
-  -e DOCUMENT_URL="http://localhost:8888" \
+  -e JUPYTER_URL="http://localhost:8888" \
+  -e JUPYTER_TOKEN="MY_TOKEN" \
   -p 4040:4040 \
   datalayer/jupyter-mcp-server:latest \
   --transport streamable-http
 ```
+
+For advanced configuration options, see the [server configuration guide](/configure).
 
 <!--
 
@@ -100,17 +88,32 @@ npx -y @smithery/cli install @datalayer/jupyter-mcp-server --client claude
 
 -->
 
-### Configure your MCP Client
+## 3. Configure your MCP Client
 
-Use the following configuration for you MCP client to connect to a running Jupyter MCP Server.
+Use the following configuration to connect to the running server:
 
 ```json
 {
   "mcpServers": {
     "jupyter": {
-        "command": "npx",
-        "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
     }
   }
 }
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+**Connection refused:**
+- Verify the MCP server is running: `curl http://localhost:4040/mcp`
+- Check that port 4040 is not blocked by firewall
+- Ensure Docker port mapping is correct (`-p 4040:4040`)
+
+**Authentication errors:**
+- Verify `JUPYTER_TOKEN` matches your Jupyter server token
+- Check Jupyter server is accessible from MCP server
+
+For detailed configuration and troubleshooting, see the [configuration guide](/configure).
