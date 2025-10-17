@@ -116,21 +116,20 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      - name: Create Release with Auto-Generated Notes
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ steps.version.outputs.VERSION }}" \
+            --generate-notes \
+            --notes "## 🚀 Release ${{ steps.version.outputs.VERSION }}
 
-      - name: Create Release
-        uses: actions/create-release@v1
+          ### 🔗 Links
+
+          - [PyPI](https://pypi.org/project/jupyter-mcp-server/${{ steps.version.outputs.VERSION }}/)
+          - [Docker Hub](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
+
+          ---
+
+          ### What's Changed"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ steps.version.outputs.VERSION }}
-          body: |
-            ## 🚀 Release ${{ steps.version.outputs.VERSION }}
-
-            ### 🔗 Links
-
-            - [PyPI](https://pypi.org/project/jupyter-mcp-server/${{ steps.version.outputs.VERSION }}/)
-            - [Docker Hub](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
-          draft: false
-          prerelease: false
-          generate_release_notes: true

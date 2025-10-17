@@ -28,7 +28,7 @@
 <a href="https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server"><img src="https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server" alt="Trust Score" width="150"></a>
 
 
-> 🚨 **Latest Release: v17.0**: **JupyterLab Mode Integration!** Enhanced UI integration with automatic notebook opening and selective tool exposure for improved performance. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
+> 🚨 **Latest Release: v17.0**: **JupyterLab Mode Integration!** Enhanced UI integration with automatic notebook opening. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
@@ -41,7 +41,6 @@
 - [Best Practices](#-best-practices)
 - [Contributing](#-contributing)
 - [Resources](#-resources)
-
 
 ## 🚀 Key Features
 
@@ -107,9 +106,9 @@ For comprehensive setup instructions—including `Streamable HTTP` transport, ru
 ### 1. Set Up Your Environment
 
 ```bash
-pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel
+pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 jupyter-mcp-tools>=0.1.4 ipykernel
 pip uninstall -y pycrdt datalayer_pycrdt
-pip install datalayer_pycrdt==0.12.17 jupyter_mcp_tools
+pip install datalayer_pycrdt==0.12.17
 ```
 
 ### 2. Start JupyterLab
