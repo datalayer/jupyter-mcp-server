@@ -10,7 +10,7 @@ The server currently offers 16 tools organized into 3 categories, plus 1 additio
 - This tool recursively lists files and directories from the Jupyter server's content API, showing the complete file structure including notebooks, data files, scripts, and directories.
 - Input:
   - `path`(string, optional): The starting path to list from (empty string means root directory)
-  - `max_depth`(int, optional): Maximum depth to recurse into subdirectories (default: 3)
+  - `max_depth`(int, optional): Maximum depth to recurse into subdirectories (default: 1)
 - Returns: Tab-separated table with columns: Path, Type, Size, Last_Modified
   - **Path**: Full path to the file or directory
   - **Type**: File type ("file", "directory", "notebook", or "error" if inaccessible)

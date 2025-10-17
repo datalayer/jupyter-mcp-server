@@ -42,8 +42,7 @@ JUPYTER_TOOLS = [
     "delete_cell",
     "execute_ipython",
     "list_files",
-    "list_kernels",
-    "assign_kernel_to_notebook",
+    "list_kernels"
 ]
 
 
