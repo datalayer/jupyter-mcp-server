@@ -12,37 +12,49 @@ pip uninstall -y pycrdt datalayer_pycrdt
 pip install datalayer_pycrdt==0.12.17 jupyter_mcp_tools
 ```
 
-### JupyterLab and MCP start
+### Start JupyterLab with MCP Extension
 
-Then, start JupyterLab with the following command.
+Start JupyterLab with the MCP server extension:
 
 ```bash
 jupyter lab \
-	  --JupyterMCPServerExtensionApp.document_url local \
-	  --JupyterMCPServerExtensionApp.runtime_url local \
-	  --JupyterMCPServerExtensionApp.document_id notebook.ipynb \
-	  --JupyterMCPServerExtensionApp.start_new_runtime True \
-	  --ServerApp.disable_check_xsrf True \
-	  --IdentityProvider.token MY_TOKEN \
-	  --ServerApp.root_dir ./dev/content \
-	  --port 4040
-  ```
+  --JupyterMCPServerExtensionApp.document_url local \
+  --JupyterMCPServerExtensionApp.runtime_url local \
+  --JupyterMCPServerExtensionApp.start_new_runtime True \
+  --ServerApp.disable_check_xsrf True \
+  --IdentityProvider.token MY_TOKEN \
+  --port 4040
+```
 
-You can also run `start-jupyter-server-extension` if you cloned the repository.
+This starts JupyterLab at [http://127.0.0.1:4040](http://127.0.0.1:4040) with the MCP server integrated.
 
-This will start JupyterLab at [http://127.0.0.1:4040](http://127.0.0.1:4040) and the MCP server will be started in the same process.
+For complete configuration options, see the [server configuration guide](/configure).
 
 ## 2. Configure your MCP Client
 
-Use the following configuration for you MCP client to connect to a running Jupyter MCP Server.
+Use the following configuration to connect to the integrated MCP server:
 
 ```json
 {
   "mcpServers": {
     "jupyter": {
-        "command": "npx",
-        "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
     }
   }
 }
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+**Extension not loading:**
+- Verify `jupyter-mcp-server` is installed: `pip list | grep jupyter-mcp-server`
+- Check JupyterLab logs for extension errors
+
+**MCP endpoint not accessible:**
+- Verify server is running at: `curl http://localhost:4040/mcp`
+- Check that port 4040 is not blocked
+
+For detailed configuration and troubleshooting, see the [configuration guide](/configure).

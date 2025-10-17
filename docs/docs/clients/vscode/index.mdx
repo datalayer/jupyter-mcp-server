@@ -30,6 +30,43 @@ Open your `settings.json`:
 
 Then add the following configuration:
 
+**Simplified Configuration (Recommended):**
+```jsonc
+{
+  "mcp": {
+    "servers": {
+    "DatalayerJupyter": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "JUPYTER_URL",
+        "-e",
+        "JUPYTER_TOKEN",
+        "-e",
+        "DOCUMENT_ID",
+        "-e",
+        "ALLOW_IMG_OUTPUT",
+        "datalayer/jupyter-mcp-server:latest"
+      ],
+      "env": {
+        "JUPYTER_URL": "http://host.docker.internal:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
+        "DOCUMENT_ID": "notebook.ipynb",
+        "ALLOW_IMG_OUTPUT": "true"
+      }
+    }
+  }
+}
+```
+
+<details>
+<summary><b>Advanced Configuration (Optional)</b></summary>
+
+For advanced deployments with separate document and runtime servers:
+
 ```jsonc
 {
   "mcp": {
@@ -50,6 +87,8 @@ Then add the following configuration:
         "RUNTIME_URL",
         "-e",
         "RUNTIME_TOKEN",
+        "-e",
+        "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
@@ -57,18 +96,57 @@ Then add the following configuration:
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }
 }
 ```
 
+</details>
+
 Update with the actual configuration details from the [Jupyter MCP Server configuration](/deployment/jupyter/stdio#2-setup-jupyter-mcp-server).
 
 ###  As Workspace Settings in `.vscode/mcp.json`
 
 Open or create a `.vscode/mcp.json` file in your workspace root directory. Then add the following example configuration:
+
+**Simplified Configuration (Recommended):**
+```jsonc
+{
+  "servers": {
+    "DatalayerJupyter": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "JUPYTER_URL",
+        "-e",
+        "JUPYTER_TOKEN",
+        "-e",
+        "DOCUMENT_ID",
+        "-e",
+        "ALLOW_IMG_OUTPUT",
+        "datalayer/jupyter-mcp-server:latest"
+      ],
+      "env": {
+        "JUPYTER_URL": "http://host.docker.internal:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN",
+        "DOCUMENT_ID": "notebook.ipynb",
+        "ALLOW_IMG_OUTPUT": "true"
+      }
+    }
+  }
+}
+```
+
+<details>
+<summary><b>Advanced Configuration (Optional)</b></summary>
+
+For advanced deployments with separate document and runtime servers:
 
 ```jsonc
 {
@@ -89,6 +167,8 @@ Open or create a `.vscode/mcp.json` file in your workspace root directory. Then 
         "RUNTIME_URL",
         "-e",
         "RUNTIME_TOKEN",
+        "-e",
+        "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
@@ -96,12 +176,15 @@ Open or create a `.vscode/mcp.json` file in your workspace root directory. Then 
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
         "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "RUNTIME_TOKEN": "MY_TOKEN",
+        "ALLOW_IMG_OUTPUT": "true"
       }
     }
   }
 }
 ```
+
+</details>
 
 Update with the actual configuration details from the [Jupyter MCP Server configuration](/deployment/jupyter/stdio#2-setup-jupyter-mcp-server).
 
