@@ -98,6 +98,12 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         help='Provider type for document/runtime'
     )
     
+    jupyterlab = Bool(
+        True,
+        config=True,
+        help='Enable JupyterLab mode (defaults to True)'
+    )
+    
     def initialize_settings(self):
         """
         Initialize extension settings.
@@ -113,6 +119,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         logger.info(f"  Runtime URL: {self.runtime_url}")
         logger.info(f"  Document ID: {self.document_id}")
         logger.info(f"  Start New Runtime: {self.start_new_runtime}")
+        logger.info(f"  JupyterLab Mode: {self.jupyterlab}")
         if self.runtime_id:
             logger.info(f"  Runtime ID: {self.runtime_id}")
         
@@ -122,7 +129,8 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             context_type="JUPYTER_SERVER",
             serverapp=self.serverapp,
             document_url=self.document_url,
-            runtime_url=self.runtime_url
+            runtime_url=self.runtime_url,
+            jupyterlab=self.jupyterlab
         )
         
         # Update global MCP configuration
@@ -136,6 +144,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config.start_new_runtime = self.start_new_runtime
         config.runtime_id = self.runtime_id if self.runtime_id else None
         config.provider = self.provider
+        config.jupyterlab = self.jupyterlab
         
         # Store configuration in settings for handlers
         self.settings.update({
@@ -147,6 +156,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             "mcp_start_new_runtime": self.start_new_runtime,
             "mcp_runtime_id": self.runtime_id,
             "mcp_provider": self.provider,
+            "mcp_jupyterlab": self.jupyterlab,
             "mcp_serverapp": self.serverapp,
         })
         

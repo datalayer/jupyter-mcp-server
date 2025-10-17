@@ -262,8 +262,61 @@ class UseNotebookTool(BaseTool):
         
         notebook_manager.set_current_notebook(notebook_name)
         
-        # Return message based on mode
+        # If JupyterLab mode is enabled and we're in JUPYTER_SERVER mode, 
+        # also open the notebook in JupyterLab UI
+        success_message = ""
         if use_mode == "create":
-            return f"Successfully created and using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
+            success_message = f"Successfully created and using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
         else:
-            return f"Successfully using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
+            success_message = f"Successfully using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
+        
+        # Check if we should open in JupyterLab UI (when JupyterLab mode is enabled)
+        try:
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+            context = get_server_context()
+            
+            if context.is_jupyterlab_mode():
+                logger.info(f"JupyterLab mode enabled, attempting to open notebook '{notebook_path}' in JupyterLab UI")
+                
+                # Determine base_url and token based on mode
+                base_url = None
+                token = None
+                
+                if mode == ServerMode.JUPYTER_SERVER and context.serverapp is not None:
+                    # JUPYTER_SERVER mode: Use ServerApp connection details
+                    base_url = context.serverapp.connection_url
+                    token = context.serverapp.token
+                elif mode == ServerMode.MCP_SERVER and runtime_url:
+                    # MCP_SERVER mode: Use runtime_url and runtime_token
+                    base_url = runtime_url
+                    token = runtime_token
+                
+                if base_url and token:
+                    try:
+                        from jupyter_mcp_tools.client import MCPToolsClient
+                        
+                        async with MCPToolsClient(base_url=base_url, token=token) as client:
+                            execution_result = await client.execute_tool(
+                                tool_id="docmanager_open",  # docmanager:open converted to underscore format
+                                parameters={"path": notebook_path}
+                            )
+                            
+                            if execution_result.get('success'):
+                                logger.info(f"Successfully opened notebook '{notebook_path}' in JupyterLab UI")
+                                success_message += " Notebook opened in JupyterLab UI."
+                            else:
+                                logger.warning(f"Failed to open notebook in JupyterLab UI: {execution_result}")
+                                success_message += " (Note: Could not open in JupyterLab UI)"
+                                
+                    except ImportError:
+                        logger.warning("jupyter_mcp_tools not available, skipping JupyterLab UI opening")
+                    except Exception as e:
+                        logger.warning(f"Failed to open notebook in JupyterLab UI: {e}")
+                        success_message += " (Note: Could not open in JupyterLab UI)"
+                else:
+                    logger.warning("No valid base_url or token available for opening notebook in JupyterLab UI")
+                        
+        except Exception as e:
+            logger.debug(f"Could not check JupyterLab mode: {e}")
+        
+        return success_message

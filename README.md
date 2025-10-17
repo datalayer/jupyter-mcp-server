@@ -28,7 +28,7 @@
 <a href="https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server"><img src="https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server" alt="Trust Score" width="150"></a>
 
 
-> 🚨 **Latest Release: v0.14.0**: **Multi-notebook support!** You can now seamlessly switch between multiple notebooks in a single session. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
+> 🚨 **Latest Release: v17.0**: **JupyterLab Mode Integration!** Enhanced UI integration with automatic notebook opening and selective tool exposure for improved performance. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
@@ -50,6 +50,7 @@
 - 🧠 **Context-aware:** Understands the entire notebook context for more relevant interactions.
 - 📊 **Multimodal support:** Support different output types, including images, plots, and text.
 - 📚 **Multi-notebook support:** Seamlessly switch between multiple notebooks.
+- 🎨 **JupyterLab integration:** Enhanced UI integration like automatic notebook opening.
 - 🤝 **MCP-compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
 
 Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai/) hosted Notebooks.
@@ -100,7 +101,7 @@ For comprehensive setup instructions—including `Streamable HTTP` transport, ru
 ```bash
 pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel
 pip uninstall -y pycrdt datalayer_pycrdt
-pip install datalayer_pycrdt==0.12.17
+pip install datalayer_pycrdt==0.12.17 jupyter_mcp_tools
 ```
 
 ### 2. Start JupyterLab

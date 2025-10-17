@@ -35,6 +35,13 @@ def _common_options(f):
             help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
         ),
         click.option(
+            "--jupyterlab",
+            envvar="JUPYTERLAB",
+            type=click.BOOL,
+            default=True,
+            help="Enable JupyterLab mode. Defaults to True.",
+        ),
+        click.option(
             "--runtime-url",
             envvar="RUNTIME_URL",
             type=click.STRING,
@@ -157,6 +164,7 @@ def _do_start(
     document_token: str,
     port: int,
     provider: str,
+    jupyterlab: bool,
 ):
     """Internal function to execute the start logic."""
 
@@ -180,7 +188,8 @@ def _do_start(
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
-        port=port
+        port=port,
+        jupyterlab=jupyterlab
     )
 
     # Reset ServerContext to pick up new configuration
@@ -259,6 +268,7 @@ def server(
     jupyter_token: str,
     port: int,
     provider: str,
+    jupyterlab: bool,
 ):
     """Manages Jupyter MCP Server.
 
@@ -293,6 +303,7 @@ def server(
         document_token=resolved_document_token,
         port=port,
         provider=provider,
+        jupyterlab=jupyterlab,
     )
 
 
@@ -314,6 +325,7 @@ def connect_command(
     document_id: str,
     document_token: str,
     provider: str,
+    jupyterlab: bool,
 ):
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
@@ -325,7 +337,8 @@ def connect_command(
         runtime_token=runtime_token,
         document_url=document_url,
         document_id=document_id,
-        document_token=document_token
+        document_token=document_token,
+        jupyterlab=jupyterlab
     )
 
     config = get_config()
@@ -402,6 +415,7 @@ def start_command(
     jupyter_token: str,
     port: int,
     provider: str,
+    jupyterlab: bool,
 ):
     """Start the Jupyter MCP server with a transport."""
     # Resolve URL and token variables based on priority logic
@@ -425,6 +439,7 @@ def start_command(
         document_token=resolved_document_token,
         port=port,
         provider=provider,
+        jupyterlab=jupyterlab,
     )
 
 

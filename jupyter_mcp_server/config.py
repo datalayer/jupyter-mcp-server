@@ -29,6 +29,7 @@ class JupyterMCPConfig(BaseModel):
     
     # Server configuration
     port: int = Field(default=4040, description="The port to use for the Streamable HTTP transport")
+    jupyterlab: bool = Field(default=True, description="Enable JupyterLab mode (defaults to True)")
     
     class Config:
         """Pydantic configuration."""
@@ -42,6 +43,10 @@ class JupyterMCPConfig(BaseModel):
     def is_local_runtime(self) -> bool:
         """Check if runtime URL is set to local."""
         return self.runtime_url == "local"
+    
+    def is_jupyterlab_mode(self) -> bool:
+        """Check if JupyterLab mode is enabled."""
+        return self.jupyterlab
 
 def _get_env_bool(env_name: str, default_value: bool = True) -> bool:
     """

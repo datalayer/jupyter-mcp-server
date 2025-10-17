@@ -44,6 +44,7 @@ class ServerContext:
         self._serverapp: Optional['ServerApp'] = None
         self._document_url: Optional[str] = None
         self._runtime_url: Optional[str] = None
+        self._jupyterlab: bool = True  # Default to True
     
     @property
     def context_type(self) -> Literal["MCP_SERVER", "JUPYTER_SERVER"]:
@@ -65,12 +66,18 @@ class ServerContext:
         """Get the configured runtime URL."""
         return self._runtime_url
     
+    @property
+    def jupyterlab(self) -> bool:
+        """Get the jupyterlab mode flag."""
+        return self._jupyterlab
+    
     def update(
         self,
         context_type: Literal["MCP_SERVER", "JUPYTER_SERVER"],
         serverapp: Optional['ServerApp'] = None,
         document_url: Optional[str] = None,
-        runtime_url: Optional[str] = None
+        runtime_url: Optional[str] = None,
+        jupyterlab: Optional[bool] = None
     ):
         """
         Update the server context.
@@ -80,12 +87,19 @@ class ServerContext:
             serverapp: Jupyter ServerApp instance (required for JUPYTER_SERVER mode)
             document_url: Document URL configuration
             runtime_url: Runtime URL configuration
+            jupyterlab: JupyterLab mode flag (defaults to True when JUPYTER_SERVER mode is true)
         """
         with self._lock:
             self._context_type = context_type
             self._serverapp = serverapp
             self._document_url = document_url
             self._runtime_url = runtime_url
+            
+            # Set jupyterlab flag - default to True if JUPYTER_SERVER mode, otherwise keep current value
+            if jupyterlab is not None:
+                self._jupyterlab = jupyterlab
+            elif context_type == "JUPYTER_SERVER":
+                self._jupyterlab = True  # Default to True for JUPYTER_SERVER mode
             
             if context_type == "JUPYTER_SERVER" and serverapp is None:
                 raise ValueError("serverapp is required when context_type is JUPYTER_SERVER")
@@ -103,6 +117,10 @@ class ServerContext:
             self._context_type == "JUPYTER_SERVER" 
             and self._runtime_url == "local"
         )
+    
+    def is_jupyterlab_mode(self) -> bool:
+        """Check if JupyterLab mode is enabled."""
+        return self._jupyterlab
     
     def get_contents_manager(self):
         """
@@ -165,6 +183,7 @@ class ServerContext:
             self._serverapp = None
             self._document_url = None
             self._runtime_url = None
+            self._jupyterlab = True  # Default to True
 
 
 # Global accessor

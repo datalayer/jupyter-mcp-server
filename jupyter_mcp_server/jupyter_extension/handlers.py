@@ -18,6 +18,7 @@ from jupyter_server.base.handlers import JupyterHandler
 from jupyter_server.extension.handler import ExtensionHandlerMixin
 
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
+from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.jupyter_extension.backends.local_backend import LocalBackend
 from jupyter_mcp_server.jupyter_extension.backends.remote_backend import RemoteBackend
 
@@ -149,16 +150,72 @@ class MCPSSEHandler(RequestHandler):
                         
                         logger.info(f"Querying jupyter_mcp_tools at {base_url}")
                         
-                        # Get ALL tools from jupyter_mcp_tools (no query filter)
-                        jupyter_tools_data = await get_tools(
-                            base_url=base_url,
-                            token=token,
-                            query=None,  # Get all tools
-                            enabled_only=True,
-                            wait_timeout=5  # Short timeout
-                        )
+                        # Check if JupyterLab mode is enabled before loading jupyter-mcp-tools
+                        context = ServerContext.get_instance()
+                        jupyterlab_enabled = context.is_jupyterlab_mode()
+                        logger.info(f"JupyterLab mode check: enabled={jupyterlab_enabled}")
                         
-                        logger.info(f"Got {len(jupyter_tools_data)} tools from jupyter_mcp_tools extension")
+                        if jupyterlab_enabled:
+                            # Define specific tools we want to load from jupyter-mcp-tools
+                            allowed_jupyter_tools = [
+                                "notebook_run-all-cells",  # Run all cells in current notebook  
+                                # Add more specific tools here as needed when JupyterLab mode is enabled
+                            ]
+                            
+                            logger.info(f"Looking for specific jupyter-mcp-tools: {allowed_jupyter_tools}")
+                            
+                            # Try querying with broader terms since specific IDs don't work
+                            try:
+                                search_query = ",".join(allowed_jupyter_tools)
+                                logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_tools})")
+                                
+                                # Query for notebook-related tools with broader search term
+                                all_notebook_tools = await get_tools(
+                                    base_url=base_url,
+                                    token=token,
+                                    query=search_query,
+                                    enabled_only=True
+                                )
+                                logger.info(f"Query returned {len(all_notebook_tools)} tools")
+                                
+                                # If no tools found with specific query, try a broader search for debugging
+                                if len(all_notebook_tools) == 0:
+                                    logger.warning("Specific query returned 0 tools, trying broader search for debugging...")
+                                    debug_tools = await get_tools(
+                                        base_url=base_url,
+                                        token=token,
+                                        query="notebook",  # Very broad search
+                                        enabled_only=True
+                                    )
+                                    logger.info(f"DEBUG: Broader 'notebook' query returned {len(debug_tools)} tools")
+                                    # show all found tools for debugging
+                                    for tool in debug_tools:
+                                        logger.info(f"DEBUG: Found tool: {tool.get('id', '')}")
+
+                                    # Also try getting ALL tools to see what's available
+                                    all_tools_debug = await get_tools(
+                                        base_url=base_url,
+                                        token=token,
+                                        query=None,  # Get all tools
+                                        enabled_only=True
+                                    )
+                                    logger.info(f"DEBUG: Total tools available: {len(all_tools_debug)}")
+                                    for tool in all_tools_debug:
+                                        logger.info(f"DEBUG: Found tool: {tool.get('id', '')}")
+
+                                # Use the tools directly since query should return only what we want
+                                jupyter_tools_data = all_notebook_tools
+                                for tool in jupyter_tools_data:
+                                    logger.info(f"Found tool: {tool.get('id', '')}")
+                            except Exception as e:
+                                logger.warning(f"Failed to load jupyter-mcp-tools: {e}")
+                                jupyter_tools_data = []
+                            
+                            logger.info(f"Successfully loaded {len(jupyter_tools_data)} specific jupyter-mcp-tools")
+                        else:
+                            # JupyterLab mode disabled, don't load any jupyter-mcp-tools
+                            jupyter_tools_data = []
+                            logger.info("JupyterLab mode disabled, skipping jupyter-mcp-tools")
                         
                         # Build set of jupyter tool names and cache it for routing decisions
                         jupyter_tool_names = {tool_data.get('id', '') for tool_data in jupyter_tools_data}
