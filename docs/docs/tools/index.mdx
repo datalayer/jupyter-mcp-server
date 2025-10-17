@@ -1,8 +1,8 @@
 # Tools
 
-The server currently offers 15 tools organized into 3 categories:
+The server currently offers 16 tools organized into 3 categories:
 
-## Server Management Tools (2 tools)
+## Server Management Tools (3 tools)
 
 #### 1. `list_files`
 
@@ -35,9 +35,19 @@ The server currently offers 15 tools organized into 3 categories:
   - **Last_Activity**: Timestamp of last kernel activity in YYYY-MM-DD HH:MM:SS format
   - **Environment**: Environment variables defined in the kernel spec (truncated if long)
 
+#### 3. `assign_kernel_to_notebook`
+
+- Assign a kernel to a notebook by creating a Jupyter session.
+- This creates a Jupyter server session that connects a notebook file to a kernel, enabling code execution in the notebook. Sessions are the mechanism Jupyter uses to maintain the relationship between notebooks and their kernels.
+- Input:
+  - `notebook_path`(string): Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
+  - `kernel_id`(string): ID of the kernel to assign to the notebook
+  - `session_name`(string, optional): Optional name for the session (defaults to notebook path)
+- Returns: Success message with session information including session ID
+
 ## Multi-Notebook Management Tools (4 tools)
 
-#### 3. `use_notebook`
+#### 4. `use_notebook`
 
 - Connect to a notebook file or create a new one.
 - Input:
@@ -47,7 +57,7 @@ The server currently offers 15 tools organized into 3 categories:
   - `kernel_id`(string, optional): Specific kernel ID to use (optional, will create new if not provided)
 - Returns: Success message with notebook information
 
-#### 4. `list_notebooks`
+#### 5. `list_notebooks`
 
 - List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed by the notebook manager. To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `use_notebook` tool.
 - Input: None
@@ -58,14 +68,14 @@ The server currently offers 15 tools organized into 3 categories:
   - **Status**: Kernel status for managed notebooks ("alive", "dead", etc.), "-" for unmanaged notebooks
   - **Current**: "✓" if this is the currently active managed notebook, empty otherwise
 
-#### 5. `restart_notebook`
+#### 6. `restart_notebook`
 
 - Restart the kernel for a specific notebook.
 - Input:
   - `notebook_name`(string): Notebook identifier to restart
 - Returns: Success message
 
-#### 6. `unuse_notebook`
+#### 7. `unuse_notebook`
 
 - Unuse from a specific notebook and release its resources.
 - Input:
@@ -74,7 +84,7 @@ The server currently offers 15 tools organized into 3 categories:
 
 ## Cell Tools (9 tools)
 
-#### 7. `insert_cell`
+#### 8. `insert_cell`
 
 - Insert a cell to specified position with unified API.
 - Input:
@@ -83,7 +93,7 @@ The server currently offers 15 tools organized into 3 categories:
   - `cell_source`(string): Source content for the cell.
 - Returns: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below).
 
-#### 8 `insert_execute_code_cell`
+#### 9. `insert_execute_code_cell`
 
 - Insert and execute a code cell in a Jupyter notebook.
 - Input:
@@ -91,26 +101,26 @@ The server currently offers 15 tools organized into 3 categories:
   - `cell_source`(string): Code source.
 - Returns: List of outputs from the executed cell (supports multimodal output including images).
 
-#### 9. `delete_cell`
+#### 10. `delete_cell`
 
 - Delete a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to delete (0-based).
 - Returns: Success message.
 
-#### 10. `read_cell`
+#### 11. `read_cell`
 
 - Read a specific cell from the notebook.
 - Input:
   - `cell_index`(int): Index of the cell to read (0-based).
 - Returns: Dictionary with cell index, type, source, and outputs (for code cells).
 
-#### 11. `read_cells`
+#### 12. `read_cells`
 
 - Read all cells from the notebook.
 - Returns:  List of cell information including index, type, source, and outputs (for code cells).
 
-#### 12. `list_cells`
+#### 13. `list_cells`
 
 - List the basic information of all cells in the notebook.
 - Returns a formatted table showing the index, type, execution count (for code cells), and first line of each cell.
@@ -118,7 +128,7 @@ The server currently offers 15 tools organized into 3 categories:
 - Input: None
 - Returns: Formatted table string with cell information (Index, Type, Count, First Line).
 
-#### 13. `overwrite_cell_source`
+#### 14. `overwrite_cell_source`
 
 - Overwrite the source of an existing cell.
 - Input:
@@ -126,7 +136,7 @@ The server currently offers 15 tools organized into 3 categories:
   - `cell_source`(string): New cell source - must match existing cell type.
 - Returns: Success message and diff style.
 
-#### 14. `execute_cell`
+#### 15. `execute_cell`
 
 - Execute a cell with configurable timeout and optional streaming progress updates.
 - Input:
@@ -139,7 +149,7 @@ The server currently offers 15 tools organized into 3 categories:
 - Use `stream=False` for short-running cells (more reliable)
 - Use `stream=True` for long-running cells (provides real-time feedback)
 
-#### 15. `execute_ipython`
+#### 16. `execute_ipython`
 
 - Execute IPython code directly in the kernel on the current active notebook.
 - This powerful tool supports:
