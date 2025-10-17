@@ -80,7 +80,7 @@ module.exports = {
           'aria-label': 'YouTube',
         },
         {
-          href: 'https://datalayer.io',
+          href: 'https://datalayer.ai',
           position: 'right',
           className: 'header-datalayer-io-link',
           'aria-label': 'Datalayer',
@@ -125,15 +125,15 @@ module.exports = {
             },
             {
               label: 'Datalayer Docs',
-              href: 'https://docs.datalayer.ai',
-            },
-            {
-              label: 'Datalayer Blog',
-              href: 'https://datalayer.blog',
+              href: 'https://docs.datalayer.app',
             },
             {
               label: 'Datalayer Guide',
               href: 'https://datalayer.guide',
+            },
+            {
+              label: 'Datalayer Blog',
+              href: 'https://datalayer.blog',
             },
           ],
         },

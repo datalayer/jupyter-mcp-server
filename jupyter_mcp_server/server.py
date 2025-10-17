@@ -550,9 +550,159 @@ async def get_registered_tools():
     This function is used by the Jupyter extension to dynamically expose
     the tool registry without hardcoding tool names and parameters.
     
+    For JUPYTER_SERVER mode, it queries the jupyter-mcp-tools extension.
+    For MCP_SERVER mode, it uses the local FastMCP registry.
+    
     Returns:
         list: List of tool dictionaries with name, description, and inputSchema
     """
+    context = ServerContext.get_instance()
+    mode = context._mode
+    
+    # For JUPYTER_SERVER mode, expose BOTH FastMCP tools AND jupyter-mcp-tools (when enabled)
+    if mode == ServerMode.JUPYTER_SERVER:
+        all_tools = []
+        jupyter_tool_names = set()
+        
+        # Check if JupyterLab mode is enabled before loading jupyter-mcp-tools
+        if server_context.is_jupyterlab_mode():
+            logger.info("JupyterLab mode enabled, loading selected jupyter-mcp-tools")
+            
+            # Get tools from jupyter-mcp-tools extension
+            try:
+                from jupyter_mcp_tools import get_tools
+                
+                # Get the base_url and token from server context
+                # In JUPYTER_SERVER mode, we should use the actual serverapp URL, not hardcoded localhost
+                if server_context.serverapp is not None:
+                    # Use the actual Jupyter server connection URL
+                    base_url = server_context.serverapp.connection_url
+                    token = server_context.serverapp.token
+                    logger.info(f"Using Jupyter ServerApp connection URL: {base_url}")
+                else:
+                    # Fallback to configuration (for remote scenarios)
+                    config = get_config()
+                    base_url = config.runtime_url if config.runtime_url else "http://localhost:8888"
+                    token = config.runtime_token
+                    logger.info(f"Using config runtime URL: {base_url}")
+                
+                logger.info(f"Querying jupyter-mcp-tools at {base_url}")
+                
+                # Define specific tools we want to load from jupyter-mcp-tools
+                allowed_jupyter_tools = [
+                    "notebook_run-all-cells",  # Run all cells in current notebook  
+                ]
+                
+                # Try querying with broader terms since specific IDs don't work
+                try:
+                    search_query = ",".join(allowed_jupyter_tools)
+                    logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_tools})")
+                    
+                    tools_data = await get_tools(
+                        base_url=base_url,
+                        token=token,
+                        query=search_query,
+                        enabled_only=False
+                    )
+                    logger.info(f"Query returned {len(tools_data)} tools")
+                    
+                    # Use the tools directly since query should return only what we want
+                    for tool in tools_data:
+                        logger.info(f"Found tool: {tool.get('id', '')}")
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to load jupyter-mcp-tools: {e}")
+                    tools_data = []
+                
+                logger.info(f"Successfully loaded {len(tools_data)} specific jupyter-mcp-tools")
+                
+                logger.info(f"Retrieved {len(tools_data)} tools from jupyter-mcp-tools extension")
+                
+                # Convert jupyter-mcp-tools format to MCP format
+                for tool_data in tools_data:
+                    tool_name = tool_data.get('id', '')
+                    jupyter_tool_names.add(tool_name)
+                    
+                    # Only include MCP protocol fields (exclude internal fields like commandId)
+                    tool_dict = {
+                        "name": tool_name,
+                        "description": tool_data.get('caption', tool_data.get('label', '')),
+                    }
+                    
+                    # Convert parameters to inputSchema
+                    # The parameters field contains the JSON Schema for the tool's arguments
+                    params = tool_data.get('parameters', {})
+                    if params and isinstance(params, dict) and params.get('properties'):
+                        # Tool has parameters - use them as inputSchema
+                        tool_dict["inputSchema"] = params
+                        tool_dict["parameters"] = list(params['properties'].keys())
+                        logger.debug(f"Tool {tool_dict['name']} has parameters: {tool_dict['parameters']}")
+                    else:
+                        # Tool has no parameters - use empty schema
+                        tool_dict["parameters"] = []
+                        tool_dict["inputSchema"] = {
+                            "type": "object",
+                            "properties": {},
+                            "description": tool_data.get('usage', '')
+                        }
+                    
+                    all_tools.append(tool_dict)
+                
+                logger.info(f"Converted {len(all_tools)} tool(s) from jupyter-mcp-tools with parameter schemas")
+                
+            except Exception as e:
+                logger.error(f"Error querying jupyter-mcp-tools extension: {e}", exc_info=True)
+                # Continue to add FastMCP tools even if jupyter-mcp-tools fails
+        else:
+            logger.info("JupyterLab mode disabled, skipping jupyter-mcp-tools integration")
+        
+        # Second, add FastMCP tools (excluding duplicates)
+        # Map FastMCP tool names to their jupyter-mcp-tools equivalents
+        fastmcp_to_jupyter_mapping = {
+            # Add mappings as needed when tools overlap
+        }
+        
+        try:
+            tools_list = await mcp.list_tools()
+            logger.info(f"Retrieved {len(tools_list)} tools from FastMCP registry")
+            
+            for tool in tools_list:
+                # Check if this FastMCP tool has a jupyter-mcp-tools equivalent
+                jupyter_equivalent = fastmcp_to_jupyter_mapping.get(tool.name)
+                
+                if jupyter_equivalent and jupyter_equivalent in jupyter_tool_names:
+                    logger.info(f"Skipping FastMCP tool '{tool.name}' - equivalent '{jupyter_equivalent}' available from jupyter-mcp-tools")
+                    continue
+                
+                # Add FastMCP tool
+                tool_dict = {
+                    "name": tool.name,
+                    "description": tool.description,
+                }
+                
+                # Extract parameter names from inputSchema
+                if hasattr(tool, 'inputSchema') and tool.inputSchema:
+                    input_schema = tool.inputSchema
+                    if 'properties' in input_schema:
+                        tool_dict["parameters"] = list(input_schema['properties'].keys())
+                    else:
+                        tool_dict["parameters"] = []
+                    
+                    # Include full inputSchema for MCP protocol compatibility
+                    tool_dict["inputSchema"] = input_schema
+                else:
+                    tool_dict["parameters"] = []
+                
+                all_tools.append(tool_dict)
+            
+            logger.info(f"Added {len(all_tools) - len(jupyter_tool_names)} FastMCP tool(s), total: {len(all_tools)}")
+            
+        except Exception as e:
+            logger.error(f"Error retrieving FastMCP tools: {e}", exc_info=True)
+        
+        return all_tools
+    
+    # For MCP_SERVER mode, use local FastMCP registry
     # Use FastMCP's list_tools method which returns Tool objects
     tools_list = await mcp.list_tools()
     

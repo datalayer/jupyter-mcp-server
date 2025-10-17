@@ -146,3 +146,9 @@ class ServerContext:
         if not self._initialized:
             self.initialize()
         return self._kernel_client
+    
+    def is_jupyterlab_mode(self) -> bool:
+        """Check if JupyterLab mode is enabled."""
+        from jupyter_mcp_server.config import get_config
+        config = get_config()
+        return config.is_jupyterlab_mode()
