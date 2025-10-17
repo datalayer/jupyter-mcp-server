@@ -64,7 +64,6 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 |:---|:---|
 | `list_files` | Recursively list files and directories in the Jupyter server's file system. |
 | `list_kernels` | List all available and running kernel sessions on the Jupyter server. |
-| `assign_kernel_to_notebook` | Create a Jupyter session to connect a notebook file to a specific kernel. |
 
 ### Multi-Notebook Management
 

@@ -31,7 +31,6 @@ from jupyter_mcp_server.tools.delete_cell_tool import DeleteCellTool
 from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
 
 # Import tool implementations - Other Tools
-from jupyter_mcp_server.tools.assign_kernel_to_notebook_tool import AssignKernelToNotebookTool
 from jupyter_mcp_server.tools.execute_ipython_tool import ExecuteIpythonTool
 from jupyter_mcp_server.tools.list_files_tool import ListFilesTool
 from jupyter_mcp_server.tools.list_kernels_tool import ListKernelsTool
@@ -56,7 +55,6 @@ __all__ = [
     # Cell Execution
     "ExecuteCellTool",
     # Other Tools
-    "AssignKernelToNotebookTool",
     "ExecuteIpythonTool",
     "ListFilesTool",
     "ListKernelsTool",

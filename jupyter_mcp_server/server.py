@@ -53,7 +53,6 @@ from jupyter_mcp_server.tools import (
     # Cell Execution
     ExecuteCellTool,
     # Other Tools
-    AssignKernelToNotebookTool,
     ExecuteIpythonTool,
     ListFilesTool,
     ListKernelsTool,
@@ -246,33 +245,6 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
             kernel_spec_manager=server_context.kernel_spec_manager,
         )
     )
-
-
-@mcp.tool()
-async def assign_kernel_to_notebook(
-    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')")],
-    kernel_id: Annotated[str, Field(description="ID of the kernel to assign to the notebook")],
-    session_name: Annotated[str, Field(description="Name for the session (If is empty, defaults to notebook path)")] = None,
-) -> Annotated[str, Field(description="Success message with session information including session ID")]:
-    """Assign a kernel to a notebook by creating a Jupyter session.
-
-    This creates a Jupyter server session that connects a notebook file to a kernel,
-    enabling code execution in the notebook. Sessions are the mechanism Jupyter uses
-    to maintain the relationship between notebooks and their kernels.
-    """
-    return await safe_notebook_operation(
-        lambda: AssignKernelToNotebookTool().execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            session_manager=server_context.session_manager,
-            kernel_manager=server_context.kernel_manager,
-            notebook_path=notebook_path,
-            kernel_id=kernel_id,
-            session_name=session_name,
-        )
-    )
-
 
 ###############################################################################
 # Multi-Notebook Management Tools.
