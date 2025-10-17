@@ -433,59 +433,6 @@ async def safe_notebook_operation(operation_func, max_retries=3):
     raise Exception("Unexpected error in retry logic")
 
 
-def list_files_recursively(server_client, current_path="", current_depth=0, files=None, max_depth=3):
-    """Recursively list all files and directories in the Jupyter server."""
-    if files is None:
-        files = []
-    
-    # Stop if we've reached max depth
-    if current_depth > max_depth:
-        return files
-    
-    try:
-        contents = server_client.contents.list_directory(current_path)
-        for item in contents:
-            full_path = f"{current_path}/{item.name}" if current_path else item.name
-            
-            # Format size
-            size_str = ""
-            if hasattr(item, 'size') and item.size is not None:
-                if item.size < 1024:
-                    size_str = f"{item.size}B"
-                elif item.size < 1024 * 1024:
-                    size_str = f"{item.size // 1024}KB"
-                else:
-                    size_str = f"{item.size // (1024 * 1024)}MB"
-            
-            # Format last modified
-            last_modified = ""
-            if hasattr(item, 'last_modified') and item.last_modified:
-                last_modified = item.last_modified.strftime("%Y-%m-%d %H:%M:%S")
-            
-            # Add file/directory to list
-            files.append({
-                'path': full_path,
-                'type': item.type,
-                'size': size_str,
-                'last_modified': last_modified
-            })
-            
-            # Recursively explore directories
-            if item.type == "directory":
-                list_files_recursively(server_client, full_path, current_depth + 1, files, max_depth)
-                
-    except Exception as e:
-        # If we can't access a directory, add an error entry
-        files.append({
-            'path': current_path or "root",
-            'type': "error",
-            'size': "",
-            'last_modified': f"Error: {str(e)}"
-        })
-    
-    return files
-
-
 ###############################################################################
 # Local code execution helpers (JUPYTER_SERVER mode)
 ###############################################################################

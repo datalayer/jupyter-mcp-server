@@ -27,8 +27,7 @@ from jupyter_mcp_server.utils import (
     ensure_kernel_alive,
     execute_cell_with_forced_sync,
     wait_for_kernel_idle,
-    safe_notebook_operation,
-    list_files_recursively,
+    safe_notebook_operation
 )
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -207,12 +206,15 @@ async def health_check(request: Request):
 @mcp.tool()
 async def list_files(
     path: Annotated[str, Field(description="The starting path to list from (empty string means root directory)")] = "",
-    max_depth: Annotated[int, Field(description="Maximum depth to recurse into subdirectories (default: 3)")] = 3,
-) -> Annotated[str, Field(description="Tab-separated table with columns: Path, Type, Size, Last_Modified")]:
-    """List all files and directories in the Jupyter server's file system.
-
-    This tool recursively lists files and directories from the Jupyter server's content API,
-    showing the complete file structure including notebooks, data files, scripts, and directories.
+    # Maximum depth to recurse into subdirectories, Set Max to 3 to avoid infinite recursion.
+    max_depth: Annotated[int, Field(description="Maximum depth to recurse into subdirectories", ge=0, le=3)] = 1,
+    start_index: Annotated[int, Field(description="Starting index for pagination (0-based)", ge=0)] = 0,
+    limit: Annotated[int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)] = 25,
+    pattern: Annotated[str, Field(description="Regex pattern to filter file paths")] = "",
+) -> Annotated[str, Field(description="Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header.")]:
+    """
+    List all files and directories recursively in the Jupyter server's file system.
+    Used to explore the file system structure of the Jupyter server or to find specific files or directories.
     """
     return await safe_notebook_operation(
         lambda: ListFilesTool().execute(
@@ -221,7 +223,9 @@ async def list_files(
             contents_manager=server_context.contents_manager,
             path=path,
             max_depth=max_depth,
-            list_files_recursively_fn=list_files_recursively,
+            start_index=start_index,
+            limit=limit,
+            pattern=pattern if pattern else None,
         )
     )
 
