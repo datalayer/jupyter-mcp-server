@@ -1,6 +1,6 @@
 # Tools
 
-The server currently offers 16 tools organized into 3 categories:
+The server currently offers 16 tools organized into 3 categories, plus 1 additional JupyterLab-specific tool:
 
 ## Server Management Tools (3 tools)
 
@@ -164,3 +164,16 @@ The server currently offers 16 tools organized into 3 categories:
   - `timeout`(int): Execution timeout in seconds (default: 60s)
 - Returns:
   - `list[Union[str, ImageContent]]`: List of outputs from the executed code (supports multimodal output including images)
+
+## JupyterLab-Specific Tools (1 tool)
+
+*Available only when JupyterLab mode is enabled (`--jupyterlab` or `jupyterlab: true` in config). It is set to `True` by default.*
+
+#### 17. `notebook_run-all-cells`
+
+- Execute all cells in the current notebook sequentially.
+- This tool provides a convenient way to run the entire notebook from start to finish, which is particularly useful for batch execution or notebook validation.
+- Only available when JupyterLab mode is enabled for enhanced UI integration.
+- Input: None
+- Returns: Success message indicating that all cells have been executed
+- Note: This tool uses JupyterLab's native execution commands for optimal performance and UI feedback.

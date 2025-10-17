@@ -90,6 +90,14 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 | `insert_execute_code_cell` | A convenient tool to insert a new code cell and execute it in one step. |
 | `execute_ipython` | Execute IPython code directly in the kernel, including magic and shell commands. |
 
+### JupyterLab Integration
+
+*Available only when JupyterLab mode is enabled. It is enabled by default.*
+
+| Name | Description |
+|:---|:---|
+| `notebook_run-all-cells` | Execute all cells in the current notebook sequentially using JupyterLab's native commands. |
+
 For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
 
 ## 🏁 Getting Started

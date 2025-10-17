@@ -598,41 +598,15 @@ async def get_registered_tools():
                     search_query = ",".join(allowed_jupyter_tools)
                     logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_tools})")
                     
-                    # Query for notebook-related tools with broader search term
-                    all_notebook_tools = await get_tools(
+                    tools_data = await get_tools(
                         base_url=base_url,
                         token=token,
                         query=search_query,
-                        enabled_only=True
+                        enabled_only=False
                     )
-                    logger.info(f"Query returned {len(all_notebook_tools)} tools")
+                    logger.info(f"Query returned {len(tools_data)} tools")
                     
-                    # If no tools found with specific query, try a broader search for debugging
-                    if len(all_notebook_tools) == 0:
-                        logger.warning("Specific query returned 0 tools, trying broader search for debugging...")
-                        debug_tools = await get_tools(
-                            base_url=base_url,
-                            token=token,
-                            query="notebook",  # Very broad search
-                            enabled_only=True
-                        )
-                        logger.info(f"DEBUG: Broader 'notebook' query returned {len(debug_tools)} tools")
-                        for tool in debug_tools: 
-                            logger.info(f"DEBUG: Available tool ID: '{tool.get('id', '')}' - {tool.get('label', '')}")
-                        
-                        # Also try getting ALL tools to see what's available
-                        all_tools_debug = await get_tools(
-                            base_url=base_url,
-                            token=token,
-                            query=None,  # Get all tools
-                            enabled_only=True
-                        )
-                        logger.info(f"DEBUG: Total tools available: {len(all_tools_debug)}")
-                        for tool in all_tools_debug:
-                            logger.info(f"DEBUG: Found tool: {tool.get('id', '')} - {tool.get('label', '')}")
-
                     # Use the tools directly since query should return only what we want
-                    tools_data = all_notebook_tools
                     for tool in tools_data:
                         logger.info(f"Found tool: {tool.get('id', '')}")
                     
