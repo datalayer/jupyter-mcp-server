@@ -23,14 +23,22 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server?style=for-the-badge&logo=docker&logoColor=white&color=2496ED)](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
+<div style="background-color: #f6f8fa; border: 1px solid #d0d7de; border-radius: 8px; padding: 20px; margin: 20px 0; display: flex; align-items: center;">
+<div style="flex: 1; padding-right: 20px; text-align: left;">
 
-<a href="https://mseep.ai/app/datalayer-jupyter-mcp-server"><img src="https://mseep.net/pr/datalayer-jupyter-mcp-server-badge.png" alt="MseeP.ai Security Assessment Badge" width="100"></a>
-<a href="https://archestra.ai/mcp-catalog/datalayer__jupyter-mcp-server"><img src="https://archestra.ai/mcp-catalog/api/badge/quality/datalayer/jupyter-mcp-server" alt="Trust Score" width="150"></a>
+📢 **Upcoming JupyterCon 2025**: We'll be presenting Jupyter MCP Server at [JupyterCon 2025](https://jupytercon2025.sched.com/event/28H3z)!   Join us to learn about ✨ AI-powered notebook interactions and the future of 🪐 Jupyter workflows.
 
-
-> 🚨 **Latest Release: v17.0**: **JupyterLab Mode Integration!** Enhanced UI integration with automatic notebook opening. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
+</div>
+<div style="flex: 0 0 auto;">
+<a href="https://jupytercon2025.sched.com/event/28H3z">
+<img src="https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png" alt="JupyterCon 2025" width="300">
+</a>
+</div>
+</div>
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
+
+> 🚨 **Latest Release: v17.0**: **JupyterLab Mode Integration!** Enhanced UI integration with automatic notebook opening. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
 
 </div>
 
