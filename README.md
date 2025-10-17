@@ -33,7 +33,7 @@
 <td align="center">
 
 <a href="https://jupytercon2025.sched.com/event/28H3z">
-<img src="https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png" alt="JupyterCon 2025" width="300">
+<img src="https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png" alt="JupyterCon 2025" width="400">
 </a>
 
 </td>
