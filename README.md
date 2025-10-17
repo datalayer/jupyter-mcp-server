@@ -25,12 +25,12 @@
 
 <table>
 <tr>
-<td width="70%">
+<td width="50%">
 
 📢 **Upcoming JupyterCon 2025**: We'll be presenting Jupyter MCP Server at [JupyterCon 2025](https://jupytercon2025.sched.com/event/28H3z)! Join us to learn about ✨ AI-powered notebook interactions and the future of 🪐 Jupyter workflows.
 
 </td>
-<td align="center">
+<td width="40%" align="center">
 
 <a href="https://jupytercon2025.sched.com/event/28H3z">
 <img src="https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png" alt="JupyterCon 2025" width="400">
