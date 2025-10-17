@@ -8,10 +8,10 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-
 <div align="center">
 
 <!-- omit in toc -->
+
 # 🪐✨ Jupyter MCP Server
 
 **An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage Jupyter Notebooks in real-time**
@@ -23,18 +23,22 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server?style=for-the-badge&logo=docker&logoColor=white&color=2496ED)](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
-<div style="background-color: #f6f8fa; border: 1px solid #d0d7de; border-radius: 8px; padding: 20px; margin: 20px 0; display: flex; align-items: center;">
-<div style="flex: 1; padding-right: 20px; text-align: left;">
+<table>
+<tr>
+<td width="70%">
 
-📢 **Upcoming JupyterCon 2025**: We'll be presenting Jupyter MCP Server at [JupyterCon 2025](https://jupytercon2025.sched.com/event/28H3z)!   Join us to learn about ✨ AI-powered notebook interactions and the future of 🪐 Jupyter workflows.
+📢 **Upcoming JupyterCon 2025**: We'll be presenting Jupyter MCP Server at [JupyterCon 2025](https://jupytercon2025.sched.com/event/28H3z)! Join us to learn about ✨ AI-powered notebook interactions and the future of 🪐 Jupyter workflows.
 
-</div>
-<div style="flex: 0 0 auto;">
+</td>
+<td align="center">
+
 <a href="https://jupytercon2025.sched.com/event/28H3z">
 <img src="https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png" alt="JupyterCon 2025" width="300">
 </a>
-</div>
-</div>
+
+</td>
+</tr>
+</table>
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
@@ -43,6 +47,7 @@
 </div>
 
 ## 📖 Table of Contents
+
 - [Key Features](#-key-features)
 - [Tools Overview](#-tools-overview)
 - [Getting Started](#-getting-started)
@@ -68,41 +73,41 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 
 ### Server Management
 
-| Name | Description |
-|:---|:---|
-| `list_files` | Recursively list files and directories in the Jupyter server's file system. |
-| `list_kernels` | List all available and running kernel sessions on the Jupyter server. |
-| `assign_kernel_to_notebook` | Create a Jupyter session to connect a notebook file to a specific kernel. |
+| Name                        | Description                                                                 |
+| :-------------------------- | :-------------------------------------------------------------------------- |
+| `list_files`                | Recursively list files and directories in the Jupyter server's file system. |
+| `list_kernels`              | List all available and running kernel sessions on the Jupyter server.       |
+| `assign_kernel_to_notebook` | Create a Jupyter session to connect a notebook file to a specific kernel.   |
 
 ### Multi-Notebook Management
 
-| Name | Description |
-|:---|:---|
-| `use_notebook` | Connect to a notebook file, create a new one, or switch between notebooks. |
-| `list_notebooks` | List all notebooks available on the Jupyter server and their status  |
-| `restart_notebook` | Restart the kernel for a specific managed notebook. |
-| `unuse_notebook` | Disconnect from a specific notebook and release its resources. |
+| Name               | Description                                                                |
+| :----------------- | :------------------------------------------------------------------------- |
+| `use_notebook`     | Connect to a notebook file, create a new one, or switch between notebooks. |
+| `list_notebooks`   | List all notebooks available on the Jupyter server and their status        |
+| `restart_notebook` | Restart the kernel for a specific managed notebook.                        |
+| `unuse_notebook`   | Disconnect from a specific notebook and release its resources.             |
 
 ### Cell Operations and Execution
 
-| Name | Description |
-|:---|:---|
-| `list_cells` | List basic information for all cells to provide a quick overview of notebook |
-| `read_cell` | Read the full content (source and outputs) of a single cell. |
-| `read_cells` | Read the full content of all cells in the notebook. |
-| `insert_cell` | Insert a new code or markdown cell at a specified position. |
-| `delete_cell` | Delete a cell at a specified index. |
-| `overwrite_cell_source` | Overwrite the source code of an existing cell. |
-| `execute_cell` | Execute a cell with timeout, it supports multimodal output including images. |
-| `insert_execute_code_cell` | A convenient tool to insert a new code cell and execute it in one step. |
-| `execute_ipython` | Execute IPython code directly in the kernel, including magic and shell commands. |
+| Name                       | Description                                                                      |
+| :------------------------- | :------------------------------------------------------------------------------- |
+| `list_cells`               | List basic information for all cells to provide a quick overview of notebook     |
+| `read_cell`                | Read the full content (source and outputs) of a single cell.                     |
+| `read_cells`               | Read the full content of all cells in the notebook.                              |
+| `insert_cell`              | Insert a new code or markdown cell at a specified position.                      |
+| `delete_cell`              | Delete a cell at a specified index.                                              |
+| `overwrite_cell_source`    | Overwrite the source code of an existing cell.                                   |
+| `execute_cell`             | Execute a cell with timeout, it supports multimodal output including images.     |
+| `insert_execute_code_cell` | A convenient tool to insert a new code cell and execute it in one step.          |
+| `execute_ipython`          | Execute IPython code directly in the kernel, including magic and shell commands. |
 
 ### JupyterLab Integration
 
 *Available only when JupyterLab mode is enabled. It is enabled by default.*
 
-| Name | Description |
-|:---|:---|
+| Name                     | Description                                                                                |
+| :----------------------- | :----------------------------------------------------------------------------------------- |
 | `notebook_run-all-cells` | Execute all cells in the current notebook sequentially using JupyterLab's native commands. |
 
 For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
@@ -143,14 +148,17 @@ Next, configure your MCP client to connect to the server. We offer two primary m
 <summary><b>📦 Using uvx (Quick Start)</b></summary>
 
 First, install `uv`:
+
 ```bash
 pip install uv
 uv --version
 # should be 0.6.14 or higher
 ```
+
 See more details on [uv installation](https://docs.astral.sh/uv/getting-started/installation/).
 
 Then, configure your client:
+
 ```json
 {
   "mcpServers": {
@@ -173,6 +181,7 @@ Then, configure your client:
 <summary><b>🐳 Using Docker (Production)</b></summary>
 
 **On macOS and Windows:**
+
 ```json
 {
   "mcpServers": {
@@ -196,6 +205,7 @@ Then, configure your client:
 ```
 
 **On Linux:**
+
 ```json
 {
   "mcpServers": {
@@ -222,11 +232,12 @@ Then, configure your client:
 </details>
 
 > [!TIP]
+>
 > 1. **Port Configuration**: Ensure the `port` in your Jupyter URLs matches the one used in the `jupyter lab` command. For simplified config, set this in `JUPYTER_URL`.
-> 2. **Server Separation**: Use `JUPYTER_URL` when both services are on the same server, or set individual variables for advanced deployments. The different URL variables exist because some deployments separate notebook storage (`DOCUMENT_URL`) from kernel execution (`RUNTIME_URL`). 
-> 3. **Authentication**: In most cases, document and runtime services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `RUNTIME_TOKEN` individually for different credentials.
-> 4. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook the MCP client default to connect. It should be relative to the directory where JupyterLab was started. If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
-> 5. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
+> 1. **Server Separation**: Use `JUPYTER_URL` when both services are on the same server, or set individual variables for advanced deployments. The different URL variables exist because some deployments separate notebook storage (`DOCUMENT_URL`) from kernel execution (`RUNTIME_URL`).
+> 1. **Authentication**: In most cases, document and runtime services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `RUNTIME_TOKEN` individually for different credentials.
+> 1. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook the MCP client default to connect. It should be relative to the directory where JupyterLab was started. If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
+> 1. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
 
@@ -263,7 +274,7 @@ Looking for blog posts, videos, or other materials about Jupyter MCP Server?
   <img src="https://api.star-history.com/svg?repos=datalayer/jupyter-mcp-server&type=Date" alt="Star History Chart">
 </a>
 
----
+______________________________________________________________________
 
 <div align="center">
 
