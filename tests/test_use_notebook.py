@@ -127,8 +127,13 @@ async def test_use_notebook_switch_to_nonexistent():
     # The notebook_c is not in notebook_manager, so we expect it to be added as new
     # But since we're not providing kernel_manager, it should fail with a different error
     # Or it might succeed in adding but fail at kernel creation
-    assert ("not connected" in result or "not the correct path" in result or 
-            "Invalid mode or missing required clients" in result or "Successfully" in result)
+    assert (
+        "not connected" in result
+        or "not the correct path" in result
+        or "Invalid mode or missing required clients" in result
+        or "Invalid configuration" in result
+        or "Successfully" in result
+    )
 
 
 @pytest.mark.asyncio

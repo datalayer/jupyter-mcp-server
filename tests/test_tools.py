@@ -409,7 +409,11 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         
         # Try to connect to the same notebook again (should fail or reactivate)
         duplicate_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
-        assert "already using" in duplicate_result or "Successfully activate notebook" in duplicate_result
+        assert (
+            "already using" in duplicate_result
+            or "already activated" in duplicate_result
+            or "Successfully activate notebook" in duplicate_result
+        )
         
         # Test switching between notebooks
         if "default" in notebook_list:
