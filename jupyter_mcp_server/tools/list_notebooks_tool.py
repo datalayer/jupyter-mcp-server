@@ -4,128 +4,63 @@
 
 """List notebooks tool implementation."""
 
-from typing import Any, Optional, List
-from jupyter_server_api import JupyterServerClient
+from typing import Any, Optional
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.utils import format_TSV
 
 
 class ListNotebooksTool(BaseTool):
-    """Tool to list all notebooks in the Jupyter server."""
-    
-    def _list_notebooks_http(self, server_client: JupyterServerClient, path: str = "", notebooks: Optional[List[str]] = None) -> List[str]:
-        """List notebooks using HTTP API (MCP_SERVER mode)."""
-        if notebooks is None:
-            notebooks = []
-        
-        try:
-            contents = server_client.contents.list_directory(path)
-            for item in contents:
-                full_path = f"{path}/{item.name}" if path else item.name
-                if item.type == "directory":
-                    # Recursively search subdirectories
-                    self._list_notebooks_http(server_client, full_path, notebooks)
-                elif item.type == "notebook" or (item.type == "file" and item.name.endswith('.ipynb')):
-                    # Add notebook to list without any prefix
-                    notebooks.append(full_path)
-        except Exception as e:
-            # If we can't access a directory, just skip it
-            pass
-        
-        return notebooks
-    
-    async def _list_notebooks_local(self, contents_manager: Any, path: str = "", notebooks: Optional[List[str]] = None) -> List[str]:
-        """List notebooks using local contents_manager API (JUPYTER_SERVER mode)."""
-        if notebooks is None:
-            notebooks = []
-        
-        try:
-            model = await contents_manager.get(path, content=True, type='directory')
-            for item in model.get('content', []):
-                full_path = f"{path}/{item['name']}" if path else item['name']
-                if item['type'] == "directory":
-                    # Recursively search subdirectories
-                    await self._list_notebooks_local(contents_manager, full_path, notebooks)
-                elif item['type'] == "notebook" or (item['type'] == "file" and item['name'].endswith('.ipynb')):
-                    # Add notebook to list
-                    notebooks.append(full_path)
-        except Exception as e:
-            # If we can't access a directory, just skip it
-            pass
-        
-        return notebooks
+    """Tool to list all managed notebooks (that have been used via use_notebook)."""
     
     async def execute(
         self,
         mode: ServerMode,
-        server_client: Optional[JupyterServerClient] = None,
-        kernel_client: Optional[Any] = None,
+        server_client: Optional[Any] = None,
         contents_manager: Optional[Any] = None,
         kernel_manager: Optional[Any] = None,
         kernel_spec_manager: Optional[Any] = None,
         notebook_manager: Optional[NotebookManager] = None,
         **kwargs
     ) -> str:
-        """Execute the list_notebook tool.
+        """Execute the list_notebooks tool.
+        
+        This tool lists all notebooks that have been managed through the use_notebook tool.
+        It does NOT perform recursive filesystem scanning.
         
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: HTTP client for MCP_SERVER mode
-            contents_manager: Direct API access for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             **kwargs: Additional parameters (unused)
             
         Returns:
-            TSV formatted table with notebook information
+            TSV formatted table with managed notebook information
         """
-        # Get all notebooks based on mode
-        if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-            all_notebooks = await self._list_notebooks_local(contents_manager)
-        elif mode == ServerMode.MCP_SERVER and server_client is not None:
-            all_notebooks = self._list_notebooks_http(server_client)
-        else:
-            raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
+        if notebook_manager is None:
+            return "No notebook manager available."
         
-        # Get managed notebooks info
-        managed_notebooks = notebook_manager.list_all_notebooks() if notebook_manager else {}
+        # Get all managed notebooks
+        managed_notebooks = notebook_manager.list_all_notebooks()
         
-        if not all_notebooks and not managed_notebooks:
-            return "No notebooks found in the Jupyter server."
+        if not managed_notebooks:
+            return "No managed notebooks. Use the use_notebook tool to manage notebooks first."
         
         # Create TSV formatted output
-        headers = ["Path", "Managed", "Name", "Status", "Current"]
+        headers = ["Name", "Path", "Kernel_ID", "Kernel_Status", "Activate"]
         rows = []
         
-        # Create a set of managed notebook paths for quick lookup
-        managed_paths = {info["path"] for info in managed_notebooks.values()}
-        
-        # Add all notebooks found in the server
-        for notebook_path in sorted(all_notebooks):
-            is_managed = notebook_path in managed_paths
-            
-            if is_managed:
-                # Find the managed notebook entry
-                managed_info = None
-                managed_name = None
-                for name, info in managed_notebooks.items():
-                    if info["path"] == notebook_path:
-                        managed_info = info
-                        managed_name = name
-                        break
-                
-                if managed_info:
-                    current_marker = "✓" if managed_info["is_current"] else ""
-                    rows.append([notebook_path, "Yes", managed_name, managed_info['kernel_status'], current_marker])
-                else:
-                    rows.append([notebook_path, "Yes", "-", "-", ""])
-            else:
-                rows.append([notebook_path, "No", "-", "-", ""])
-        
-        # Add any managed notebooks that weren't found in the server (edge case)
-        for name, info in managed_notebooks.items():
-            if info["path"] not in all_notebooks:
-                current_marker = "✓" if info["is_current"] else ""
-                rows.append([info['path'], "Yes (not found)", name, info['kernel_status'], current_marker])
+        # Sort by name for consistent output
+        for name in sorted(managed_notebooks.keys()):
+            info = managed_notebooks[name]
+            activate_marker = "✓" if info.get("is_current") else ""
+            # Get kernel_id from notebook_manager
+            kernel_id = notebook_manager.get_kernel_id(name) or "-"
+            rows.append([
+                name,
+                info.get("path", "-"),
+                kernel_id,
+                info.get("kernel_status", "unknown"),
+                activate_marker
+            ])
         
         return format_TSV(headers, rows)

@@ -389,9 +389,15 @@ display(IPythonImage(buffer.getvalue()))
 async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
     """Test multi-notebook management functionality in both modes"""
     async with mcp_client_parametrized:
-        # Test initial state - should show default notebook or no notebooks
+        # Test initial state - should show no managed notebooks
         initial_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Initial notebook list: {initial_list}")
+        # Initially, there should be no managed notebooks since list_notebooks only shows 
+        # notebooks that have been managed via use_notebook
+        assert (
+            "No managed notebooks" in initial_list 
+            or "Use the use_notebook tool" in initial_list
+        )
         
         # Connect to a new notebook
         connect_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb", "connect")
@@ -400,12 +406,14 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         # The result contains notebook info and cell preview, not necessarily the path
         assert "Notebook has" in connect_result or "cells" in connect_result.lower()
         
-        # List notebooks - should now show the connected notebook
+        # List notebooks - should now show the connected notebook with all columns
         notebook_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Notebook list after connect: {notebook_list}")
         assert "test_notebooks" in notebook_list
         assert "new.ipynb" in notebook_list
-        assert "✓" in notebook_list  # Should be marked as current
+        assert "✓" in notebook_list  # Should be marked as Activate (current)
+        # Verify new columns are present
+        assert "Kernel_ID" in notebook_list or "-" in notebook_list  # Kernel_ID column with value
         
         # Try to connect to the same notebook again (should fail or reactivate)
         duplicate_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
@@ -413,25 +421,28 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
             "already using" in duplicate_result
             or "already activated" in duplicate_result
             or "Successfully activate notebook" in duplicate_result
+            or "Reactivating notebook" in duplicate_result
         )
         
         # Test switching between notebooks
-        if "default" in notebook_list:
-            use_result = await mcp_client_parametrized.use_notebook("default", "notebook.ipynb")
-            logging.debug(f"Switch to default result: {use_result}")
-            assert (
-                "Successfully activate notebook 'default'" in use_result
-                or "Successfully switched to notebook 'default'" in use_result
-                or "Reactivating notebook 'default'" in use_result
-            )
-
-            # Switch back to test notebook
-            use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
-            assert (
-                "Successfully activate notebook 'test_notebooks'" in use_back_result
-                or "Successfully switched to notebook 'test_notebooks'" in use_back_result
-                or "Reactivating notebook 'test_notebooks'" in use_back_result
-            )
+        # Create a second notebook to test switching
+        use_result = await mcp_client_parametrized.use_notebook("test_notebooks_2", "notebook.ipynb", "connect")
+        logging.debug(f"Connect to second notebook: {use_result}")
+        assert "Successfully activate notebook 'test_notebooks_2'" in use_result
+        
+        # Verify both notebooks are now in the list
+        notebook_list_2 = await mcp_client_parametrized.list_notebooks()
+        logging.debug(f"Notebook list with 2 notebooks: {notebook_list_2}")
+        assert "test_notebooks" in notebook_list_2
+        assert "test_notebooks_2" in notebook_list_2
+        # test_notebooks_2 should be the activated one (has ✓)
+        
+        # Switch back to first notebook
+        use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
+        assert (
+            "Successfully activate notebook 'test_notebooks'" in use_back_result
+            or "Reactivating notebook 'test_notebooks'" in use_back_result
+        )
         
         # Test cell operations on the new notebook
         # First get the cell count of new.ipynb (should have some cells)
@@ -452,6 +463,11 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         logging.debug(f"Restart result: {restart_result}")
         assert "restarted successfully" in restart_result
         
+        # Verify both notebooks still exist after restart
+        list_after_restart = await mcp_client_parametrized.list_notebooks()
+        assert "test_notebooks" in list_after_restart
+        assert "test_notebooks_2" in list_after_restart
+        
         # Test unuse notebook
         disconnect_result = await mcp_client_parametrized.unuse_notebook("test_notebooks")
         logging.debug(f"Unuse result: {disconnect_result}")
@@ -460,8 +476,20 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         # Verify notebook is no longer in the list
         final_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Final notebook list: {final_list}")
-        if "No notebooks are currently connected" not in final_list:
-            assert "test_notebooks" not in final_list
+        assert "test_notebooks" not in final_list
+        # But test_notebooks_2 should still be there
+        assert "test_notebooks_2" in final_list
+        
+        # Unuse the second notebook
+        disconnect_result_2 = await mcp_client_parametrized.unuse_notebook("test_notebooks_2")
+        assert "unused successfully" in disconnect_result_2
+        
+        # Now list should show no managed notebooks
+        empty_list = await mcp_client_parametrized.list_notebooks()
+        assert (
+            "No managed notebooks" in empty_list 
+            or "Use the use_notebook tool" in empty_list
+        )
 
 
 @pytest.mark.asyncio

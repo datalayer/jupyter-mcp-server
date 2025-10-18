@@ -283,16 +283,10 @@ async def use_notebook(
 
 
 @mcp.tool()
-async def list_notebooks() -> Annotated[str, Field(description="TSV formatted table with notebook information including management status")]:
-    """List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed.
-    
-    To interact with a notebook, it has to be "managed". If a notebook is not managed, you can use it with the `use_notebook` tool.
-    """
+async def list_notebooks() -> Annotated[str, Field(description="TSV formatted table with notebook information")]:
+    """List all notebooks that have been used via use_notebook tool"""
     return await ListNotebooksTool().execute(
         mode=server_context.mode,
-        server_client=server_context.server_client,
-        contents_manager=server_context.contents_manager,
-        kernel_manager=server_context.kernel_manager,
         notebook_manager=notebook_manager,
     )
 

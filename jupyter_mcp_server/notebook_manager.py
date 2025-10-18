@@ -190,8 +190,8 @@ class NotebookManager:
             # Handle both KernelClient objects and kernel metadata dicts
             if isinstance(kernel, dict):
                 return kernel.get("id")
-            elif hasattr(kernel, 'kernel_id'):
-                return kernel.kernel_id
+            elif hasattr(kernel, 'id'):
+                return kernel.id
         return None
     
     def get_notebook_path(self, name: str) -> Optional[str]:
