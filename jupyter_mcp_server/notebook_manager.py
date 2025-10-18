@@ -190,8 +190,22 @@ class NotebookManager:
             # Handle both KernelClient objects and kernel metadata dicts
             if isinstance(kernel, dict):
                 return kernel.get("id")
-            elif hasattr(kernel, 'kernel_id'):
-                return kernel.kernel_id
+            elif hasattr(kernel, 'id'):
+                return kernel.id
+        return None
+    
+    def get_notebook_path(self, name: str) -> Optional[str]:
+        """
+        Get the path of a notebook.
+        
+        Args:
+            name: Notebook identifier
+            
+        Returns:
+            Notebook path or None if not found
+        """
+        if name in self._notebooks:
+            return self._notebooks[name]["notebook_info"].get("path")
         return None
     
     def is_local_notebook(self, name: str) -> bool:

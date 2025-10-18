@@ -18,6 +18,45 @@ logger = logging.getLogger(__name__)
 class UseNotebookTool(BaseTool):
     """Tool to use (connect to or create) a notebook file."""
     
+    async def _start_kernel_local(self, kernel_manager: Any):
+        # Start a new kernel using local API
+        kernel_id = await kernel_manager.start_kernel()
+        logger.info(f"Started kernel '{kernel_id}', waiting for it to be ready...")
+        
+        # CRITICAL: Wait for the kernel to actually start and be ready
+        # The start_kernel() call returns immediately, but kernel takes time to start
+        import asyncio
+        max_wait_time = 30  # seconds
+        wait_interval = 0.5  # seconds
+        elapsed = 0
+        kernel_ready = False
+        
+        while elapsed < max_wait_time:
+            try:
+                # Get kernel model to check its state
+                kernel_model = kernel_manager.get_kernel(kernel_id)
+                if kernel_model is not None:
+                    # Kernel exists, check if it's ready
+                    # In Jupyter, we can try to get connection info which indicates readiness
+                    try:
+                        kernel_manager.get_connection_info(kernel_id)
+                        kernel_ready = True
+                        logger.info(f"Kernel '{kernel_id}' is ready (took {elapsed:.1f}s)")
+                        break
+                    except:
+                        # Connection info not available yet, kernel still starting
+                        pass
+            except Exception as e:
+                logger.debug(f"Waiting for kernel to start: {e}")
+            
+            await asyncio.sleep(wait_interval)
+            elapsed += wait_interval
+        
+        if not kernel_ready:
+            logger.warning(f"Kernel '{kernel_id}' may not be fully ready after {max_wait_time}s wait")
+        
+        return {"id": kernel_id}
+
     async def _check_path_http(
         self, 
         server_client: JupyterServerClient, 
@@ -82,7 +121,7 @@ class UseNotebookTool(BaseTool):
         notebook_manager: Optional[NotebookManager] = None,
         # Tool-specific parameters
         notebook_name: str = None,
-        notebook_path: Optional[str] = None,
+        notebook_path: str = None,
         use_mode: Literal["connect", "create"] = "connect",
         kernel_id: Optional[str] = None,
         runtime_url: Optional[str] = None,
@@ -109,20 +148,7 @@ class UseNotebookTool(BaseTool):
         Returns:
             Success message with notebook information
         """
-        # If no notebook_path provided, switch to already-connected notebook
-        if notebook_path is None:
-            if notebook_name not in notebook_manager:
-                return f"Notebook '{notebook_name}' is not connected. Please provide a notebook_path to connect to it first."
-            
-            # Switch to the existing notebook
-            notebook_manager.set_current_notebook(notebook_name)
-            return f"Successfully switched to notebook '{notebook_name}'."
-        
-        # Rest of the logic for connecting/creating new notebooks
-        if notebook_name in notebook_manager:
-            return f"Notebook '{notebook_name}' is already using. Use unuse_notebook first if you want to reconnect."
-        
-        # Check server connectivity (HTTP mode only)
+         # Check server connectivity (HTTP mode only)
         if mode == ServerMode.MCP_SERVER and server_client is not None:
             try:
                 server_client.get_status()
@@ -140,135 +166,181 @@ class UseNotebookTool(BaseTool):
         if not path_ok:
             return error_msg
         
-        # Check kernel if kernel_id provided (HTTP mode only for now)
-        if kernel_id and mode == ServerMode.MCP_SERVER and server_client is not None:
-            kernels = server_client.kernels.list_kernels()
-            kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
-            if not kernel_exists:
-                return f"Kernel '{kernel_id}' not found in jupyter server, please check the kernel already exists."
-        
-        # Create notebook if needed
-        if use_mode == "create":
-            content = {
-                "cells": [{
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": [
-                        "New Notebook Created by Jupyter MCP Server",
-                    ]
-                }],
-                "metadata": {},
-                "nbformat": 4,
-                "nbformat_minor": 4
-            }
-            if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-                # Use local API to create notebook
-                await contents_manager.new(model={'type': 'notebook'}, path=notebook_path)
-            elif mode == ServerMode.MCP_SERVER and server_client is not None:
-                server_client.contents.create_notebook(notebook_path, content=content)
-        
-        # Create/connect to kernel based on mode
-        if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
-            # JUPYTER_SERVER mode: Use local kernel manager API directly
-            if kernel_id:
-                # Connect to existing kernel - verify it exists
-                if kernel_id not in kernel_manager:
-                    return f"Kernel '{kernel_id}' not found in local kernel manager."
-                kernel_info = {"id": kernel_id}
+        info_list = []
+
+        # Check if notebook already in notebook_manager (Cober all cases)
+        if notebook_name in notebook_manager:
+            if use_mode == "create":
+                if notebook_manager.get_notebook_path(notebook_name) == notebook_path:
+                    return f"Notebook '{notebook_name}'(path: {notebook_path}) is already created. DO NOT CREATE AGAIN."
+                else:
+                    return f"Notebook '{notebook_name}' is already used. Use different notebook_name to create a new notebook on {notebook_path}."
             else:
-                # Start a new kernel using local API
-                kernel_id = await kernel_manager.start_kernel()
-                logger.info(f"Started kernel '{kernel_id}', waiting for it to be ready...")
+                if notebook_manager.get_notebook_path(notebook_name) == notebook_path:
+                    if notebook_name == notebook_manager.get_current_notebook():
+                        return f"Notebook '{notebook_name}' is already activated now. DO NOT REACTIVATE AGAIN."
+                    else:
+                        # the only correct case.
+                        info_list.append(f"[INFO] Reactivating notebook '{notebook_name}' and deactivating '{notebook_manager.get_current_notebook()}'.")
+                        notebook_manager.set_current_notebook(notebook_name)
+                else:
+                    return f"The path '{notebook_path}' is not the correct path for notebook '{notebook_name}'. Do you mean connect to '{notebook_manager.get_notebook_path(notebook_name)}'?"
+        # add new notebook to notebook_manager
+        else:
+            # # Create/connect to kernel based on mode
+            if mode == ServerMode.MCP_SERVER and server_client is not None:
+                if kernel_id is not None:
+                    kernels = server_client.kernels.list_kernels()
+                    kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
+                    if not kernel_exists:
+                        return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."
+                kernel = KernelClient(
+                    server_url=runtime_url,
+                    token=runtime_token,
+                    kernel_id=kernel_id
+                )
+                # FIXED: Ensure kernel is started with the same path as the notebook
+                kernel.start(path=notebook_path)
+
+                info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
+            elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
+                # JUPYTER_SERVER mode: Use local kernel manager API directly
+                if kernel_id:
+                    # Connect to existing kernel - verify it exists
+                    if kernel_id not in kernel_manager:
+                        return f"Kernel '{kernel_id}' not found in local kernel manager."
+                    kernel = {"id": kernel_id}
+                else:
+                    kernel = await self._start_kernel_local(kernel_manager)
                 
-                # CRITICAL: Wait for the kernel to actually start and be ready
-                # The start_kernel() call returns immediately, but kernel takes time to start
-                import asyncio
-                max_wait_time = 30  # seconds
-                wait_interval = 0.5  # seconds
-                elapsed = 0
-                kernel_ready = False
-                
-                while elapsed < max_wait_time:
+                info_list.append(f"[INFO] Connected to kernel '{kernel_id}'.")
+                # Create a Jupyter session to associate the kernel with the notebook
+                # This is CRITICAL for JupyterLab to recognize the kernel-notebook connection
+                if session_manager is not None:
                     try:
-                        # Get kernel model to check its state
-                        kernel_model = kernel_manager.get_kernel(kernel_id)
-                        if kernel_model is not None:
-                            # Kernel exists, check if it's ready
-                            # In Jupyter, we can try to get connection info which indicates readiness
-                            try:
-                                kernel_manager.get_connection_info(kernel_id)
-                                kernel_ready = True
-                                logger.info(f"Kernel '{kernel_id}' is ready (took {elapsed:.1f}s)")
-                                break
-                            except:
-                                # Connection info not available yet, kernel still starting
-                                pass
+                        # create_session is an async method, so we await it directly
+                        session_dict = await session_manager.create_session(
+                            path=notebook_path,
+                            kernel_id=kernel_id,
+                            type="notebook",
+                            name=notebook_path
+                        )
+                        logger.info(f"Created Jupyter session '{session_dict.get('id')}' for notebook '{notebook_path}' with kernel '{kernel_id}'")
                     except Exception as e:
-                        logger.debug(f"Waiting for kernel to start: {e}")
-                    
-                    await asyncio.sleep(wait_interval)
-                    elapsed += wait_interval
-                
-                if not kernel_ready:
-                    logger.warning(f"Kernel '{kernel_id}' may not be fully ready after {max_wait_time}s wait")
-                
-                kernel_info = {"id": kernel_id}
+                        logger.warning(f"Failed to create Jupyter session: {e}. Notebook may not be properly connected in JupyterLab UI.")
+                else:
+                    logger.warning("No session_manager available. Notebook may not be properly connected in JupyterLab UI.")
+
+            # Create notebook if needed
+            if use_mode == "create":
+                content = {
+                    "cells": [{
+                        "cell_type": "markdown",
+                        "metadata": {},
+                        "source": [
+                            "New Notebook Created by Jupyter MCP Server",
+                        ]
+                    }],
+                    "metadata": {},
+                    "nbformat": 4,
+                    "nbformat_minor": 4
+                }
+                if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+                    # Use local API to create notebook
+                    await contents_manager.new(model={'type': 'notebook'}, path=notebook_path)
+                elif mode == ServerMode.MCP_SERVER and server_client is not None:
+                    server_client.contents.create_notebook(notebook_path, content=content)
             
-            # Create a Jupyter session to associate the kernel with the notebook
-            # This is CRITICAL for JupyterLab to recognize the kernel-notebook connection
-            if session_manager is not None:
-                try:
-                    # create_session is an async method, so we await it directly
-                    session_dict = await session_manager.create_session(
-                        path=notebook_path,
-                        kernel_id=kernel_id,
-                        type="notebook",
-                        name=notebook_path
-                    )
-                    logger.info(f"Created Jupyter session '{session_dict.get('id')}' for notebook '{notebook_path}' with kernel '{kernel_id}'")
-                except Exception as e:
-                    logger.warning(f"Failed to create Jupyter session: {e}. Notebook may not be properly connected in JupyterLab UI.")
+            # Add notebook to notebook_manager
+            if mode == ServerMode.MCP_SERVER and runtime_url:
+                notebook_manager.add_notebook(
+                    notebook_name,
+                    kernel,
+                    server_url=runtime_url,
+                    token=runtime_token,
+                    path=notebook_path
+                )
+            elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
+                notebook_manager.add_notebook(
+                    notebook_name,
+                    kernel,
+                    server_url="local",
+                    token=None,
+                    path=notebook_path
+                )
             else:
-                logger.warning("No session_manager available. Notebook may not be properly connected in JupyterLab UI.")
-            
-            # For JUPYTER_SERVER mode, store kernel info (not KernelClient object)
-            # The actual kernel is managed by kernel_manager
-            notebook_manager.add_notebook(
-                notebook_name,
-                kernel_info,  # Store kernel metadata, not client object
-                server_url="local",  # Indicate local mode
-                token=None,
-                path=notebook_path
-            )
-        elif mode == ServerMode.MCP_SERVER and runtime_url:
-            # MCP_SERVER mode: Use HTTP-based kernel client
-            kernel = KernelClient(
-                server_url=runtime_url,
-                token=runtime_token,
-                kernel_id=kernel_id
-            )
-            kernel.start()
-            
-            # Add notebook to manager with HTTP client
-            notebook_manager.add_notebook(
-                notebook_name,
-                kernel,
-                server_url=runtime_url,
-                token=runtime_token,
-                path=notebook_path
-            )
-        else:
-            return f"Invalid configuration: mode={mode}, runtime_url={runtime_url}, kernel_manager={kernel_manager is not None}"
+                return f"Invalid configuration: mode={mode}, runtime_url={runtime_url}, kernel_manager={kernel_manager is not None}"
         
-        notebook_manager.set_current_notebook(notebook_name)
+            notebook_manager.set_current_notebook(notebook_name)
+            info_list.append(f"[INFO] Successfully activate notebook '{notebook_name}'.")
         
-        # If JupyterLab mode is enabled and we're in JUPYTER_SERVER mode, 
-        # also open the notebook in JupyterLab UI
-        success_message = ""
-        if use_mode == "create":
-            success_message = f"Successfully created and using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
-        else:
-            success_message = f"Successfully using notebook '{notebook_name}' at path '{notebook_path}' in {mode.value} mode."
+        # Return the quick overview of currently activated notebook
+        try:
+            if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+                # Read notebook to get cell count and first 20 cells
+                model = await contents_manager.get(notebook_path, content=True, type='notebook')
+                if 'content' in model:
+                    notebook_content = model['content']
+                    cells = notebook_content.get('cells', [])
+                    total_cells = len(cells)
+                    
+                    info_list.append(f"\nNotebook has {total_cells} cells.")
+                    
+                    # Get first 20 cells info
+                    if cells:
+                        from jupyter_mcp_server.utils import format_TSV
+                        
+                        headers_cells = cells[:20]
+                        headers = ["Index", "Type", "Count", "First Line"]
+                        rows = []
+                        
+                        for idx, cell in enumerate(headers_cells):
+                            cell_type = cell.get('cell_type', 'unknown')
+                            execution_count = cell.get('execution_count', '-') if cell_type == 'code' else '-'
+                            
+                            source = cell.get('source', '')
+                            if isinstance(source, list):
+                                first_line = source[0] if source else ''
+                                lines = len(source)
+                            else:
+                                first_line = source.split('\n')[0] if source else ''
+                                lines = len(source.split('\n'))
+                            
+                            if lines > 1:
+                                first_line += f"...({lines - 1} lines hidden)"
+                            
+                            rows.append([idx, cell_type, execution_count, first_line])
+                        
+                        info_list.append(f"Showing first {len(headers_cells)} cells:\n")
+                        info_list.append(format_TSV(headers, rows))
+            
+            elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
+                # Use notebook manager to get cell info
+                async with notebook_manager.get_current_connection() as notebook:
+                    total_cells = len(notebook)
+                    info_list.append(f"\nNotebook has {total_cells} cells.")
+                    
+                    if total_cells > 0:
+                        from jupyter_mcp_server.utils import normalize_cell_source, format_TSV
+                        
+                        headers = ["Index", "Type", "Count", "First Line"]
+                        rows = []
+                        
+                        for i in range(min(20, total_cells)):
+                            cell_data = notebook[i]
+                            cell_type = cell_data.get("cell_type", "unknown")
+                            execution_count = (cell_data.get("execution_count") or "None") if cell_type == "code" else "N/A"
+                            source_lines = normalize_cell_source(cell_data.get("source", ""))
+                            first_line = source_lines[0] if source_lines else ""
+                            if len(source_lines) > 1:
+                                first_line += f"...({len(source_lines) - 1} lines hidden)"
+                            
+                            rows.append([i, cell_type, execution_count, first_line])
+                        
+                        info_list.append(f"Showing first {min(20, total_cells)} cells:\n")
+                        info_list.append(format_TSV(headers, rows))
+        except Exception as e:
+            logger.debug(f"Failed to get notebook summary: {e}")
         
         # Check if we should open in JupyterLab UI (when JupyterLab mode is enabled)
         try:
@@ -303,20 +375,16 @@ class UseNotebookTool(BaseTool):
                             
                             if execution_result.get('success'):
                                 logger.info(f"Successfully opened notebook '{notebook_path}' in JupyterLab UI")
-                                success_message += " Notebook opened in JupyterLab UI."
                             else:
                                 logger.warning(f"Failed to open notebook in JupyterLab UI: {execution_result}")
-                                success_message += " (Note: Could not open in JupyterLab UI)"
                                 
                     except ImportError:
                         logger.warning("jupyter_mcp_tools not available, skipping JupyterLab UI opening")
                     except Exception as e:
                         logger.warning(f"Failed to open notebook in JupyterLab UI: {e}")
-                        success_message += " (Note: Could not open in JupyterLab UI)"
                 else:
                     logger.warning("No valid base_url or token available for opening notebook in JupyterLab UI")
-                        
         except Exception as e:
             logger.debug(f"Could not check JupyterLab mode: {e}")
         
-        return success_message
+        return "\n".join(info_list)
