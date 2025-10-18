@@ -396,23 +396,23 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         # notebooks that have been managed via use_notebook
         
         # Connect to a new notebook
-        connect_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb", "connect")
+        connect_result = await mcp_client_parametrized.use_notebook("test_notebooks_1", "new.ipynb", "connect")
         logging.debug(f"Connect result: {connect_result}")
-        assert "Successfully activate notebook 'test_notebooks'" in connect_result
+        assert "Successfully activate notebook 'test_notebooks_1'" in connect_result
         # The result contains notebook info and cell preview, not necessarily the path
         assert "Notebook has" in connect_result or "cells" in connect_result.lower()
         
         # List notebooks - should now show the connected notebook with all columns
         notebook_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Notebook list after connect: {notebook_list}")
-        assert "test_notebooks" in notebook_list
+        assert "test_notebooks_1" in notebook_list
         assert "new.ipynb" in notebook_list
         assert "✓" in notebook_list  # Should be marked as Activate (current)
         # Verify new columns are present
         assert "Kernel_ID" in notebook_list or "-" in notebook_list  # Kernel_ID column with value
         
         # Try to connect to the same notebook again (should fail or reactivate)
-        duplicate_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
+        duplicate_result = await mcp_client_parametrized.use_notebook("test_notebooks_1", "new.ipynb")
         assert (
             "already using" in duplicate_result
             or "already activated" in duplicate_result
@@ -429,15 +429,15 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         # Verify both notebooks are now in the list
         notebook_list_2 = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Notebook list with 2 notebooks: {notebook_list_2}")
-        assert "test_notebooks" in notebook_list_2
+        assert "test_notebooks_1" in notebook_list_2
         assert "test_notebooks_2" in notebook_list_2
         # test_notebooks_2 should be the activated one (has ✓)
         
         # Switch back to first notebook
-        use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
+        use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks_1", "new.ipynb")
         assert (
-            "Successfully activate notebook 'test_notebooks'" in use_back_result
-            or "Reactivating notebook 'test_notebooks'" in use_back_result
+            "Successfully activate notebook 'test_notebooks_1'" in use_back_result
+            or "Reactivating notebook 'test_notebooks_1'" in use_back_result
         )
         
         # Test cell operations on the new notebook
@@ -455,24 +455,24 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         assert "5" in str(execute_result["result"])
         
         # Test restart notebook
-        restart_result = await mcp_client_parametrized.restart_notebook("test_notebooks")
+        restart_result = await mcp_client_parametrized.restart_notebook("test_notebooks_1")
         logging.debug(f"Restart result: {restart_result}")
         assert "restarted successfully" in restart_result
         
         # Verify both notebooks still exist after restart
         list_after_restart = await mcp_client_parametrized.list_notebooks()
-        assert "test_notebooks" in list_after_restart
+        assert "test_notebooks_1" in list_after_restart
         assert "test_notebooks_2" in list_after_restart
         
         # Test unuse notebook
-        disconnect_result = await mcp_client_parametrized.unuse_notebook("test_notebooks")
+        disconnect_result = await mcp_client_parametrized.unuse_notebook("test_notebooks_1")
         logging.debug(f"Unuse result: {disconnect_result}")
         assert "unused successfully" in disconnect_result
         
         # Verify notebook is no longer in the list
         final_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Final notebook list: {final_list}")
-        assert "test_notebooks" not in final_list
+        assert "test_notebooks_1" not in final_list
         # But test_notebooks_2 should still be there
         assert "test_notebooks_2" in final_list
         
