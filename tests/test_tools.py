@@ -417,12 +417,12 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         
         # Test switching between notebooks
         if "default" in notebook_list:
-            use_result = await mcp_client_parametrized.use_notebook("default")
+            use_result = await mcp_client_parametrized.use_notebook("default", "notebook.ipynb")
             logging.debug(f"Switch to default result: {use_result}")
             assert "Successfully activate notebook 'default'" in use_result or "Successfully switched to notebook 'default'" in use_result
 
             # Switch back to test notebook
-            use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks")
+            use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
             assert "Successfully activate notebook 'test_notebooks'" in use_back_result or "Successfully switched to notebook 'test_notebooks'" in use_back_result
         
         # Test cell operations on the new notebook
