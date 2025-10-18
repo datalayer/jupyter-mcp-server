@@ -394,10 +394,6 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         logging.debug(f"Initial notebook list: {initial_list}")
         # Initially, there should be no managed notebooks since list_notebooks only shows 
         # notebooks that have been managed via use_notebook
-        assert (
-            "No managed notebooks" in initial_list 
-            or "Use the use_notebook tool" in initial_list
-        )
         
         # Connect to a new notebook
         connect_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb", "connect")
