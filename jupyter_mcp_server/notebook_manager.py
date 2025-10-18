@@ -194,6 +194,20 @@ class NotebookManager:
                 return kernel.kernel_id
         return None
     
+    def get_notebook_path(self, name: str) -> Optional[str]:
+        """
+        Get the path of a notebook.
+        
+        Args:
+            name: Notebook identifier
+            
+        Returns:
+            Notebook path or None if not found
+        """
+        if name in self._notebooks:
+            return self._notebooks[name]["notebook_info"].get("path")
+        return None
+    
     def is_local_notebook(self, name: str) -> bool:
         """
         Check if a notebook is using local (JUPYTER_SERVER) mode.

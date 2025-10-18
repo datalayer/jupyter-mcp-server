@@ -253,11 +253,15 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
 @mcp.tool()
 async def use_notebook(
     notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
-    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb'). If is empty, switches to an already-connected notebook with the given name.")] = None,
-    mode: Annotated[Literal["connect", "create"], Field(description="Mode to use for the notebook. 'connect' to connect to existing, 'create' to create new")] = "connect",
-    kernel_id: Annotated[str, Field(description="Specific kernel ID to use (will create new if is empty)")] = None,
+    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')")],
+    mode: Annotated[Literal["connect", "create"], Field(description="Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it")] = "connect",
+    kernel_id: Annotated[str, Field(description="Specific kernel ID to use (will create new if skipped)")] = None,
 ) -> Annotated[str, Field(description="Success message with notebook information")]:
-    """Use a notebook file (connect to existing or create new, or switch to already-connected notebook)."""
+    """Use a notebook and activate it for following cell operations.
+    All cell operations will be performed on the currently activated notebook.
+    Activate new notebook will deactivate the previously activated notebook.
+    Reactivate previously activated notebook using same notebook_name and notebook_path.
+    """
     config = get_config()
     return await safe_notebook_operation(
         lambda: UseNotebookTool().execute(
