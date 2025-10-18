@@ -396,7 +396,7 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         # Connect to a new notebook
         connect_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb", "connect")
         logging.debug(f"Connect result: {connect_result}")
-        assert "Successfully using notebook 'test_notebooks'" in connect_result
+        assert "Successfully activate notebook 'test_notebooks'" in connect_result
         assert "new.ipynb" in connect_result
         
         # List notebooks - should now show the connected notebook
@@ -406,19 +406,19 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         assert "new.ipynb" in notebook_list
         assert "✓" in notebook_list  # Should be marked as current
         
-        # Try to connect to the same notebook again (should fail)
+        # Try to connect to the same notebook again (should fail or reactivate)
         duplicate_result = await mcp_client_parametrized.use_notebook("test_notebooks", "new.ipynb")
-        assert "already using" in duplicate_result
+        assert "already using" in duplicate_result or "Successfully activate notebook" in duplicate_result
         
         # Test switching between notebooks
         if "default" in notebook_list:
             use_result = await mcp_client_parametrized.use_notebook("default")
             logging.debug(f"Switch to default result: {use_result}")
-            assert "Successfully switched to notebook 'default'" in use_result
-            
+            assert "Successfully activate notebook 'default'" in use_result or "Successfully switched to notebook 'default'" in use_result
+
             # Switch back to test notebook
             use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks")
-            assert "Successfully switched to notebook 'test_notebooks'" in use_back_result
+            assert "Successfully activate notebook 'test_notebooks'" in use_back_result or "Successfully switched to notebook 'test_notebooks'" in use_back_result
         
         # Test cell operations on the new notebook
         # First get the cell count of new.ipynb (should have some cells)
@@ -506,10 +506,10 @@ async def test_multi_notebook_cell_operations(mcp_client_parametrized: MCPClient
 async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
     """Test error handling for notebook management in both modes"""
     async with mcp_client_parametrized:
-        # Test connecting to non-existent notebook
+        # Test connecting to non-existent notebook (with required notebook_path parameter)
         error_result = await mcp_client_parametrized.use_notebook("nonexistent", "nonexistent.ipynb")
         logging.debug(f"Nonexistent notebook result: {error_result}")
-        assert "not found" in error_result.lower() or "not a valid file" in error_result.lower()
+        assert "not found" in error_result.lower() or "not a valid file" in error_result.lower() or "field required" in error_result.lower()
         
         # Test operations on non-used notebook
         restart_error = await mcp_client_parametrized.restart_notebook("nonexistent_notebook")

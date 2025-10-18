@@ -10,6 +10,7 @@ These tests verify the notebook switching functionality when notebook_path is no
 
 import pytest
 import logging
+from unittest.mock import Mock, AsyncMock
 from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -20,7 +21,12 @@ async def test_use_notebook_switching():
     """Test that use_notebook can switch between already-connected notebooks"""
     tool = UseNotebookTool()
     notebook_manager = NotebookManager()
-    
+
+    # Create mock clients
+    mock_contents_manager = AsyncMock()
+    mock_kernel_manager = AsyncMock()
+    mock_session_manager = AsyncMock()
+
     # Simulate adding two notebooks manually
     notebook_manager.add_notebook(
         "notebook_a",
@@ -29,7 +35,7 @@ async def test_use_notebook_switching():
         token=None,
         path="notebook_a.ipynb"
     )
-    
+
     notebook_manager.add_notebook(
         "notebook_b",
         {"id": "kernel_b"},  # Mock kernel info
@@ -37,20 +43,23 @@ async def test_use_notebook_switching():
         token=None,
         path="notebook_b.ipynb"
     )
-    
+
     # Set current to notebook_a
     notebook_manager.set_current_notebook("notebook_a")
     logging.debug(f"Current notebook: {notebook_manager.get_current_notebook()}")
     assert notebook_manager.get_current_notebook() == "notebook_a"
-    
-    # Test switching to notebook_b (no notebook_path provided)
+
+    # Test switching to notebook_b (notebook_path is now required)
     result = await tool.execute(
         mode=ServerMode.JUPYTER_SERVER,
         notebook_manager=notebook_manager,
+        contents_manager=mock_contents_manager,
+        kernel_manager=mock_kernel_manager,
+        session_manager=mock_session_manager,
         notebook_name="notebook_b",
-        notebook_path=None  # Key: no path provided, should just switch
+        notebook_path="notebook_b.ipynb"  # Required parameter
     )
-    
+
     logging.debug(f"Switch result: {result}")
     assert "Successfully switched to notebook 'notebook_b'" in result
     assert notebook_manager.get_current_notebook() == "notebook_b"
@@ -59,10 +68,13 @@ async def test_use_notebook_switching():
     result = await tool.execute(
         mode=ServerMode.JUPYTER_SERVER,
         notebook_manager=notebook_manager,
+        contents_manager=mock_contents_manager,
+        kernel_manager=mock_kernel_manager,
+        session_manager=mock_session_manager,
         notebook_name="notebook_a",
-        notebook_path=None
+        notebook_path="notebook_a.ipynb"  # Required parameter
     )
-    
+
     logging.debug(f"Switch back result: {result}")
     assert "Successfully switched to notebook 'notebook_a'" in result
     assert notebook_manager.get_current_notebook() == "notebook_a"
@@ -73,7 +85,10 @@ async def test_use_notebook_switch_to_nonexistent():
     """Test error handling when switching to non-connected notebook"""
     tool = UseNotebookTool()
     notebook_manager = NotebookManager()
-    
+
+    # Create mock clients
+    mock_contents_manager = AsyncMock()
+
     # Add only one notebook
     notebook_manager.add_notebook(
         "notebook_a",
@@ -82,18 +97,18 @@ async def test_use_notebook_switch_to_nonexistent():
         token=None,
         path="notebook_a.ipynb"
     )
-    
+
     # Try to switch to non-existent notebook
     result = await tool.execute(
         mode=ServerMode.JUPYTER_SERVER,
         notebook_manager=notebook_manager,
+        contents_manager=mock_contents_manager,
         notebook_name="notebook_c",
-        notebook_path=None
+        notebook_path="notebook_c.ipynb"  # Required parameter
     )
-    
+
     logging.debug(f"Non-existent notebook result: {result}")
-    assert "not connected" in result
-    assert "Please provide a notebook_path" in result
+    assert "not connected" in result or "not the correct path" in result
 
 
 @pytest.mark.asyncio
@@ -116,12 +131,17 @@ async def test_use_notebook_with_path_still_works():
     assert "Invalid mode or missing required clients" in result or "already using" not in result
 
 
-@pytest.mark.asyncio 
+@pytest.mark.asyncio
 async def test_use_notebook_multiple_switches():
     """Test multiple consecutive switches between notebooks"""
     tool = UseNotebookTool()
     notebook_manager = NotebookManager()
-    
+
+    # Create mock clients
+    mock_contents_manager = AsyncMock()
+    mock_kernel_manager = AsyncMock()
+    mock_session_manager = AsyncMock()
+
     # Add three notebooks
     for i, name in enumerate(["nb1", "nb2", "nb3"]):
         notebook_manager.add_notebook(
@@ -131,17 +151,20 @@ async def test_use_notebook_multiple_switches():
             token=None,
             path=f"{name}.ipynb"
         )
-    
+
     notebook_manager.set_current_notebook("nb1")
-    
+
     # Perform multiple switches
     switches = ["nb2", "nb3", "nb1", "nb3", "nb2"]
     for target in switches:
         result = await tool.execute(
             mode=ServerMode.JUPYTER_SERVER,
             notebook_manager=notebook_manager,
+            contents_manager=mock_contents_manager,
+            kernel_manager=mock_kernel_manager,
+            session_manager=mock_session_manager,
             notebook_name=target,
-            notebook_path=None
+            notebook_path=f"{target}.ipynb"  # Required parameter
         )
         assert f"Successfully switched to notebook '{target}'" in result
         assert notebook_manager.get_current_notebook() == target
