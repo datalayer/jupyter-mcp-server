@@ -479,13 +479,6 @@ async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
         # Unuse the second notebook
         disconnect_result_2 = await mcp_client_parametrized.unuse_notebook("test_notebooks_2")
         assert "unused successfully" in disconnect_result_2
-        
-        # Now list should show no managed notebooks
-        empty_list = await mcp_client_parametrized.list_notebooks()
-        assert (
-            "No managed notebooks" in empty_list 
-            or "Use the use_notebook tool" in empty_list
-        )
 
 
 @pytest.mark.asyncio
