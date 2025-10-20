@@ -10,7 +10,6 @@ with direct access to serverapp resources (contents_manager, kernel_manager).
 
 Key differences from MCP_SERVER mode:
 - Uses YDoc collaborative editing when notebooks are open
-- Direct kernel_manager access for execute_ipython
 - Local file operations without HTTP roundtrip
 
 The tests connect to the extension's HTTP endpoints (not the standalone MCP server).
