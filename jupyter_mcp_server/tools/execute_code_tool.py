@@ -16,8 +16,8 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 logger = logging.getLogger(__name__)
 
 
-class ExecuteIpythonTool(BaseTool):
-    """Execute IPython code directly in the kernel on the current active notebook"""
+class ExecuteCodeTool(BaseTool):
+    """Execute code directly in the kernel on the current active notebook"""
     
     async def _execute_via_kernel_manager(
         self,
@@ -39,7 +39,7 @@ class ExecuteIpythonTool(BaseTool):
         # Use centralized execute_code_local function
         return await execute_code_local(
             serverapp=serverapp,
-            notebook_path="",  # Not needed for execute_ipython
+            notebook_path="",  # Not needed for execute_code
             code=code,
             kernel_id=kernel_id,
             timeout=timeout,
@@ -149,7 +149,7 @@ class ExecuteIpythonTool(BaseTool):
             
             if kernel_id is None:
                 # No kernel available - start a new one on demand
-                logger.info("No kernel_id available, starting new kernel for execute_ipython")
+                logger.info("No kernel_id available, starting new kernel for execute_code")
                 kernel_id = await kernel_manager.start_kernel()
                 
                 # Store the kernel in notebook_manager if available

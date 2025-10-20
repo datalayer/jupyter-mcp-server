@@ -53,7 +53,7 @@ from jupyter_mcp_server.tools import (
     # Cell Execution
     ExecuteCellTool,
     # Other Tools
-    ExecuteIpythonTool,
+    ExecuteCodeTool,
     ListFilesTool,
     ListKernelsTool,
 )
@@ -470,23 +470,22 @@ async def delete_cell(
 
 
 @mcp.tool()
-async def execute_ipython(
-    code: Annotated[str, Field(description="IPython code to execute (supports magic commands, shell commands with !, and Python code)")],
-    timeout: Annotated[int, Field(description="Execution timeout in seconds (default: 60s)")] = 60,
+async def execute_code(
+    code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
+    timeout: Annotated[int, Field(description="Execution timeout in seconds",le=60)] = 30,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed code")]:
-    """Execute IPython code directly in the kernel on the current active notebook.
+    """Execute code directly in the kernel (not saved to notebook) on the current activated notebook.
 
-    This powerful tool supports:
-    1. Magic commands (e.g., %timeit, %who, %load, %run, %matplotlib)
-    2. Shell commands (e.g., !pip install, !ls, !cat)
-    3. Python code (e.g., print(df.head()), df.info())
+    Recommended to use in following cases:
+    1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)
+    2. Performance profiling and debugging.
+    3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)
+    4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)
+    5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)
 
-    Use cases:
-    - Performance profiling and debugging
-    - Environment exploration and package management
-    - Variable inspection and data analysis
-    - File system operations on Jupyter server
-    - Temporary calculations and quick tests
+    Under no circumstances should you use this tool to:
+    1. Import new modules or perform variable assignments that affect subsequent Notebook execution
+    2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
     """
     # Get kernel_id for JUPYTER_SERVER mode
     # Let the tool handle getting kernel_id via get_current_notebook_context()
@@ -498,7 +497,7 @@ async def execute_ipython(
         # but the tool will fall back to config values via get_current_notebook_context()
     
     return await safe_notebook_operation(
-        lambda: ExecuteIpythonTool().execute(
+        lambda: ExecuteCodeTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             kernel_manager=server_context.kernel_manager,

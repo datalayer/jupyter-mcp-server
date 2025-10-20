@@ -40,7 +40,7 @@ JUPYTER_TOOLS = [
     "list_cells",
     "read_cell",
     "delete_cell",
-    "execute_ipython",
+    "execute_code",
     "list_files",
     "list_kernels"
 ]
@@ -421,11 +421,11 @@ class MCPClient:
         return self._get_structured_content_safe(result) if result else None
 
     @requires_session
-    async def execute_ipython(self, code, timeout=60):
-        result = await self._session.call_tool("execute_ipython", arguments={"code": code, "timeout": timeout})  # type: ignore
+    async def execute_code(self, code, timeout=60):
+        result = await self._session.call_tool("execute_code", arguments={"code": code, "timeout": timeout})  # type: ignore
         structured = self._get_structured_content_safe(result)
         
-        # execute_ipython should always return a list of outputs
+        # execute_code should always return a list of outputs
         # If we got a plain string, wrap it as a list
         if structured and "result" in structured:
             result_val = structured["result"]

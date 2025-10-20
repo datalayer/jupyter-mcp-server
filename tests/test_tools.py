@@ -559,22 +559,22 @@ async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
 
 
 ###############################################################################
-# execute_ipython Tests
+# execute_code Tests
 ###############################################################################
 
 @pytest.mark.asyncio
 @timeout_wrapper(30)
-async def test_execute_ipython_python_code(mcp_client_parametrized: MCPClient):
-    """Test execute_ipython with basic Python code in both modes"""
+async def test_execute_code_python_code(mcp_client_parametrized: MCPClient):
+    """Test execute_code with basic Python code in both modes"""
     async with mcp_client_parametrized:
         # Test simple Python code
-        result = await mcp_client_parametrized.execute_ipython("print('Hello IPython World!')")
+        result = await mcp_client_parametrized.execute_code("print('Hello IPython World!')")
         
         # On Windows, if result is None it's likely due to timeout - skip the test
         if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
         
-        assert result is not None, "execute_ipython result should not be None"
+        assert result is not None, "execute_code result should not be None"
         assert "result" in result, "Result should contain 'result' key"
         outputs = result["result"]
         assert isinstance(outputs, list), "Outputs should be a list"
@@ -584,10 +584,10 @@ async def test_execute_ipython_python_code(mcp_client_parametrized: MCPClient):
         assert "Hello IPython World!" in output_text or "[No output generated]" in output_text
         
         # Test mathematical calculation
-        calc_result = await mcp_client_parametrized.execute_ipython("result = 2 ** 10\nprint(f'2^10 = {result}')")
+        calc_result = await mcp_client_parametrized.execute_code("result = 2 ** 10\nprint(f'2^10 = {result}')")
         
         if platform.system() == "Windows" and calc_result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
             
         assert calc_result is not None
         calc_outputs = calc_result["result"]
@@ -597,28 +597,28 @@ async def test_execute_ipython_python_code(mcp_client_parametrized: MCPClient):
 
 @pytest.mark.asyncio
 @timeout_wrapper(30)
-async def test_execute_ipython_magic_commands(mcp_client_parametrized: MCPClient):
-    """Test execute_ipython with IPython magic commands in both modes"""
+async def test_execute_code_magic_commands(mcp_client_parametrized: MCPClient):
+    """Test execute_code with IPython magic commands in both modes"""
     async with mcp_client_parametrized:
         # Test %who magic command (list variables)
-        result = await mcp_client_parametrized.execute_ipython("%who")
+        result = await mcp_client_parametrized.execute_code("%who")
         
         # On Windows, if result is None it's likely due to timeout - skip the test
         if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
         
-        assert result is not None, "execute_ipython result should not be None"
+        assert result is not None, "execute_code result should not be None"
         outputs = result["result"]
         assert isinstance(outputs, list), "Outputs should be a list"
         
         # Set a variable first, then use %who to see it
-        var_result = await mcp_client_parametrized.execute_ipython("test_var = 42")
+        var_result = await mcp_client_parametrized.execute_code("test_var = 42")
         if platform.system() == "Windows" and var_result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
             
-        who_result = await mcp_client_parametrized.execute_ipython("%who")
+        who_result = await mcp_client_parametrized.execute_code("%who")
         if platform.system() == "Windows" and who_result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
             
         who_outputs = who_result["result"]
         who_text = "".join(str(output) for output in who_outputs)
@@ -626,9 +626,9 @@ async def test_execute_ipython_magic_commands(mcp_client_parametrized: MCPClient
         # This test mainly ensures %who doesn't crash
         
         # Test %timeit magic command
-        timeit_result = await mcp_client_parametrized.execute_ipython("%timeit sum(range(100))")
+        timeit_result = await mcp_client_parametrized.execute_code("%timeit sum(range(100))")
         if platform.system() == "Windows" and timeit_result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
             
         assert timeit_result is not None
         timeit_outputs = timeit_result["result"]
@@ -639,17 +639,17 @@ async def test_execute_ipython_magic_commands(mcp_client_parametrized: MCPClient
 
 @pytest.mark.asyncio 
 @timeout_wrapper(30)
-async def test_execute_ipython_shell_commands(mcp_client_parametrized: MCPClient):
-    """Test execute_ipython with shell commands in both modes"""
+async def test_execute_code_shell_commands(mcp_client_parametrized: MCPClient):
+    """Test execute_code with shell commands in both modes"""
     async with mcp_client_parametrized:
         # Test basic shell command - echo (works on most systems)
-        result = await mcp_client_parametrized.execute_ipython("!echo 'Hello from shell'")
+        result = await mcp_client_parametrized.execute_code("!echo 'Hello from shell'")
         
         # On Windows, if result is None it's likely due to timeout - skip the test
         if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
         
-        assert result is not None, "execute_ipython result should not be None"
+        assert result is not None, "execute_code result should not be None"
         outputs = result["result"]
         assert isinstance(outputs, list), "Outputs should be a list"
         
@@ -658,9 +658,9 @@ async def test_execute_ipython_shell_commands(mcp_client_parametrized: MCPClient
         assert len(output_text) >= 0  # Just ensure no crash
         
         # Test Python version check
-        python_result = await mcp_client_parametrized.execute_ipython("!python --version")
+        python_result = await mcp_client_parametrized.execute_code("!python --version")
         if platform.system() == "Windows" and python_result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
             
         assert python_result is not None
         python_outputs = python_result["result"]
@@ -671,15 +671,15 @@ async def test_execute_ipython_shell_commands(mcp_client_parametrized: MCPClient
 
 @pytest.mark.asyncio
 @timeout_wrapper(30)
-async def test_execute_ipython_timeout(mcp_client_parametrized: MCPClient):
-    """Test execute_ipython timeout functionality in both modes"""
+async def test_execute_code_timeout(mcp_client_parametrized: MCPClient):
+    """Test execute_code timeout functionality in both modes"""
     async with mcp_client_parametrized:
         # Test with very short timeout on a potentially long-running command
-        result = await mcp_client_parametrized.execute_ipython("import time; time.sleep(5)", timeout=2)
+        result = await mcp_client_parametrized.execute_code("import time; time.sleep(5)", timeout=2)
         
         # On Windows, if result is None it's likely due to timeout - skip the test
         if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
         
         assert result is not None
         outputs = result["result"]
@@ -690,15 +690,15 @@ async def test_execute_ipython_timeout(mcp_client_parametrized: MCPClient):
 
 @pytest.mark.asyncio
 @timeout_wrapper(30)
-async def test_execute_ipython_error_handling(mcp_client_parametrized: MCPClient):
-    """Test execute_ipython error handling in both modes"""
+async def test_execute_code_error_handling(mcp_client_parametrized: MCPClient):
+    """Test execute_code error handling in both modes"""
     async with mcp_client_parametrized:
         # Test syntax error
-        result = await mcp_client_parametrized.execute_ipython("invalid python syntax <<<")
+        result = await mcp_client_parametrized.execute_code("invalid python syntax <<<")
         
         # On Windows, if result is None it's likely due to timeout - skip the test
         if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
         
         assert result is not None
         outputs = result["result"]
@@ -707,9 +707,9 @@ async def test_execute_ipython_error_handling(mcp_client_parametrized: MCPClient
         assert len(output_text) >= 0  # Ensure no crash
         
         # Test runtime error  
-        runtime_result = await mcp_client_parametrized.execute_ipython("undefined_variable")
+        runtime_result = await mcp_client_parametrized.execute_code("undefined_variable")
         if platform.system() == "Windows" and runtime_result is None:
-            pytest.skip("execute_ipython timed out on Windows - known platform limitation")
+            pytest.skip("execute_code timed out on Windows - known platform limitation")
             
         assert runtime_result is not None
         runtime_outputs = runtime_result["result"]
