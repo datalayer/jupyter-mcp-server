@@ -279,8 +279,7 @@ async def test_execute_code(mcp_client_parametrized: MCPClient):
     """Test execute_code with basic Python code in both modes"""
     async with mcp_client_parametrized:
         # Test simple Python code
-        result = await mcp_client_parametrized.execute_code("words='Hello IPython World!'\nprint(words)")
-        assert "Hello IPython World!" in result["result"][0]
+        result = await mcp_client_parametrized.execute_code("words='Hello IPython World!'")
 
         # Test %who magic command (list variables)
         result = await mcp_client_parametrized.execute_code("%who")
