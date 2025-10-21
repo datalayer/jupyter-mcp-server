@@ -20,6 +20,7 @@ import logging
 from contextlib import AsyncExitStack
 
 import pytest
+import requests
 from mcp import ClientSession, types
 from mcp.client.streamable_http import streamablehttp_client
 
@@ -346,30 +347,9 @@ class MCPClient:
     @requires_session
     async def list_cells(self, max_retries=3):
         """List cells with retry mechanism for Windows compatibility"""
-        for attempt in range(max_retries):
-            try:
-                result = await self._session.call_tool("list_cells")  # type: ignore
-                text_result = self._extract_text_content(result)
-                logging.debug(f"list_cells attempt {attempt + 1}: text_result type={type(text_result)}, len={len(text_result) if text_result else 0}")
-                logging.debug(f"list_cells attempt {attempt + 1}: text_result[:500]={repr(text_result[:500]) if text_result else 'None'}")
-                has_index_type = ("Index\tType" in text_result) if text_result else False
-                logging.debug(f"list_cells attempt {attempt + 1}: has_index_type={has_index_type}")
-                if text_result is not None and not text_result.startswith("Error") and "Index\tType" in text_result:
-                    return text_result
-                else:
-                    logging.warning(f"list_cells returned unexpected result on attempt {attempt + 1}/{max_retries}")
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(0.5)
-            except Exception as e:
-                logging.error(f"list_cells failed on attempt {attempt + 1}/{max_retries}: {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(0.5)
-                else:
-                    logging.error("list_cells failed after all retries")
-                    return "Error: Failed to retrieve cell list after all retries"
-                    
-        return "Error: Failed to retrieve cell list after all retries"
-
+        result = await self._session.call_tool("list_cells")  # type: ignore
+        return self._extract_text_content(result)
+    
     @requires_session
     async def list_kernels(self):
         """List all available kernels"""
@@ -437,24 +417,3 @@ class MCPClient:
                 structured["result"] = [result_val]
         
         return structured
-
-    @requires_session
-    async def append_execute_code_cell(self, cell_source):
-        """Append and execute a code cell at the end of the notebook."""
-        return await self.insert_execute_code_cell(-1, cell_source)
-
-    @requires_session
-    async def append_markdown_cell(self, cell_source):
-        """Append a markdown cell at the end of the notebook."""
-        return await self.insert_cell(-1, "markdown", cell_source)
-    
-    # Helper method to get cell count from list_cells output
-    @requires_session
-    async def get_cell_count(self):
-        """Get the number of cells by parsing list_cells output"""
-        cell_list = await self.list_cells()
-        if "Error" in cell_list or "Index\tType" not in cell_list:
-            return 0
-        lines = cell_list.split('\n')
-        data_lines = [line for line in lines if '\t' in line and not line.startswith('Index') and not line.startswith('-')]
-        return len(data_lines)

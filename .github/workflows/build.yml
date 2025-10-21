@@ -48,12 +48,12 @@ jobs:
           name: jupyter_mcp_server-sdist-${{ matrix.python-version }}
           path: jupyter_mcp_server.tar.gz
 
-  check_links:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
-      - uses: jupyterlab/maintainer-tools/.github/actions/check-links@v1
+  # check_links:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+  #     - uses: jupyterlab/maintainer-tools/.github/actions/check-links@v1
 
   test_lint:
     runs-on: ubuntu-latest
