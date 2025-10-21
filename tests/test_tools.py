@@ -86,7 +86,7 @@ async def test_markdown_cell(mcp_client_parametrized: MCPClient, content="Hello 
         cell_info = await client.read_cell(index)
         logging.debug(f"cell_info: {cell_info}")
         assert cell_info["index"] == index
-        assert cell_info["cell_type"] == "markdown"
+        assert cell_info["type"] == "markdown"
         # TODO: don't now if it's normal to get a list of characters instead of a string
         assert "".join(cell_info["source"]) == content
         # reading all cells
@@ -129,7 +129,7 @@ async def test_code_cell(mcp_client_parametrized: MCPClient, content="1 + 1"):
         cell_info = await client.read_cell(index)
         logging.debug(f"cell_info: {cell_info}")
         assert cell_info["index"] == index
-        assert cell_info["cell_type"] == "code"
+        assert cell_info["type"] == "code"
         assert "".join(cell_info["source"]) == content
         # reading all cells
         cells_info = await client.read_cells()

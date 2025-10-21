@@ -45,7 +45,7 @@ class Cell(BaseModel):
         source = normalize_cell_source(cell.get("source", ""))
         
         return cls(
-            index=cell_index, cell_type=type, source=source, outputs=outputs
+            index=cell_index, type=type, source=source, outputs=outputs
         )
     
     def get_source(self, response_format: Literal['raw','readable'] = 'readable'):
