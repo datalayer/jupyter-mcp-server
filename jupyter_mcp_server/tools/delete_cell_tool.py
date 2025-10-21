@@ -44,20 +44,37 @@ Returns:
             YNotebook instance or None if not in a collaborative session
         """
         try:
-            yroom_manager = serverapp.web_app.settings.get("yroom_manager")
-            if yroom_manager is None:
+            # Access ywebsocket_server from YDocExtension via extension_manager
+            # jupyter-collaboration doesn't add yroom_manager to web_app.settings
+            ywebsocket_server = None
+
+            if hasattr(serverapp, 'extension_manager'):
+                extension_points = serverapp.extension_manager.extension_points
+                if 'jupyter_server_ydoc' in extension_points:
+                    ydoc_ext_point = extension_points['jupyter_server_ydoc']
+                    if hasattr(ydoc_ext_point, 'app') and ydoc_ext_point.app:
+                        ydoc_app = ydoc_ext_point.app
+                        if hasattr(ydoc_app, 'ywebsocket_server'):
+                            ywebsocket_server = ydoc_app.ywebsocket_server
+
+            if ywebsocket_server is None:
                 return None
-                
+
             room_id = f"json:notebook:{file_id}"
-            
-            if yroom_manager.has_room(room_id):
-                yroom = yroom_manager.get_room(room_id)
-                notebook = await yroom.get_jupyter_ydoc()
-                return notebook
+
+            # Get room and access document via room._document
+            # DocumentRoom stores the YNotebook as room._document, not via get_jupyter_ydoc()
+            try:
+                yroom = await ywebsocket_server.get_room(room_id)
+                if yroom and hasattr(yroom, '_document'):
+                    return yroom._document
+            except Exception:
+                pass
+
         except Exception:
             # YDoc not available, will fall back to file operations
             pass
-        
+
         return None
     
     def _get_cell_index_from_id(self, ydoc, cell_id: str) -> Optional[int]:
