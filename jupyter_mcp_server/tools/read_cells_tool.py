@@ -8,7 +8,7 @@ from typing import Any, Optional, List, Dict, Union
 from jupyter_server_api import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.models import Cell
+from jupyter_mcp_server.models import CellInfo
 from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.utils import get_current_notebook_context
 from mcp.types import ImageContent
@@ -32,7 +32,7 @@ class ReadCellsTool(BaseTool):
         result = []
         for idx, cell in enumerate(cells):
             # Use Cell.from_cell to ensure consistent structure and output processing
-            cell_info = Cell.from_cell(cell_index=idx, cell=cell)
+            cell_info = CellInfo.from_cell(cell_index=idx, cell=cell)
             result.append(cell_info.model_dump(exclude_none=True))
         
         return result
@@ -88,7 +88,7 @@ class ReadCellsTool(BaseTool):
                 total_cells = len(notebook)
 
                 for i in range(total_cells):
-                    cells.append(Cell.from_cell(i, notebook[i]).model_dump(exclude_none=True))
+                    cells.append(CellInfo.from_cell(i, notebook[i]).model_dump(exclude_none=True))
                 
                 return cells
         else:

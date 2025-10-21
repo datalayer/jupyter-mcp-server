@@ -18,20 +18,17 @@ class DocumentRuntime(BaseModel):
     runtime_token: str
 
 
-class Cell(BaseModel):
+class CellInfo(BaseModel):
     """Notebook cell information as returned by the MCP server"""
 
-    index: Annotated[int,Field(default=0)]
-    cell_type: Annotated[Literal["raw", "code", "markdown"],Field(default="raw")]
-    source: Annotated[Any,Field(default=[])]
-    metadata: Annotated[Any,Field(default={})]
-    id: Annotated[str,Field(default="")]
-    execution_count: Annotated[Optional[int],Field(default=None)]
-    outputs: Annotated[Any,Field(default=[])]
+    index: int
+    type: Literal["unknown", "code", "markdown"]
+    source: list[str]
+    outputs: Optional[list]
 
     @classmethod
     def from_cell(cls, cell_index: int, cell: dict):
-        """Extract cell info (create a Cell object) from an index and a Notebook cell"""
+        """Extract cell info (create a CellInfo object) from an index and a Notebook cell"""
         outputs = None
         type = cell.get("cell_type", "unknown")
         if type == "code":
@@ -47,6 +44,17 @@ class Cell(BaseModel):
         return cls(
             index=cell_index, type=type, source=source, outputs=outputs
         )
+
+class Cell(BaseModel):
+    """Notebook cell information as returned by the MCP server"""
+
+    index: Annotated[int,Field(default=0)]
+    cell_type: Annotated[Literal["raw", "code", "markdown"],Field(default="raw")]
+    source: Annotated[Any,Field(default=[])]
+    metadata: Annotated[Any,Field(default={})]
+    id: Annotated[str,Field(default="")]
+    execution_count: Annotated[Optional[int],Field(default=None)]
+    outputs: Annotated[Any,Field(default=[])]
     
     def get_source(self, response_format: Literal['raw','readable'] = 'readable'):
         """Get the cell source in the requested format"""
