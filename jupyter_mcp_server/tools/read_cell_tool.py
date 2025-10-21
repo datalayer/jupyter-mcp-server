@@ -8,7 +8,7 @@ from typing import Any, Optional, Dict, Union, List
 from jupyter_server_api import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.models import CellInfo
+from jupyter_mcp_server.models import Cell
 from jupyter_mcp_server.config import get_config
 from mcp.types import ImageContent
 
@@ -34,8 +34,8 @@ class ReadCellTool(BaseTool):
         
         cell = cells[cell_index]
         
-        # Use CellInfo.from_cell to normalize the structure (ensures "type" field not "cell_type")
-        cell_info = CellInfo.from_cell(cell_index=cell_index, cell=cell)
+        # Use Cell.from_cell to normalize the structure (ensures "type" field not "cell_type")
+        cell_info = Cell.from_cell(cell_index=cell_index, cell=cell)
         
         return cell_info.model_dump(exclude_none=True)
     
@@ -98,6 +98,6 @@ class ReadCellTool(BaseTool):
                     raise ValueError(f"Cell index {cell_index} out of range")
 
                 cell = notebook[cell_index]
-                return CellInfo.from_cell(cell_index=cell_index, cell=cell).model_dump(exclude_none=True)
+                return Cell.from_cell(cell_index=cell_index, cell=cell).model_dump(exclude_none=True)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

@@ -10,7 +10,7 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.config import get_config
 from jupyter_nbmodel_client import NbModelClient
-from jupyter_mcp_server.utils import normalize_cell_source, format_TSV
+from jupyter_mcp_server.models import Notebook
 
 
 class ListCellsTool(BaseTool):
@@ -24,61 +24,13 @@ class ListCellsTool(BaseTool):
         if 'content' not in model:
             raise ValueError(f"Could not read notebook content from {path}")
         
-        notebook_content = model['content']
-        cells = notebook_content.get('cells', [])
-        
-        # Format the cells into a table
-        headers = ["Index", "Type", "Count", "First Line"]
-        rows = []
-        
-        for idx, cell in enumerate(cells):
-            cell_type = cell.get('cell_type', 'unknown')
-            execution_count = cell.get('execution_count', '-') if cell_type == 'code' else '-'
-            
-            # Get the first line of source
-            source = cell.get('source', '')
-            if isinstance(source, list):
-                first_line = source[0] if source else ''
-                lines = len(source)
-            else:
-                first_line = source.split('\n')[0] if source else ''
-                lines = len(source.split('\n'))
-            
-            if lines > 1:
-                first_line += f"...({lines - 1} lines hidden)"
-            
-            rows.append([idx, cell_type, execution_count, first_line])
-        
-        return format_TSV(headers, rows)
+        notebook = Notebook(**model['content'])
+        return notebook.format_output(response_format="brief")
     
-    def _list_cells_websocket(self, notebook: NbModelClient) -> str:
+    def _list_cells_websocket(self, notebook_content: NbModelClient) -> str:
         """List cells using WebSocket connection (MCP_SERVER mode)."""
-        total_cells = len(notebook)
-        
-        if total_cells == 0:
-            return "Notebook is empty, no cells found."
-        
-        # Create header
-        headers = ["Index", "Type", "Count", "First Line"]
-        rows = []
-        
-        # Process each cell
-        for i in range(total_cells):
-            cell_data = notebook[i]
-            cell_type = cell_data.get("cell_type", "unknown")
-            
-            # Get execution count for code cells
-            execution_count = (cell_data.get("execution_count") or "None") if cell_type == "code" else "N/A"
-            # Get first line of source
-            source_lines = normalize_cell_source(cell_data.get("source", ""))
-            first_line = source_lines[0] if source_lines else ""
-            if len(source_lines) > 1:
-                first_line += f"...({len(source_lines) - 1} lines hidden)"
-            
-            # Add to table
-            rows.append([i, cell_type, execution_count, first_line])
-        
-        return format_TSV(headers, rows)
+        notebook = Notebook(**notebook_content.as_dict())
+        return notebook.format_output(response_format="brief")
     
     async def execute(
         self,
@@ -132,7 +84,7 @@ class ListCellsTool(BaseTool):
             return await self._list_cells_local(contents_manager, notebook_path)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
-            async with notebook_manager.get_current_connection() as notebook:
-                return self._list_cells_websocket(notebook)
+            async with notebook_manager.get_current_connection() as notebook_content:
+                return self._list_cells_websocket(notebook_content)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

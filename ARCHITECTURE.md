@@ -339,7 +339,7 @@ MCP Client
 **MCP_SERVER Mode**:
 - Establish WebSocket connection via `notebook_manager.get_current_connection()`
 - Access Y.js document (`notebook._doc._ycells`)
-- Use `CellInfo.from_cell()` to extract structured data
+- Use `Cell.from_cell()` to extract structured data
 - Supports real-time collaborative editing
 
 ### Notebook Listing Tools (list_notebook)
@@ -458,7 +458,7 @@ jupyter_mcp_server/
 ├── server.py                   # FastMCP server, tool wrappers, ServerContext
 ├── config.py                   # Configuration management
 ├── notebook_manager.py         # Notebook/kernel lifecycle
-├── models.py                   # Pydantic models (CellInfo, etc.)
+├── models.py                   # Pydantic models (Cell, etc.)
 ├── utils.py                    # Helper functions
 ├── tools/
 │   ├── __init__.py            # Exports BaseTool, ServerMode

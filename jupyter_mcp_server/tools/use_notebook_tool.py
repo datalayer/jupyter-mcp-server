@@ -7,6 +7,7 @@
 import logging
 from typing import Any, Optional, Literal
 from pathlib import Path
+from jupyter_mcp_server.models import Notebook
 from jupyter_server_api import JupyterServerClient, NotFoundError
 from jupyter_kernel_client import KernelClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
@@ -280,65 +281,18 @@ class UseNotebookTool(BaseTool):
                 # Read notebook to get cell count and first 20 cells
                 model = await contents_manager.get(notebook_path, content=True, type='notebook')
                 if 'content' in model:
-                    notebook_content = model['content']
-                    cells = notebook_content.get('cells', [])
-                    total_cells = len(cells)
-                    
-                    info_list.append(f"\nNotebook has {total_cells} cells.")
-                    
-                    # Get first 20 cells info
-                    if cells:
-                        from jupyter_mcp_server.utils import format_TSV
-                        
-                        headers_cells = cells[:20]
-                        headers = ["Index", "Type", "Count", "First Line"]
-                        rows = []
-                        
-                        for idx, cell in enumerate(headers_cells):
-                            cell_type = cell.get('cell_type', 'unknown')
-                            execution_count = cell.get('execution_count', '-') if cell_type == 'code' else '-'
-                            
-                            source = cell.get('source', '')
-                            if isinstance(source, list):
-                                first_line = source[0] if source else ''
-                                lines = len(source)
-                            else:
-                                first_line = source.split('\n')[0] if source else ''
-                                lines = len(source.split('\n'))
-                            
-                            if lines > 1:
-                                first_line += f"...({lines - 1} lines hidden)"
-                            
-                            rows.append([idx, cell_type, execution_count, first_line])
-                        
-                        info_list.append(f"Showing first {len(headers_cells)} cells:\n")
-                        info_list.append(format_TSV(headers, rows))
+                    notebook = Notebook(**model['content'])
+                else:
+                    notebook = Notebook()
             
             elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
                 # Use notebook manager to get cell info
-                async with notebook_manager.get_current_connection() as notebook:
-                    total_cells = len(notebook)
-                    info_list.append(f"\nNotebook has {total_cells} cells.")
-                    
-                    if total_cells > 0:
-                        from jupyter_mcp_server.utils import normalize_cell_source, format_TSV
-                        
-                        headers = ["Index", "Type", "Count", "First Line"]
-                        rows = []
-                        
-                        for i in range(min(20, total_cells)):
-                            cell_data = notebook[i]
-                            cell_type = cell_data.get("cell_type", "unknown")
-                            execution_count = (cell_data.get("execution_count") or "None") if cell_type == "code" else "N/A"
-                            source_lines = normalize_cell_source(cell_data.get("source", ""))
-                            first_line = source_lines[0] if source_lines else ""
-                            if len(source_lines) > 1:
-                                first_line += f"...({len(source_lines) - 1} lines hidden)"
-                            
-                            rows.append([i, cell_type, execution_count, first_line])
-                        
-                        info_list.append(f"Showing first {min(20, total_cells)} cells:\n")
-                        info_list.append(format_TSV(headers, rows))
+                async with notebook_manager.get_current_connection() as notebook_content:
+                    notebook = Notebook(**notebook_content.as_dict())
+            
+            info_list.append(f"\nNotebook has {len(notebook)} cells.")
+            info_list.append(f"Showing first {min(20, len(notebook))} cells:\n")
+            info_list.append(notebook.format_output(response_format="brief", start_index=0, limit=20))
         except Exception as e:
             logger.debug(f"Failed to get notebook summary: {e}")
         
