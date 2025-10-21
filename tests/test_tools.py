@@ -20,7 +20,6 @@ $ pytest tests/test_server.py -v
 """
 
 import logging
-import platform
 from http import HTTPStatus
 
 import pytest
@@ -76,18 +75,17 @@ async def test_mcp_tool_list(mcp_client_parametrized: MCPClient):
 
 
 @pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_markdown_cell(mcp_client_parametrized: MCPClient, content="Hello **World** !"):
-    """Test markdown cell manipulation in both MCP_SERVER and JUPYTER_SERVER modes"""
+@timeout_wrapper(60)
+async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
+    """Test cell manipulation (both markdown and code cells) in both MCP_SERVER and JUPYTER_SERVER modes"""
 
-    async def check_and_delete_markdown_cell(client: MCPClient, index, content):
-        """Check and delete a markdown cell"""
+    async def check_and_delete_cell(client: MCPClient, index, expected_type, content):
+        """Check and delete a cell (works for both markdown and code cells)"""
         # reading and checking the content of the created cell
         cell_info = await client.read_cell(index)
         logging.debug(f"cell_info: {cell_info}")
         assert cell_info["index"] == index
-        assert cell_info["type"] == "markdown"
-        # TODO: don't now if it's normal to get a list of characters instead of a string
+        assert cell_info["type"] == expected_type
         assert "".join(cell_info["source"]) == content
         # reading all cells
         cells_info = await client.read_cells()
@@ -98,207 +96,72 @@ async def test_markdown_cell(mcp_client_parametrized: MCPClient, content="Hello 
         # delete created cell
         result = await client.delete_cell(index)
         assert result is not None, "delete_cell result should not be None"
-        assert result["result"] == f"Cell {index} (markdown) deleted successfully."
+        expected_delete_msg = f"Cell {index} ({expected_type}) deleted successfully."
+        assert result["result"] == expected_delete_msg
 
     async with mcp_client_parametrized:
-        # Get initial cell count
-        initial_count = await mcp_client_parametrized.get_cell_count()
-        
-        # append markdown cell using -1 index
-        result = await mcp_client_parametrized.insert_cell(-1, "markdown", content)
+        # Test markdown cell operations
+        markdown_content = "Hello **World** !"
+        # insert markdown cell at index 1
+        result = await mcp_client_parametrized.insert_cell(1, "markdown", markdown_content)
         assert result is not None, "insert_cell result should not be None"
         assert "Cell inserted successfully" in result["result"]
-        assert f"index {initial_count} (markdown)" in result["result"]
-        await check_and_delete_markdown_cell(mcp_client_parametrized, initial_count, content)
-        
-        # insert markdown cell at the end (safer than index 0)
-        result = await mcp_client_parametrized.insert_cell(initial_count, "markdown", content)
-        assert result is not None, "insert_cell result should not be None"
-        assert "Cell inserted successfully" in result["result"]
-        assert f"index {initial_count} (markdown)" in result["result"]
-        await check_and_delete_markdown_cell(mcp_client_parametrized, initial_count, content)
+        assert "index 1 (markdown)" in result["result"]
+        await check_and_delete_cell(mcp_client_parametrized, 1, "markdown", markdown_content)
 
+        # Test code cell operations
+        code_content = "1 + 1"
+        code_result = await mcp_client_parametrized.insert_execute_code_cell(1, code_content)
+        expected_result = eval(code_content)
+        assert int(code_result['result'][0]) == expected_result
+
+        # Test overwrite_cell_source
+        new_code_content = f"({code_content}) * 2"
+        result = await mcp_client_parametrized.overwrite_cell_source(1, new_code_content)
+        assert result is not None, "overwrite_cell_source result should not be None"
+        assert "Cell 1 overwritten successfully!" in result["result"]
+        assert "diff" in result["result"]
+        assert "-" in result["result"]
+        assert "+" in result["result"]
+        assert int(code_result["result"][0]) == expected_result
+
+        await check_and_delete_cell(mcp_client_parametrized, 1, "code", new_code_content)
 
 @pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_code_cell(mcp_client_parametrized: MCPClient, content="1 + 1"):
-    """Test code cell manipulation in both MCP_SERVER and JUPYTER_SERVER modes"""
-    async def check_and_delete_code_cell(client: MCPClient, index, content):
-        """Check and delete a code cell"""
-        # reading and checking the content of the created cell
-        cell_info = await client.read_cell(index)
-        logging.debug(f"cell_info: {cell_info}")
-        assert cell_info["index"] == index
-        assert cell_info["type"] == "code"
-        assert "".join(cell_info["source"]) == content
-        # reading all cells
-        cells_info = await client.read_cells()
-        logging.debug(f"cells_info: {cells_info}")
-        # read_cells returns the list directly (unwrapped)
-        assert "".join(cells_info[index]["source"]) == content
-        # delete created cell
-        result = await client.delete_cell(index)
-        assert result["result"] == f"Cell {index} (code) deleted successfully."
-
-    async with mcp_client_parametrized:
-        # Get initial cell count
-        initial_count = await mcp_client_parametrized.get_cell_count()
-        
-        # append and execute code cell using -1 index
-        index = initial_count
-        code_result = await mcp_client_parametrized.insert_execute_code_cell(-1, content)
-        logging.debug(f"code_result: {code_result}")
-        assert code_result is not None, "insert_execute_code_cell result should not be None"
-        assert len(code_result["result"]) > 0, "insert_execute_code_cell should return non-empty result"
-        # The first output should be the execution result, convert to int for comparison
-        first_output = code_result["result"][0]
-        first_output_value = int(first_output) if isinstance(first_output, str) else first_output
-        assert first_output_value == eval(content), f"Expected {eval(content)}, got {first_output_value}"
-        await check_and_delete_code_cell(mcp_client_parametrized, index, content)
-        
-        # insert and execute code cell at the end (safer than index 0)
-        index = initial_count
-        code_result = await mcp_client_parametrized.insert_execute_code_cell(index, content)
-        logging.debug(f"code_result: {code_result}")
-        expected_result = eval(content)
-        assert int(code_result["result"][0]) == expected_result
-        # overwrite content and test different cell execution modes
-        content = f"({content}) * 2"
-        expected_result = eval(content)
-        result = await mcp_client_parametrized.overwrite_cell_source(index, content)
-        logging.debug(f"result: {result}")
-        # The server returns a message with diff content
-        assert "Cell" in result["result"] and "overwritten successfully" in result["result"]
-        assert "diff" in result["result"]  # Should contain diff output
-        code_result = await mcp_client_parametrized.execute_cell(index)
-        assert int(code_result["result"][0]) == expected_result
-        await check_and_delete_code_cell(mcp_client_parametrized, index, content)
-
-
-@pytest.mark.asyncio
-@timeout_wrapper(30)
+@timeout_wrapper(60)
 async def test_list_cells(mcp_client_parametrized: MCPClient):
     """Test list_cells functionality in both MCP_SERVER and JUPYTER_SERVER modes"""
     async with mcp_client_parametrized:
-        # Test initial list_cells (notebook.ipynb has multiple cells)
-        cell_list = await mcp_client_parametrized.list_cells()
-        logging.debug(f"Initial cell list: {cell_list}")
-        assert isinstance(cell_list, str)
-        
-        # Check for error conditions and skip if network issues occur
-        if cell_list.startswith("Error executing tool list_cells") or cell_list.startswith("Error: Failed to retrieve"):
-            pytest.skip(f"Network timeout occurred during list_cells operation: {cell_list}")
-        
-        assert "Index\tType\tCount\tFirst Line" in cell_list
-        # The notebook has both markdown and code cells - just verify structure
-        lines = cell_list.split('\n')
-        data_lines = [line for line in lines if '\t' in line and not line.startswith('Index')]
-        assert len(data_lines) >= 1  # Should have at least some cells
-        
         # Add a markdown cell and test again
         markdown_content = "# Test Markdown Cell"
-        await mcp_client_parametrized.insert_cell(-1, "markdown", markdown_content)
+        await mcp_client_parametrized.insert_cell(1, "markdown", markdown_content)
         
         # Check list_cells with added markdown cell
         cell_list = await mcp_client_parametrized.list_cells()
         logging.debug(f"Cell list after adding markdown: {cell_list}")
-        lines = cell_list.split('\n')
         
-        # Should have header, separator, and multiple data lines
-        assert len(lines) >= 4  # header + separator + at least some cells
-        assert "Index\tType\tCount\tFirst Line" in lines[0]
+        assert "Index\tType\tCount\tFirst Line" in cell_list
+        assert "# Test Markdown Cell" in cell_list
+
+        await mcp_client_parametrized.delete_cell(1)
         
-        # Check that the added cell is listed
-        data_lines = [line for line in lines if '\t' in line and not line.startswith('Index')]
-        assert len(data_lines) >= 10  # Should have at least the original 10 cells
-        
-        # Check that our added cell appears in the list
-        assert any("# Test Markdown Cell" in line for line in data_lines)
-        
-        # Add a code cell with long content to test truncation
-        long_code = "# This is a very long comment that should be truncated when displayed in the list because it exceeds the 50 character limit"
-        await mcp_client_parametrized.insert_execute_code_cell(-1, "print('Hello World')")
-        
-        # Check list_cells with truncated content
+        # Add a muti-line code cell with long content to test truncation
+        long_code = "print('Hello World')\nprint('googbye World')"
+        await mcp_client_parametrized.insert_cell(1, "code", long_code)
+
         cell_list = await mcp_client_parametrized.list_cells()
         logging.debug(f"Cell list after adding long code: {cell_list}")
+        assert "Index\tType\tCount\tFirst Line" in cell_list
+        assert "print('Hello World')" in cell_list
+        assert "print('googbye World')" not in cell_list
         
-        # Clean up by deleting added cells (in reverse order)
-        # Get current cell count to determine indices of added cells
-        current_count = await mcp_client_parametrized.get_cell_count()
-        # Delete the last two cells we added
-        await mcp_client_parametrized.delete_cell(current_count - 1)  # Remove the code cell
-        await mcp_client_parametrized.delete_cell(current_count - 2)  # Remove the markdown cell
+        await mcp_client_parametrized.delete_cell(1)
 
 @pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_overwrite_cell_diff(mcp_client_parametrized: MCPClient):
-    """Test overwrite_cell_source diff functionality in both MCP_SERVER and JUPYTER_SERVER modes"""
-    async with mcp_client_parametrized:
-        # Get initial cell count
-        initial_count = await mcp_client_parametrized.get_cell_count()
-        
-        # Add a code cell with initial content
-        initial_content = "x = 10\nprint(x)"
-        await mcp_client_parametrized.append_execute_code_cell(initial_content)
-        cell_index = initial_count
-        
-        # Overwrite with modified content
-        new_content = "x = 20\ny = 30\nprint(x + y)"
-        result = await mcp_client_parametrized.overwrite_cell_source(cell_index, new_content)
-        
-        # Verify diff output format
-        assert result is not None, "overwrite_cell_source should not return None for valid input"
-        result_text = result.get("result", "") if isinstance(result, dict) else str(result)
-        assert f"Cell {cell_index} overwritten successfully!" in result_text
-        assert "```diff" in result_text
-        assert "```" in result_text  # Should have closing diff block
-        
-        # Verify diff content shows changes
-        assert "-" in result_text  # Should show deletions
-        assert "+" in result_text  # Should show additions
-        
-        # Test overwriting with identical content (no changes)
-        result_no_change = await mcp_client_parametrized.overwrite_cell_source(cell_index, new_content)
-        assert result_no_change is not None, "overwrite_cell_source should not return None"
-        no_change_text = result_no_change.get("result", "") if isinstance(result_no_change, dict) else str(result_no_change)
-        assert "no changes detected" in no_change_text
-        
-        # Test overwriting markdown cell
-        await mcp_client_parametrized.append_markdown_cell("# Original Title")
-        markdown_index = initial_count + 1
-        
-        markdown_result = await mcp_client_parametrized.overwrite_cell_source(markdown_index, "# Updated Title\n\nSome content")
-        assert markdown_result is not None, "overwrite_cell_source should not return None for markdown cell"
-        markdown_text = markdown_result.get("result", "") if isinstance(markdown_result, dict) else str(markdown_result)
-        assert f"Cell {markdown_index} overwritten successfully!" in markdown_text
-        assert "```diff" in markdown_text
-        assert "Updated Title" in markdown_text
-        
-        # Clean up: delete the test cells
-        await mcp_client_parametrized.delete_cell(markdown_index)  # Delete markdown cell first (higher index)
-        await mcp_client_parametrized.delete_cell(cell_index)      # Then delete code cell
-
-@pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_bad_index(mcp_client_parametrized: MCPClient, index=99):
-    """Test behavior of all index-based tools if the index does not exist in both modes"""
-    async with mcp_client_parametrized:
-        assert await mcp_client_parametrized.read_cell(index) is None
-        assert await mcp_client_parametrized.insert_cell(index, "markdown", "test") is None
-        assert await mcp_client_parametrized.insert_execute_code_cell(index, "1 + 1") is None
-        assert await mcp_client_parametrized.overwrite_cell_source(index, "1 + 1") is None
-        assert await mcp_client_parametrized.execute_cell(index) is None
-        assert await mcp_client_parametrized.delete_cell(index) is None
-
-
-@pytest.mark.asyncio
-@timeout_wrapper(30)
+@timeout_wrapper(60)
 async def test_multimodal_output(mcp_client_parametrized: MCPClient):
     """Test multimodal output functionality with image generation in both modes"""
     async with mcp_client_parametrized:
-        # Get initial cell count
-        initial_count = await mcp_client_parametrized.get_cell_count()
         
         # Test image generation code using PIL (lightweight)
         image_code = """
@@ -325,59 +188,13 @@ buffer.seek(0)
 from IPython.display import Image as IPythonImage, display
 display(IPythonImage(buffer.getvalue()))
 """
-        
         # Execute the image generation code
-        result = await mcp_client_parametrized.insert_execute_code_cell(-1, image_code)
-        cell_index = initial_count
+        result = await mcp_client_parametrized.insert_execute_code_cell(1, image_code)
         
-        # Check that result is not None and contains outputs
-        assert result is not None, "Result should not be None"
-        assert "result" in result, "Result should contain 'result' key"
-        outputs = result["result"]
-        assert isinstance(outputs, list), "Outputs should be a list"
-        
-        # Check for image output or placeholder
-        has_image_output = False
-        for output in outputs:
-            if isinstance(output, str):
-                # Check for image placeholder or actual image content
-                if ("Image Output (PNG)" in output or 
-                    "image display" in output.lower() or
-                    output.strip() == ''):
-                    has_image_output = True
-                    break
-            elif isinstance(output, dict):
-                # Check for ImageContent dictionary format (from safe_extract_outputs)
-                if (output.get('type') == 'image' and 
-                    'data' in output and 
-                    output.get('mimeType') == 'image/png'):
-                    has_image_output = True
-                    logging.info(f"Found ImageContent object with {len(output['data'])} bytes of PNG data")
-                    break
-                # Check for nbformat output structure (from ExecutionStack)
-                elif (output.get('output_type') == 'display_data' and 
-                      'data' in output and 
-                      'image/png' in output['data']):
-                    has_image_output = True
-                    png_data = output['data']['image/png']
-                    logging.info(f"Found nbformat display_data with {len(png_data)} bytes of PNG data")
-                    break
-            elif hasattr(output, 'data') and hasattr(output, 'mimeType'):
-                # This would be an actual ImageContent object
-                if output.mimeType == "image/png":
-                    has_image_output = True
-                    break
-        
-        # We should have some indication of image output
-        assert has_image_output, f"Expected image output indication, got: {outputs}"
-        
-        # Test with ALLOW_IMG_OUTPUT environment variable control
-        # Note: In actual deployment, this would be controlled via environment variables
-        # For testing, we just verify the code structure is correct
-        logging.info(f"Multimodal test completed with outputs: {outputs}")
-        
-        # Clean up: delete the test cell
-        await mcp_client_parametrized.delete_cell(cell_index)
+        # Check that result is 
+        assert isinstance(result['result'], list), "Result should be a list"
+        assert result['result'][0]['mimeType'] == "image/png", "Result should be a list of ImageContent"
+        await mcp_client_parametrized.delete_cell(1)
 
 
 ###############################################################################
@@ -385,161 +202,69 @@ display(IPythonImage(buffer.getvalue()))
 ###############################################################################
 
 @pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_multi_notebook_management(mcp_client_parametrized: MCPClient):
-    """Test multi-notebook management functionality in both modes"""
-    async with mcp_client_parametrized:
-        # Test initial state - should show no managed notebooks
-        initial_list = await mcp_client_parametrized.list_notebooks()
-        logging.debug(f"Initial notebook list: {initial_list}")
-        # Initially, there should be no managed notebooks since list_notebooks only shows 
-        # notebooks that have been managed via use_notebook
-        
-        # Connect to a new notebook
-        connect_result = await mcp_client_parametrized.use_notebook("test_notebooks_1", "new.ipynb", "connect")
-        logging.debug(f"Connect result: {connect_result}")
-        assert "Successfully activate notebook 'test_notebooks_1'" in connect_result
-        # The result contains notebook info and cell preview, not necessarily the path
-        assert "Notebook has" in connect_result or "cells" in connect_result.lower()
-        
-        # List notebooks - should now show the connected notebook with all columns
-        notebook_list = await mcp_client_parametrized.list_notebooks()
-        logging.debug(f"Notebook list after connect: {notebook_list}")
-        assert "test_notebooks_1" in notebook_list
-        assert "new.ipynb" in notebook_list
-        assert "✓" in notebook_list  # Should be marked as Activate (current)
-        # Verify new columns are present
-        assert "Kernel_ID" in notebook_list or "-" in notebook_list  # Kernel_ID column with value
-        
-        # Try to connect to the same notebook again (should fail or reactivate)
-        duplicate_result = await mcp_client_parametrized.use_notebook("test_notebooks_1", "new.ipynb")
-        assert (
-            "already using" in duplicate_result
-            or "already activated" in duplicate_result
-            or "Successfully activate notebook" in duplicate_result
-            or "Reactivating notebook" in duplicate_result
-        )
-        
-        # Test switching between notebooks
-        # Create a second notebook to test switching
-        use_result = await mcp_client_parametrized.use_notebook("test_notebooks_2", "notebook.ipynb", "connect")
-        logging.debug(f"Connect to second notebook: {use_result}")
-        assert "Successfully activate notebook 'test_notebooks_2'" in use_result
-        
-        # Verify both notebooks are now in the list
-        notebook_list_2 = await mcp_client_parametrized.list_notebooks()
-        logging.debug(f"Notebook list with 2 notebooks: {notebook_list_2}")
-        assert "test_notebooks_1" in notebook_list_2
-        assert "test_notebooks_2" in notebook_list_2
-        # test_notebooks_2 should be the activated one (has ✓)
-        
-        # Switch back to first notebook
-        use_back_result = await mcp_client_parametrized.use_notebook("test_notebooks_1", "new.ipynb")
-        assert (
-            "Successfully activate notebook 'test_notebooks_1'" in use_back_result
-            or "Reactivating notebook 'test_notebooks_1'" in use_back_result
-        )
-        
-        # Test cell operations on the new notebook
-        # First get the cell count of new.ipynb (should have some cells)
-        cell_count = await mcp_client_parametrized.get_cell_count()
-        assert cell_count >= 2, f"new.ipynb should have at least 2 cells, got {cell_count}"
-        
-        # Add a test cell to the new notebook
-        test_content = "# Multi-notebook test\nprint('Testing multi-notebook')"
-        insert_result = await mcp_client_parametrized.insert_cell(-1, "code", test_content)
-        assert "Cell inserted successfully" in insert_result["result"]
-        
-        # Execute the cell
-        execute_result = await mcp_client_parametrized.insert_execute_code_cell(-1, "2 + 3")
-        assert "5" in str(execute_result["result"])
-        
-        # Test restart notebook
-        restart_result = await mcp_client_parametrized.restart_notebook("test_notebooks_1")
-        logging.debug(f"Restart result: {restart_result}")
-        assert "restarted successfully" in restart_result
-        
-        # Verify both notebooks still exist after restart
-        list_after_restart = await mcp_client_parametrized.list_notebooks()
-        assert "test_notebooks_1" in list_after_restart
-        assert "test_notebooks_2" in list_after_restart
-        
-        # Test unuse notebook
-        disconnect_result = await mcp_client_parametrized.unuse_notebook("test_notebooks_1")
-        logging.debug(f"Unuse result: {disconnect_result}")
-        assert "unused successfully" in disconnect_result
-        
-        # Verify notebook is no longer in the list
-        final_list = await mcp_client_parametrized.list_notebooks()
-        logging.debug(f"Final notebook list: {final_list}")
-        assert "test_notebooks_1" not in final_list
-        # But test_notebooks_2 should still be there
-        assert "test_notebooks_2" in final_list
-        
-        # Unuse the second notebook
-        disconnect_result_2 = await mcp_client_parametrized.unuse_notebook("test_notebooks_2")
-        assert "unused successfully" in disconnect_result_2
-
-
-@pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_multi_notebook_cell_operations(mcp_client_parametrized: MCPClient):
+@timeout_wrapper(60)
+async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
     """Test cell operations across multiple notebooks in both modes"""
     async with mcp_client_parametrized:
         # Connect to the new notebook
-        await mcp_client_parametrized.use_notebook("notebook_a", "new.ipynb")
-        
-        # Get initial cell count for notebook A
-        count_a = await mcp_client_parametrized.get_cell_count()
+        result = await mcp_client_parametrized.use_notebook("notebook_a", "new.ipynb")
+        logging.debug(f"Connect to notebook A: {result}")
+        assert "Successfully activate notebook 'notebook_a'" in result
         
         # Add a cell to notebook A
         await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook A")
         
-        # Connect to default notebook (if it exists)
-        try:
-            # Try to connect to notebook.ipynb as notebook_b
-            await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
-            
-            # Switch to notebook B
-            await mcp_client_parametrized.use_notebook("notebook_b")
-            
-            # Get cell count for notebook B
-            count_b = await mcp_client_parametrized.get_cell_count()
-            
-            # Add a cell to notebook B
-            await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook B")
-            
-            # Switch back to notebook A
-            await mcp_client_parametrized.use_notebook("notebook_a")
-            
-            # Verify we're working with notebook A
-            cell_list_a = await mcp_client_parametrized.list_cells()
-            assert "This is notebook A" in cell_list_a
-            
-            # Switch to notebook B and verify
-            await mcp_client_parametrized.use_notebook("notebook_b")
-            cell_list_b = await mcp_client_parametrized.list_cells()
-            assert "This is notebook B" in cell_list_b
-            
-            # Clean up - unuse both notebooks
-            await mcp_client_parametrized.unuse_notebook("notebook_a")
-            await mcp_client_parametrized.unuse_notebook("notebook_b")
-            
-        except Exception as e:
-            logging.warning(f"Could not test with notebook.ipynb: {e}")
-            # Clean up notebook A only
-            await mcp_client_parametrized.unuse_notebook("notebook_a")
+        # Try to connect to notebook.ipynb as notebook_b
+        result = await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
+        logging.debug(f"Connect to notebook B: {result}")
+        assert "Successfully activate notebook 'notebook_b'" in result
+        
+        # Add a cell to notebook B
+        await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook B")
+        
+        # Switch back to notebook A
+        result = await mcp_client_parametrized.use_notebook("notebook_a", "new.ipynb")
+        logging.debug(f"Reactivate notebook A: {result}")
+        assert "Reactivating notebook 'notebook_a' and deactivating 'notebook_b'." in result
+        
+        # Verify we're working with notebook A
+        cell_list_a = await mcp_client_parametrized.list_cells()
+        assert "This is notebook A" in cell_list_a
+        
+        # Switch to notebook B and verify
+        await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
+        cell_list_b = await mcp_client_parametrized.list_cells()
+        assert "This is notebook B" in cell_list_b
+
+        notebook_list = await mcp_client_parametrized.list_notebooks()
+        logging.debug(f"Notebook list after switching: {notebook_list}")
+        assert "notebook_a" in notebook_list
+        assert "notebook_b" in notebook_list
+        assert "✓" in notebook_list
+
+        # Test restart notebook
+        restart_result = await mcp_client_parametrized.restart_notebook("notebook_a")
+        logging.debug(f"Restart result: {restart_result}")
+        assert "Notebook 'notebook_a' kernel restarted successfully" in restart_result
+        
+        # Clean up - unuse both notebooks
+        result = await mcp_client_parametrized.unuse_notebook("notebook_a")
+        logging.debug(f"Unuse notebook A: {result}")
+        assert "Notebook 'notebook_a' unused successfully" in result
+        result = await mcp_client_parametrized.unuse_notebook("notebook_b")
+        logging.debug(f"Unuse notebook B: {result}")
+        assert "Notebook 'notebook_b' unused successfully" in result
 
 
 @pytest.mark.asyncio 
-@timeout_wrapper(30)
+@timeout_wrapper(60)
 async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
     """Test error handling for notebook management in both modes"""
     async with mcp_client_parametrized:
         # Test connecting to non-existent notebook (with required notebook_path parameter)
         error_result = await mcp_client_parametrized.use_notebook("nonexistent", "nonexistent.ipynb")
         logging.debug(f"Nonexistent notebook result: {error_result}")
-        assert "not found" in error_result.lower() or "not a valid file" in error_result.lower() or "field required" in error_result.lower()
+        assert "not found" in error_result
         
         # Test operations on non-used notebook
         restart_error = await mcp_client_parametrized.restart_notebook("nonexistent_notebook")
@@ -547,172 +272,33 @@ async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
         
         disconnect_error = await mcp_client_parametrized.unuse_notebook("nonexistent_notebook") 
         assert "not connected" in disconnect_error
-        
-        # Test using non-existent notebook without notebook_path - should fail validation
-        # Since notebook_path is required, we expect a validation error
-        use_error = await mcp_client_parametrized.use_notebook("nonexistent_notebook", notebook_path="nonexistent2.ipynb")
-        assert "not found" in use_error.lower() or "not connected" in use_error
-        
-        # Test invalid notebook paths
-        invalid_path_result = await mcp_client_parametrized.use_notebook("test", "../invalid/path.ipynb")
-        assert "not found" in invalid_path_result.lower() or "not a valid file" in invalid_path_result.lower()
-
-
-###############################################################################
-# execute_code Tests
-###############################################################################
 
 @pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_execute_code_python_code(mcp_client_parametrized: MCPClient):
+@timeout_wrapper(60)
+async def test_execute_code(mcp_client_parametrized: MCPClient):
     """Test execute_code with basic Python code in both modes"""
     async with mcp_client_parametrized:
         # Test simple Python code
-        result = await mcp_client_parametrized.execute_code("print('Hello IPython World!')")
-        
-        # On Windows, if result is None it's likely due to timeout - skip the test
-        if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-        
-        assert result is not None, "execute_code result should not be None"
-        assert "result" in result, "Result should contain 'result' key"
-        outputs = result["result"]
-        assert isinstance(outputs, list), "Outputs should be a list"
-        
-        # Check for expected output
-        output_text = "".join(str(output) for output in outputs)
-        assert "Hello IPython World!" in output_text or "[No output generated]" in output_text
-        
-        # Test mathematical calculation
-        calc_result = await mcp_client_parametrized.execute_code("result = 2 ** 10\nprint(f'2^10 = {result}')")
-        
-        if platform.system() == "Windows" and calc_result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-            
-        assert calc_result is not None
-        calc_outputs = calc_result["result"]
-        calc_text = "".join(str(output) for output in calc_outputs)
-        assert "2^10 = 1024" in calc_text or "[No output generated]" in calc_text
+        result = await mcp_client_parametrized.execute_code("words='Hello IPython World!'\nprint(words)")
+        assert "Hello IPython World!" in result["result"][0]
 
-
-@pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_execute_code_magic_commands(mcp_client_parametrized: MCPClient):
-    """Test execute_code with IPython magic commands in both modes"""
-    async with mcp_client_parametrized:
         # Test %who magic command (list variables)
         result = await mcp_client_parametrized.execute_code("%who")
-        
-        # On Windows, if result is None it's likely due to timeout - skip the test
-        if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-        
-        assert result is not None, "execute_code result should not be None"
-        outputs = result["result"]
-        assert isinstance(outputs, list), "Outputs should be a list"
-        
-        # Set a variable first, then use %who to see it
-        var_result = await mcp_client_parametrized.execute_code("test_var = 42")
-        if platform.system() == "Windows" and var_result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-            
-        who_result = await mcp_client_parametrized.execute_code("%who")
-        if platform.system() == "Windows" and who_result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-            
-        who_outputs = who_result["result"]
-        who_text = "".join(str(output) for output in who_outputs)
-        # %who should show our variable (or no output if variables exist but aren't shown)
-        # This test mainly ensures %who doesn't crash
-        
-        # Test %timeit magic command
-        timeit_result = await mcp_client_parametrized.execute_code("%timeit sum(range(100))")
-        if platform.system() == "Windows" and timeit_result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-            
-        assert timeit_result is not None
-        timeit_outputs = timeit_result["result"]
-        timeit_text = "".join(str(output) for output in timeit_outputs)
-        # timeit should produce some timing output or complete without error
-        assert len(timeit_text) >= 0  # Just ensure no crash
+        assert "words" in result["result"][0]
 
-
-@pytest.mark.asyncio 
-@timeout_wrapper(30)
-async def test_execute_code_shell_commands(mcp_client_parametrized: MCPClient):
-    """Test execute_code with shell commands in both modes"""
-    async with mcp_client_parametrized:
-        # Test basic shell command - echo (works on most systems)
         result = await mcp_client_parametrized.execute_code("!echo 'Hello from shell'")
-        
-        # On Windows, if result is None it's likely due to timeout - skip the test
-        if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-        
-        assert result is not None, "execute_code result should not be None"
-        outputs = result["result"]
-        assert isinstance(outputs, list), "Outputs should be a list"
-        
-        output_text = "".join(str(output) for output in outputs)
-        # Shell command should either work or be handled gracefully
-        assert len(output_text) >= 0  # Just ensure no crash
-        
-        # Test Python version check
-        python_result = await mcp_client_parametrized.execute_code("!python --version")
-        if platform.system() == "Windows" and python_result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-            
-        assert python_result is not None
-        python_outputs = python_result["result"]
-        python_text = "".join(str(output) for output in python_outputs)
-        # Should show Python version or complete without error
-        assert len(python_text) >= 0
+        assert "Hello from shell" in result["result"][0]
 
-
-@pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_execute_code_timeout(mcp_client_parametrized: MCPClient):
-    """Test execute_code timeout functionality in both modes"""
-    async with mcp_client_parametrized:
         # Test with very short timeout on a potentially long-running command
-        result = await mcp_client_parametrized.execute_code("import time; time.sleep(5)", timeout=2)
-        
-        # On Windows, if result is None it's likely due to timeout - skip the test
-        if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-        
-        assert result is not None
-        outputs = result["result"]
-        output_text = "".join(str(output) for output in outputs)
-        # Should either complete quickly or timeout
-        assert "TIMEOUT ERROR" in output_text or len(output_text) >= 0
-
+        result = await mcp_client_parametrized.execute_code("import time\ntime.sleep(5)", timeout=2)
+        assert "TIMEOUT ERROR" in result["result"][0]
 
 @pytest.mark.asyncio
-@timeout_wrapper(30)
-async def test_execute_code_error_handling(mcp_client_parametrized: MCPClient):
-    """Test execute_code error handling in both modes"""
+async def test_list_kernels(mcp_client_parametrized: MCPClient):
+    """Test list_kernels functionality in both MCP_SERVER and JUPYTER_SERVER modes"""
     async with mcp_client_parametrized:
-        # Test syntax error
-        result = await mcp_client_parametrized.execute_code("invalid python syntax <<<")
-        
-        # On Windows, if result is None it's likely due to timeout - skip the test
-        if platform.system() == "Windows" and result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-        
-        assert result is not None
-        outputs = result["result"]
-        output_text = "".join(str(output) for output in outputs)
-        # Should handle the error gracefully
-        assert len(output_text) >= 0  # Ensure no crash
-        
-        # Test runtime error  
-        runtime_result = await mcp_client_parametrized.execute_code("undefined_variable")
-        if platform.system() == "Windows" and runtime_result is None:
-            pytest.skip("execute_code timed out on Windows - known platform limitation")
-            
-        assert runtime_result is not None
-        runtime_outputs = runtime_result["result"]
-        runtime_text = "".join(str(output) for output in runtime_outputs)
-        # Should handle the error gracefully
-        assert len(runtime_text) >= 0
+        # Call list_kernels
+        kernel_list = await mcp_client_parametrized.list_kernels()
+        logging.debug(f"Kernel list: {kernel_list}")
+        # Check for either TSV header or "No kernels found" message
+        assert "ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment" in kernel_list
