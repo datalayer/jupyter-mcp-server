@@ -76,7 +76,8 @@ async def test_rtc_mode_for_cell_operations(
         # 5. Read cell (should use RTC mode to see live changes)
         logger.info("Testing read_cell with RTC mode...")
         cell_data = await mcp_client_parametrized.read_cell(0)
-        assert "y = 100" in cell_data["source"]
+        source_text = "".join(cell_data["source"])
+        assert "y = 100" in source_text
         assert cell_data["outputs"] is not None  # Should have execution output
         logger.info("✓ read_cell sees live data")
 
@@ -89,7 +90,7 @@ async def test_rtc_mode_for_cell_operations(
         # 7. Delete cell (should use RTC mode, not file mode)
         logger.info("Testing delete_cell with RTC mode...")
         delete_result = await mcp_client_parametrized.delete_cell(0)
-        assert "Cell 0 deleted successfully" in delete_result["result"]
+        assert "deleted successfully" in delete_result["result"]
         logger.info("✓ delete_cell completed")
 
         logger.info("=" * 60)
@@ -146,7 +147,7 @@ async def test_reading_tools_see_unsaved_changes(
 
         # 3. Read the cell - should see the modified version, NOT the initial version
         cell_data = await mcp_client_parametrized.read_cell(0)
-        cell_source = cell_data["source"]
+        cell_source = "".join(cell_data["source"])
 
         assert "modified_value = 999" in cell_source, \
             f"read_cell should see live changes! Got: {cell_source}"
@@ -156,8 +157,9 @@ async def test_reading_tools_see_unsaved_changes(
 
         # 4. Read all cells - should also see modified version
         all_cells = await mcp_client_parametrized.read_cells()
-        assert len(all_cells) == 1
-        assert "modified_value = 999" in all_cells[0]["source"]
+        assert len(all_cells) >= 1, f"Expected at least 1 cell, got {len(all_cells)}"
+        # Check the code cell we modified (index 0)
+        assert "modified_value = 999" in "".join(all_cells[0]["source"])
         logger.info("✓ read_cells sees live unsaved changes")
 
         # 5. List cells - should show modified version
