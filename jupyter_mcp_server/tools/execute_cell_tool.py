@@ -207,7 +207,7 @@ class ExecuteCellTool(BaseTool):
                     timeout=timeout_seconds
                 )
 
-                return safe_extract_outputs(outputs)
+                return outputs
             else:
                 # Notebook not open - use file-based approach
                 logger.info(f"Notebook {file_id} not open, using file mode")
@@ -238,7 +238,7 @@ class ExecuteCellTool(BaseTool):
                 # Write outputs back to file
                 await self._write_outputs_to_cell(notebook_path, cell_index, outputs)
 
-                return safe_extract_outputs(outputs)
+                return outputs
 
         elif mode == ServerMode.MCP_SERVER:
             kernel = ensure_kernel_alive_fn()

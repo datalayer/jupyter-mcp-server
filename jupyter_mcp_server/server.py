@@ -48,7 +48,6 @@ from jupyter_mcp_server.tools import (
     DeleteCellTool,
     # Cell Execution
     ExecuteCellTool,
-    InsertExecuteCodeCellTool,
     # Other Tools
     ExecuteCodeTool,
     ListFilesTool,
@@ -409,12 +408,14 @@ async def execute_cell(
 
 @mcp.tool()
 async def insert_execute_code_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to insert (0-based). Use -1 to append at end and execute.")],
-    cell_source: Annotated[str, Field(description="Code source")],
+    cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=0)],
+    cell_source: Annotated[str, Field(description="Code source for the cell")],
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
-    """Insert and execute a code cell in a Jupyter notebook."""
-    return await safe_notebook_operation(
-        lambda: InsertExecuteCodeCellTool().execute(
+    """Insert a cell at specified index and then execute it with timeout and return it's outputs
+    It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
+    await safe_notebook_operation(
+        lambda: InsertCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
@@ -422,8 +423,24 @@ async def insert_execute_code_cell(
             notebook_manager=notebook_manager,
             cell_index=cell_index,
             cell_source=cell_source,
-            ensure_kernel_alive=__ensure_kernel_alive,
+            cell_type="code",
         )
+    )
+
+    return await safe_notebook_operation(
+        lambda: ExecuteCellTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
+            cell_index=cell_index,
+            timeout_seconds=timeout,
+            stream=False,
+            progress_interval=0,
+            ensure_kernel_alive_fn=__ensure_kernel_alive
+        ),
+        max_retries=1
     )
 
 @mcp.tool()

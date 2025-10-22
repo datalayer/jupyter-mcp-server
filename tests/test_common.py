@@ -309,8 +309,8 @@ class MCPClient:
         return self._get_structured_content_safe(result) if result else None
 
     @requires_session
-    async def insert_execute_code_cell(self, cell_index, cell_source):
-        result = await self._call_tool_safe("insert_execute_code_cell", {"cell_index": cell_index, "cell_source": cell_source})
+    async def insert_execute_code_cell(self, cell_index, cell_source, timeout=90):
+        result = await self._call_tool_safe("insert_execute_code_cell", {"cell_index": cell_index, "cell_source": cell_source, "timeout": timeout})
         structured = self._get_structured_content_safe(result) if result else None
         
         # Special handling for insert_execute_code_cell: tool returns list[str | ImageContent]
