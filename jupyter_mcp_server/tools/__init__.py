@@ -22,6 +22,7 @@ from jupyter_mcp_server.tools.read_cell_tool import ReadCellTool
 
 # Import tool implementations - Cell Writing
 from jupyter_mcp_server.tools.insert_cell_tool import InsertCellTool
+from jupyter_mcp_server.tools.insert_execute_code_cell_tool import InsertExecuteCodeCellTool
 from jupyter_mcp_server.tools.overwrite_cell_source_tool import OverwriteCellSourceTool
 from jupyter_mcp_server.tools.delete_cell_tool import DeleteCellTool
 
