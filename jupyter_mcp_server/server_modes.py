@@ -5,7 +5,7 @@
 """Utility functions for detecting and handling server mode."""
 
 from typing import Tuple, Optional, Any
-from jupyter_server_api import JupyterServerClient
+from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.config import get_config
 
 
