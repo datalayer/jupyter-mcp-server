@@ -103,6 +103,9 @@ async def test_rtc_mode_for_cell_operations(
         logger.info("  - WebSocket would remain stable in JupyterLab UI")
         logger.info("=" * 60)
 
+        # Clean up: disconnect from notebook
+        await mcp_client_parametrized.unuse_notebook("test_rtc")
+
 
 @pytest.mark.asyncio
 @timeout_wrapper(60)
@@ -176,6 +179,9 @@ async def test_reading_tools_see_unsaved_changes(
         logger.info("  - They DON'T read stale data from disk")
         logger.info("=" * 60)
 
+        # Clean up: disconnect from notebook
+        await mcp_client_parametrized.unuse_notebook("test_read_live")
+
 
 @pytest.mark.asyncio
 @timeout_wrapper(60)
@@ -208,3 +214,6 @@ async def test_jupyter_collaboration_extension_loaded(
         # If we got here, the extension infrastructure is working
         logger.info("✓ jupyter-collaboration extension is functional")
         logger.info("  (RTC operations completed successfully)")
+
+        # Clean up: disconnect from notebook
+        await mcp_client_parametrized.unuse_notebook("test_extension")
