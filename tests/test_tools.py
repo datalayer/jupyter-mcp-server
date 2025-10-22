@@ -156,6 +156,7 @@ display(IPythonImage(buffer.getvalue()))
         
         # Check that result is 
         assert isinstance(result['result'], list), "Result should be a list"
+        assert isinstance(result['result'][0], dict)
         assert result['result'][0]['mimeType'] == "image/png", "Result should be a list of ImageContent"
         await mcp_client_parametrized.delete_cell(1)
 
