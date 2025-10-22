@@ -9,7 +9,7 @@ Singleton to cache server mode and context managers.
 from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.tools import ServerMode
-from jupyter_server_api import JupyterServerClient
+from jupyter_server_client import JupyterServerClient
 
 
 class ServerContext:
