@@ -75,16 +75,15 @@ async def test_rtc_mode_for_cell_operations(
 
         # 5. Read cell (should use RTC mode to see live changes)
         logger.info("Testing read_cell with RTC mode...")
-        read_result = await mcp_client_parametrized.read_cell(0)
-        cell_data = read_result["result"]
+        cell_data = await mcp_client_parametrized.read_cell(0)
         assert "y = 100" in cell_data["source"]
         assert cell_data["outputs"] is not None  # Should have execution output
         logger.info("✓ read_cell sees live data")
 
         # 6. List cells (should use RTC mode)
         logger.info("Testing list_cells with RTC mode...")
-        list_result = await mcp_client_parametrized.list_cells()
-        assert "y = 100" in list_result["result"]  # Should see latest edit
+        list_output = await mcp_client_parametrized.list_cells()
+        assert "y = 100" in list_output  # Should see latest edit
         logger.info("✓ list_cells sees live data")
 
         # 7. Delete cell (should use RTC mode, not file mode)
@@ -146,8 +145,8 @@ async def test_reading_tools_see_unsaved_changes(
         logger.info("✓ Made unsaved edit to cell")
 
         # 3. Read the cell - should see the modified version, NOT the initial version
-        read_result = await mcp_client_parametrized.read_cell(0)
-        cell_source = read_result["result"]["source"]
+        cell_data = await mcp_client_parametrized.read_cell(0)
+        cell_source = cell_data["source"]
 
         assert "modified_value = 999" in cell_source, \
             f"read_cell should see live changes! Got: {cell_source}"
@@ -156,15 +155,13 @@ async def test_reading_tools_see_unsaved_changes(
         logger.info("✓ read_cell sees live unsaved changes (not stale file data)")
 
         # 4. Read all cells - should also see modified version
-        read_all_result = await mcp_client_parametrized.read_cells()
-        all_cells = read_all_result["result"]
+        all_cells = await mcp_client_parametrized.read_cells()
         assert len(all_cells) == 1
         assert "modified_value = 999" in all_cells[0]["source"]
         logger.info("✓ read_cells sees live unsaved changes")
 
         # 5. List cells - should show modified version
-        list_result = await mcp_client_parametrized.list_cells()
-        list_output = list_result["result"]
+        list_output = await mcp_client_parametrized.list_cells()
         assert "modified_value" in list_output
         logger.info("✓ list_cells sees live unsaved changes")
 
