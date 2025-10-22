@@ -126,7 +126,7 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub('', text)
 
 
-def _clean_notebook_outputs(notebook):
+def clean_notebook_outputs(notebook):
     """Remove transient fields from all cell outputs.
     
     The 'transient' field is part of the Jupyter kernel messaging protocol
@@ -814,7 +814,7 @@ async def execute_cell_local(
                 notebook = nbformat.read(f, as_version=4)
             
             # Clean transient fields from outputs
-            _clean_notebook_outputs(notebook)
+            clean_notebook_outputs(notebook)
             
             # Validate cell index
             if cell_index < 0 or cell_index >= len(notebook.cells):
@@ -880,3 +880,51 @@ async def execute_cell_local(
     except Exception as e:
         logger.error(f"Error executing cell locally: {e}")
         return [f"[ERROR: {str(e)}]"]
+
+
+async def get_jupyter_ydoc(serverapp: Any, file_id: str):
+    """Get the YNotebook document if it's currently open in a collaborative session.
+    
+    This follows the jupyter_ai_tools pattern of accessing YDoc through the
+    yroom_manager when the notebook is actively being edited.
+    
+    Args:
+        serverapp: The Jupyter ServerApp instance
+        file_id: The file ID for the document
+        
+    Returns:
+        YNotebook instance or None if not in a collaborative session
+    """
+    try:
+        # Access ywebsocket_server from YDocExtension via extension_manager
+        # jupyter-collaboration doesn't add yroom_manager to web_app.settings
+        ywebsocket_server = None
+
+        if hasattr(serverapp, 'extension_manager'):
+            extension_points = serverapp.extension_manager.extension_points
+            if 'jupyter_server_ydoc' in extension_points:
+                ydoc_ext_point = extension_points['jupyter_server_ydoc']
+                if hasattr(ydoc_ext_point, 'app') and ydoc_ext_point.app:
+                    ydoc_app = ydoc_ext_point.app
+                    if hasattr(ydoc_app, 'ywebsocket_server'):
+                        ywebsocket_server = ydoc_app.ywebsocket_server
+
+        if ywebsocket_server is None:
+            return None
+
+        room_id = f"json:notebook:{file_id}"
+
+        # Get room and access document via room._document
+        # DocumentRoom stores the YNotebook as room._document, not via get_jupyter_ydoc()
+        try:
+            yroom = await ywebsocket_server.get_room(room_id)
+            if yroom and hasattr(yroom, '_document'):
+                return yroom._document
+        except Exception:
+            pass
+
+    except Exception:
+        # YDoc not available, will fall back to file operations
+        pass
+
+    return None

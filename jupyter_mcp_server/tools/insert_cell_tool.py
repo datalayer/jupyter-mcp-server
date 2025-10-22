@@ -10,59 +10,12 @@ import nbformat
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context
+from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_ydoc, clean_notebook_outputs
 from jupyter_mcp_server.models import Notebook
 
 
 class InsertCellTool(BaseTool):
     """Tool to insert a cell at a specified position."""
-
-    async def _get_jupyter_ydoc(self, serverapp: Any, file_id: str):
-        """Get the YNotebook document if it's currently open in a collaborative session.
-
-        This follows the jupyter_ai_tools pattern of accessing YDoc through the
-        yroom_manager when the notebook is actively being edited.
-
-        Args:
-            serverapp: The Jupyter ServerApp instance
-            file_id: The file ID for the document
-
-        Returns:
-            YNotebook instance or None if not in a collaborative session
-        """
-        try:
-            # Access ywebsocket_server from YDocExtension via extension_manager
-            # jupyter-collaboration doesn't add yroom_manager to web_app.settings
-            ywebsocket_server = None
-
-            if hasattr(serverapp, 'extension_manager'):
-                extension_points = serverapp.extension_manager.extension_points
-                if 'jupyter_server_ydoc' in extension_points:
-                    ydoc_ext_point = extension_points['jupyter_server_ydoc']
-                    if hasattr(ydoc_ext_point, 'app') and ydoc_ext_point.app:
-                        ydoc_app = ydoc_ext_point.app
-                        if hasattr(ydoc_app, 'ywebsocket_server'):
-                            ywebsocket_server = ydoc_app.ywebsocket_server
-
-            if ywebsocket_server is None:
-                return None
-
-            room_id = f"json:notebook:{file_id}"
-
-            # Get room and access document via room._document
-            # DocumentRoom stores the YNotebook as room._document, not via get_jupyter_ydoc()
-            try:
-                yroom = await ywebsocket_server.get_room(room_id)
-                if yroom and hasattr(yroom, '_document'):
-                    return yroom._document
-            except Exception:
-                pass
-
-        except Exception:
-            # YDoc not available, will fall back to file operations
-            pass
-
-        return None
     
     async def _insert_cell_ydoc(
         self,
@@ -92,7 +45,7 @@ class InsertCellTool(BaseTool):
         file_id = file_id_manager.get_id(notebook_path)
         
         # Try to get YDoc
-        ydoc = await self._get_jupyter_ydoc(serverapp, file_id)
+        ydoc = await get_jupyter_ydoc(serverapp, file_id)
         
         if ydoc:
             # Notebook is open in collaborative mode, use YDoc
@@ -151,7 +104,7 @@ class InsertCellTool(BaseTool):
             notebook = nbformat.read(f, as_version=4)
         
         # Clean any transient fields from existing outputs (kernel protocol field not in nbformat schema)
-        self._clean_notebook_outputs(notebook)
+        clean_notebook_outputs(notebook)
         
         total_cells = len(notebook.cells)
         actual_index = cell_index if cell_index != -1 else total_cells
@@ -176,22 +129,6 @@ class InsertCellTool(BaseTool):
             nbformat.write(notebook, f)
         
         return actual_index, len(notebook.cells)
-    
-    def _clean_notebook_outputs(self, notebook):
-        """Remove transient fields from all cell outputs.
-        
-        The 'transient' field is part of the Jupyter kernel messaging protocol
-        but is NOT part of the nbformat schema. This causes validation errors.
-        
-        Args:
-            notebook: nbformat notebook object to clean (modified in place)
-        """
-        # Clean transient fields from outputs
-        for cell in notebook.cells:
-            if cell.cell_type == 'code' and hasattr(cell, 'outputs'):
-                for output in cell.outputs:
-                    if isinstance(output, dict) and 'transient' in output:
-                        del output['transient']
     
     async def _insert_cell_websocket(
         self,

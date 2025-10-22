@@ -20,12 +20,10 @@ from starlette.responses import JSONResponse
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.utils import (
-    extract_output, 
     safe_extract_outputs, 
     create_kernel,
     start_kernel,
     ensure_kernel_alive,
-    execute_cell_with_forced_sync,
     wait_for_kernel_idle,
     safe_notebook_operation
 )
@@ -46,7 +44,6 @@ from jupyter_mcp_server.tools import (
     ReadCellTool,
     # Cell Writing
     InsertCellTool,
-    InsertExecuteCodeCellTool,
     OverwriteCellSourceTool,
     DeleteCellTool,
     # Cell Execution
@@ -366,33 +363,13 @@ async def insert_cell(
         )
     )
 
-
-@mcp.tool()
-async def insert_execute_code_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to insert (0-based). Use -1 to append at end and execute.")],
-    cell_source: Annotated[str, Field(description="Code source")],
-) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
-    """Insert and execute a code cell in a Jupyter notebook."""
-    return await safe_notebook_operation(
-        lambda: InsertExecuteCodeCellTool().execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            kernel_manager=server_context.kernel_manager,
-            notebook_manager=notebook_manager,
-            cell_index=cell_index,
-            cell_source=cell_source,
-            ensure_kernel_alive=__ensure_kernel_alive,
-        )
-    )
-
-
 @mcp.tool()
 async def overwrite_cell_source(
-    cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)")],
-    cell_source: Annotated[str, Field(description="New cell source - must match existing cell type")],
+    cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
+    cell_source: Annotated[str, Field(description="New complete cell source")],
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
-    """Overwrite the source of an existing cell. Note this does not execute the modified cell by itself."""
+    """Overwrite the source of a specific cell.
+    It will return a diff style comparison (e.g. `+` for new lines, `-` for deleted lines) of the cell's content"""
     return await safe_notebook_operation(
         lambda: OverwriteCellSourceTool().execute(
             mode=server_context.mode,
@@ -407,12 +384,12 @@ async def overwrite_cell_source(
 
 @mcp.tool()
 async def execute_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)")],
-    timeout_seconds: Annotated[int, Field(description="Maximum time to wait for execution (default: 300s)")] = 300,
-    stream: Annotated[bool, Field(description="Enable streaming progress updates for long-running cells (default: False)")] = False,
-    progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True (default: 5s)")] = 5,
+    cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 60,
+    stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
+    progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True")] = 5,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
-    """Execute a cell with configurable timeout and optional streaming progress updates."""
+    """Execute a cell with timeout and return it's outputs"""
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
@@ -421,14 +398,47 @@ async def execute_cell(
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=timeout,
             stream=stream,
             progress_interval=progress_interval,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
-            wait_for_kernel_idle_fn=wait_for_kernel_idle,
-            safe_extract_outputs_fn=safe_extract_outputs,
-            execute_cell_with_forced_sync_fn=execute_cell_with_forced_sync,
-            extract_output_fn=extract_output,
+            ensure_kernel_alive_fn=__ensure_kernel_alive
+        ),
+        max_retries=1
+    )
+
+@mcp.tool()
+async def insert_execute_code_cell(
+    cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=0)],
+    cell_source: Annotated[str, Field(description="Code source for the cell")],
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 60,
+) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
+    """Insert a cell at specified index and then execute it with timeout and return it's outputs
+    It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
+    await safe_notebook_operation(
+        lambda: InsertCellTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
+            cell_index=cell_index,
+            cell_source=cell_source,
+            cell_type="code",
+        )
+    )
+
+    return await safe_notebook_operation(
+        lambda: ExecuteCellTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
+            cell_index=cell_index,
+            timeout_seconds=timeout,
+            stream=False,
+            progress_interval=0,
+            ensure_kernel_alive_fn=__ensure_kernel_alive
         ),
         max_retries=1
     )
