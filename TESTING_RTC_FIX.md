@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Testing the RTC Mode Fix
 
 This document explains how to test that the WebSocket disconnect bug has been fixed.
