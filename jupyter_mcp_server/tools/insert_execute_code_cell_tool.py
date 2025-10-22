@@ -190,14 +190,14 @@ class InsertExecuteCodeCellTool(BaseTool):
             outputs: List of output strings or ImageContent objects
         """
         import nbformat
-        from jupyter_mcp_server.utils import _clean_notebook_outputs
+        from jupyter_mcp_server.utils import clean_notebook_outputs
         
         # Read the notebook
         with open(notebook_path, 'r', encoding='utf-8') as f:
             notebook = nbformat.read(f, as_version=4)
         
         # Clean any transient fields
-        _clean_notebook_outputs(notebook)
+        clean_notebook_outputs(notebook)
         
         if cell_index < 0 or cell_index >= len(notebook.cells):
             logger.warning(f"Cell index {cell_index} out of range, cannot write outputs")
