@@ -5,7 +5,7 @@
 """List all available kernels tool."""
 
 from typing import Any, Optional, List, Dict
-from jupyter_server_api import JupyterServerClient
+from jupyter_server_client import JupyterServerClient
 
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import format_TSV

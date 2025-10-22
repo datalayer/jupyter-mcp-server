@@ -25,7 +25,7 @@ dependencies = [
     "jupyter-mcp-tools>=0.1.4",
     "jupyter-nbmodel-client>=0.14.2",
     "jupyter-server-nbmodel",
-    "jupyter-server-api",
+    "jupyter-server-client",
     "jupyter_server>=1.6,<3",
     "tornado>=6.1",
     "traitlets>=5.0",

@@ -8,7 +8,7 @@ import difflib
 import nbformat
 from pathlib import Path
 from typing import Any, Optional
-from jupyter_server_api import JupyterServerClient
+from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.utils import get_current_notebook_context

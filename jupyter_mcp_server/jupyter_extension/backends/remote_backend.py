@@ -6,7 +6,7 @@
 Remote Backend Implementation
 
 This backend uses the existing jupyter_nbmodel_client, jupyter_kernel_client,
-and jupyter_server_api packages to connect to remote Jupyter servers.
+and jupyter_server_client packages to connect to remote Jupyter servers.
 
 For MCP_SERVER mode, this maintains 100% backward compatibility with the existing implementation.
 """
@@ -27,7 +27,7 @@ class RemoteBackend(Backend):
     Uses:
     - jupyter_nbmodel_client.NbModelClient for notebook operations
     - jupyter_kernel_client.KernelClient for kernel operations  
-    - jupyter_server_api.JupyterServerClient for server operations
+    - jupyter_server_client.JupyterServerClient for server operations
     """
     
     def __init__(self, document_url: str, document_token: str, runtime_url: str, runtime_token: str):
@@ -49,22 +49,22 @@ class RemoteBackend(Backend):
     
     async def get_notebook_content(self, path: str) -> dict[str, Any]:
         """Get notebook content via remote API."""
-        # TODO: Implement using jupyter_server_api
+        # TODO: Implement using jupyter_server_client
         raise NotImplementedError("To be refactored from server.py")
     
     async def list_notebooks(self, path: str = "") -> list[str]:
         """List notebooks via remote API."""
-        # TODO: Implement using jupyter_server_api
+        # TODO: Implement using jupyter_server_client
         raise NotImplementedError("To be refactored from server.py")
     
     async def notebook_exists(self, path: str) -> bool:
         """Check if notebook exists via remote API."""
-        # TODO: Implement using jupyter_server_api
+        # TODO: Implement using jupyter_server_client
         raise NotImplementedError("To be refactored from server.py")
     
     async def create_notebook(self, path: str) -> dict[str, Any]:
         """Create notebook via remote API."""
-        # TODO: Implement using jupyter_server_api
+        # TODO: Implement using jupyter_server_client
         raise NotImplementedError("To be refactored from server.py")
     
     # Cell operations
@@ -150,10 +150,10 @@ class RemoteBackend(Backend):
     
     async def list_kernels(self) -> list[dict[str, Any]]:
         """List kernels via server API."""
-        # TODO: Implement using jupyter_server_api
+        # TODO: Implement using jupyter_server_client
         raise NotImplementedError("To be refactored from server.py")
     
     async def kernel_exists(self, kernel_id: str) -> bool:
         """Check if kernel exists via server API."""
-        # TODO: Implement using jupyter_server_api
+        # TODO: Implement using jupyter_server_client
         raise NotImplementedError("To be refactored from server.py")
