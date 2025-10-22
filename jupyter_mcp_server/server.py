@@ -385,7 +385,7 @@ async def overwrite_cell_source(
 @mcp.tool()
 async def execute_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
-    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 60,
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
     stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
     progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True")] = 5,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
@@ -410,7 +410,7 @@ async def execute_cell(
 async def insert_execute_code_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=0)],
     cell_source: Annotated[str, Field(description="Code source for the cell")],
-    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 60,
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Insert a cell at specified index and then execute it with timeout and return it's outputs
     It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
