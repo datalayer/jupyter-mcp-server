@@ -16,25 +16,81 @@ from mcp.types import ImageContent
 
 class ReadCellsTool(BaseTool):
     """Tool to read cells from a Jupyter notebook."""
-    
-    async def _read_cells_local(self, contents_manager: Any, path: str) -> List[Dict[str, Any]]:
-        """Read cells using local contents_manager (JUPYTER_SERVER mode)."""
-        # Read the notebook file directly
+
+    async def _get_jupyter_ydoc(self, serverapp, file_id: str):
+        """Get the YNotebook document if it's currently open in a collaborative session."""
+        try:
+            # Access ywebsocket_server from YDocExtension via extension_manager
+            # jupyter-collaboration doesn't add yroom_manager to web_app.settings
+            ywebsocket_server = None
+
+            if hasattr(serverapp, 'extension_manager'):
+                extension_points = serverapp.extension_manager.extension_points
+                if 'jupyter_server_ydoc' in extension_points:
+                    ydoc_ext_point = extension_points['jupyter_server_ydoc']
+                    if hasattr(ydoc_ext_point, 'app') and ydoc_ext_point.app:
+                        ydoc_app = ydoc_ext_point.app
+                        if hasattr(ydoc_app, 'ywebsocket_server'):
+                            ywebsocket_server = ydoc_app.ywebsocket_server
+
+            if ywebsocket_server is None:
+                return None
+
+            room_id = f"json:notebook:{file_id}"
+
+            # Get room and access document via room._document
+            # DocumentRoom stores the YNotebook as room._document, not via get_jupyter_ydoc()
+            try:
+                yroom = await ywebsocket_server.get_room(room_id)
+                if yroom and hasattr(yroom, '_document'):
+                    return yroom._document
+            except Exception:
+                pass
+
+        except Exception:
+            pass
+
+        return None
+
+    async def _read_cells_local(self, serverapp: Any, contents_manager: Any, path: str) -> List[Dict[str, Any]]:
+        """Read cells using local contents_manager (JUPYTER_SERVER mode).
+
+        First tries to read from YDoc (RTC mode) if notebook is open, otherwise falls back to file mode.
+        """
+        # Get file_id for YDoc lookup
+        file_id_manager = serverapp.web_app.settings.get("file_id_manager")
+        file_id = file_id_manager.get_id(path) if file_id_manager else None
+        if file_id is None and file_id_manager:
+            file_id = file_id_manager.index(path)
+
+        # Try to get YDoc if notebook is open (RTC mode)
+        if file_id:
+            ydoc = await self._get_jupyter_ydoc(serverapp, file_id)
+            if ydoc:
+                # Notebook is open - read from YDoc (live data)
+                cells = ydoc.ycells
+                result = []
+                for idx, cell in enumerate(cells):
+                    cell_info = CellInfo.from_cell(cell_index=idx, cell=cell)
+                    result.append(cell_info.model_dump(exclude_none=True))
+                return result
+
+        # Fall back to file mode if notebook not open
         model = await contents_manager.get(path, content=True, type='notebook')
-        
+
         if 'content' not in model:
             raise ValueError(f"Could not read notebook content from {path}")
-        
+
         notebook_content = model['content']
         cells = notebook_content.get('cells', [])
-        
+
         # Convert cells to the expected format using CellInfo for consistency
         result = []
         for idx, cell in enumerate(cells):
             # Use CellInfo.from_cell to ensure consistent structure and output processing
             cell_info = CellInfo.from_cell(cell_index=idx, cell=cell)
             result.append(cell_info.model_dump(exclude_none=True))
-        
+
         return result
     
     async def execute(
@@ -80,7 +136,7 @@ class ReadCellsTool(BaseTool):
                     # Path is not under root_dir, use as-is
                     pass
             
-            return await self._read_cells_local(contents_manager, notebook_path)
+            return await self._read_cells_local(serverapp, contents_manager, notebook_path)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
             async with notebook_manager.get_current_connection() as notebook:
