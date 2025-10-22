@@ -239,35 +239,6 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
     
     return "\n".join(result)
 
-def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> str:
-    """Get information about surrounding cells for context."""
-    start_index = max(0, cell_index - 5)
-    end_index = min(total_cells, cell_index + 6)
-    
-    if total_cells == 0:
-        return "Notebook is now empty, no cells remaining"
-    
-    headers = ["Index", "Type", "Count", "First Line"]
-    rows = []
-    
-    for i in range(start_index, end_index):
-        if i >= total_cells:
-            break
-            
-        cell_data = notebook[i]
-        cell_type = cell_data.get("cell_type", "unknown")
-        
-        execution_count = (cell_data.get("execution_count") or "None") if cell_type == "code" else "N/A"
-        # Get first line of source
-        source_lines = normalize_cell_source(cell_data.get("source", ""))
-        first_line = source_lines[0] if source_lines else ""
-        # Mark the target cell
-        marker = " <-- NEW" if i == cell_index else ""
-        rows.append([i, cell_type, execution_count, first_line+marker])
-    
-    return format_TSV(headers, rows)
-
-
 ###############################################################################
 # Kernel and notebook operation helpers
 ###############################################################################

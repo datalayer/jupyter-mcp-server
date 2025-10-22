@@ -99,8 +99,7 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         # insert markdown cell at index 1
         result = await mcp_client_parametrized.insert_cell(1, "markdown", markdown_content)
         assert result is not None, "insert_cell result should not be None"
-        assert "Cell inserted successfully" in result["result"]
-        assert "index 1 (markdown)" in result["result"]
+        assert "Cell inserted successfully at index 1 (markdown)!" in result["result"]
         await check_and_delete_cell(mcp_client_parametrized, 1, "markdown", markdown_content)
 
         # Test code cell operations

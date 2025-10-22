@@ -11,7 +11,7 @@ from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.utils import get_current_notebook_context
-from jupyter_mcp_server.utils import get_surrounding_cells_info
+from jupyter_mcp_server.models import Notebook
 
 
 class InsertCellTool(BaseTool):
@@ -71,7 +71,7 @@ class InsertCellTool(BaseTool):
         cell_index: int,
         cell_type: Literal["code", "markdown"],
         cell_source: str
-    ) -> str:
+    ) -> tuple[int, int]:
         """Insert cell using YDoc (collaborative editing mode).
         
         Args:
@@ -122,32 +122,10 @@ class InsertCellTool(BaseTool):
                 # Set the source directly on the ycell
                 ycell["source"] = cell_source
             
-            # Get surrounding cells info (simplified version for YDoc)
-            new_total_cells = len(ydoc.ycells)
-            surrounding_info = self._get_surrounding_cells_info_ydoc(ydoc, actual_index, new_total_cells)
-            
-            return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
+            return actual_index, len(ydoc.ycells)
         else:
             # YDoc not available, use file operations
             return await self._insert_cell_file(notebook_path, cell_index, cell_type, cell_source)
-    
-    def _get_surrounding_cells_info_ydoc(self, ydoc, center_index: int, total_cells: int) -> str:
-        """Get info about surrounding cells from YDoc."""
-        lines = []
-        start_index = max(0, center_index - 5)
-        end_index = min(total_cells, center_index + 6)
-        
-        for i in range(start_index, end_index):
-            cell = ydoc.ycells[i]
-            cell_type = cell.get("cell_type", "unknown")
-            source = cell.get("source", "")
-            if isinstance(source, list):
-                source = "".join(source)
-            first_line = source.split('\n')[0][:50] if source else "(empty)"
-            marker = " <-- NEW" if i == center_index else ""
-            lines.append(f"  [{i}] {cell_type}: {first_line}{marker}")
-        
-        return "\n".join(lines)
     
     async def _insert_cell_file(
         self,
@@ -155,7 +133,7 @@ class InsertCellTool(BaseTool):
         cell_index: int,
         cell_type: Literal["code", "markdown"],
         cell_source: str
-    ) -> str:
+    ) -> tuple[int, int]:
         """Insert cell using file operations (non-collaborative mode).
         
         Args:
@@ -197,11 +175,7 @@ class InsertCellTool(BaseTool):
         with open(notebook_path, "w", encoding="utf-8") as f:
             nbformat.write(notebook, f)
         
-        # Get surrounding cells info
-        new_total_cells = len(notebook.cells)
-        surrounding_info = self._get_surrounding_cells_info_file(notebook, actual_index, new_total_cells)
-        
-        return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
+        return actual_index, len(notebook.cells)
     
     def _clean_notebook_outputs(self, notebook):
         """Remove transient fields from all cell outputs.
@@ -219,29 +193,13 @@ class InsertCellTool(BaseTool):
                     if isinstance(output, dict) and 'transient' in output:
                         del output['transient']
     
-    def _get_surrounding_cells_info_file(self, notebook, center_index: int, total_cells: int) -> str:
-        """Get info about surrounding cells from nbformat notebook."""
-        lines = []
-        start_index = max(0, center_index - 5)
-        end_index = min(total_cells, center_index + 6)
-        
-        for i in range(start_index, end_index):
-            cell = notebook.cells[i]
-            cell_type = cell.cell_type
-            source = cell.source
-            first_line = source.split('\n')[0][:50] if source else "(empty)"
-            marker = " <-- NEW" if i == center_index else ""
-            lines.append(f"  [{i}] {cell_type}: {first_line}{marker}")
-        
-        return "\n".join(lines)
-    
     async def _insert_cell_websocket(
         self,
         notebook_manager: NotebookManager,
         cell_index: int,
         cell_type: Literal["code", "markdown"],
         cell_source: str
-    ) -> str:
+    ) -> tuple[int, Notebook]:
         """Insert cell using WebSocket connection (MCP_SERVER mode).
         
         Args:
@@ -260,12 +218,8 @@ class InsertCellTool(BaseTool):
             
             notebook.insert_cell(actual_index, cell_source, cell_type)
             
-            # Get surrounding cells info
-            new_total_cells = len(notebook)
-            surrounding_info = get_surrounding_cells_info(notebook, actual_index, new_total_cells)
-            
-            return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
-    
+            return actual_index, Notebook(**notebook.as_dict())
+
     async def execute(
         self,
         mode: ServerMode,
@@ -326,13 +280,33 @@ class InsertCellTool(BaseTool):
             
             if serverapp:
                 # Try YDoc approach first
-                return await self._insert_cell_ydoc(serverapp, notebook_path, cell_index, cell_type, cell_source)
+                actual_index, new_total_cells = await self._insert_cell_ydoc(serverapp, notebook_path, cell_index, cell_type, cell_source)
             else:
                 # Fall back to file operations
-                return await self._insert_cell_file(notebook_path, cell_index, cell_type, cell_source)
+                actual_index, new_total_cells = await self._insert_cell_file(notebook_path, cell_index, cell_type, cell_source)
+            
+            # Load notebook using same API
+            notebook_path = notebook_manager.get_current_notebook_path()
+            model = await contents_manager.get(notebook_path, content=True, type='notebook')
+            if 'content' not in model:
+                raise ValueError(f"Could not read notebook content from {notebook_path}")
+            notebook = Notebook(**model['content'])
                 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            return await self._insert_cell_websocket(notebook_manager, cell_index, cell_type, cell_source)
+            actual_index, notebook = await self._insert_cell_websocket(notebook_manager, cell_index, cell_type, cell_source)
+            new_total_cells = len(notebook)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
+        
+        info_list = [f"Cell inserted successfully at index {actual_index} ({cell_type})!"]
+        info_list.append(f"Notebook now has {new_total_cells} cells, showing surrounding cells:")
+        # near to end
+        if new_total_cells - actual_index < 5:
+            start_index = max(0, new_total_cells - 10)
+        else:
+            start_index = max(0, actual_index - 5)
+        info_list.append(notebook.format_output(response_format="brief", start_index=start_index, limit=10))
+        return "\n".join(info_list)
+        
+

@@ -348,10 +348,10 @@ async def read_notebook(
 
 @mcp.tool()
 async def insert_cell(
-    cell_index: Annotated[int, Field(description="Target index for insertion (0-based). Use -1 to append at end.")],
+    cell_index: Annotated[int, Field(description="Target index for insertion (0-based), use -1 to append at end", ge=-1)],
     cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
     cell_source: Annotated[str, Field(description="Source content for the cell")],
-) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)")]:
+) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells")]:
     """Insert a cell to specified position."""
     return await safe_notebook_operation(
         lambda: InsertCellTool().execute(
