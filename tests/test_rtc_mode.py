@@ -45,7 +45,7 @@ async def test_rtc_mode_for_cell_operations(
             "test_rtc.ipynb",
             mode="create"
         )
-        assert "using notebook" in create_result
+        assert "Successfully activate notebook" in create_result
         logger.info("✓ Created test notebook")
 
         # 2. Insert a cell (should use RTC mode, not file mode)
@@ -127,7 +127,7 @@ async def test_reading_tools_see_unsaved_changes(
             "test_read_live.ipynb",
             mode="create"
         )
-        assert "using notebook" in create_result
+        assert "Successfully activate notebook" in create_result
 
         insert_result = await mcp_client_parametrized.insert_cell(
             0,
@@ -204,7 +204,7 @@ async def test_jupyter_collaboration_extension_loaded(
             "test_extension.ipynb",
             mode="create"
         )
-        assert "using notebook" in create_result
+        assert "Successfully activate notebook" in create_result
 
         # If we got here, the extension infrastructure is working
         logger.info("✓ jupyter-collaboration extension is functional")
