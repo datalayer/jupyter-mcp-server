@@ -42,8 +42,7 @@ from jupyter_mcp_server.tools import (
     RestartNotebookTool,
     UnuseNotebookTool,
     # Cell Reading
-    ReadCellsTool,
-    ListCellsTool,
+    ReadNotebookTool,
     ReadCellTool,
     # Cell Writing
     InsertCellTool,
@@ -316,6 +315,33 @@ async def unuse_notebook(
         kernel_manager=server_context.kernel_manager,
     )
 
+@mcp.tool()
+async def read_notebook(
+    notebook_name: Annotated[str, Field(description="Notebook identifier to read")],
+    response_format: Annotated[Literal["brief", "detailed"], Field(description="Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source")] = "brief",
+    start_index: Annotated[int, Field(description="Starting index for pagination (0-based)", ge=0)] = 0,
+    limit: Annotated[int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)] = 20
+) -> Annotated[str, Field(description="Notebook content in the requested format")]:
+    """Read a notebook and return index, source content, type, execution count of each cell.
+    
+    Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
+    Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.
+
+    It is recommended to use brief format with larger limit to get a overview of the notebook structure, 
+    then use detailed format with exact index and limit to get the detailed information of some specific cells.
+    """
+    return await safe_notebook_operation(
+        lambda: ReadNotebookTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
+            notebook_name=notebook_name,
+            response_format=response_format,
+            start_index=start_index,
+            limit=limit,
+        )
+    )
 
 ###############################################################################
 # Cell Tools.
@@ -406,36 +432,6 @@ async def execute_cell(
         ),
         max_retries=1
     )
-
-
-@mcp.tool()
-async def read_cells() -> Annotated[list[dict[str, str | int | list[str | ImageContent]]], Field(description="List of cell information including index, type, source, and outputs (for code cells)")]:
-    """Read all cells from the Jupyter notebook."""
-    return await safe_notebook_operation(
-        lambda: ReadCellsTool().execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            notebook_manager=notebook_manager,
-        )
-    )
-
-
-@mcp.tool()
-async def list_cells() -> Annotated[str, Field(description="Tab-separated table with columns: Index, Type, Count, First Line")]:
-    """List the basic information of all cells in the notebook.
-    
-    This provides a quick overview of the notebook structure and is useful for locating specific cells for operations like delete or insert.
-    """
-    return await safe_notebook_operation(
-        lambda: ListCellsTool().execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            notebook_manager=notebook_manager,
-        )
-    )
-
 
 @mcp.tool()
 async def read_cell(
