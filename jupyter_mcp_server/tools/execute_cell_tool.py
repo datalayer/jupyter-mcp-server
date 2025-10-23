@@ -163,11 +163,6 @@ class ExecuteCellTool(BaseTool):
 
             logger.info(f"Executing cell {cell_index} in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)")
 
-            # Resolve to absolute path
-            if serverapp and not Path(notebook_path).is_absolute():
-                root_dir = serverapp.root_dir
-                notebook_path = str(Path(root_dir) / notebook_path)
-
             # Get file_id from file_id_manager
             file_id_manager = serverapp.web_app.settings.get("file_id_manager")
             if file_id_manager is None:

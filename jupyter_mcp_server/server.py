@@ -349,7 +349,7 @@ async def insert_cell(
     cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
     cell_source: Annotated[str, Field(description="Source content for the cell")],
 ) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells")]:
-    """Insert a cell to specified position."""
+    """Insert a cell to specified position from the currently activated notebook."""
     return await safe_notebook_operation(
         lambda: InsertCellTool().execute(
             mode=server_context.mode,
@@ -368,7 +368,7 @@ async def overwrite_cell_source(
     cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
     cell_source: Annotated[str, Field(description="New complete cell source")],
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
-    """Overwrite the source of a specific cell.
+    """Overwrite the source of a specific cell from the currently activated notebook.
     It will return a diff style comparison (e.g. `+` for new lines, `-` for deleted lines) of the cell's content"""
     return await safe_notebook_operation(
         lambda: OverwriteCellSourceTool().execute(
@@ -389,7 +389,7 @@ async def execute_cell(
     stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
     progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True")] = 5,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
-    """Execute a cell with timeout and return it's outputs"""
+    """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
@@ -412,7 +412,7 @@ async def insert_execute_code_cell(
     cell_source: Annotated[str, Field(description="Code source for the cell")],
     timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
-    """Insert a cell at specified index and then execute it with timeout and return it's outputs
+    """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
     It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
     await safe_notebook_operation(
         lambda: InsertCellTool().execute(
@@ -448,7 +448,7 @@ async def read_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
     include_outputs: Annotated[bool, Field(description="Include outputs in the response (only for code cells)")] = True,
 ) -> Annotated[list[str | ImageContent], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
-    """Read a specific cell and return it's metadata (index, type, execution count), source and outputs (for code cells)"""
+    """Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)"""
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
             mode=server_context.mode,
@@ -462,9 +462,10 @@ async def read_cell(
 
 @mcp.tool()
 async def delete_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to delete (0-based)")],
-) -> Annotated[str, Field(description="Success message")]:
-    """Delete a specific cell from the Jupyter notebook."""
+    cell_index: Annotated[int, Field(description="Index of the cell to delete (0-based)", ge=0)],
+) -> Annotated[str, Field(description="Success message and the cell source of deleted cell")]:
+    """Delete a specific cell from the currently activated notebook and return the cell source of deleted cell.
+    When deleting many cells, MUST delete them in descending order of their index to avoid index shifting."""
     return await safe_notebook_operation(
         lambda: DeleteCellTool().execute(
             mode=server_context.mode,

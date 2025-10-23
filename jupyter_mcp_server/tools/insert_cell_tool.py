@@ -210,11 +210,6 @@ class InsertCellTool(BaseTool):
             serverapp = context.serverapp
             notebook_path, _ = get_current_notebook_context(notebook_manager)
             
-            # Resolve to absolute path
-            if serverapp and not Path(notebook_path).is_absolute():
-                root_dir = serverapp.root_dir
-                notebook_path = str(Path(root_dir) / notebook_path)
-            
             if serverapp:
                 # Try YDoc approach first
                 actual_index, new_total_cells = await self._insert_cell_ydoc(serverapp, notebook_path, cell_index, cell_type, cell_source)
