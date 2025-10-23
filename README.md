@@ -19,7 +19,7 @@
 *Developed by [Datalayer](https://github.com/datalayer)*
 
 [![PyPI - Version](https://img.shields.io/pypi/v/jupyter-mcp-server?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/jupyter-mcp-server)
-[![Python Version](https://img.shields.io/badge/python-3.10+-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Total PyPI downloads](https://img.shields.io/pepy/dt/jupyter-mcp-server?style=for-the-badge&logo=python&logoColor=white)](https://pepy.tech/project/jupyter-mcp-server)
 [![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server?style=for-the-badge&logo=docker&logoColor=white&color=2496ED)](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
@@ -71,44 +71,42 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 
 The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows:
 
-### Server Management
+### Server Management Tools
 
-| Name                        | Description                                                                 |
-| :-------------------------- | :-------------------------------------------------------------------------- |
-| `list_files`                | Recursively list files and directories in the Jupyter server's file system. |
-| `list_kernels`              | List all available and running kernel sessions on the Jupyter server.       |
-| `assign_kernel_to_notebook` | Create a Jupyter session to connect a notebook file to a specific kernel.   |
+| Name             | Description                                                                                |
+| :--------------- | :----------------------------------------------------------------------------------------- |
+| `list_files`     | List files and directories in the Jupyter server's file system.                            |
+| `list_kernels`   | List all available and running kernel sessions on the Jupyter server.                      |
 
-### Multi-Notebook Management
+### Multi-Notebook Management Tools
 
-| Name               | Description                                                                |
-| :----------------- | :------------------------------------------------------------------------- |
-| `use_notebook`     | Connect to a notebook file, create a new one, or switch between notebooks. |
-| `list_notebooks`   | List all notebooks available on the Jupyter server and their status        |
-| `restart_notebook` | Restart the kernel for a specific managed notebook.                        |
-| `unuse_notebook`   | Disconnect from a specific notebook and release its resources.             |
+| Name               | Description                                                                              |
+| :----------------- | :--------------------------------------------------------------------------------------- |
+| `use_notebook`     | Connect to a notebook file, create a new one, or switch between notebooks.               |
+| `list_notebooks`   | List all notebooks available on the Jupyter server and their status                      |
+| `restart_notebook` | Restart the kernel for a specific managed notebook.                                      |
+| `unuse_notebook`   | Disconnect from a specific notebook and release its resources.                           |
+| `read_notebook`    | Read notebook cells source content with brief or detailed format options.                |
 
-### Cell Operations and Execution
+### Cell Operations and Execution Tools
 
 | Name                       | Description                                                                      |
 | :------------------------- | :------------------------------------------------------------------------------- |
-| `list_cells`               | List basic information for all cells to provide a quick overview of notebook     |
-| `read_cell`                | Read the full content (source and outputs) of a single cell.                     |
-| `read_cells`               | Read the full content of all cells in the notebook.                              |
+| `read_cell`                | Read the full content (Metadata, Source and Outputs) of a single cell.           |
 | `insert_cell`              | Insert a new code or markdown cell at a specified position.                      |
 | `delete_cell`              | Delete a cell at a specified index.                                              |
 | `overwrite_cell_source`    | Overwrite the source code of an existing cell.                                   |
-| `execute_cell`             | Execute a cell with timeout, it supports multimodal output including images.     |
-| `insert_execute_code_cell` | A convenient tool to insert a new code cell and execute it in one step.          |
-| `execute_ipython`          | Execute IPython code directly in the kernel, including magic and shell commands. |
+| `execute_cell`             | Execute a cell with timeout, supports multimodal output including images.        |
+| `insert_execute_code_cell` | Insert a new code cell and execute it in one step.                               |
+| `execute_code`             | Execute code directly in the kernel, supports magic commands and shell commands. |
 
 ### JupyterLab Integration
 
 *Available only when JupyterLab mode is enabled. It is enabled by default.*
 
-| Name                     | Description                                                                                |
-| :----------------------- | :----------------------------------------------------------------------------------------- |
-| `notebook_run-all-cells` | Execute all cells in the current notebook sequentially using JupyterLab's native commands. |
+| Name                     | Description                                                                        |
+| :----------------------- | :--------------------------------------------------------------------------------- |
+| `notebook_run-all-cells` | Execute all cells in the current notebook sequentially                             |
 
 For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
 
