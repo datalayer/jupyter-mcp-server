@@ -60,7 +60,31 @@ To get started with development, you'll need to set up your environment.
     make build-docker
     ```
 
-## (Optional) Manual Agent Testing
+## Testing Guidelines
+
+This section provides comprehensive guidance for adding and maintaining tests in the Jupyter MCP Server project.
+
+### Test Architecture
+
+The project supports testing in two deployment modes:
+
+1. **MCP_SERVER Mode**: Standalone MCP server using HTTP/WebSocket to connect to Jupyter
+2. **JUPYTER_SERVER Mode**: Jupyter extension with direct serverapp API access
+
+Tests are parametrized to run against both modes using the same MCPClient, ensuring consistent behavior across deployment patterns.
+
+### Test Data
+
+Test notebooks are located in the `dev/content/` directory:
+
+- `notebook.ipynb`: Main test notebook with matplotlib examples and various cell types
+- `new.ipynb`: Additional test notebook for multi-notebook operations
+
+### Tool Implementation and Output Matching
+
+When adding tests for new features or modifying existing tools, ensure your tests match the actual implementation in `jupyter_mcp_server/tools/`
+
+## (Recommended) Manual Agent Testing
 
 1.  **Build Python Package:**
     ```bash

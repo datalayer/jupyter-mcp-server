@@ -1,17 +1,20 @@
 # Tools
 
-The server currently offers 16 tools organized into 3 categories, plus 1 additional JupyterLab-specific tool:
+The server currently offers 14 tools organized into 3 categories:
 
-## Server Management Tools (3 tools)
+## Server Management Tools (2 tools)
 
 #### 1. `list_files`
 
-- List all files and directories in the Jupyter server's file system.
-- This tool recursively lists files and directories from the Jupyter server's content API, showing the complete file structure including notebooks, data files, scripts, and directories.
+- List all files and directories recursively in the Jupyter server's file system.
+- Used to explore the file system structure of the Jupyter server or to find specific files or directories.
 - Input:
-  - `path`(string, optional): The starting path to list from (empty string means root directory)
-  - `max_depth`(int, optional): Maximum depth to recurse into subdirectories (default: 1)
-- Returns: Tab-separated table with columns: Path, Type, Size, Last_Modified
+  - `path`(string, optional): The starting path to list from (empty string means root directory, default: "")
+  - `max_depth`(int, optional): Maximum depth to recurse into subdirectories (default: 1, max: 3)
+  - `start_index`(int, optional): Starting index for pagination (0-based, default: 0)
+  - `limit`(int, optional): Maximum number of items to return (0 means no limit, default: 25)
+  - `pattern`(string, optional): Glob pattern to filter file paths (default: "")
+- Returns: Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header showing current range and total count.
   - **Path**: Full path to the file or directory
   - **Type**: File type ("file", "directory", "notebook", or "error" if inaccessible)
   - **Size**: File size formatted as B, KB, or MB (empty for directories)
@@ -32,148 +35,125 @@ The server currently offers 16 tools organized into 3 categories, plus 1 additio
   - **Last_Activity**: Timestamp of last kernel activity in YYYY-MM-DD HH:MM:SS format
   - **Environment**: Environment variables defined in the kernel spec (truncated if long)
 
-#### 3. `assign_kernel_to_notebook`
+## Multi-Notebook Management Tools (5 tools)
 
-- Assign a kernel to a notebook by creating a Jupyter session.
-- This creates a Jupyter server session that connects a notebook file to a kernel, enabling code execution in the notebook. Sessions are the mechanism Jupyter uses to maintain the relationship between notebooks and their kernels.
-- Input:
-  - `notebook_path`(string): Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
-  - `kernel_id`(string): ID of the kernel to assign to the notebook
-  - `session_name`(string, optional): Optional name for the session (defaults to notebook path)
-- Returns: Success message with session information including session ID
+#### 3. `use_notebook`
 
-## Multi-Notebook Management Tools (4 tools)
-
-#### 4. `use_notebook`
-
-- Connect to a notebook file or create a new one.
+- Use a notebook and activate it for following cell operations.
 - Input:
   - `notebook_name`(string): Unique identifier for the notebook
-  - `notebook_path`(string, optional): Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb"). If not provided, switches to an already-connected notebook with the given name.
-  - `mode`(string): "connect" to connect to existing, "create" to create new (default: "connect")
-  - `kernel_id`(string, optional): Specific kernel ID to use (optional, will create new if not provided)
-- Returns: Success message with notebook information
+  - `notebook_path`(string): Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
+  - `mode`(string): Notebook operation mode: "connect" to connect to existing and activate it, "create" to create new and activate it (default: "connect")
+  - `kernel_id`(string, optional): Specific kernel ID to use (will create new if skipped)
+- Returns: Success message with notebook information including activation status, kernel details, and notebook overview
 
-#### 5. `list_notebooks`
+#### 4. `list_notebooks`
 
-- List all notebooks in the Jupyter server (including subdirectories) and show which ones are managed by the notebook manager. To interact with a notebook, it has to be "managed". If a notebook is not managed, you can connect to it using the `use_notebook` tool.
+- List all notebooks that have been used via use_notebook tool.
 - Input: None
-- Returns: TSV formatted table with notebook information (Path, Managed, Name, Status, Current)
-  - **Path**: Relative path to the notebook file in the Jupyter server
-  - **Managed**: "Yes" if the notebook is currently managed by the MCP server, "No" otherwise
-  - **Name**: Unique identifier for managed notebooks, "-" for unmanaged notebooks
-  - **Status**: Kernel status for managed notebooks ("alive", "dead", etc.), "-" for unmanaged notebooks
-  - **Current**: "✓" if this is the currently active managed notebook, empty otherwise
+- Returns: TSV formatted table with notebook information
+  - **Name**: Unique identifier for the notebook
+  - **Path**: Path to the notebook file
+  - **Kernel_ID**: Kernel ID associated with the notebook
+  - **Kernel_Status**: Current status of the kernel
+  - **Activate**: "✓" if this is the currently active notebook, empty otherwise
 
-#### 6. `restart_notebook`
+#### 5. `restart_notebook`
 
 - Restart the kernel for a specific notebook.
 - Input:
   - `notebook_name`(string): Notebook identifier to restart
-- Returns: Success message
+- Returns: Success message confirming the kernel has been restarted and memory state cleared
 
-#### 7. `unuse_notebook`
+#### 6. `unuse_notebook`
 
 - Unuse from a specific notebook and release its resources.
 - Input:
   - `notebook_name`(string): Notebook identifier to disconnect
-- Returns: Success message
+- Returns: Success message confirming the notebook has been disconnected and resources released
 
-## Cell Tools (9 tools)
+#### 7. `read_notebook`
+
+- Read a notebook and return index, source content, type, execution count of each cell.
+- Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
+- Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.
+- It is recommended to use brief format with larger limit to get a overview of the notebook structure, then use detailed format with exact index and limit to get the detailed information of some specific cells.
+- Input:
+  - `notebook_name`(string): Notebook identifier to read
+  - `response_format`(string): Response format: "brief" will return first line and lines number, "detailed" will return full cell source (default: "brief")
+  - `start_index`(int, optional): Starting index for pagination (0-based, default: 0)
+  - `limit`(int, optional): Maximum number of items to return (0 means no limit, default: 20)
+- Returns: Notebook content in the requested format with cell details, metadata, and pagination information
+
+## Cell Tools (7 tools)
 
 #### 8. `insert_cell`
 
-- Insert a cell to specified position with unified API.
+- Insert a cell to specified position from the currently activated notebook.
 - Input:
-  - `cell_index`(int): Target index for insertion (0-based). Use -1 to append at end.
-  - `cell_type`(string): Type of cell to insert ("code" or "markdown").
-  - `cell_source`(string): Source content for the cell.
-- Returns: Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below).
+  - `cell_index`(int): Target index for insertion (0-based), use -1 to append at end
+  - `cell_type`(string): Type of cell to insert ("code" or "markdown")
+  - `cell_source`(string): Source content for the cell
+- Returns: Success message with insertion confirmation and the structure of surrounding cells (up to 5 cells above and below)
 
-#### 9. `insert_execute_code_cell`
+#### 9. `overwrite_cell_source`
 
-- Insert and execute a code cell in a Jupyter notebook.
+- Overwrite the source of a specific cell from the currently activated notebook.
+- It will return a diff style comparison (e.g. `+` for new lines, `-` for deleted lines) of the cell's content
 - Input:
-  - `cell_index`(int): Index of the cell to insert (0-based). Use -1 to append at end and execute.
-  - `cell_source`(string): Code source.
-- Returns: List of outputs from the executed cell (supports multimodal output including images).
+  - `cell_index`(int): Index of the cell to overwrite (0-based)
+  - `cell_source`(string): New complete cell source
+- Returns: Success message with diff style comparison showing changes made (e.g. `+` for new lines, `-` for deleted lines)
 
-#### 10. `delete_cell`
+#### 10. `execute_cell`
 
-- Delete a specific cell from the notebook.
+- Execute a cell from the currently activated notebook with timeout and return it's outputs
 - Input:
-  - `cell_index`(int): Index of the cell to delete (0-based).
-- Returns: Success message.
+  - `cell_index`(int): Index of the cell to execute (0-based)
+  - `timeout`(int, optional): Maximum seconds to wait for execution (default: 90)
+  - `stream`(bool, optional): Enable streaming progress updates for long-running cells (default: false)
+  - `progress_interval`(int, optional): Seconds between progress updates when stream=true (default: 5)
+- Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Supports streaming mode with progress updates for long-running cells.
 
-#### 11. `read_cell`
+#### 11. `insert_execute_code_cell`
 
-- Read a specific cell from the notebook.
+- Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs.
+- It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time
 - Input:
-  - `cell_index`(int): Index of the cell to read (0-based).
-- Returns: Dictionary with cell index, type, source, and outputs (for code cells).
+  - `cell_index`(int): Index of the cell to insert and execute (0-based)
+  - `cell_source`(string): Code source for the cell
+  - `timeout`(int, optional): Maximum seconds to wait for execution (default: 90)
+- Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Returns both insertion confirmation and execution results.
 
-#### 12. `read_cells`
+#### 12. `read_cell`
 
-- Read all cells from the notebook.
-- Returns:  List of cell information including index, type, source, and outputs (for code cells).
-
-#### 13. `list_cells`
-
-- List the basic information of all cells in the notebook.
-- Returns a formatted table showing the index, type, execution count (for code cells), and first line of each cell.
-- Provides a quick overview of the notebook structure and is useful for locating specific cells for operations.
-- Input: None
-- Returns: Formatted table string with cell information (Index, Type, Count, First Line).
-
-#### 14. `overwrite_cell_source`
-
-- Overwrite the source of an existing cell.
+- Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
 - Input:
-  - `cell_index`(int): Index of the cell to overwrite (0-based).
-  - `cell_source`(string): New cell source - must match existing cell type.
-- Returns: Success message and diff style.
+  - `cell_index`(int): Index of the cell to read (0-based)
+  - `include_outputs`(bool, optional): Include outputs in the response (only for code cells, default: true)
+- Returns: `list[Union[str, ImageContent]]` - List containing cell metadata (index, type, execution count), source code, and outputs (for code cells with include_outputs=true)
 
-#### 15. `execute_cell`
+#### 13. `delete_cell`
 
-- Execute a cell with configurable timeout and optional streaming progress updates.
+- Delete a specific cell from the currently activated notebook and return the cell source of deleted cell.
+- When deleting many cells, MUST delete them in descending order of their index to avoid index shifting.
 - Input:
-  - `cell_index`: Index of the cell to execute (0-based)
-  - `timeout_seconds`: Maximum time to wait for execution (default: 300s)
-  - `stream`: Enable streaming progress updates for long-running cells (default: False)
-  - `progress_interval`: Seconds between progress updates when stream=True (default: 5s)
-- Returns:
-  - `list[Union[str, ImageContent]]`: List of outputs from the executed cell (supports multimodal output including images)
-- Use `stream=False` for short-running cells (more reliable)
-- Use `stream=True` for long-running cells (provides real-time feedback)
+  - `cell_index`(int): Index of the cell to delete (0-based)
+- Returns: Success message with deletion confirmation and the source code of the deleted cell
 
-#### 16. `execute_ipython`
+#### 14. `execute_code`
 
-- Execute IPython code directly in the kernel on the current active notebook.
-- This powerful tool supports:
-  1. Magic commands (e.g., %timeit, %who, %load, %run, %matplotlib)
-  2. Shell commands (e.g., !pip install, !ls, !cat)
-  3. Python code (e.g., print(df.head()), df.info())
-- Use cases:
-  - Performance profiling and debugging
-  - Environment exploration and package management
-  - Variable inspection and data analysis
-  - File system operations on Jupyter server
-  - Temporary calculations and quick tests
+- Execute code directly in the kernel (not saved to notebook) on the current activated notebook.
+- Recommended to use in following cases:
+  1. Execute Jupyter magic commands (e.g., %timeit, %pip install xxx)
+  2. Performance profiling and debugging
+  3. View intermediate variable values (e.g., print(xxx), df.head())
+  4. Temporary calculations and quick tests (e.g., np.mean(df['xxx']))
+  5. Execute Shell commands in Jupyter server (e.g., !git xxx)
+- Under no circumstances should you use this tool to:
+  1. Import new modules or perform variable assignments that affect subsequent Notebook execution
+  2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
 - Input:
-  - `code`(string): IPython code to execute (supports magic commands, shell commands with !, and Python code)
-  - `timeout`(int): Execution timeout in seconds (default: 60s)
-- Returns:
-  - `list[Union[str, ImageContent]]`: List of outputs from the executed code (supports multimodal output including images)
-
-## JupyterLab-Specific Tools (1 tool)
-
-*Available only when JupyterLab mode is enabled (`--jupyterlab` or `jupyterlab: true` in config). It is set to `True` by default.*
-
-#### 17. `notebook_run-all-cells`
-
-- Execute all cells in the current notebook sequentially.
-- This tool provides a convenient way to run the entire notebook from start to finish, which is particularly useful for batch execution or notebook validation.
-- Only available when JupyterLab mode is enabled for enhanced UI integration.
-- Input: None
-- Returns: Success message indicating that all cells have been executed
-- Note: This tool uses JupyterLab's native execution commands for optimal performance and UI feedback.
+  - `code`(string): Code to execute (supports magic commands with %, shell commands with !)
+  - `timeout`(int, optional): Execution timeout in seconds (default: 30, max: 60)
+- Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed code including text, HTML, images, and shell command results. Supports magic commands and shell commands with ! prefix.
