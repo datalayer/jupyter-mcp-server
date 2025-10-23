@@ -16,19 +16,20 @@ from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_y
 class DeleteCellTool(BaseTool):
     """Tool to delete a specific cell from a notebook."""
     
-    def _get_cell_index_from_id(self, ydoc, cell_id: str) -> Optional[int]:
-        """Find cell index by cell ID in YDoc."""
-        for i, ycell in enumerate(ydoc.ycells):
-            if ycell.get("id") == cell_id:
-                return i
-        return None
-    
+    def _get_cell_source(self, cell: Any) -> str:
+        """Get the cell source from the cell"""
+        cell_source = cell.get("source", "")
+        if isinstance(cell_source, list):
+            return "".join(cell_source)
+        else:
+            return str(cell_source)
+
     async def _delete_cell_ydoc(
         self,
         serverapp: Any,
         notebook_path: str,
         cell_index: int
-    ) -> str:
+    ) -> dict:
         """Delete cell using YDoc (collaborative editing mode).
         
         Args:
@@ -50,18 +51,22 @@ class DeleteCellTool(BaseTool):
         ydoc = await get_jupyter_ydoc(serverapp, file_id)
         
         if ydoc:
-            # Notebook is open in collaborative mode, use YDoc
-            if cell_index < 0 or cell_index >= len(ydoc.ycells):
+            if cell_index >= len(ydoc.ycells):
                 raise ValueError(
                     f"Cell index {cell_index} is out of range. Notebook has {len(ydoc.ycells)} cells."
                 )
             
-            cell_type = ydoc.ycells[cell_index].get("cell_type", "unknown")
+            cell = ydoc.ycells[cell_index]
+            result = {
+                "index": cell_index,
+                "cell_type": cell.get("cell_type", "unknown"),
+                "source": self._get_cell_source(cell),
+            }
             
             # Delete the cell from YDoc
             del ydoc.ycells[cell_index]
             
-            return f"Cell {cell_index} ({cell_type}) deleted successfully."
+            return result
         else:
             # YDoc not available, use file operations
             return await self._delete_cell_file(notebook_path, cell_index)
@@ -70,7 +75,7 @@ class DeleteCellTool(BaseTool):
         self,
         notebook_path: str,
         cell_index: int
-    ) -> str:
+    ) -> dict:
         """Delete cell using file operations (non-collaborative mode).
         
         Args:
@@ -86,13 +91,17 @@ class DeleteCellTool(BaseTool):
         
         clean_notebook_outputs(notebook)
         
-        # Validate index
-        if cell_index < 0 or cell_index >= len(notebook.cells):
+        if cell_index >= len(notebook.cells):
             raise ValueError(
                 f"Cell index {cell_index} is out of range. Notebook has {len(notebook.cells)} cells."
             )
         
-        cell_type = notebook.cells[cell_index].cell_type
+        cell = notebook.cells[cell_index]
+        result = {
+            "index": cell_index,
+            "cell_type": cell.cell_type,
+            "source": self._get_cell_source(cell),
+        }
         
         # Delete the cell
         notebook.cells.pop(cell_index)
@@ -101,13 +110,13 @@ class DeleteCellTool(BaseTool):
         with open(notebook_path, "w", encoding="utf-8") as f:
             nbformat.write(notebook, f)
         
-        return f"Cell {cell_index} ({cell_type}) deleted successfully."
+        return result
     
     async def _delete_cell_websocket(
         self,
         notebook_manager: NotebookManager,
         cell_index: int
-    ) -> str:
+    ) -> dict:
         """Delete cell using WebSocket connection (MCP_SERVER mode).
         
         Args:
@@ -118,13 +127,17 @@ class DeleteCellTool(BaseTool):
             Success message
         """
         async with notebook_manager.get_current_connection() as notebook:
-            if cell_index < 0 or cell_index >= len(notebook):
+            if cell_index >= len(notebook):
                 raise ValueError(
                     f"Cell index {cell_index} is out of range. Notebook has {len(notebook)} cells."
                 )
 
-            deleted_content = notebook.delete_cell(cell_index)
-            return f"Cell {cell_index} ({deleted_content['cell_type']}) deleted successfully."
+            cell = notebook.delete_cell(cell_index)
+            return {
+                "index": cell_index,
+                "cell_type": cell.cell_type,
+                "source": self._get_cell_source(cell),
+            }
     
     async def execute(
         self,
@@ -174,7 +187,7 @@ class DeleteCellTool(BaseTool):
             context = get_server_context()
             serverapp = context.serverapp
             notebook_path, _ = get_current_notebook_context(notebook_manager)
-            
+
             # Resolve to absolute path
             if serverapp and not Path(notebook_path).is_absolute():
                 root_dir = serverapp.root_dir
@@ -182,13 +195,17 @@ class DeleteCellTool(BaseTool):
             
             if serverapp:
                 # Try YDoc approach first
-                return await self._delete_cell_ydoc(serverapp, notebook_path, cell_index)
+                cell_info = await self._delete_cell_ydoc(serverapp, notebook_path, cell_index)
             else:
                 # Fall back to file operations
-                return await self._delete_cell_file(notebook_path, cell_index)
+                cell_info = await self._delete_cell_file(notebook_path, cell_index)
                 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            return await self._delete_cell_websocket(notebook_manager, cell_index)
+            cell_info = await self._delete_cell_websocket(notebook_manager, cell_index)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
+        
+        info_list = [f"Cell {cell_info['index']} ({cell_info['cell_type']}) deleted successfully."]
+        info_list.append(f"deleted cell source:\n{cell_info['source']}")
+        return "\n".join(info_list)
