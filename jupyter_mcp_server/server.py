@@ -445,9 +445,10 @@ async def insert_execute_code_cell(
 
 @mcp.tool()
 async def read_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)")],
-) -> Annotated[dict[str, str | int | list[str | ImageContent]], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
-    """Read a specific cell from the Jupyter notebook."""
+    cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
+    include_outputs: Annotated[bool, Field(description="Include outputs in the response (only for code cells)")] = True,
+) -> Annotated[list[str | ImageContent], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
+    """Read a specific cell and return it's metadata (index, type, execution count), source and outputs (for code cells)"""
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
             mode=server_context.mode,
@@ -455,6 +456,7 @@ async def read_cell(
             contents_manager=server_context.contents_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
+            include_outputs=include_outputs,
         )
     )
 

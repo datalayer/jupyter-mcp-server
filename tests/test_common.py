@@ -325,8 +325,8 @@ class MCPClient:
         return structured
 
     @requires_session
-    async def read_cell(self, cell_index):
-        result = await self._call_tool_safe("read_cell", {"cell_index": cell_index})
+    async def read_cell(self, cell_index, include_outputs=True):
+        result = await self._call_tool_safe("read_cell", {"cell_index": cell_index, "include_outputs": include_outputs})
         return self._get_structured_content_safe(result) if result else None
     
     @requires_session

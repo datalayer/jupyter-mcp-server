@@ -84,9 +84,9 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         # reading and checking the content of the created cell
         cell_info = await client.read_cell(index)
         logging.debug(f"cell_info: {cell_info}")
-        assert cell_info["index"] == index
-        assert cell_info["type"] == expected_type
-        assert "".join(cell_info["source"]) == content
+        assert isinstance(cell_info['result'], list), "Read cell result should be a list"
+        assert f"=====Cell {index} | type: {expected_type}" in cell_info['result'][0], "Cell metadata should be included"
+        assert content in cell_info['result'][1], "Cell source should be included"
         # delete created cell
         result = await client.delete_cell(index)
         assert result is not None, "delete_cell result should not be None"
