@@ -820,62 +820,62 @@ async def execute_cell_local(
             if cell_index < 0 or cell_index >= len(notebook.cells):
                 raise ValueError(f"Cell index {cell_index} out of range. Notebook has {len(notebook.cells)} cells.")
         
-        cell = notebook.cells[cell_index]
-        
-        # Only execute code cells
-        if cell.cell_type != 'code':
-            return [f"[Cell {cell_index} is not a code cell (type: {cell.cell_type})]"]
-        
-        # Get cell source
-        source = cell.source
-        if not source:
-            return ["[Cell is empty]"]
-        
-        # Execute the code
-        logger.info(f"Executing cell {cell_index} from {notebook_path}")
-        outputs = await execute_code_local(
-            serverapp=serverapp,
-            notebook_path=notebook_path,
-            code=source,
-            kernel_id=kernel_id,
-            timeout=timeout,
-            logger=logger
-        )
-        
-        # Write outputs back to notebook (update execution_count and outputs)
-        # Get the last execution count
-        max_count = 0
-        for c in notebook.cells:
-            if c.cell_type == 'code' and c.execution_count:
-                max_count = max(max_count, c.execution_count)
-        
-        cell.execution_count = max_count + 1
-        
-        # Convert formatted outputs back to nbformat structure
-        # Note: outputs is already formatted, so we need to reconstruct
-        # For simplicity, we'll store a simple representation
-        cell.outputs = []
-        for output in outputs:
-            if isinstance(output, str):
-                # Create a stream output
-                cell.outputs.append(nbformat.v4.new_output(
-                    output_type='stream',
-                    name='stdout',
-                    text=output
-                ))
-            elif isinstance(output, ImageContent):
-                # Create a display_data output with image
-                cell.outputs.append(nbformat.v4.new_output(
-                    output_type='display_data',
-                    data={'image/png': output.data}
-                ))
-        
-        # Write notebook back
-        with open(notebook_path, 'w', encoding='utf-8') as f:
-            nbformat.write(notebook, f)
-        
-        logger.info(f"Cell {cell_index} executed and notebook updated")
-        return outputs
+            cell = notebook.cells[cell_index]
+            
+            # Only execute code cells
+            if cell.cell_type != 'code':
+                return [f"[Cell {cell_index} is not a code cell (type: {cell.cell_type})]"]
+            
+            # Get cell source
+            source = cell.source
+            if not source:
+                return ["[Cell is empty]"]
+            
+            # Execute the code
+            logger.info(f"Executing cell {cell_index} from {notebook_path}")
+            outputs = await execute_code_local(
+                serverapp=serverapp,
+                notebook_path=notebook_path,
+                code=source,
+                kernel_id=kernel_id,
+                timeout=timeout,
+                logger=logger
+            )
+            
+            # Write outputs back to notebook (update execution_count and outputs)
+            # Get the last execution count
+            max_count = 0
+            for c in notebook.cells:
+                if c.cell_type == 'code' and c.execution_count:
+                    max_count = max(max_count, c.execution_count)
+            
+            cell.execution_count = max_count + 1
+            
+            # Convert formatted outputs back to nbformat structure
+            # Note: outputs is already formatted, so we need to reconstruct
+            # For simplicity, we'll store a simple representation
+            cell.outputs = []
+            for output in outputs:
+                if isinstance(output, str):
+                    # Create a stream output
+                    cell.outputs.append(nbformat.v4.new_output(
+                        output_type='stream',
+                        name='stdout',
+                        text=output
+                    ))
+                elif isinstance(output, ImageContent):
+                    # Create a display_data output with image
+                    cell.outputs.append(nbformat.v4.new_output(
+                        output_type='display_data',
+                        data={'image/png': output.data}
+                    ))
+            
+            # Write notebook back
+            with open(notebook_path, 'w', encoding='utf-8') as f:
+                nbformat.write(notebook, f)
+            
+            logger.info(f"Cell {cell_index} executed and notebook updated")
+            return outputs
         
     except Exception as e:
         logger.error(f"Error executing cell locally: {e}")

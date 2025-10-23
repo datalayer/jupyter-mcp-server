@@ -90,8 +90,8 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         # delete created cell
         result = await client.delete_cell(index)
         assert result is not None, "delete_cell result should not be None"
-        expected_delete_msg = f"Cell {index} ({expected_type}) deleted successfully."
-        assert result["result"] == expected_delete_msg
+        assert f"Cell {index} ({expected_type}) deleted successfully" in result["result"]
+        assert f"deleted cell source:\n{content}" in result["result"]
 
     async with mcp_client_parametrized:
         # Test markdown cell operations
