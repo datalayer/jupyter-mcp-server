@@ -32,9 +32,7 @@
 </td>
 <td width="40%" align="center">
 
-<a href="https://jupytercon2025.sched.com/event/28H3z">
-<img src="https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png" alt="JupyterCon 2025" width="400">
-</a>
+[![JupyterCon 2025](https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png)](https://jupytercon2025.sched.com/event/28H3z)
 
 </td>
 </tr>
@@ -258,9 +256,7 @@ For detailed instructions on how to get started with development and submit your
 
 ### Our Contributors
 
-<a href="https://github.com/datalayer/jupyter-mcp-server/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=datalayer/jupyter-mcp-server" />
-</a>
+[![Contributors](https://contrib.rocks/image?repo=datalayer/jupyter-mcp-server)](https://github.com/datalayer/jupyter-mcp-server/graphs/contributors)
 
 ## 📚 Resources
 
@@ -268,9 +264,7 @@ Looking for blog posts, videos, or other materials about Jupyter MCP Server?
 
 👉 Visit the [**Resources section**](https://jupyter-mcp-server.datalayer.tech/resources) in our documentation for more!
 
-<a href="https://star-history.com/#datalayer/jupyter-mcp-server&type=Date">
-  <img src="https://api.star-history.com/svg?repos=datalayer/jupyter-mcp-server&type=Date" alt="Star History Chart">
-</a>
+[![Star History Chart](https://api.star-history.com/svg?repos=datalayer/jupyter-mcp-server&type=Date)](https://star-history.com/#datalayer/jupyter-mcp-server&type=Date)
 
 ______________________________________________________________________
 
