@@ -8,7 +8,6 @@ from typing import Any, Optional, Literal
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.models import Notebook
 
 

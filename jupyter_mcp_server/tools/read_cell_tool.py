@@ -10,33 +10,67 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import CellInfo
 from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.utils import get_jupyter_ydoc
 from mcp.types import ImageContent
 
 
 class ReadCellTool(BaseTool):
     """Tool to read a specific cell from a notebook."""
-    
-    async def _read_cell_local(self, contents_manager: Any, path: str, cell_index: int) -> Dict[str, Any]:
-        """Read a specific cell using local contents_manager (JUPYTER_SERVER mode)."""
-        # Read the notebook file directly
+
+    async def _read_cell_local(self, serverapp: Any, contents_manager: Any, path: str, cell_index: int) -> Dict[str, Any]:
+        """Read a specific cell using local contents_manager (JUPYTER_SERVER mode).
+
+        First tries to read from YDoc (RTC mode) if notebook is open, otherwise falls back to file mode.
+        """
+        # Get file_id for YDoc lookup
+        file_id_manager = serverapp.web_app.settings.get("file_id_manager")
+        file_id = file_id_manager.get_id(path) if file_id_manager else None
+        if file_id is None and file_id_manager:
+            file_id = file_id_manager.index(path)
+
+        # Try to get YDoc if notebook is open (RTC mode)
+        if file_id:
+            ydoc = await get_jupyter_ydoc(serverapp, file_id)
+            if ydoc:
+                # Notebook is open - read from YDoc (live data)
+                cells = ydoc.ycells
+
+                # Handle negative indices
+                if cell_index < 0:
+                    cell_index = len(cells) + cell_index
+
+                if cell_index < 0 or cell_index >= len(cells):
+                    raise ValueError(
+                        f"Cell index {cell_index} is out of range. Notebook has {len(cells)} cells."
+                    )
+
+                cell = cells[cell_index]
+                cell_info = CellInfo.from_cell(cell_index=cell_index, cell=cell)
+                return cell_info.model_dump(exclude_none=True)
+
+        # Fall back to file mode if notebook not open
         model = await contents_manager.get(path, content=True, type='notebook')
-        
+
         if 'content' not in model:
             raise ValueError(f"Could not read notebook content from {path}")
-        
+
         notebook_content = model['content']
         cells = notebook_content.get('cells', [])
-        
+
+        # Handle negative indices
+        if cell_index < 0:
+            cell_index = len(cells) + cell_index
+
         if cell_index < 0 or cell_index >= len(cells):
             raise ValueError(
                 f"Cell index {cell_index} is out of range. Notebook has {len(cells)} cells."
             )
-        
+
         cell = cells[cell_index]
-        
+
         # Use CellInfo.from_cell to normalize the structure (ensures "type" field not "cell_type")
         cell_info = CellInfo.from_cell(cell_index=cell_index, cell=cell)
-        
+
         return cell_info.model_dump(exclude_none=True)
     
     async def execute(
@@ -90,7 +124,7 @@ class ReadCellTool(BaseTool):
                     # Path is not under root_dir, use as-is
                     pass
             
-            return await self._read_cell_local(contents_manager, notebook_path, cell_index)
+            return await self._read_cell_local(serverapp, contents_manager, notebook_path, cell_index)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
             async with notebook_manager.get_current_connection() as notebook:
