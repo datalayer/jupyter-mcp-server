@@ -164,7 +164,7 @@ class OverwriteCellSourceTool(BaseTool):
             if serverapp and not Path(notebook_path).is_absolute():
                 root_dir = serverapp.root_dir
                 notebook_path = str(Path(root_dir) / notebook_path)
-            
+
             if serverapp:
                 diff = await self._overwrite_cell_ydoc(serverapp, notebook_path, cell_index, cell_source)
             else:

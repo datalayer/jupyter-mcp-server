@@ -134,6 +134,11 @@ class ExecuteCellTool(BaseTool):
             context = get_server_context()
             serverapp = context.serverapp
 
+            # Resolve to absolute path
+            if serverapp and not Path(notebook_path).is_absolute():
+                root_dir = serverapp.root_dir
+                notebook_path = str(Path(root_dir) / notebook_path)
+
             if serverapp is None:
                 raise ValueError("serverapp is required for JUPYTER_SERVER mode")
             if kernel_manager is None:
@@ -162,11 +167,6 @@ class ExecuteCellTool(BaseTool):
                     )
 
             logger.info(f"Executing cell {cell_index} in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)")
-
-            # Resolve to absolute path
-            if serverapp and not Path(notebook_path).is_absolute():
-                root_dir = serverapp.root_dir
-                notebook_path = str(Path(root_dir) / notebook_path)
 
             # Get file_id from file_id_manager
             file_id_manager = serverapp.web_app.settings.get("file_id_manager")
