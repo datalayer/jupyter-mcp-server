@@ -192,10 +192,14 @@ class ExecuteCellTool(BaseTool):
                 cell_id = ydoc.ycells[cell_index].get("id")
                 cell_source = ydoc.ycells[cell_index].get("source")
 
-                if not cell_source or not cell_source.to_py().strip():
+                if isinstance(cell_source, str):
+                    code_to_execute = cell_source
+                else:
+                    code_to_execute = cell_source.to_py()
+
+                if not code_to_execute or not code_to_execute.strip():
                     return []
 
-                code_to_execute = cell_source.to_py()
                 document_id = f"json:notebook:{file_id}"
 
                 # Execute with RTC metadata - outputs will sync automatically
