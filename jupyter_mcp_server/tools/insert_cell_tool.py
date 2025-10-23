@@ -10,59 +10,12 @@ import nbformat
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context
-from jupyter_mcp_server.utils import get_surrounding_cells_info
+from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_ydoc, clean_notebook_outputs
+from jupyter_mcp_server.models import Notebook
 
 
 class InsertCellTool(BaseTool):
     """Tool to insert a cell at a specified position."""
-
-    async def _get_jupyter_ydoc(self, serverapp: Any, file_id: str):
-        """Get the YNotebook document if it's currently open in a collaborative session.
-
-        This follows the jupyter_ai_tools pattern of accessing YDoc through the
-        yroom_manager when the notebook is actively being edited.
-
-        Args:
-            serverapp: The Jupyter ServerApp instance
-            file_id: The file ID for the document
-
-        Returns:
-            YNotebook instance or None if not in a collaborative session
-        """
-        try:
-            # Access ywebsocket_server from YDocExtension via extension_manager
-            # jupyter-collaboration doesn't add yroom_manager to web_app.settings
-            ywebsocket_server = None
-
-            if hasattr(serverapp, 'extension_manager'):
-                extension_points = serverapp.extension_manager.extension_points
-                if 'jupyter_server_ydoc' in extension_points:
-                    ydoc_ext_point = extension_points['jupyter_server_ydoc']
-                    if hasattr(ydoc_ext_point, 'app') and ydoc_ext_point.app:
-                        ydoc_app = ydoc_ext_point.app
-                        if hasattr(ydoc_app, 'ywebsocket_server'):
-                            ywebsocket_server = ydoc_app.ywebsocket_server
-
-            if ywebsocket_server is None:
-                return None
-
-            room_id = f"json:notebook:{file_id}"
-
-            # Get room and access document via room._document
-            # DocumentRoom stores the YNotebook as room._document, not via get_jupyter_ydoc()
-            try:
-                yroom = await ywebsocket_server.get_room(room_id)
-                if yroom and hasattr(yroom, '_document'):
-                    return yroom._document
-            except Exception:
-                pass
-
-        except Exception:
-            # YDoc not available, will fall back to file operations
-            pass
-
-        return None
     
     async def _insert_cell_ydoc(
         self,
@@ -71,7 +24,7 @@ class InsertCellTool(BaseTool):
         cell_index: int,
         cell_type: Literal["code", "markdown"],
         cell_source: str
-    ) -> str:
+    ) -> tuple[int, int]:
         """Insert cell using YDoc (collaborative editing mode).
         
         Args:
@@ -92,7 +45,7 @@ class InsertCellTool(BaseTool):
         file_id = file_id_manager.get_id(notebook_path)
         
         # Try to get YDoc
-        ydoc = await self._get_jupyter_ydoc(serverapp, file_id)
+        ydoc = await get_jupyter_ydoc(serverapp, file_id)
         
         if ydoc:
             # Notebook is open in collaborative mode, use YDoc
@@ -122,32 +75,10 @@ class InsertCellTool(BaseTool):
                 # Set the source directly on the ycell
                 ycell["source"] = cell_source
             
-            # Get surrounding cells info (simplified version for YDoc)
-            new_total_cells = len(ydoc.ycells)
-            surrounding_info = self._get_surrounding_cells_info_ydoc(ydoc, actual_index, new_total_cells)
-            
-            return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
+            return actual_index, len(ydoc.ycells)
         else:
             # YDoc not available, use file operations
             return await self._insert_cell_file(notebook_path, cell_index, cell_type, cell_source)
-    
-    def _get_surrounding_cells_info_ydoc(self, ydoc, center_index: int, total_cells: int) -> str:
-        """Get info about surrounding cells from YDoc."""
-        lines = []
-        start_index = max(0, center_index - 5)
-        end_index = min(total_cells, center_index + 6)
-        
-        for i in range(start_index, end_index):
-            cell = ydoc.ycells[i]
-            cell_type = cell.get("cell_type", "unknown")
-            source = cell.get("source", "")
-            if isinstance(source, list):
-                source = "".join(source)
-            first_line = source.split('\n')[0][:50] if source else "(empty)"
-            marker = " <-- NEW" if i == center_index else ""
-            lines.append(f"  [{i}] {cell_type}: {first_line}{marker}")
-        
-        return "\n".join(lines)
     
     async def _insert_cell_file(
         self,
@@ -155,7 +86,7 @@ class InsertCellTool(BaseTool):
         cell_index: int,
         cell_type: Literal["code", "markdown"],
         cell_source: str
-    ) -> str:
+    ) -> tuple[int, int]:
         """Insert cell using file operations (non-collaborative mode).
         
         Args:
@@ -173,7 +104,7 @@ class InsertCellTool(BaseTool):
             notebook = nbformat.read(f, as_version=4)
         
         # Clean any transient fields from existing outputs (kernel protocol field not in nbformat schema)
-        self._clean_notebook_outputs(notebook)
+        clean_notebook_outputs(notebook)
         
         total_cells = len(notebook.cells)
         actual_index = cell_index if cell_index != -1 else total_cells
@@ -197,43 +128,7 @@ class InsertCellTool(BaseTool):
         with open(notebook_path, "w", encoding="utf-8") as f:
             nbformat.write(notebook, f)
         
-        # Get surrounding cells info
-        new_total_cells = len(notebook.cells)
-        surrounding_info = self._get_surrounding_cells_info_file(notebook, actual_index, new_total_cells)
-        
-        return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
-    
-    def _clean_notebook_outputs(self, notebook):
-        """Remove transient fields from all cell outputs.
-        
-        The 'transient' field is part of the Jupyter kernel messaging protocol
-        but is NOT part of the nbformat schema. This causes validation errors.
-        
-        Args:
-            notebook: nbformat notebook object to clean (modified in place)
-        """
-        # Clean transient fields from outputs
-        for cell in notebook.cells:
-            if cell.cell_type == 'code' and hasattr(cell, 'outputs'):
-                for output in cell.outputs:
-                    if isinstance(output, dict) and 'transient' in output:
-                        del output['transient']
-    
-    def _get_surrounding_cells_info_file(self, notebook, center_index: int, total_cells: int) -> str:
-        """Get info about surrounding cells from nbformat notebook."""
-        lines = []
-        start_index = max(0, center_index - 5)
-        end_index = min(total_cells, center_index + 6)
-        
-        for i in range(start_index, end_index):
-            cell = notebook.cells[i]
-            cell_type = cell.cell_type
-            source = cell.source
-            first_line = source.split('\n')[0][:50] if source else "(empty)"
-            marker = " <-- NEW" if i == center_index else ""
-            lines.append(f"  [{i}] {cell_type}: {first_line}{marker}")
-        
-        return "\n".join(lines)
+        return actual_index, len(notebook.cells)
     
     async def _insert_cell_websocket(
         self,
@@ -241,7 +136,7 @@ class InsertCellTool(BaseTool):
         cell_index: int,
         cell_type: Literal["code", "markdown"],
         cell_source: str
-    ) -> str:
+    ) -> tuple[int, Notebook]:
         """Insert cell using WebSocket connection (MCP_SERVER mode).
         
         Args:
@@ -260,12 +155,8 @@ class InsertCellTool(BaseTool):
             
             notebook.insert_cell(actual_index, cell_source, cell_type)
             
-            # Get surrounding cells info
-            new_total_cells = len(notebook)
-            surrounding_info = get_surrounding_cells_info(notebook, actual_index, new_total_cells)
-            
-            return f"Cell inserted successfully at index {actual_index} ({cell_type})!\n\nCurrent Surrounding Cells:\n{surrounding_info}"
-    
+            return actual_index, Notebook(**notebook.as_dict())
+
     async def execute(
         self,
         mode: ServerMode,
@@ -323,16 +214,36 @@ class InsertCellTool(BaseTool):
             if serverapp and not Path(notebook_path).is_absolute():
                 root_dir = serverapp.root_dir
                 notebook_path = str(Path(root_dir) / notebook_path)
-            
+
             if serverapp:
                 # Try YDoc approach first
-                return await self._insert_cell_ydoc(serverapp, notebook_path, cell_index, cell_type, cell_source)
+                actual_index, new_total_cells = await self._insert_cell_ydoc(serverapp, notebook_path, cell_index, cell_type, cell_source)
             else:
                 # Fall back to file operations
-                return await self._insert_cell_file(notebook_path, cell_index, cell_type, cell_source)
+                actual_index, new_total_cells = await self._insert_cell_file(notebook_path, cell_index, cell_type, cell_source)
+            
+            # Load notebook using same API
+            notebook_path = notebook_manager.get_current_notebook_path()
+            model = await contents_manager.get(notebook_path, content=True, type='notebook')
+            if 'content' not in model:
+                raise ValueError(f"Could not read notebook content from {notebook_path}")
+            notebook = Notebook(**model['content'])
                 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            return await self._insert_cell_websocket(notebook_manager, cell_index, cell_type, cell_source)
+            actual_index, notebook = await self._insert_cell_websocket(notebook_manager, cell_index, cell_type, cell_source)
+            new_total_cells = len(notebook)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
+        
+        info_list = [f"Cell inserted successfully at index {actual_index} ({cell_type})!"]
+        info_list.append(f"Notebook now has {new_total_cells} cells, showing surrounding cells:")
+        # near to end
+        if new_total_cells - actual_index < 5:
+            start_index = max(0, new_total_cells - 10)
+        else:
+            start_index = max(0, actual_index - 5)
+        info_list.append(notebook.format_output(response_format="brief", start_index=start_index, limit=10))
+        return "\n".join(info_list)
+        
+

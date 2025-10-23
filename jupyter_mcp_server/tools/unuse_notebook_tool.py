@@ -42,7 +42,7 @@ class UnuseNotebookTool(BaseTool):
             Success message
         """
         if notebook_name not in notebook_manager:
-            return f"Notebook '{notebook_name}' is not connected."
+            return f"Notebook '{notebook_name}' is not connected. All currently connected notebooks: {list(notebook_manager.list_all_notebooks().keys())}"
         
         # Get info about which notebook was current
         current_notebook = notebook_manager.get_current_notebook()

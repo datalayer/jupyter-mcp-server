@@ -11,46 +11,11 @@ from typing import Any, Optional
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context
+from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_ydoc, clean_notebook_outputs
 
 
 class OverwriteCellSourceTool(BaseTool):
     """Tool to overwrite the source of an existing cell."""
-    
-    async def _get_jupyter_ydoc(self, serverapp: Any, file_id: str):
-        """Get the YNotebook document if it's currently open in a collaborative session."""
-        try:
-            # Access ywebsocket_server from YDocExtension via extension_manager
-            # jupyter-collaboration doesn't add yroom_manager to web_app.settings
-            ywebsocket_server = None
-
-            if hasattr(serverapp, 'extension_manager'):
-                extension_points = serverapp.extension_manager.extension_points
-                if 'jupyter_server_ydoc' in extension_points:
-                    ydoc_ext_point = extension_points['jupyter_server_ydoc']
-                    if hasattr(ydoc_ext_point, 'app') and ydoc_ext_point.app:
-                        ydoc_app = ydoc_ext_point.app
-                        if hasattr(ydoc_app, 'ywebsocket_server'):
-                            ywebsocket_server = ydoc_app.ywebsocket_server
-
-            if ywebsocket_server is None:
-                return None
-
-            room_id = f"json:notebook:{file_id}"
-
-            # Get room and access document via room._document
-            # DocumentRoom stores the YNotebook as room._document, not via get_jupyter_ydoc()
-            try:
-                yroom = await ywebsocket_server.get_room(room_id)
-                if yroom and hasattr(yroom, '_document'):
-                    return yroom._document
-            except Exception:
-                pass
-
-        except Exception:
-            pass
-
-        return None
     
     def _generate_diff(self, old_source: str, new_source: str) -> str:
         """Generate unified diff between old and new source."""
@@ -64,9 +29,8 @@ class OverwriteCellSourceTool(BaseTool):
             n=3  # Number of context lines
         ))
         
-        # Remove the first 3 lines (file headers) from unified_diff output
         if len(diff_lines) > 3:
-            return '\n'.join(diff_lines[3:])
+            return '\n'.join(diff_lines)
         return "no changes detected"
     
     async def _overwrite_cell_ydoc(
@@ -85,7 +49,7 @@ class OverwriteCellSourceTool(BaseTool):
         file_id = file_id_manager.get_id(notebook_path)
         
         # Try to get YDoc
-        ydoc = await self._get_jupyter_ydoc(serverapp, file_id)
+        ydoc = await get_jupyter_ydoc(serverapp, file_id)
         
         if ydoc:
             # Notebook is open in collaborative mode, use YDoc
@@ -104,13 +68,7 @@ class OverwriteCellSourceTool(BaseTool):
             # Set new cell source
             ydoc.ycells[cell_index]["source"] = cell_source
             
-            # Generate diff
-            diff_content = self._generate_diff(old_source, cell_source)
-            
-            if not diff_content.strip() or diff_content == "no changes detected":
-                return f"Cell {cell_index} overwritten successfully - no changes detected"
-            
-            return f"Cell {cell_index} overwritten successfully!\n\n```diff\n{diff_content}\n```"
+            return self._generate_diff(old_source, cell_source)
         else:
             # YDoc not available, use file operations
             return await self._overwrite_cell_file(notebook_path, cell_index, cell_source)
@@ -125,10 +83,7 @@ class OverwriteCellSourceTool(BaseTool):
         # Read notebook file as version 4 for consistency
         with open(notebook_path, "r", encoding="utf-8") as f:
             notebook = nbformat.read(f, as_version=4)
-        
-        # Clean transient fields from outputs
-        from jupyter_mcp_server.utils import _clean_notebook_outputs
-        _clean_notebook_outputs(notebook)
+        clean_notebook_outputs(notebook)
         
         if cell_index < 0 or cell_index >= len(notebook.cells):
             raise ValueError(
@@ -145,13 +100,7 @@ class OverwriteCellSourceTool(BaseTool):
         with open(notebook_path, "w", encoding="utf-8") as f:
             nbformat.write(notebook, f)
         
-        # Generate diff
-        diff_content = self._generate_diff(old_source, cell_source)
-        
-        if not diff_content.strip() or diff_content == "no changes detected":
-            return f"Cell {cell_index} overwritten successfully - no changes detected"
-        
-        return f"Cell {cell_index} overwritten successfully!\n\n```diff\n{diff_content}\n```"
+        return self._generate_diff(old_source, cell_source)
     
     async def _overwrite_cell_websocket(
         self,
@@ -173,14 +122,8 @@ class OverwriteCellSourceTool(BaseTool):
             
             # Set new cell content
             notebook.set_cell_source(cell_index, cell_source)
-            
-            # Generate diff
-            diff_content = self._generate_diff(old_source, cell_source)
-            
-            if not diff_content.strip() or diff_content == "no changes detected":
-                return f"Cell {cell_index} overwritten successfully - no changes detected"
-            
-            return f"Cell {cell_index} overwritten successfully!\n\n```diff\n{diff_content}\n```"
+
+            return self._generate_diff(old_source, cell_source)
     
     async def execute(
         self,
@@ -221,14 +164,19 @@ class OverwriteCellSourceTool(BaseTool):
             if serverapp and not Path(notebook_path).is_absolute():
                 root_dir = serverapp.root_dir
                 notebook_path = str(Path(root_dir) / notebook_path)
-            
+
             if serverapp:
-                return await self._overwrite_cell_ydoc(serverapp, notebook_path, cell_index, cell_source)
+                diff = await self._overwrite_cell_ydoc(serverapp, notebook_path, cell_index, cell_source)
             else:
-                return await self._overwrite_cell_file(notebook_path, cell_index, cell_source)
+                diff = await self._overwrite_cell_file(notebook_path, cell_index, cell_source)
                 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            return await self._overwrite_cell_websocket(notebook_manager, cell_index, cell_source)
+            diff = await self._overwrite_cell_websocket(notebook_manager, cell_index, cell_source)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
+        
+        if not diff.strip() or diff == "no changes detected":
+            return f"Cell {cell_index} overwritten successfully - no changes detected"
+        else:
+            return f"Cell {cell_index} overwritten successfully!\n\n```diff\n{diff}\n```"

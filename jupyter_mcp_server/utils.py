@@ -126,7 +126,7 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub('', text)
 
 
-def _clean_notebook_outputs(notebook):
+def clean_notebook_outputs(notebook):
     """Remove transient fields from all cell outputs.
     
     The 'transient' field is part of the Jupyter kernel messaging protocol
@@ -238,35 +238,6 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
         result.append(data_row)
     
     return "\n".join(result)
-
-def get_surrounding_cells_info(notebook, cell_index: int, total_cells: int) -> str:
-    """Get information about surrounding cells for context."""
-    start_index = max(0, cell_index - 5)
-    end_index = min(total_cells, cell_index + 6)
-    
-    if total_cells == 0:
-        return "Notebook is now empty, no cells remaining"
-    
-    headers = ["Index", "Type", "Count", "First Line"]
-    rows = []
-    
-    for i in range(start_index, end_index):
-        if i >= total_cells:
-            break
-            
-        cell_data = notebook[i]
-        cell_type = cell_data.get("cell_type", "unknown")
-        
-        execution_count = (cell_data.get("execution_count") or "None") if cell_type == "code" else "N/A"
-        # Get first line of source
-        source_lines = normalize_cell_source(cell_data.get("source", ""))
-        first_line = source_lines[0] if source_lines else ""
-        # Mark the target cell
-        marker = " <-- NEW" if i == cell_index else ""
-        rows.append([i, cell_type, execution_count, first_line+marker])
-    
-    return format_TSV(headers, rows)
-
 
 ###############################################################################
 # Kernel and notebook operation helpers
@@ -843,69 +814,117 @@ async def execute_cell_local(
                 notebook = nbformat.read(f, as_version=4)
             
             # Clean transient fields from outputs
-            _clean_notebook_outputs(notebook)
+            clean_notebook_outputs(notebook)
             
             # Validate cell index
             if cell_index < 0 or cell_index >= len(notebook.cells):
                 raise ValueError(f"Cell index {cell_index} out of range. Notebook has {len(notebook.cells)} cells.")
         
-        cell = notebook.cells[cell_index]
-        
-        # Only execute code cells
-        if cell.cell_type != 'code':
-            return [f"[Cell {cell_index} is not a code cell (type: {cell.cell_type})]"]
-        
-        # Get cell source
-        source = cell.source
-        if not source:
-            return ["[Cell is empty]"]
-        
-        # Execute the code
-        logger.info(f"Executing cell {cell_index} from {notebook_path}")
-        outputs = await execute_code_local(
-            serverapp=serverapp,
-            notebook_path=notebook_path,
-            code=source,
-            kernel_id=kernel_id,
-            timeout=timeout,
-            logger=logger
-        )
-        
-        # Write outputs back to notebook (update execution_count and outputs)
-        # Get the last execution count
-        max_count = 0
-        for c in notebook.cells:
-            if c.cell_type == 'code' and c.execution_count:
-                max_count = max(max_count, c.execution_count)
-        
-        cell.execution_count = max_count + 1
-        
-        # Convert formatted outputs back to nbformat structure
-        # Note: outputs is already formatted, so we need to reconstruct
-        # For simplicity, we'll store a simple representation
-        cell.outputs = []
-        for output in outputs:
-            if isinstance(output, str):
-                # Create a stream output
-                cell.outputs.append(nbformat.v4.new_output(
-                    output_type='stream',
-                    name='stdout',
-                    text=output
-                ))
-            elif isinstance(output, ImageContent):
-                # Create a display_data output with image
-                cell.outputs.append(nbformat.v4.new_output(
-                    output_type='display_data',
-                    data={'image/png': output.data}
-                ))
-        
-        # Write notebook back
-        with open(notebook_path, 'w', encoding='utf-8') as f:
-            nbformat.write(notebook, f)
-        
-        logger.info(f"Cell {cell_index} executed and notebook updated")
-        return outputs
+            cell = notebook.cells[cell_index]
+            
+            # Only execute code cells
+            if cell.cell_type != 'code':
+                return [f"[Cell {cell_index} is not a code cell (type: {cell.cell_type})]"]
+            
+            # Get cell source
+            source = cell.source
+            if not source:
+                return ["[Cell is empty]"]
+            
+            # Execute the code
+            logger.info(f"Executing cell {cell_index} from {notebook_path}")
+            outputs = await execute_code_local(
+                serverapp=serverapp,
+                notebook_path=notebook_path,
+                code=source,
+                kernel_id=kernel_id,
+                timeout=timeout,
+                logger=logger
+            )
+            
+            # Write outputs back to notebook (update execution_count and outputs)
+            # Get the last execution count
+            max_count = 0
+            for c in notebook.cells:
+                if c.cell_type == 'code' and c.execution_count:
+                    max_count = max(max_count, c.execution_count)
+            
+            cell.execution_count = max_count + 1
+            
+            # Convert formatted outputs back to nbformat structure
+            # Note: outputs is already formatted, so we need to reconstruct
+            # For simplicity, we'll store a simple representation
+            cell.outputs = []
+            for output in outputs:
+                if isinstance(output, str):
+                    # Create a stream output
+                    cell.outputs.append(nbformat.v4.new_output(
+                        output_type='stream',
+                        name='stdout',
+                        text=output
+                    ))
+                elif isinstance(output, ImageContent):
+                    # Create a display_data output with image
+                    cell.outputs.append(nbformat.v4.new_output(
+                        output_type='display_data',
+                        data={'image/png': output.data}
+                    ))
+            
+            # Write notebook back
+            with open(notebook_path, 'w', encoding='utf-8') as f:
+                nbformat.write(notebook, f)
+            
+            logger.info(f"Cell {cell_index} executed and notebook updated")
+            return outputs
         
     except Exception as e:
         logger.error(f"Error executing cell locally: {e}")
         return [f"[ERROR: {str(e)}]"]
+
+
+async def get_jupyter_ydoc(serverapp: Any, file_id: str):
+    """Get the YNotebook document if it's currently open in a collaborative session.
+    
+    This follows the jupyter_ai_tools pattern of accessing YDoc through the
+    yroom_manager when the notebook is actively being edited.
+    
+    Args:
+        serverapp: The Jupyter ServerApp instance
+        file_id: The file ID for the document
+        
+    Returns:
+        YNotebook instance or None if not in a collaborative session
+    """
+    try:
+        # Access ywebsocket_server from YDocExtension via extension_manager
+        # jupyter-collaboration doesn't add yroom_manager to web_app.settings
+        ywebsocket_server = None
+
+        if hasattr(serverapp, 'extension_manager'):
+            extension_points = serverapp.extension_manager.extension_points
+            if 'jupyter_server_ydoc' in extension_points:
+                ydoc_ext_point = extension_points['jupyter_server_ydoc']
+                if hasattr(ydoc_ext_point, 'app') and ydoc_ext_point.app:
+                    ydoc_app = ydoc_ext_point.app
+                    if hasattr(ydoc_app, 'ywebsocket_server'):
+                        ywebsocket_server = ydoc_app.ywebsocket_server
+
+        if ywebsocket_server is None:
+            return None
+
+        room_id = f"json:notebook:{file_id}"
+
+        # Get room and access document via room._document
+        # DocumentRoom stores the YNotebook as room._document, not via get_jupyter_ydoc()
+        try:
+            yroom = await ywebsocket_server.get_room(room_id)
+            if yroom and hasattr(yroom, '_document'):
+                return yroom._document
+        except Exception:
+            pass
+
+    except Exception:
+        # YDoc not available, will fall back to file operations
+        pass
+
+    return None

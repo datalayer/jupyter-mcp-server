@@ -20,12 +20,10 @@ from starlette.responses import JSONResponse
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.utils import (
-    extract_output, 
     safe_extract_outputs, 
     create_kernel,
     start_kernel,
     ensure_kernel_alive,
-    execute_cell_with_forced_sync,
     wait_for_kernel_idle,
     safe_notebook_operation
 )
@@ -42,12 +40,10 @@ from jupyter_mcp_server.tools import (
     RestartNotebookTool,
     UnuseNotebookTool,
     # Cell Reading
-    ReadCellsTool,
-    ListCellsTool,
+    ReadNotebookTool,
     ReadCellTool,
     # Cell Writing
     InsertCellTool,
-    InsertExecuteCodeCellTool,
     OverwriteCellSourceTool,
     DeleteCellTool,
     # Cell Execution
@@ -316,17 +312,44 @@ async def unuse_notebook(
         kernel_manager=server_context.kernel_manager,
     )
 
+@mcp.tool()
+async def read_notebook(
+    notebook_name: Annotated[str, Field(description="Notebook identifier to read")],
+    response_format: Annotated[Literal["brief", "detailed"], Field(description="Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source")] = "brief",
+    start_index: Annotated[int, Field(description="Starting index for pagination (0-based)", ge=0)] = 0,
+    limit: Annotated[int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)] = 20
+) -> Annotated[str, Field(description="Notebook content in the requested format")]:
+    """Read a notebook and return index, source content, type, execution count of each cell.
+    
+    Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
+    Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.
+
+    It is recommended to use brief format with larger limit to get a overview of the notebook structure, 
+    then use detailed format with exact index and limit to get the detailed information of some specific cells.
+    """
+    return await safe_notebook_operation(
+        lambda: ReadNotebookTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
+            notebook_name=notebook_name,
+            response_format=response_format,
+            start_index=start_index,
+            limit=limit,
+        )
+    )
 
 ###############################################################################
 # Cell Tools.
 
 @mcp.tool()
 async def insert_cell(
-    cell_index: Annotated[int, Field(description="Target index for insertion (0-based). Use -1 to append at end.")],
+    cell_index: Annotated[int, Field(description="Target index for insertion (0-based), use -1 to append at end", ge=-1)],
     cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
     cell_source: Annotated[str, Field(description="Source content for the cell")],
-) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells (up to 5 cells above and 5 cells below)")]:
-    """Insert a cell to specified position."""
+) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells")]:
+    """Insert a cell to specified position from the currently activated notebook."""
     return await safe_notebook_operation(
         lambda: InsertCellTool().execute(
             mode=server_context.mode,
@@ -340,33 +363,13 @@ async def insert_cell(
         )
     )
 
-
-@mcp.tool()
-async def insert_execute_code_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to insert (0-based). Use -1 to append at end and execute.")],
-    cell_source: Annotated[str, Field(description="Code source")],
-) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
-    """Insert and execute a code cell in a Jupyter notebook."""
-    return await safe_notebook_operation(
-        lambda: InsertExecuteCodeCellTool().execute(
-            mode=server_context.mode,
-            server_client=server_context.server_client,
-            contents_manager=server_context.contents_manager,
-            kernel_manager=server_context.kernel_manager,
-            notebook_manager=notebook_manager,
-            cell_index=cell_index,
-            cell_source=cell_source,
-            ensure_kernel_alive=__ensure_kernel_alive,
-        )
-    )
-
-
 @mcp.tool()
 async def overwrite_cell_source(
-    cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)")],
-    cell_source: Annotated[str, Field(description="New cell source - must match existing cell type")],
+    cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
+    cell_source: Annotated[str, Field(description="New complete cell source")],
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
-    """Overwrite the source of an existing cell. Note this does not execute the modified cell by itself."""
+    """Overwrite the source of a specific cell from the currently activated notebook.
+    It will return a diff style comparison (e.g. `+` for new lines, `-` for deleted lines) of the cell's content"""
     return await safe_notebook_operation(
         lambda: OverwriteCellSourceTool().execute(
             mode=server_context.mode,
@@ -381,12 +384,12 @@ async def overwrite_cell_source(
 
 @mcp.tool()
 async def execute_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)")],
-    timeout_seconds: Annotated[int, Field(description="Maximum time to wait for execution (default: 300s)")] = 300,
-    stream: Annotated[bool, Field(description="Enable streaming progress updates for long-running cells (default: False)")] = False,
-    progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True (default: 5s)")] = 5,
+    cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
+    stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
+    progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True")] = 5,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
-    """Execute a cell with configurable timeout and optional streaming progress updates."""
+    """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
@@ -395,53 +398,57 @@ async def execute_cell(
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=timeout,
             stream=stream,
             progress_interval=progress_interval,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
-            wait_for_kernel_idle_fn=wait_for_kernel_idle,
-            safe_extract_outputs_fn=safe_extract_outputs,
-            execute_cell_with_forced_sync_fn=execute_cell_with_forced_sync,
-            extract_output_fn=extract_output,
+            ensure_kernel_alive_fn=__ensure_kernel_alive
         ),
         max_retries=1
     )
 
-
 @mcp.tool()
-async def read_cells() -> Annotated[list[dict[str, str | int | list[str | ImageContent]]], Field(description="List of cell information including index, type, source, and outputs (for code cells)")]:
-    """Read all cells from the Jupyter notebook."""
-    return await safe_notebook_operation(
-        lambda: ReadCellsTool().execute(
+async def insert_execute_code_cell(
+    cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=0)],
+    cell_source: Annotated[str, Field(description="Code source for the cell")],
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
+) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
+    """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
+    It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
+    await safe_notebook_operation(
+        lambda: InsertCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
+            cell_index=cell_index,
+            cell_source=cell_source,
+            cell_type="code",
         )
     )
 
-
-@mcp.tool()
-async def list_cells() -> Annotated[str, Field(description="Tab-separated table with columns: Index, Type, Count, First Line")]:
-    """List the basic information of all cells in the notebook.
-    
-    This provides a quick overview of the notebook structure and is useful for locating specific cells for operations like delete or insert.
-    """
     return await safe_notebook_operation(
-        lambda: ListCellsTool().execute(
+        lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
             contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
-        )
+            cell_index=cell_index,
+            timeout_seconds=timeout,
+            stream=False,
+            progress_interval=0,
+            ensure_kernel_alive_fn=__ensure_kernel_alive
+        ),
+        max_retries=1
     )
-
 
 @mcp.tool()
 async def read_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)")],
-) -> Annotated[dict[str, str | int | list[str | ImageContent]], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
-    """Read a specific cell from the Jupyter notebook."""
+    cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
+    include_outputs: Annotated[bool, Field(description="Include outputs in the response (only for code cells)")] = True,
+) -> Annotated[list[str | ImageContent], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
+    """Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)"""
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
             mode=server_context.mode,
@@ -449,14 +456,16 @@ async def read_cell(
             contents_manager=server_context.contents_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
+            include_outputs=include_outputs,
         )
     )
 
 @mcp.tool()
 async def delete_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to delete (0-based)")],
-) -> Annotated[str, Field(description="Success message")]:
-    """Delete a specific cell from the Jupyter notebook."""
+    cell_index: Annotated[int, Field(description="Index of the cell to delete (0-based)", ge=0)],
+) -> Annotated[str, Field(description="Success message and the cell source of deleted cell")]:
+    """Delete a specific cell from the currently activated notebook and return the cell source of deleted cell.
+    When deleting many cells, MUST delete them in descending order of their index to avoid index shifting."""
     return await safe_notebook_operation(
         lambda: DeleteCellTool().execute(
             mode=server_context.mode,

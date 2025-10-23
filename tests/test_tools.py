@@ -84,20 +84,14 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         # reading and checking the content of the created cell
         cell_info = await client.read_cell(index)
         logging.debug(f"cell_info: {cell_info}")
-        assert cell_info["index"] == index
-        assert cell_info["type"] == expected_type
-        assert "".join(cell_info["source"]) == content
-        # reading all cells
-        cells_info = await client.read_cells()
-        assert cells_info is not None, "read_cells result should not be None"
-        logging.debug(f"cells_info: {cells_info}")
-        # Check that our cell is in the expected position with correct content
-        assert "".join(cells_info[index]["source"]) == content
+        assert isinstance(cell_info['result'], list), "Read cell result should be a list"
+        assert f"=====Cell {index} | type: {expected_type}" in cell_info['result'][0], "Cell metadata should be included"
+        assert content in cell_info['result'][1], "Cell source should be included"
         # delete created cell
         result = await client.delete_cell(index)
         assert result is not None, "delete_cell result should not be None"
-        expected_delete_msg = f"Cell {index} ({expected_type}) deleted successfully."
-        assert result["result"] == expected_delete_msg
+        assert f"Cell {index} ({expected_type}) deleted successfully" in result["result"]
+        assert f"deleted cell source:\n{content}" in result["result"]
 
     async with mcp_client_parametrized:
         # Test markdown cell operations
@@ -105,8 +99,7 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         # insert markdown cell at index 1
         result = await mcp_client_parametrized.insert_cell(1, "markdown", markdown_content)
         assert result is not None, "insert_cell result should not be None"
-        assert "Cell inserted successfully" in result["result"]
-        assert "index 1 (markdown)" in result["result"]
+        assert "Cell inserted successfully at index 1 (markdown)!" in result["result"]
         await check_and_delete_cell(mcp_client_parametrized, 1, "markdown", markdown_content)
 
         # Test code cell operations
@@ -126,36 +119,6 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         assert int(code_result["result"][0]) == expected_result
 
         await check_and_delete_cell(mcp_client_parametrized, 1, "code", new_code_content)
-
-@pytest.mark.asyncio
-@timeout_wrapper(60)
-async def test_list_cells(mcp_client_parametrized: MCPClient):
-    """Test list_cells functionality in both MCP_SERVER and JUPYTER_SERVER modes"""
-    async with mcp_client_parametrized:
-        # Add a markdown cell and test again
-        markdown_content = "# Test Markdown Cell"
-        await mcp_client_parametrized.insert_cell(1, "markdown", markdown_content)
-        
-        # Check list_cells with added markdown cell
-        cell_list = await mcp_client_parametrized.list_cells()
-        logging.debug(f"Cell list after adding markdown: {cell_list}")
-        
-        assert "Index\tType\tCount\tFirst Line" in cell_list
-        assert "# Test Markdown Cell" in cell_list
-
-        await mcp_client_parametrized.delete_cell(1)
-        
-        # Add a muti-line code cell with long content to test truncation
-        long_code = "print('Hello World')\nprint('googbye World')"
-        await mcp_client_parametrized.insert_cell(1, "code", long_code)
-
-        cell_list = await mcp_client_parametrized.list_cells()
-        logging.debug(f"Cell list after adding long code: {cell_list}")
-        assert "Index\tType\tCount\tFirst Line" in cell_list
-        assert "print('Hello World')" in cell_list
-        assert "print('googbye World')" not in cell_list
-        
-        await mcp_client_parametrized.delete_cell(1)
 
 @pytest.mark.asyncio
 @timeout_wrapper(60)
@@ -193,6 +156,7 @@ display(IPythonImage(buffer.getvalue()))
         
         # Check that result is 
         assert isinstance(result['result'], list), "Result should be a list"
+        assert isinstance(result['result'][0], dict)
         assert result['result'][0]['mimeType'] == "image/png", "Result should be a list of ImageContent"
         await mcp_client_parametrized.delete_cell(1)
 
@@ -202,7 +166,7 @@ display(IPythonImage(buffer.getvalue()))
 ###############################################################################
 
 @pytest.mark.asyncio
-@timeout_wrapper(60)
+@timeout_wrapper(90)
 async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
     """Test cell operations across multiple notebooks in both modes"""
     async with mcp_client_parametrized:
@@ -210,6 +174,9 @@ async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
         result = await mcp_client_parametrized.use_notebook("notebook_a", "new.ipynb")
         logging.debug(f"Connect to notebook A: {result}")
         assert "Successfully activate notebook 'notebook_a'" in result
+
+        notebook_a_info = await mcp_client_parametrized.read_notebook("notebook_a")
+        assert "# This is notebook A" not in notebook_a_info
         
         # Add a cell to notebook A
         await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook A")
@@ -220,7 +187,7 @@ async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
         assert "Successfully activate notebook 'notebook_b'" in result
         
         # Add a cell to notebook B
-        await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook B")
+        await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook B\nA hidden content")
         
         # Switch back to notebook A
         result = await mcp_client_parametrized.use_notebook("notebook_a", "new.ipynb")
@@ -228,13 +195,13 @@ async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
         assert "Reactivating notebook 'notebook_a' and deactivating 'notebook_b'." in result
         
         # Verify we're working with notebook A
-        cell_list_a = await mcp_client_parametrized.list_cells()
+        cell_list_a = await mcp_client_parametrized.read_notebook("notebook_a")
         assert "This is notebook A" in cell_list_a
         
         # Switch to notebook B and verify
         await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
-        cell_list_b = await mcp_client_parametrized.list_cells()
-        assert "This is notebook B" in cell_list_b
+        cell_list_b = await mcp_client_parametrized.read_notebook("notebook_b", response_format="detailed")
+        assert "A hidden content" in cell_list_b
 
         notebook_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Notebook list after switching: {notebook_list}")

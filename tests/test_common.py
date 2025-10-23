@@ -32,13 +32,12 @@ JUPYTER_TOOLS = [
     "list_notebooks", 
     "restart_notebook",
     "unuse_notebook",
+    "read_notebook",
     # Cell Tools
     "insert_cell",
     "insert_execute_code_cell",
     "overwrite_cell_source",
     "execute_cell",
-    "read_cells",
-    "list_cells",
     "read_cell",
     "delete_cell",
     "execute_code",
@@ -300,13 +299,18 @@ class MCPClient:
         return self._extract_text_content(result)
     
     @requires_session
+    async def read_notebook(self, notebook_name, response_format="brief", start_index=0, limit=20):
+        result = await self._session.call_tool("read_notebook", arguments={"notebook_name": notebook_name, "response_format": response_format, "start_index": start_index, "limit": limit})  # type: ignore
+        return self._extract_text_content(result)
+    
+    @requires_session
     async def insert_cell(self, cell_index, cell_type, cell_source):
         result = await self._call_tool_safe("insert_cell", {"cell_index": cell_index, "cell_type": cell_type, "cell_source": cell_source})
         return self._get_structured_content_safe(result) if result else None
 
     @requires_session
-    async def insert_execute_code_cell(self, cell_index, cell_source):
-        result = await self._call_tool_safe("insert_execute_code_cell", {"cell_index": cell_index, "cell_source": cell_source})
+    async def insert_execute_code_cell(self, cell_index, cell_source, timeout=90):
+        result = await self._call_tool_safe("insert_execute_code_cell", {"cell_index": cell_index, "cell_source": cell_source, "timeout": timeout})
         structured = self._get_structured_content_safe(result) if result else None
         
         # Special handling for insert_execute_code_cell: tool returns list[str | ImageContent]
@@ -321,34 +325,9 @@ class MCPClient:
         return structured
 
     @requires_session
-    async def read_cell(self, cell_index):
-        result = await self._call_tool_safe("read_cell", {"cell_index": cell_index})
+    async def read_cell(self, cell_index, include_outputs=True):
+        result = await self._call_tool_safe("read_cell", {"cell_index": cell_index, "include_outputs": include_outputs})
         return self._get_structured_content_safe(result) if result else None
-
-    @requires_session
-    async def read_cells(self):
-        result = await self._session.call_tool("read_cells")  # type: ignore
-        structured = self._get_structured_content_safe(result)
-        
-        # read_cells returns a list of cell dicts directly
-        # If wrapped in {"result": ...}, unwrap it
-        if structured and "result" in structured:
-            cells_list = structured["result"]
-            # If the result is a list of JSON strings, parse each one
-            if isinstance(cells_list, list) and len(cells_list) > 0 and isinstance(cells_list[0], str):
-                try:
-                    import json
-                    cells_list = [json.loads(cell_str) for cell_str in cells_list]
-                except (json.JSONDecodeError, TypeError):
-                    pass
-            return cells_list
-        return structured
-
-    @requires_session
-    async def list_cells(self, max_retries=3):
-        """List cells with retry mechanism for Windows compatibility"""
-        result = await self._session.call_tool("list_cells")  # type: ignore
-        return self._extract_text_content(result)
     
     @requires_session
     async def list_kernels(self):
