@@ -134,17 +134,18 @@ class ExecuteCellTool(BaseTool):
             context = get_server_context()
             serverapp = context.serverapp
 
-            # Resolve to absolute path
-            if serverapp and not Path(notebook_path).is_absolute():
-                root_dir = serverapp.root_dir
-                notebook_path = str(Path(root_dir) / notebook_path)
-
             if serverapp is None:
                 raise ValueError("serverapp is required for JUPYTER_SERVER mode")
             if kernel_manager is None:
                 raise ValueError("kernel_manager is required for JUPYTER_SERVER mode")
 
+            # Get notebook_path and kernel_id first
             notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
+
+            # Resolve to absolute path
+            if notebook_path and serverapp and not Path(notebook_path).is_absolute():
+                root_dir = serverapp.root_dir
+                notebook_path = str(Path(root_dir) / notebook_path)
 
             # Check if kernel needs to be started
             if kernel_id is None:
