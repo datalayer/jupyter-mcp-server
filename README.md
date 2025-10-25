@@ -242,6 +242,8 @@ For detailed instructions on configuring various MCP clients—including [Claude
 - Interact with LLMs that supports multimodal input (like Gemini 2.5 Pro) to fully utilize advanced multimodal understanding capabilities.
 - Use a MCP client that supports returning image data and can parse it (like Cursor, Gemini CLI, etc.), as some clients may not support this feature.
 - Break down complex task (like the whole data science workflow) into multiple sub-tasks (like data cleaning, feature engineering, model training, model evaluation, etc.) and execute them step-by-step.
+- Provide clearly structured prompts and rules (👉 Visit our [Prompt Templates](prompt/README.md) to get started)
+- Provide as much context as possible (like already installed packages, field explanations for existing datasets, current working directory, detailed task requirements, etc.).
 
 ## 🤝 Contributing
 
@@ -250,7 +252,7 @@ We welcome contributions of all kinds! Here are some examples:
 - 🐛 Bug fixes
 - 📝 Improvements to existing features
 - ✨ New feature development
-- 📚 Documentation improvements
+- 📚 Documentation improvements and prompt templates
 
 For detailed instructions on how to get started with development and submit your contributions, please see our [**Contributing Guide**](CONTRIBUTING.md).
 
