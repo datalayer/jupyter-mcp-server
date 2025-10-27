@@ -6,8 +6,12 @@
 
 import difflib
 import nbformat
+import threading
 from pathlib import Path
+from uuid import uuid4
 from typing import Any, Optional
+import typing as t
+import pycrdt
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -16,6 +20,19 @@ from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_y
 
 class OverwriteCellSourceTool(BaseTool):
     """Tool to overwrite the source of an existing cell."""
+    
+    def __init__(self):
+        """Initialize the OverwriteCellSourceTool with thread safety support."""
+        super().__init__()
+        self._lock = threading.Lock()
+        """Lock to prevent updating the YDoc in multiple threads simultaneously.
+        
+        That may induce a Panic error; see:
+        https://github.com/datalayer/jupyter-nbmodel-client/issues/12
+        """
+        self._changes_origin = hash(
+            uuid4().hex
+        )  # Hashed ID for doc modification origin - pycrdt uses hashed origin
     
     def _generate_diff(self, old_source: str, new_source: str) -> str:
         """Generate unified diff between old and new source."""
@@ -40,7 +57,21 @@ class OverwriteCellSourceTool(BaseTool):
         cell_index: int,
         cell_source: str
     ) -> str:
-        """Overwrite cell using YDoc (collaborative editing mode)."""
+        """Overwrite cell using YDoc (collaborative editing mode).
+        
+        Args:
+            serverapp: Jupyter ServerApp instance
+            notebook_path: Path to the notebook
+            cell_index: Index of the cell to overwrite
+            cell_source: New cell source content
+            
+        Returns:
+            Diff showing changes made
+            
+        Raises:
+            RuntimeError: When file_id_manager is not available
+            ValueError: When cell_index is out of range
+        """
         # Get file_id from file_id_manager
         file_id_manager = serverapp.web_app.settings.get("file_id_manager")
         if file_id_manager is None:
@@ -58,15 +89,26 @@ class OverwriteCellSourceTool(BaseTool):
                     f"Cell index {cell_index} is out of range. Notebook has {len(ydoc.ycells)} cells."
                 )
             
-            # Get original cell content
+            # Get original cell content (for diff)
             old_source_raw = ydoc.ycells[cell_index].get("source", "")
             if isinstance(old_source_raw, list):
                 old_source = "".join(old_source_raw)
             else:
                 old_source = str(old_source_raw)
             
-            # Set new cell source
-            ydoc.ycells[cell_index]["source"] = cell_source
+            # Set new cell source with thread safety and transaction support
+            # Following the pattern from NotebookModel.set_cell_source()
+            with self._lock:
+                with ydoc._ydoc.transaction(origin=self._changes_origin):
+                    source_field = t.cast(pycrdt.Map, ydoc.ycells[cell_index])["source"]
+                    # For Y.Text objects (collaborative text), use clear() + insert()
+                    # This ensures proper CRDT synchronization
+                    if isinstance(source_field, pycrdt.Text):
+                        source_field.clear()
+                        source_field.insert(0, cell_source)
+                    else:
+                        # Fallback for non-Text types
+                        ydoc.ycells[cell_index]["source"] = cell_source
             
             return self._generate_diff(old_source, cell_source)
         else:
@@ -79,7 +121,19 @@ class OverwriteCellSourceTool(BaseTool):
         cell_index: int,
         cell_source: str
     ) -> str:
-        """Overwrite cell using file operations (non-collaborative mode)."""
+        """Overwrite cell using file operations (non-collaborative mode).
+        
+        Args:
+            notebook_path: Path to the notebook file
+            cell_index: Index of the cell to overwrite
+            cell_source: New cell source content
+            
+        Returns:
+            Diff showing changes made
+            
+        Raises:
+            ValueError: When cell_index is out of range
+        """
         # Read notebook file as version 4 for consistency
         with open(notebook_path, "r", encoding="utf-8") as f:
             notebook = nbformat.read(f, as_version=4)
@@ -108,7 +162,19 @@ class OverwriteCellSourceTool(BaseTool):
         cell_index: int,
         cell_source: str
     ) -> str:
-        """Overwrite cell using WebSocket connection (MCP_SERVER mode)."""
+        """Overwrite cell using WebSocket connection (MCP_SERVER mode).
+        
+        Args:
+            notebook_manager: Notebook manager instance
+            cell_index: Index of the cell to overwrite
+            cell_source: New cell source content
+            
+        Returns:
+            Diff showing changes made
+            
+        Raises:
+            ValueError: When cell_index is out of range
+        """
         async with notebook_manager.get_current_connection() as notebook:
             if cell_index < 0 or cell_index >= len(notebook):
                 raise ValueError(f"Cell index {cell_index} out of range")
@@ -120,7 +186,8 @@ class OverwriteCellSourceTool(BaseTool):
             else:
                 old_source = str(old_source_raw)
             
-            # Set new cell content
+            # Set new cell content using remote notebook's unified method
+            # Remote notebook handles synchronization and transactions
             notebook.set_cell_source(cell_index, cell_source)
 
             return self._generate_diff(old_source, cell_source)
@@ -141,8 +208,30 @@ class OverwriteCellSourceTool(BaseTool):
     ) -> str:
         """Execute the overwrite_cell_source tool.
         
+        This tool supports three modes of operation:
+        
+        1. JUPYTER_SERVER mode with YDoc (collaborative):
+           - Checks if notebook is open in a collaborative session
+           - Uses YDoc for real-time collaborative editing
+           - Changes are immediately visible to all connected users
+           - Operations protected by thread locks and YDoc transactions
+           
+        2. JUPYTER_SERVER mode without YDoc (file-based):
+           - Falls back to direct file operations using nbformat
+           - Suitable when notebook is not actively being edited
+           
+        3. MCP_SERVER mode (WebSocket):
+           - Uses WebSocket connection to remote Jupyter server
+           - Delegates to remote notebook's set_cell_source method
+        
+        Thread Safety:
+        - YDoc mode: Protected by thread lock + YDoc transaction (atomic)
+        - File mode: No synchronization needed (single-threaded file I/O)
+        - WebSocket mode: Remote server handles synchronization
+        
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
+            server_client: HTTP client for MCP_SERVER mode
             contents_manager: Direct API access for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             cell_index: Index of the cell to overwrite (0-based)
@@ -151,6 +240,10 @@ class OverwriteCellSourceTool(BaseTool):
             
         Returns:
             Success message with diff
+            
+        Raises:
+            ValueError: When mode is invalid or required clients are missing
+            ValueError: When cell_index is out of range
         """
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # JUPYTER_SERVER mode: Try YDoc first, fall back to file operations
@@ -166,12 +259,14 @@ class OverwriteCellSourceTool(BaseTool):
                 notebook_path = str(Path(root_dir) / notebook_path)
 
             if serverapp:
+                # Try YDoc approach first (with thread safety and transactions)
                 diff = await self._overwrite_cell_ydoc(serverapp, notebook_path, cell_index, cell_source)
             else:
+                # Fall back to file operations
                 diff = await self._overwrite_cell_file(notebook_path, cell_index, cell_source)
                 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
-            # MCP_SERVER mode: Use WebSocket connection
+            # MCP_SERVER mode: Use WebSocket connection with remote transaction management
             diff = await self._overwrite_cell_websocket(notebook_manager, cell_index, cell_source)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
