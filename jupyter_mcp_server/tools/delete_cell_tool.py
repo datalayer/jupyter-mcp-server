@@ -10,12 +10,12 @@ import nbformat
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_ydoc, clean_notebook_outputs
+from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model, clean_notebook_outputs
 
 
 class DeleteCellTool(BaseTool):
     """Tool to delete a specific cell from a notebook."""
-    
+
     def _get_cell_source(self, cell: Any) -> str:
         """Get the cell source from the cell"""
         cell_source = cell.get("source", "")
@@ -38,35 +38,21 @@ class DeleteCellTool(BaseTool):
             cell_index: Index of cell to delete
             
         Returns:
-            Success message
+            NotebookNode
         """
-        # Get file_id from file_id_manager
-        file_id_manager = serverapp.web_app.settings.get("file_id_manager")
-        if file_id_manager is None:
-            raise RuntimeError("file_id_manager not available in serverapp")
-        
-        file_id = file_id_manager.get_id(notebook_path)
-        
-        # Try to get YDoc
-        ydoc = await get_jupyter_ydoc(serverapp, file_id)
-        
-        if ydoc:
-            if cell_index >= len(ydoc.ycells):
+        nb = await get_notebook_model(serverapp, notebook_path)
+        if nb:
+            if cell_index >= len(nb):
                 raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc.ycells)} cells."
+                    f"Cell index {cell_index} is out of range. Notebook has {len(nb)} cells."
                 )
             
-            cell = ydoc.ycells[cell_index]
-            result = {
+            cell = nb.delete_cell(cell_index)
+            return {
                 "index": cell_index,
-                "cell_type": cell.get("cell_type", "unknown"),
+                "cell_type": cell.cell_type,
                 "source": self._get_cell_source(cell),
             }
-            
-            # Delete the cell from YDoc
-            del ydoc.ycells[cell_index]
-            
-            return result
         else:
             # YDoc not available, use file operations
             return await self._delete_cell_file(notebook_path, cell_index)

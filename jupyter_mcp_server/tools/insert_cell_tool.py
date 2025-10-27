@@ -7,33 +7,16 @@
 from typing import Any, Optional, Literal
 from pathlib import Path
 import nbformat
-import threading
-from uuid import uuid4
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_ydoc, clean_notebook_outputs
+from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model, clean_notebook_outputs
 from jupyter_mcp_server.models import Notebook
 
-from nbformat import current_nbformat, versions
-current_api = versions[current_nbformat]
 
 
 class InsertCellTool(BaseTool):
     """Tool to insert a cell at a specified position."""
-    
-    def __init__(self):
-        """Initialize the InsertCellTool with thread safety support."""
-        super().__init__()
-        self._lock = threading.Lock()
-        """Lock to prevent updating the YDoc in multiple threads simultaneously.
-        
-        That may induce a Panic error; see:
-        https://github.com/datalayer/jupyter-nbmodel-client/issues/12
-        """
-        self._changes_origin = hash(
-            uuid4().hex
-        )  # Hashed ID for doc modification origin - pycrdt uses hashed origin
     
     def _validate_cell_insertion_params(
         self,
@@ -60,37 +43,10 @@ class InsertCellTool(BaseTool):
                 f"Index {cell_index} is outside valid range [-1, {total_cells}]. "
                 f"Use -1 to append at end."
             )
-        if cell_type not in ["code", "markdown", "raw"]:
-            raise ValueError(
-                f"Invalid cell type: {cell_type}. Must be one of: 'code', 'markdown', 'raw'."
-            )
         
         # Normalize -1 to append position
         actual_index = cell_index if cell_index != -1 else total_cells
         return actual_index
-    
-    def _create_cell(
-        self,
-        cell_type: Literal["code", "markdown"],
-        cell_source: str,
-        **kwargs
-    ) -> dict[str, Any]:
-        """Create a new cell of the specified type using nbformat API.
-        
-        Args:
-            cell_type: Type of cell ("code", "markdown")
-            cell_source: Source content for the cell
-            **kwargs: Additional parameters to pass to cell creation
-            
-        Returns:
-            Cell dictionary compatible with nbformat
-        """
-        source = cell_source or ""
-        
-        if cell_type == "code":
-            return current_api.new_code_cell(source=source, **kwargs)
-        elif cell_type == "markdown":
-            return current_api.new_markdown_cell(source=source, **kwargs)
     
     async def _insert_cell_ydoc(
         self,
@@ -113,45 +69,22 @@ class InsertCellTool(BaseTool):
             Tuple of (notebook, actual_index, total_cells_after_insertion)
             
         Raises:
-            RuntimeError: When file_id_manager is not available
             IndexError: When cell_index is out of range
-            ValueError: When cell_type is invalid
         """
-        # Get file_id from file_id_manager
-        file_id_manager = serverapp.web_app.settings.get("file_id_manager")
-        if file_id_manager is None:
-            raise RuntimeError("file_id_manager not available in serverapp")
+        nb = await get_notebook_model(serverapp, notebook_path)
         
-        file_id = file_id_manager.get_id(notebook_path)
-        
-        # Try to get YDoc
-        ydoc = await get_jupyter_ydoc(serverapp, file_id)
-        
-        if ydoc:
+        if nb:
             # Notebook is open in collaborative mode, use YDoc
-            total_cells = len(ydoc.ycells)
+            total_cells = len(nb)
             
             # Validate insertion parameters
             actual_index = self._validate_cell_insertion_params(
                 cell_index, total_cells, cell_type
             )
             
-            # Create cell using unified method
-            cell = self._create_cell(cell_type, cell_source)
-            ycell = ydoc.create_ycell(cell)
+            nb.insert_cell(actual_index, cell_source, cell_type)
             
-            # Insert at the specified position with thread safety and transaction support
-            with self._lock:
-                with ydoc._ydoc.transaction(origin=self._changes_origin):
-                    # Insert at the specified position
-                    if actual_index >= total_cells:
-                        ydoc.ycells.append(ycell)
-                    else:
-                        ydoc.ycells.insert(actual_index, ycell)
-                
-                notebook = Notebook(**ydoc.source)
-            
-            return notebook, actual_index, len(ydoc.ycells)
+            return Notebook(**nb.as_dict()), actual_index, len(nb)
         else:
             # YDoc not available, use file operations
             return await self._insert_cell_file(notebook_path, cell_index, cell_type, cell_source)
@@ -194,7 +127,11 @@ class InsertCellTool(BaseTool):
         )
         
         # Create and insert the cell using unified method
-        new_cell = self._create_cell(cell_type, cell_source)
+         # Create and insert the cell
+        if cell_type == "code":
+            new_cell = nbformat.v4.new_code_cell(source=cell_source or "")
+        elif cell_type == "markdown":
+            new_cell = nbformat.v4.new_markdown_cell(source=cell_source or "")
         notebook.cells.insert(actual_index, new_cell)
         
         # Write back to file

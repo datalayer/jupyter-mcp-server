@@ -8,6 +8,7 @@ import time
 from typing import Any, Union
 from mcp.types import ImageContent
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
+from jupyter_nbmodel_client import NotebookModel
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -928,3 +929,18 @@ async def get_jupyter_ydoc(serverapp: Any, file_id: str):
         pass
 
     return None
+
+async def get_notebook_model(serverapp: Any, notebook_path: str):
+    """Get the NotebookModel instance if it's currently open in a collaborative session."""
+    # Get file_id from file_id_manager
+    file_id_manager = serverapp.web_app.settings.get("file_id_manager")
+    if file_id_manager is None:
+        raise RuntimeError("file_id_manager not available in serverapp")
+    
+    file_id = file_id_manager.get_id(notebook_path)
+    ydoc = await get_jupyter_ydoc(serverapp, file_id)
+    if ydoc is None:
+        return None
+    nb = NotebookModel()
+    nb._doc = ydoc
+    return nb

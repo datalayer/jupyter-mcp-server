@@ -6,40 +6,23 @@
 
 import difflib
 import nbformat
-import threading
 from pathlib import Path
-from uuid import uuid4
 from typing import Any, Optional
-import typing as t
-import pycrdt
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context, get_jupyter_ydoc, clean_notebook_outputs
+from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model, clean_notebook_outputs
 
 
 class OverwriteCellSourceTool(BaseTool):
     """Tool to overwrite the source of an existing cell."""
-    
-    def __init__(self):
-        """Initialize the OverwriteCellSourceTool with thread safety support."""
-        super().__init__()
-        self._lock = threading.Lock()
-        """Lock to prevent updating the YDoc in multiple threads simultaneously.
-        
-        That may induce a Panic error; see:
-        https://github.com/datalayer/jupyter-nbmodel-client/issues/12
-        """
-        self._changes_origin = hash(
-            uuid4().hex
-        )  # Hashed ID for doc modification origin - pycrdt uses hashed origin
     
     def _generate_diff(self, old_source: str, new_source: str) -> str:
         """Generate unified diff between old and new source."""
         old_lines = old_source.splitlines(keepends=False)
         new_lines = new_source.splitlines(keepends=False)
         
-        diff_lines = list(difflib.unified_diff(
+        diff_lines = list[str](difflib.unified_diff(
             old_lines, 
             new_lines, 
             lineterm='',
@@ -57,7 +40,7 @@ class OverwriteCellSourceTool(BaseTool):
         cell_index: int,
         cell_source: str
     ) -> str:
-        """Overwrite cell using YDoc (collaborative editing mode).
+        """Overwrite cell source using YDoc (collaborative editing mode).
         
         Args:
             serverapp: Jupyter ServerApp instance
@@ -72,43 +55,22 @@ class OverwriteCellSourceTool(BaseTool):
             RuntimeError: When file_id_manager is not available
             ValueError: When cell_index is out of range
         """
-        # Get file_id from file_id_manager
-        file_id_manager = serverapp.web_app.settings.get("file_id_manager")
-        if file_id_manager is None:
-            raise RuntimeError("file_id_manager not available in serverapp")
-        
-        file_id = file_id_manager.get_id(notebook_path)
-        
-        # Try to get YDoc
-        ydoc = await get_jupyter_ydoc(serverapp, file_id)
-        
-        if ydoc:
+        # Get notebook model
+        nb = await get_notebook_model(serverapp, notebook_path)
+
+        if nb:
             # Notebook is open in collaborative mode, use YDoc
-            if cell_index < 0 or cell_index >= len(ydoc.ycells):
+            if cell_index >= len(nb):
                 raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(ydoc.ycells)} cells."
+                    f"Cell index {cell_index} is out of range. Notebook has {len(nb)} cells."
                 )
             
-            # Get original cell content (for diff)
-            old_source_raw = ydoc.ycells[cell_index].get("source", "")
-            if isinstance(old_source_raw, list):
-                old_source = "".join(old_source_raw)
+            old_source = nb.get_cell_source(cell_index)
+            if isinstance(old_source, list):
+                old_source = "".join(old_source)
             else:
-                old_source = str(old_source_raw)
-            
-            # Set new cell source with thread safety and transaction support
-            # Following the pattern from NotebookModel.set_cell_source()
-            with self._lock:
-                with ydoc._ydoc.transaction(origin=self._changes_origin):
-                    source_field = t.cast(pycrdt.Map, ydoc.ycells[cell_index])["source"]
-                    # For Y.Text objects (collaborative text), use clear() + insert()
-                    # This ensures proper CRDT synchronization
-                    if isinstance(source_field, pycrdt.Text):
-                        source_field.clear()
-                        source_field.insert(0, cell_source)
-                    else:
-                        # Fallback for non-Text types
-                        ydoc.ycells[cell_index]["source"] = cell_source
+                old_source = str(old_source)
+            nb.set_cell_source(cell_index, cell_source)
             
             return self._generate_diff(old_source, cell_source)
         else:
@@ -139,7 +101,7 @@ class OverwriteCellSourceTool(BaseTool):
             notebook = nbformat.read(f, as_version=4)
         clean_notebook_outputs(notebook)
         
-        if cell_index < 0 or cell_index >= len(notebook.cells):
+        if cell_index >= len(notebook.cells):
             raise ValueError(
                 f"Cell index {cell_index} is out of range. Notebook has {len(notebook.cells)} cells."
             )
@@ -176,20 +138,16 @@ class OverwriteCellSourceTool(BaseTool):
             ValueError: When cell_index is out of range
         """
         async with notebook_manager.get_current_connection() as notebook:
-            if cell_index < 0 or cell_index >= len(notebook):
+            if cell_index >= len(notebook):
                 raise ValueError(f"Cell index {cell_index} out of range")
             
             # Get original cell content
-            old_source_raw = notebook[cell_index].get("source", "")
-            if isinstance(old_source_raw, list):
-                old_source = "".join(old_source_raw)
+            old_source = notebook.get_cell_source(cell_index)
+            if isinstance(old_source, list):
+                old_source = "".join(old_source)
             else:
-                old_source = str(old_source_raw)
-            
-            # Set new cell content using remote notebook's unified method
-            # Remote notebook handles synchronization and transactions
+                old_source = str(old_source)
             notebook.set_cell_source(cell_index, cell_source)
-
             return self._generate_diff(old_source, cell_source)
     
     async def execute(
