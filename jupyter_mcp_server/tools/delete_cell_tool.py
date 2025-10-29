@@ -190,8 +190,8 @@ class DeleteCellTool(BaseTool):
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
         
         info_list = []
-        for cell_info in cells:
-            info_list.append(f"Cell {cell_info['index']} ({cell_info['cell_type']}) deleted successfully.")
+        for cell_index, cell_info in zip(cell_indices, cells):
+            info_list.append(f"Cell {cell_index} ({cell_info['cell_type']}) deleted successfully.")
             if include_source:
                 info_list.append(f"deleted cell source:\n{cell_info['source']}")
                 info_list.append("\n---\n")
