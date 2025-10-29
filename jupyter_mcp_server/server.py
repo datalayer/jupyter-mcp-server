@@ -462,10 +462,10 @@ async def read_cell(
 
 @mcp.tool()
 async def delete_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to delete (0-based)", ge=0)],
-) -> Annotated[str, Field(description="Success message and the cell source of deleted cell")]:
-    """Delete a specific cell from the currently activated notebook and return the cell source of deleted cell.
-    When deleting many cells, MUST delete them in descending order of their index to avoid index shifting."""
+    cell_indices: Annotated[list[int], Field(description="List of cell indices to delete (0-based)",min_items=1)],
+    include_source: Annotated[bool, Field(description="Whether to include the source of deleted cells")] = True,
+) -> Annotated[str, Field(description="Success message with list of deleted cells and their source (if include_source=True)")]:
+    """Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True)."""
     return await safe_notebook_operation(
         lambda: DeleteCellTool().execute(
             mode=server_context.mode,
@@ -473,7 +473,8 @@ async def delete_cell(
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
-            cell_index=cell_index,
+            cell_indices=cell_indices,
+            include_source=include_source,
         )
     )
 

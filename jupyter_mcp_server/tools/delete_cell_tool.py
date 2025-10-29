@@ -14,7 +14,7 @@ from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_
 
 
 class DeleteCellTool(BaseTool):
-    """Tool to delete a specific cell from a notebook."""
+    """Tool to delete specific cells from a notebook."""
 
     def _get_cell_source(self, cell: Any) -> str:
         """Get the cell source from the cell"""
@@ -28,48 +28,44 @@ class DeleteCellTool(BaseTool):
         self,
         serverapp: Any,
         notebook_path: str,
-        cell_index: int
-    ) -> dict:
+        cell_indices: list[int]
+    ) -> list:
         """Delete cell using YDoc (collaborative editing mode).
         
         Args:
             serverapp: Jupyter ServerApp instance
             notebook_path: Path to the notebook
-            cell_index: Index of cell to delete
+            cell_indices: List of indices of cells to delete
             
         Returns:
             NotebookNode
         """
         nb = await get_notebook_model(serverapp, notebook_path)
         if nb:
-            if cell_index >= len(nb):
+            if max(cell_indices) >= len(nb):
                 raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(nb)} cells."
+                    f"Cell index {max(cell_indices)} is out of range. Notebook has {len(nb)} cells."
                 )
             
-            cell = nb.delete_cell(cell_index)
-            return {
-                "index": cell_index,
-                "cell_type": cell.cell_type,
-                "source": self._get_cell_source(cell),
-            }
+            cells = nb.delete_many_cells(cell_indices)
+            return cells
         else:
             # YDoc not available, use file operations
-            return await self._delete_cell_file(notebook_path, cell_index)
+            return await self._delete_cell_file(notebook_path, cell_indices)
     
     async def _delete_cell_file(
         self,
         notebook_path: str,
-        cell_index: int
-    ) -> dict:
+        cell_indices: list[int]
+    ) -> list:
         """Delete cell using file operations (non-collaborative mode).
         
         Args:
             notebook_path: Absolute path to the notebook
-            cell_index: Index of cell to delete
+            cell_indices: List of indices of cells to delete
             
         Returns:
-            Success message
+            List of deleted cells
         """
         # Read notebook file as version 4 for consistency
         with open(notebook_path, "r", encoding="utf-8") as f:
@@ -77,53 +73,53 @@ class DeleteCellTool(BaseTool):
         
         clean_notebook_outputs(notebook)
         
-        if cell_index >= len(notebook.cells):
+        if max(cell_indices) >= len(notebook.cells):
             raise ValueError(
-                f"Cell index {cell_index} is out of range. Notebook has {len(notebook.cells)} cells."
+                f"Cell index {max(cell_indices)} is out of range. Notebook has {len(notebook.cells)} cells."
             )
         
-        cell = notebook.cells[cell_index]
-        result = {
-            "index": cell_index,
-            "cell_type": cell.cell_type,
-            "source": self._get_cell_source(cell),
-        }
+        deleted_cells = []
+        for cell_index in cell_indices:
+            cell = notebook.cells[cell_index]
+            result = {
+                "index": cell_index,
+                "cell_type": cell.cell_type,
+                "source": self._get_cell_source(cell),
+            }
+            deleted_cells.append(result)
         
         # Delete the cell
-        notebook.cells.pop(cell_index)
+        for cell_index in sorted(cell_indices, reverse=True):
+            notebook.cells.pop(cell_index)
         
         # Write back to file
         with open(notebook_path, "w", encoding="utf-8") as f:
             nbformat.write(notebook, f)
         
-        return result
+        return deleted_cells
     
     async def _delete_cell_websocket(
         self,
         notebook_manager: NotebookManager,
-        cell_index: int
-    ) -> dict:
+        cell_indices: list[int]
+    ) -> list:
         """Delete cell using WebSocket connection (MCP_SERVER mode).
         
         Args:
             notebook_manager: Notebook manager instance
-            cell_index: Index of cell to delete
+            cell_indices: List of indices of cells to delete
             
         Returns:
-            Success message
+            List of deleted cell information
         """
         async with notebook_manager.get_current_connection() as notebook:
-            if cell_index >= len(notebook):
+            if max(cell_indices) >= len(notebook):
                 raise ValueError(
-                    f"Cell index {cell_index} is out of range. Notebook has {len(notebook)} cells."
+                    f"Cell index {max(cell_indices)} is out of range. Notebook has {len(notebook)} cells."
                 )
 
-            cell = notebook.delete_cell(cell_index)
-            return {
-                "index": cell_index,
-                "cell_type": cell.cell_type,
-                "source": self._get_cell_source(cell),
-            }
+            cells = notebook.delete_many_cells(cell_indices)
+            return cells
     
     async def execute(
         self,
@@ -135,7 +131,8 @@ class DeleteCellTool(BaseTool):
         kernel_spec_manager: Optional[Any] = None,
         notebook_manager: Optional[NotebookManager] = None,
         # Tool-specific parameters
-        cell_index: int = None,
+        cell_indices: list[int] = None,
+        include_source: bool = True,
         **kwargs
     ) -> str:
         """Execute the delete_cell tool.
@@ -181,17 +178,22 @@ class DeleteCellTool(BaseTool):
             
             if serverapp:
                 # Try YDoc approach first
-                cell_info = await self._delete_cell_ydoc(serverapp, notebook_path, cell_index)
+                cells = await self._delete_cell_ydoc(serverapp, notebook_path, cell_indices)
             else:
                 # Fall back to file operations
-                cell_info = await self._delete_cell_file(notebook_path, cell_index)
+                cells = await self._delete_cell_file(notebook_path, cell_indices)
                 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            cell_info = await self._delete_cell_websocket(notebook_manager, cell_index)
+            cells = await self._delete_cell_websocket(notebook_manager, cell_indices)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
         
-        info_list = [f"Cell {cell_info['index']} ({cell_info['cell_type']}) deleted successfully."]
-        info_list.append(f"deleted cell source:\n{cell_info['source']}")
+        info_list = []
+        for cell_info in cells:
+            info_list.append(f"Cell {cell_info['index']} ({cell_info['cell_type']}) deleted successfully.")
+            if include_source:
+                info_list.append(f"deleted cell source:\n{cell_info['source']}")
+                info_list.append("\n---\n")
+        
         return "\n".join(info_list)
