@@ -88,7 +88,7 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         assert f"=====Cell {index} | type: {expected_type}" in cell_info['result'][0], "Cell metadata should be included"
         assert content in cell_info['result'][1], "Cell source should be included"
         # delete created cell
-        result = await client.delete_cell(index)
+        result = await client.delete_cell([index])
         assert result is not None, "delete_cell result should not be None"
         assert f"Cell {index} ({expected_type}) deleted successfully" in result["result"]
         assert f"deleted cell source:\n{content}" in result["result"]
@@ -158,7 +158,7 @@ display(IPythonImage(buffer.getvalue()))
         assert isinstance(result['result'], list), "Result should be a list"
         assert isinstance(result['result'][0], dict)
         assert result['result'][0]['mimeType'] == "image/png", "Result should be a list of ImageContent"
-        await mcp_client_parametrized.delete_cell(1)
+        await mcp_client_parametrized.delete_cell([1])
 
 
 ###############################################################################

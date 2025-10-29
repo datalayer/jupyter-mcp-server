@@ -135,11 +135,12 @@ The server currently offers 14 tools organized into 3 categories:
 
 #### 13. `delete_cell`
 
-- Delete a specific cell from the currently activated notebook and return the cell source of deleted cell.
+- Delete a specific cell or multiple cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
 - When deleting many cells, MUST delete them in descending order of their index to avoid index shifting.
 - Input:
-  - `cell_index`(int): Index of the cell to delete (0-based)
-- Returns: Success message with deletion confirmation and the source code of the deleted cell
+  - `cell_indices`(list[int]): List of indices of the cells to delete (0-based)
+  - `include_source`(bool, optional): Whether to include the source of deleted cells (default: true)
+- Returns: Success message with deletion confirmation and the source code of the deleted cells (if include_source=True)
 
 #### 14. `execute_code`
 

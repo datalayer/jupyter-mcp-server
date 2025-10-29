@@ -336,8 +336,8 @@ class MCPClient:
         return self._extract_text_content(result)
 
     @requires_session
-    async def delete_cell(self, cell_index):
-        result = await self._call_tool_safe("delete_cell", {"cell_index": cell_index})
+    async def delete_cell(self, cell_indices: list[int], include_source: bool = True):
+        result = await self._call_tool_safe("delete_cell", {"cell_indices": cell_indices, "include_source": include_source})
         return self._get_structured_content_safe(result) if result else None
 
     @requires_session
