@@ -59,12 +59,9 @@ build-docker: ## build the docker image
 
 start-docker: ## start the jupyter mcp server in docker
 	docker run -i --rm \
-	  -e DOCUMENT_URL=http://localhost:8888 \
-	  -e DOCUMENT_ID=notebook.ipynb \
-	  -e DOCUMENT_TOKEN=MY_TOKEN \
-	  -e RUNTIME_URL=http://localhost:8888 \
+	  -e JUPYTER_URL=http://localhost:8888 \
+	  -e JUPYTER_TOKEN=MY_TOKEN \
 	  -e START_NEW_RUNTIME=true \
-	  -e RUNTIME_TOKEN=MY_TOKEN \
 	  --network=host \
 	  datalayer/jupyter-mcp-server:latest
 
@@ -90,12 +87,9 @@ start: ## start the jupyter mcp server with streamable-http transport
 	@exec echo
 	jupyter-mcp-server start \
 	  --transport streamable-http \
-	  --document-url http://localhost:8888 \
-	  --document-id notebook.ipynb \
-	  --document-token MY_TOKEN \
-	  --runtime-url http://localhost:8888 \
+	  --jupyter-url http://localhost:8888 \
+	  --jupyter-token MY_TOKEN \
 	  --start-new-runtime true \
-	  --runtime-token MY_TOKEN \
 	  --port 4040
 
 start-empty: ## start the jupyter mcp server with streamable-http transport and no document nor runtime
@@ -106,11 +100,9 @@ start-empty: ## start the jupyter mcp server with streamable-http transport and 
 	@exec echo
 	jupyter-mcp-server start \
 	  --transport streamable-http \
-	  --document-url http://localhost:8888 \
-	  --document-token MY_TOKEN \
-	  --runtime-url http://localhost:8888 \
+	  --jupyter-url http://localhost:8888 \
+	  --jupyter-token MY_TOKEN \
 	  --start-new-runtime false \
-	  --runtime-token MY_TOKEN \
 	  --port 4040
 
 start-jupyter-server-extension: ## start jupyter server with MCP extension
