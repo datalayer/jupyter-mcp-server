@@ -17,14 +17,14 @@ pip install datalayer_pycrdt==0.12.17
 Then, start JupyterLab with the following command.
 
 ```bash
-jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
+jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN
 ```
 
 You can also run `make jupyterlab` if you cloned the repository.
 
 :::note
 
-The `--ip` is set to `0.0.0.0` to allow the MCP Server running in a Docker container to access your local JupyterLab.
+If you wish to start the Jupyter MCP server using docker, add `--ip 0.0.0.0` to the jupyter lab command to allow the MCP Server running in a Docker container to access your local JupyterLab.
 
 :::
 
@@ -46,8 +46,8 @@ Install and start the server:
 pip install jupyter-mcp-server
 jupyter-mcp-server start \
   --transport streamable-http \
-  --document-url http://localhost:8888 \
-  --document-token MY_TOKEN \
+  --jupyter-url http://localhost:8888 \
+  --jupyter-token MY_TOKEN \
   --port 4040
 ```
 

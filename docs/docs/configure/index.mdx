@@ -134,22 +134,63 @@ Options:
   --transport [stdio|streamable-http]  Transport type (default: stdio)
   --provider [jupyter|datalayer]      Provider type (default: jupyter)  
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
-  --runtime-url TEXT                  Runtime URL for kernel operations (default: http://localhost:8888)
+  --runtime-url TEXT                  Runtime URL for kernel operations (default: None)
   --runtime-token TEXT                Runtime authentication token (default: None)
   --runtime-id TEXT                   Specific kernel ID to use (default: None)
-  --start-new-runtime BOOLEAN         Create new runtime vs use existing (default: false)
-  --document-url TEXT                 Document URL for notebook operations (default: http://localhost:8888)
+  --start-new-runtime BOOLEAN         Create new runtime vs use existing (default: true)
+  --document-url TEXT                 Document URL for notebook operations (default: None)
   --document-id TEXT                  Notebook path/ID (default: None)
   --document-token TEXT               Document authentication token (default: None)
+  --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
+  --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```
 
-**Example:**
+### Additional Commands
+
+The server also supports additional commands for advanced workflows:
+
+#### Connect Command
+```bash
+jupyter-mcp-server connect --help
+
+Usage: jupyter-mcp-server connect [OPTIONS]
+
+Connect a Jupyter MCP Server to a document and a runtime.
+
+Options:
+  --provider [jupyter|datalayer]      Provider type (default: jupyter)
+  --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
+  --runtime-url TEXT                  Runtime URL for kernel operations (default: None)
+  --runtime-token TEXT                Runtime authentication token (default: None)
+  --runtime-id TEXT                   Specific kernel ID to use (default: None)
+  --document-url TEXT                 Document URL for notebook operations (default: None)
+  --document-id TEXT                  Notebook path/ID (default: None)
+  --document-token TEXT               Document authentication token (default: None)
+  --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
+  --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
+  --jupyter-mcp-server-url TEXT       URL of the Jupyter MCP Server to connect to (default: http://localhost:4040)
+```
+
+#### Stop Command
+```bash
+jupyter-mcp-server stop --help
+
+Usage: jupyter-mcp-server stop [OPTIONS]
+
+Stop a running Jupyter MCP Server.
+
+Options:
+  --jupyter-mcp-server-url TEXT       URL of the Jupyter MCP Server to stop (default: http://localhost:4040)
+```
+
+### Usage Examples
+
 ```bash
 jupyter-mcp-server start \
   --transport streamable-http \
-  --document-url http://localhost:8888 \
-  --document-token MY_TOKEN \
+  --jupyter-url http://localhost:8888 \
+  --jupyter-token MY_TOKEN \
   --port 4040
 ```
 
