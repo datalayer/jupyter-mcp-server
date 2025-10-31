@@ -17,18 +17,12 @@ pip install datalayer_pycrdt==0.12.17 jupyter_mcp_tools
 Start JupyterLab with the MCP server extension:
 
 ```bash
-jupyter lab \
-  --JupyterMCPServerExtensionApp.document_url local \
-  --JupyterMCPServerExtensionApp.runtime_url local \
-  --JupyterMCPServerExtensionApp.start_new_runtime True \
-  --ServerApp.disable_check_xsrf True \
-  --IdentityProvider.token MY_TOKEN \
-  --port 4040
+jupyter lab --port 4040
 ```
 
 This starts JupyterLab at [http://127.0.0.1:4040](http://127.0.0.1:4040) with the MCP server integrated.
 
-For complete configuration options, see the [server configuration guide](/configure).
+For complete configuration options, see the [server configuration guide](/configuration).
 
 ## 2. Configure your MCP Client
 
@@ -57,4 +51,4 @@ Use the following configuration to connect to the integrated MCP server:
 - Verify server is running at: `curl http://localhost:4040/mcp`
 - Check that port 4040 is not blocked
 
-For detailed configuration and troubleshooting, see the [configuration guide](/configure).
+For detailed configuration and troubleshooting, see the [configuration guide](/configuration).
