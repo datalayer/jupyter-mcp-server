@@ -34,7 +34,7 @@ For JupyterHub:
 - Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 :::
 
-## 2. Setup Jupyter MCP Server
+## 2. Start Jupyter MCP Server
 
 The server runs on port `4040` and provides a streamable HTTP endpoint at `http://localhost:4040/mcp`.
 
@@ -74,7 +74,7 @@ docker run \
   --transport streamable-http
 ```
 
-For advanced configuration options, see the [server configuration guide](/configure).
+For advanced configuration options, see the [server configuration guide](/configuration).
 
 <!--
 
@@ -116,4 +116,4 @@ Use the following configuration to connect to the running server:
 - Verify `JUPYTER_TOKEN` matches your Jupyter server token
 - Check Jupyter server is accessible from MCP server
 
-For detailed configuration and troubleshooting, see the [configuration guide](/configure).
+For detailed configuration and troubleshooting, see the [configuration guide](/configuration).
