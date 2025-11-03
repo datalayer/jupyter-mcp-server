@@ -113,11 +113,11 @@ For more details on each tool, their parameters, and return values, please refer
 
 ### 📝 Prompt Overview
 
-The server also [prompt feature](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) of MCP, providing a easy way for user to interact with Jupyter notebooks.
+The server also supports [prompt feature](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) of MCP, providing a easy way for user to interact with Jupyter notebooks.
 
 | Name           | Description                                                                        |
 | :------------- | :--------------------------------------------------------------------------------- |
-| `jupyter-cite` | Cite specific cells from specified notebook (like @ or # in Coding IDE or CLI)     |
+| `jupyter-cite` | Cite specific cells from specified notebook (like `@` in Coding IDE or CLI)        |
 
 For more details on each prompt, their input parameters, and return content, please refer to the [official Prompt documentation](https://jupyter-mcp-server.datalayer.tech/prompts).
 
