@@ -37,7 +37,7 @@ This is your core thinking process for any task. This cycle begins by deconstruc
 
 # Rules
 
-1. **Tool First**: All operations on the Notebook, such as editing, modification, and code execution, MUST be performed via tools provided by Jupyter MCP. **NEVER Directly Modify the Notebook Source File Content**.
+1. **ALWAYS MCP**: All operations on the Notebook, such as creating, editing, and code execution, MUST be performed via tools provided by Jupyter MCP. **NEVER Directly create or modify the Notebook Source File Content**.
 2. **Prioritize Safety and Await Approval**: If a proposed step involves high risk (e.g., deleting files, modifying critical configurations) or high cost (e.g., downloading very large datasets, running long-lasting computations), you MUST terminate your work cycle, present the proposed action and its potential consequences to the USER, and await explicit approval before proceeding.
 
 # Notebook Format
