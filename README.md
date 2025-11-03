@@ -47,7 +47,7 @@
 ## 📖 Table of Contents
 
 - [Key Features](#-key-features)
-- [Tools Overview](#-tools-overview)
+- [MCP Overview](#-mcp-overview)
 - [Getting Started](#-getting-started)
 - [Best Practices](#-best-practices)
 - [Contributing](#-contributing)
@@ -65,18 +65,21 @@
 
 Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai/) hosted Notebooks.
 
-## 🔧 Tools Overview
+
+## ✨ MCP Overview
+
+### 🔧 Tools Overview
 
 The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows:
 
-### Server Management Tools
+#### Server Management Tools
 
 | Name             | Description                                                                                |
 | :--------------- | :----------------------------------------------------------------------------------------- |
 | `list_files`     | List files and directories in the Jupyter server's file system.                            |
 | `list_kernels`   | List all available and running kernel sessions on the Jupyter server.                      |
 
-### Multi-Notebook Management Tools
+#### Multi-Notebook Management Tools
 
 | Name               | Description                                                                              |
 | :----------------- | :--------------------------------------------------------------------------------------- |
@@ -86,7 +89,7 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 | `unuse_notebook`   | Disconnect from a specific notebook and release its resources.                           |
 | `read_notebook`    | Read notebook cells source content with brief or detailed format options.                |
 
-### Cell Operations and Execution Tools
+#### Cell Operations and Execution Tools
 
 | Name                       | Description                                                                      |
 | :------------------------- | :------------------------------------------------------------------------------- |
@@ -98,7 +101,7 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 | `insert_execute_code_cell` | Insert a new code cell and execute it in one step.                               |
 | `execute_code`             | Execute code directly in the kernel, supports magic commands and shell commands. |
 
-### JupyterLab Integration
+#### JupyterLab Integration
 
 *Available only when JupyterLab mode is enabled. It is enabled by default.*
 
@@ -107,6 +110,16 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 | `notebook_run-all-cells` | Execute all cells in the current notebook sequentially                             |
 
 For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
+
+### 📝 Prompt Overview
+
+The server also supports [prompt feature](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) of MCP, providing a easy way for user to interact with Jupyter notebooks.
+
+| Name           | Description                                                                        |
+| :------------- | :--------------------------------------------------------------------------------- |
+| `jupyter-cite` | Cite specific cells from specified notebook (like `@` in Coding IDE or CLI)        |
+
+For more details on each prompt, their input parameters, and return content, please refer to the [official Prompt documentation](https://jupyter-mcp-server.datalayer.tech/prompts).
 
 ## 🏁 Getting Started
 
