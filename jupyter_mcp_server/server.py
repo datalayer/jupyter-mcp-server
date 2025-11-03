@@ -52,6 +52,8 @@ from jupyter_mcp_server.tools import (
     ExecuteCodeTool,
     ListFilesTool,
     ListKernelsTool,
+    # MCP Prompt
+    JupyterCitePrompt,
 )
 
 
@@ -520,6 +522,30 @@ async def execute_code(
             safe_extract_outputs_fn=safe_extract_outputs,
         ),
         max_retries=1
+    )
+
+###############################################################################
+# Prompt
+
+@mcp.prompt()
+async def jupyter_cite(
+    prompt: Annotated[str, Field(description="User prompt for the cited cells")],
+    cell_indices: Annotated[str, Field(description="Cell indices to cite (0-based),supporting flexible range format, e.g., '0,1,2', '0-2' or '0-2,4'")],
+    notebook_name: Annotated[str, Field(description="Name of the notebook to cite cells from, default (empty) to current activated notebook")] = "",
+):
+    """
+    Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.
+    """
+    return await safe_notebook_operation(
+        lambda: JupyterCitePrompt().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
+            cell_indices=cell_indices,
+            notebook_name=notebook_name,
+            prompt=prompt,
+        )
     )
 
 ###############################################################################
