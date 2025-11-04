@@ -396,3 +396,8 @@ class MCPClient:
                 structured["result"] = [result_val]
         
         return structured
+
+    @requires_session
+    async def jupyter_cite(self, prompt, cell_indices, notebook_name=""):
+        prompt = await self._session.get_prompt("jupyter_cite", arguments={"prompt": prompt, "cell_indices": cell_indices, "notebook_name": notebook_name})  # type: ignore
+        return [message.content.text for message in prompt.messages]
