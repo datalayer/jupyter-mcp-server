@@ -213,7 +213,8 @@ class UseNotebookTool(BaseTool):
                     kernel = {"id": kernel_id}
                 else:
                     kernel = await self._start_kernel_local(kernel_manager)
-                
+                    kernel_id = kernel['id']
+
                 info_list.append(f"[INFO] Connected to kernel '{kernel_id}'.")
                 # Create a Jupyter session to associate the kernel with the notebook
                 # This is CRITICAL for JupyterLab to recognize the kernel-notebook connection
