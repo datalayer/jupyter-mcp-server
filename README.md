@@ -23,24 +23,8 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server?style=for-the-badge&logo=docker&logoColor=white&color=2496ED)](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
-<table>
-<tr>
-<td width="60%">
-
-📢 **Upcoming JupyterCon 2025**: We'll be presenting Jupyter MCP Server at [JupyterCon 2025](https://jupytercon2025.sched.com/event/28H3z) on November 4! Join us to learn about ✨ AI-powered notebook interactions and the future of 🪐 Jupyter workflows.
-
-</td>
-<td width="40%" align="center">
-
-[![JupyterCon 2025](https://assets.datalayer.tech/jupyter-mcp/JupyterCon.png)](https://jupytercon2025.sched.com/event/28H3z)
-
-</td>
-</tr>
-</table>
 
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
-
-> 🚨 **Latest Release: v17.0**: **JupyterLab Mode Integration!** Enhanced UI integration with automatic notebook opening. [📋 Read more in the release notes](https://jupyter-mcp-server.datalayer.tech/releases)
 
 </div>
 
@@ -132,6 +116,15 @@ pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 jupyter-mcp-tools>=0.
 pip uninstall -y pycrdt datalayer_pycrdt
 pip install datalayer_pycrdt==0.12.17
 ```
+
+> [!TIP]
+> To confirm your environment is correctly configured:
+> 1. Open a notebook in JupyterLab
+> 2. Type some content in any cell (code or markdown)
+> 3. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
+> 4. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
+> 
+> This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
 
 ### 2. Start JupyterLab
 
