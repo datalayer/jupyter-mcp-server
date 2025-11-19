@@ -122,7 +122,7 @@ pip install datalayer_pycrdt==0.12.17
 > 1. Open a notebook in JupyterLab
 > 2. Type some content in any cell (code or markdown)
 > 3. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
-> 4. Wait a few seconds—the "×" should automatically change to a "○" without manually saving
+> 4. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
 > 
 > This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
 
