@@ -104,7 +104,7 @@ class MCPSSEHandler(RequestHandler):
                         },
                         "serverInfo": {
                             "name": "Jupyter MCP Server",
-                            "version": "0.19.0"
+                            "version": "0.20.0"
                         }
                     }
                 }
@@ -495,7 +495,7 @@ class MCPHealthHandler(MCPHandler):
             "document_url": context.document_url or self.settings.get("mcp_document_url"),
             "runtime_url": context.runtime_url or self.settings.get("mcp_runtime_url"),
             "extension": "jupyter_mcp_server",
-            "version": "0.19.0"
+            "version": "0.20.0"
         }
         
         self.set_header("Content-Type", "application/json")
