@@ -168,12 +168,14 @@ class MCPSSEHandler(RequestHandler):
                                 search_query = ",".join(allowed_jupyter_tools)
                                 logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_tools})")
                                 
-                                # Query for notebook-related tools with broader search term
+                                # Query for notebook-related tools with shorter timeout
+                                # Note: jupyter-mcp-tools requires JupyterLab frontend to load and register tools via WebSocket
                                 jupyter_tools_data = await get_tools(
                                     base_url=base_url,
                                     token=token,
                                     query=search_query,
-                                    enabled_only=False
+                                    enabled_only=False,
+                                    wait_timeout=5  # Shorter timeout - if frontend isn't loaded, don't wait long
                                 )
                                 logger.info(f"Query returned {len(jupyter_tools_data)} tools")
                                 
@@ -181,10 +183,10 @@ class MCPSSEHandler(RequestHandler):
                                 for tool in jupyter_tools_data:
                                     logger.info(f"Found tool: {tool.get('id', '')}")
                             except Exception as e:
-                                logger.warning(f"Failed to load jupyter-mcp-tools: {e}")
+                                logger.warning(f"Failed to load jupyter-mcp-tools (this is normal if JupyterLab frontend is not loaded): {e}")
                                 jupyter_tools_data = []
                             
-                            logger.info(f"Successfully loaded {len(jupyter_tools_data)} specific jupyter-mcp-tools")
+                            logger.info(f"Successfully loaded {len(jupyter_tools_data)} specific jupyter-mcp-tools (requires JupyterLab frontend)")
                         else:
                             # JupyterLab mode disabled, don't load any jupyter-mcp-tools
                             jupyter_tools_data = []
