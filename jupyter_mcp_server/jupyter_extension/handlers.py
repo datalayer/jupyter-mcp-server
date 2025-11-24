@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Datalayer, Inc.
+# Copyright (c) 2024- Datalayer, Inc.
 #
 # BSD 3-Clause License
 
@@ -11,16 +11,15 @@ FastMCP, managing the MCP protocol lifecycle and request proxying.
 
 import json
 import logging
-import tornado.web
 from typing import Any
 from tornado.web import RequestHandler
 from jupyter_server.base.handlers import JupyterHandler
-from jupyter_server.extension.handler import ExtensionHandlerMixin
 
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.jupyter_extension.backends.local_backend import LocalBackend
 from jupyter_mcp_server.jupyter_extension.backends.remote_backend import RemoteBackend
+
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +104,7 @@ class MCPSSEHandler(RequestHandler):
                         },
                         "serverInfo": {
                             "name": "Jupyter MCP Server",
-                            "version": "0.14.0"
+                            "version": "0.20.0"
                         }
                     }
                 }
@@ -438,7 +437,7 @@ class MCPSSEHandler(RequestHandler):
             self.finish()
 
 
-class MCPHandler(ExtensionHandlerMixin, JupyterHandler):
+class MCPHandler(JupyterHandler):
     """Base handler for MCP endpoints with common functionality."""
     
     def get_backend(self):
@@ -486,7 +485,6 @@ class MCPHealthHandler(MCPHandler):
     GET /mcp/healthz
     """
     
-    @tornado.web.authenticated
     def get(self):
         """Handle health check request."""
         context = get_server_context()
@@ -497,7 +495,7 @@ class MCPHealthHandler(MCPHandler):
             "document_url": context.document_url or self.settings.get("mcp_document_url"),
             "runtime_url": context.runtime_url or self.settings.get("mcp_runtime_url"),
             "extension": "jupyter_mcp_server",
-            "version": "0.14.0"
+            "version": "0.20.0"
         }
         
         self.set_header("Content-Type", "application/json")
@@ -512,7 +510,6 @@ class MCPToolsListHandler(MCPHandler):
     GET /mcp/tools/list
     """
     
-    @tornado.web.authenticated
     async def get(self):
         """Return list of available tools dynamically from the tool registry."""
         # Import here to avoid circular dependency
@@ -539,7 +536,6 @@ class MCPToolsCallHandler(MCPHandler):
     Body: {"tool_name": "...", "arguments": {...}}
     """
     
-    @tornado.web.authenticated
     async def post(self):
         """Handle tool execution request."""
         try:

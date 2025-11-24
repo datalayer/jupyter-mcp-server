@@ -1,7 +1,7 @@
-# Copyright (c) 2023-2024 Datalayer, Inc.
+# Copyright (c) 2024- Datalayer, Inc.
 #
 # BSD 3-Clause License
 
 """Jupyter MCP Server."""
 
-__version__ = "0.19.0"
+__version__ = "0.20.0"
