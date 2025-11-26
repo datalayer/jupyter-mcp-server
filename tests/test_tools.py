@@ -108,6 +108,11 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         expected_result = eval(code_content)
         assert int(code_result['result'][0]) == expected_result
 
+        # Testing appending code cell to bottom of notebook
+        code_result = await mcp_client_parametrized.insert_execute_code_cell(-1, code_content)
+        expected_result = eval(code_content)
+        assert int(code_result['result'][0]) == expected_result
+
         # Test overwrite_cell_source
         new_code_content = f"({code_content}) * 2"
         result = await mcp_client_parametrized.overwrite_cell_source(1, new_code_content)

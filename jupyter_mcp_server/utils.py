@@ -5,6 +5,7 @@
 import re
 import asyncio
 import time
+import json
 from typing import Any, Union
 from mcp.types import ImageContent
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
@@ -83,7 +84,9 @@ def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
         return strip_ansi_codes(str(text))
     
     elif output_type in ["display_data", "execute_result"]:
-        data = output.get("data", {})
+        
+        data = output.get("data", {})       
+        
         if "image/png" in data:
             if ALLOW_IMG_OUTPUT:
                 try:
@@ -93,6 +96,8 @@ def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
                     return "[Image Output (PNG) - Error processing image]"
             else:
                 return "[Image Output (PNG) - Image display disabled]"
+            
+
         if "text/plain" in data:
             plain_text = data["text/plain"]
             if hasattr(plain_text, 'source'):
