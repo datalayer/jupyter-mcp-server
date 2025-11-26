@@ -1,8 +1,4 @@
-# Copyright (c) 2023-2024 Datalayer, Inc.
-#
-# BSD 3-Clause License
-
-# Copyright (c) 2023-2024 Datalayer, Inc.
+# Copyright (c) 2024- Datalayer, Inc.
 #
 # BSD 3-Clause License
 
@@ -214,11 +210,11 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         handlers = [
             # MCP protocol endpoint - SSE-based handler
             # Match /mcp with or without trailing slash
-            (url_path_join(base_url, "mcp/?"), MCPSSEHandler),
+            (url_path_join("mcp/?"), MCPSSEHandler),
             # Utility endpoints (optional, for debugging)
-            (url_path_join(base_url, "mcp/healthz"), MCPHealthHandler),
-            (url_path_join(base_url, "mcp/tools/list"), MCPToolsListHandler),
-            (url_path_join(base_url, "mcp/tools/call"), MCPToolsCallHandler),
+            (url_path_join("mcp/healthz"), MCPHealthHandler),
+            (url_path_join("mcp/tools/list"), MCPToolsListHandler),
+            (url_path_join("mcp/tools/call"), MCPToolsCallHandler),
         ]
         
         # Register handlers

@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Datalayer, Inc.
+# Copyright (c) 2024- Datalayer, Inc.
 #
 # BSD 3-Clause License
 
@@ -33,6 +33,9 @@ from jupyter_mcp_server.tools.execute_code_tool import ExecuteCodeTool
 from jupyter_mcp_server.tools.list_files_tool import ListFilesTool
 from jupyter_mcp_server.tools.list_kernels_tool import ListKernelsTool
 
+# Import MCP prompt
+from jupyter_mcp_server.tools.jupyter_cite_prompt import JupyterCitePrompt
+
 __all__ = [
     "BaseTool",
     "ServerMode",
@@ -54,6 +57,8 @@ __all__ = [
     "ExecuteCodeTool",
     "ListFilesTool",
     "ListKernelsTool",
+    # MCP Prompt
+    "JupyterCitePrompt",
 ]
 
 

@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~ Copyright (c) 2024- Datalayer, Inc.
   ~
   ~ BSD 3-Clause License
 -->
@@ -14,7 +14,7 @@ Templates are organized by use case, you can choose any of them.
 
 > [!TIP]
 >
->  Start with the `general/` template if you're new to Jupyter MCP Server. It provides foundational guidance applicable to most use cases.
+>  Start with the [`general/`](general/) template if you're new to Jupyter MCP Server. It provides foundational guidance applicable to most use cases.
 
 ### Example Usage
 

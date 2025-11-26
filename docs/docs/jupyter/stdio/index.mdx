@@ -12,6 +12,16 @@ pip uninstall -y pycrdt datalayer_pycrdt
 pip install datalayer_pycrdt==0.12.17
 ```
 
+:::tip
+To confirm your environment is correctly configured:
+1. Open a notebook in JupyterLab
+2. Type some content in any cell (code or markdown)
+3. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
+4. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
+
+This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
+:::
+
 ### JupyterLab start
 
 Then, start JupyterLab with the following command.
@@ -41,7 +51,7 @@ Choose your deployment method: **uvx** (lightweight, recommended for first try) 
 :::important
 **Before You Start:**
 - Ensure the port in your configuration matches your `jupyter lab` command port
-- See the [server configuration guide](/configure) for all available options and detailed examples
+- See the [server configuration guide](/configuration) for all available options and detailed examples
 :::
 
 ### Using UVX (Quick Start)
@@ -98,7 +108,7 @@ For deployments requiring separate document storage and runtime execution:
 
 ### Using Docker (Production)
 
-Configuration varies by operating system. For complete configuration options, see the [server configuration guide](/configure).
+Configuration varies by operating system. For complete configuration options, see the [server configuration guide](/configuration).
 
 #### For MacOS and Windows
 
@@ -222,7 +232,7 @@ For deployments requiring separate document storage and runtime execution:
 
 </details>
 
-For advanced configurations with separate document storage and runtime execution, see the [complete configuration examples](/configure#configuration-examples).
+For advanced configurations with separate document storage and runtime execution, see the [complete configuration examples](/configuration#configuration-examples).
 
 ## Troubleshooting
 
@@ -238,4 +248,4 @@ For advanced configurations with separate document storage and runtime execution
 - Test token: `curl -H "Authorization: token YOUR_TOKEN" http://localhost:8888/api/sessions`
 - Check token in Jupyter server logs or URL parameters
 
-For detailed troubleshooting and advanced configuration, see the [configuration guide](/configure).
+For detailed troubleshooting and advanced configuration, see the [configuration guide](/configuration).

@@ -12,6 +12,16 @@ pip uninstall -y pycrdt datalayer_pycrdt
 pip install datalayer_pycrdt==0.12.17
 ```
 
+:::tip
+To confirm your environment is correctly configured:
+1. Open a notebook in JupyterLab
+2. Type some content in any cell (code or markdown)
+3. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
+4. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
+
+This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
+:::
+
 ### JupyterLab start
 
 Then, start JupyterLab with the following command.
@@ -34,7 +44,7 @@ For JupyterHub:
 - Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
 :::
 
-## 2. Setup Jupyter MCP Server
+## 2. Start Jupyter MCP Server
 
 The server runs on port `4040` and provides a streamable HTTP endpoint at `http://localhost:4040/mcp`.
 
@@ -74,7 +84,7 @@ docker run \
   --transport streamable-http
 ```
 
-For advanced configuration options, see the [server configuration guide](/configure).
+For advanced configuration options, see the [server configuration guide](/configuration).
 
 <!--
 
@@ -116,4 +126,4 @@ Use the following configuration to connect to the running server:
 - Verify `JUPYTER_TOKEN` matches your Jupyter server token
 - Check Jupyter server is accessible from MCP server
 
-For detailed configuration and troubleshooting, see the [configuration guide](/configure).
+For detailed configuration and troubleshooting, see the [configuration guide](/configuration).

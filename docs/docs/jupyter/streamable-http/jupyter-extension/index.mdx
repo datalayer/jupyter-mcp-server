@@ -12,23 +12,27 @@ pip uninstall -y pycrdt datalayer_pycrdt
 pip install datalayer_pycrdt==0.12.17 jupyter_mcp_tools
 ```
 
+:::tip
+To confirm your environment is correctly configured:
+1. Open a notebook in JupyterLab
+2. Type some content in any cell (code or markdown)
+3. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
+4. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
+
+This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
+:::
+
 ### Start JupyterLab with MCP Extension
 
 Start JupyterLab with the MCP server extension:
 
 ```bash
-jupyter lab \
-  --JupyterMCPServerExtensionApp.document_url local \
-  --JupyterMCPServerExtensionApp.runtime_url local \
-  --JupyterMCPServerExtensionApp.start_new_runtime True \
-  --ServerApp.disable_check_xsrf True \
-  --IdentityProvider.token MY_TOKEN \
-  --port 4040
+jupyter lab --port 4040
 ```
 
 This starts JupyterLab at [http://127.0.0.1:4040](http://127.0.0.1:4040) with the MCP server integrated.
 
-For complete configuration options, see the [server configuration guide](/configure).
+For complete configuration options, see the [server configuration guide](/configuration).
 
 ## 2. Configure your MCP Client
 
@@ -57,4 +61,4 @@ Use the following configuration to connect to the integrated MCP server:
 - Verify server is running at: `curl http://localhost:4040/mcp`
 - Check that port 4040 is not blocked
 
-For detailed configuration and troubleshooting, see the [configuration guide](/configure).
+For detailed configuration and troubleshooting, see the [configuration guide](/configuration).

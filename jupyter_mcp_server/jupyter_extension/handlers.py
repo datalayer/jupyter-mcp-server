@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Datalayer, Inc.
+# Copyright (c) 2024- Datalayer, Inc.
 #
 # BSD 3-Clause License
 
@@ -11,16 +11,15 @@ FastMCP, managing the MCP protocol lifecycle and request proxying.
 
 import json
 import logging
-import tornado.web
 from typing import Any
 from tornado.web import RequestHandler
 from jupyter_server.base.handlers import JupyterHandler
-from jupyter_server.extension.handler import ExtensionHandlerMixin
 
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.jupyter_extension.backends.local_backend import LocalBackend
 from jupyter_mcp_server.jupyter_extension.backends.remote_backend import RemoteBackend
+
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +104,7 @@ class MCPSSEHandler(RequestHandler):
                         },
                         "serverInfo": {
                             "name": "Jupyter MCP Server",
-                            "version": "0.14.0"
+                            "version": "0.20.0"
                         }
                     }
                 }
@@ -169,12 +168,14 @@ class MCPSSEHandler(RequestHandler):
                                 search_query = ",".join(allowed_jupyter_tools)
                                 logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_tools})")
                                 
-                                # Query for notebook-related tools with broader search term
+                                # Query for notebook-related tools with shorter timeout
+                                # Note: jupyter-mcp-tools requires JupyterLab frontend to load and register tools via WebSocket
                                 jupyter_tools_data = await get_tools(
                                     base_url=base_url,
                                     token=token,
                                     query=search_query,
-                                    enabled_only=False
+                                    enabled_only=False,
+                                    wait_timeout=5  # Shorter timeout - if frontend isn't loaded, don't wait long
                                 )
                                 logger.info(f"Query returned {len(jupyter_tools_data)} tools")
                                 
@@ -182,10 +183,10 @@ class MCPSSEHandler(RequestHandler):
                                 for tool in jupyter_tools_data:
                                     logger.info(f"Found tool: {tool.get('id', '')}")
                             except Exception as e:
-                                logger.warning(f"Failed to load jupyter-mcp-tools: {e}")
+                                logger.warning(f"Failed to load jupyter-mcp-tools (this is normal if JupyterLab frontend is not loaded): {e}")
                                 jupyter_tools_data = []
                             
-                            logger.info(f"Successfully loaded {len(jupyter_tools_data)} specific jupyter-mcp-tools")
+                            logger.info(f"Successfully loaded {len(jupyter_tools_data)} specific jupyter-mcp-tools (requires JupyterLab frontend)")
                         else:
                             # JupyterLab mode disabled, don't load any jupyter-mcp-tools
                             jupyter_tools_data = []
@@ -438,7 +439,7 @@ class MCPSSEHandler(RequestHandler):
             self.finish()
 
 
-class MCPHandler(ExtensionHandlerMixin, JupyterHandler):
+class MCPHandler(JupyterHandler):
     """Base handler for MCP endpoints with common functionality."""
     
     def get_backend(self):
@@ -486,7 +487,6 @@ class MCPHealthHandler(MCPHandler):
     GET /mcp/healthz
     """
     
-    @tornado.web.authenticated
     def get(self):
         """Handle health check request."""
         context = get_server_context()
@@ -497,7 +497,7 @@ class MCPHealthHandler(MCPHandler):
             "document_url": context.document_url or self.settings.get("mcp_document_url"),
             "runtime_url": context.runtime_url or self.settings.get("mcp_runtime_url"),
             "extension": "jupyter_mcp_server",
-            "version": "0.14.0"
+            "version": "0.20.0"
         }
         
         self.set_header("Content-Type", "application/json")
@@ -512,7 +512,6 @@ class MCPToolsListHandler(MCPHandler):
     GET /mcp/tools/list
     """
     
-    @tornado.web.authenticated
     async def get(self):
         """Return list of available tools dynamically from the tool registry."""
         # Import here to avoid circular dependency
@@ -539,7 +538,6 @@ class MCPToolsCallHandler(MCPHandler):
     Body: {"tool_name": "...", "arguments": {...}}
     """
     
-    @tornado.web.authenticated
     async def post(self):
         """Handle tool execution request."""
         try:
