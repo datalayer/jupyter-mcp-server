@@ -410,7 +410,7 @@ async def execute_cell(
 
 @mcp.tool()
 async def insert_execute_code_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=0)],
+    cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=-1)],
     cell_source: Annotated[str, Field(description="Code source for the cell")],
     timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
