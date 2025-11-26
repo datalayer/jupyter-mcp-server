@@ -85,23 +85,7 @@ def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
     
     elif output_type in ["display_data", "execute_result"]:
         
-        data = output.get("data", {})
-        print(data)
-        # ✅ Check for Plotly payloads - be more flexible with the key matching
-        plotly_key = None
-        for key in data.keys():
-            if 'plotly' in key.lower():
-                plotly_key = key
-                break
-        
-        if plotly_key:
-            try:
-                # Return formatted JSON string for Plotly data
-                plotly_json = json.dumps(data[plotly_key], indent=2)
-                return f"[Plotly Visualization]\n{plotly_json}"
-            except Exception as e:
-                return f"[Plotly Output - Error parsing: {e}]"
-        
+        data = output.get("data", {})       
         
         if "image/png" in data:
             if ALLOW_IMG_OUTPUT:
@@ -529,23 +513,7 @@ async def execute_via_execution_stack(
                         return [f"[ERROR: Invalid output format]"]
                 
                 if outputs:
-                    # Clean 'transient' field from outputs (not part of nbformat schema)
-                    cleaned_outputs = []
-                    for output in outputs:
-                        if isinstance(output, dict):
-                            # Remove transient field if present
-                            cleaned_output = {k: v for k, v in output.items() if k != 'transient'}
-                            cleaned_outputs.append(cleaned_output)
-                            
-                            # Debug log for Plotly detection
-                            output_type = cleaned_output.get('output_type')
-                            if output_type in ['display_data', 'execute_result']:
-                                data_keys = list(cleaned_output.get('data', {}).keys())
-                                logger.info(f"Found {output_type} with data keys: {data_keys}")
-                        else:
-                            cleaned_outputs.append(output)
-                    
-                    formatted = safe_extract_outputs(cleaned_outputs)
+                    formatted = safe_extract_outputs(outputs)
                     logger.info(f"Execution completed with {len(formatted)} formatted outputs: {formatted}")
                     return formatted
                 else:

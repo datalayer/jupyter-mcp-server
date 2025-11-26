@@ -169,7 +169,7 @@ async def stop(request: Request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
-@mcp.custom_route("/api/health", ["GET"])
+@mcp.custom_route("/api/healthz", ["GET"])
 async def health_check(request: Request):
     """Custom health check endpoint"""
     kernel_status = "unknown"
