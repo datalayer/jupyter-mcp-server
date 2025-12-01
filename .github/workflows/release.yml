@@ -15,7 +15,7 @@ jobs:
     name: Build Python Package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -68,7 +68,7 @@ jobs:
       packages: write  # For GHCR
       id-token: write  # For Docker Hub OIDC (optional)
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Extract version from tag
         id: version
@@ -108,7 +108,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Fetch complete history for release creation
 
