@@ -193,6 +193,22 @@ def _do_start(
 
     # Reset ServerContext to pick up new configuration
     ServerContext.reset()
+    
+    # Also update the jupyter_extension ServerContext with the jupyterlab flag
+    # This is critical for MCP_SERVER mode to propagate the config properly
+    try:
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
+        extension_context = get_server_context()
+        extension_context.update(
+            context_type="MCP_SERVER",
+            serverapp=None,
+            document_url=config.document_url,
+            runtime_url=config.runtime_url,
+            jupyterlab=config.jupyterlab
+        )
+        logger.info(f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}")
+    except Exception as e:
+        logger.warning(f"Failed to update jupyter_extension ServerContext: {e}")
 
     # Determine startup behavior based on configuration
     if config.document_id:
@@ -329,7 +345,7 @@ def connect_command(
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
     # Set configuration using the singleton
-    set_config(
+    config = set_config(
         provider=provider,
         runtime_url=runtime_url,
         runtime_id=runtime_id,
@@ -339,6 +355,22 @@ def connect_command(
         document_token=document_token,
         jupyterlab=jupyterlab
     )
+    
+    # Also update the jupyter_extension ServerContext with the jupyterlab flag
+    # This is critical for MCP_SERVER mode to propagate the config properly
+    try:
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
+        extension_context = get_server_context()
+        extension_context.update(
+            context_type="MCP_SERVER",
+            serverapp=None,
+            document_url=config.document_url,
+            runtime_url=config.runtime_url,
+            jupyterlab=config.jupyterlab
+        )
+        logger.info(f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}")
+    except Exception as e:
+        logger.warning(f"Failed to update jupyter_extension ServerContext: {e}")
 
     config = get_config()
 
