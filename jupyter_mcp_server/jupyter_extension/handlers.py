@@ -19,6 +19,7 @@ from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.jupyter_extension.backends.local_backend import LocalBackend
 from jupyter_mcp_server.jupyter_extension.backends.remote_backend import RemoteBackend
+from jupyter_mcp_server.utils import clean_mcp_response, clean_mcp_response_content
 
 
 logger = logging.getLogger(__name__)
@@ -355,11 +356,14 @@ class MCPSSEHandler(RequestHandler):
                                 serialized_content = []
                                 for item in content_list:
                                     if hasattr(item, 'model_dump'):
-                                        serialized_content.append(item.model_dump())
+                                        serialized_item = clean_mcp_response_content(item.model_dump())
+                                        serialized_content.append(serialized_item)
                                     elif hasattr(item, 'dict'):
-                                        serialized_content.append(item.dict())
+                                        serialized_item = clean_mcp_response_content(item.dict())
+                                        serialized_content.append(serialized_item)
                                     elif isinstance(item, dict):
-                                        serialized_content.append(item)
+                                        serialized_item = clean_mcp_response_content(item)
+                                        serialized_content.append(serialized_item)
                                     else:
                                         serialized_content.append({"type": "text", "text": str(item)})
                                 result_dict = {"content": serialized_content}
@@ -367,9 +371,9 @@ class MCPSSEHandler(RequestHandler):
                                 result_dict = {"content": [{"type": "text", "text": str(result)}]}
                         # Convert result to dict - it's a CallToolResult with content list
                         elif hasattr(result, 'model_dump'):
-                            result_dict = result.model_dump()
+                            result_dict = clean_mcp_response(result.model_dump())
                         elif hasattr(result, 'dict'):
-                            result_dict = result.dict()
+                            result_dict = clean_mcp_response(result.dict())
                         elif hasattr(result, 'content'):
                             # Extract content directly if it has a content attribute
                             result_dict = {"content": result.content}
