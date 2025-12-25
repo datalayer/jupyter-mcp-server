@@ -12,7 +12,7 @@ from fastapi import Request
 from jupyter_kernel_client import KernelClient
 
 from mcp.server import FastMCP
-from mcp.types import ImageContent
+from mcp.types import ImageContent, ToolAnnotations
 from starlette.middleware.cors import CORSMiddleware
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
@@ -200,7 +200,12 @@ async def health_check(request: Request):
 ###############################################################################
 # Server Management Tools.
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="List Files",
+        readOnlyHint=True,
+    ),
+)
 async def list_files(
     path: Annotated[str, Field(description="The starting path to list from (empty string means root directory)")] = "",
     # Maximum depth to recurse into subdirectories, Set Max to 3 to avoid infinite recursion.
@@ -227,7 +232,12 @@ async def list_files(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="List Kernels",
+        readOnlyHint=True,
+    ),
+)
 async def list_kernels() -> Annotated[str, Field(description="Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment")]:
     """List all available kernels in the Jupyter server.
     
@@ -248,7 +258,12 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
 # Multi-Notebook Management Tools.
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Use Notebook",
+        destructiveHint=True,
+    ),
+)
 async def use_notebook(
     notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
     notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')")],
@@ -280,7 +295,12 @@ async def use_notebook(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="List Notebooks",
+        readOnlyHint=True,
+    ),
+)
 async def list_notebooks() -> Annotated[str, Field(description="TSV formatted table with notebook information")]:
     """List all notebooks that have been used via use_notebook tool"""
     return await ListNotebooksTool().execute(
@@ -289,7 +309,12 @@ async def list_notebooks() -> Annotated[str, Field(description="TSV formatted ta
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Restart Notebook",
+        destructiveHint=True,
+    ),
+)
 async def restart_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to restart")],
 ) -> Annotated[str, Field(description="Success message")]:
@@ -302,7 +327,12 @@ async def restart_notebook(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Unuse Notebook",
+        destructiveHint=True,
+    ),
+)
 async def unuse_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
 ) -> Annotated[str, Field(description="Success message")]:
@@ -314,7 +344,12 @@ async def unuse_notebook(
         kernel_manager=server_context.kernel_manager,
     )
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Read Notebook",
+        readOnlyHint=True,
+    ),
+)
 async def read_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to read")],
     response_format: Annotated[Literal["brief", "detailed"], Field(description="Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source")] = "brief",
@@ -345,7 +380,12 @@ async def read_notebook(
 ###############################################################################
 # Cell Tools.
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Insert Cell",
+        destructiveHint=True,
+    ),
+)
 async def insert_cell(
     cell_index: Annotated[int, Field(description="Target index for insertion (0-based), use -1 to append at end", ge=-1)],
     cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
@@ -365,7 +405,12 @@ async def insert_cell(
         )
     )
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Overwrite Cell Source",
+        destructiveHint=True,
+    ),
+)
 async def overwrite_cell_source(
     cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
     cell_source: Annotated[str, Field(description="New complete cell source")],
@@ -384,7 +429,12 @@ async def overwrite_cell_source(
         )
     )
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Execute Cell",
+        destructiveHint=True,
+    ),
+)
 async def execute_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
     timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
@@ -408,7 +458,12 @@ async def execute_cell(
         max_retries=1
     )
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Insert and Execute Code Cell",
+        destructiveHint=True,
+    ),
+)
 async def insert_execute_code_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=-1)],
     cell_source: Annotated[str, Field(description="Code source for the cell")],
@@ -445,7 +500,12 @@ async def insert_execute_code_cell(
         max_retries=1
     )
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Read Cell",
+        readOnlyHint=True,
+    ),
+)
 async def read_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
     include_outputs: Annotated[bool, Field(description="Include outputs in the response (only for code cells)")] = True,
@@ -462,7 +522,12 @@ async def read_cell(
         )
     )
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Delete Cell",
+        destructiveHint=True,
+    ),
+)
 async def delete_cell(
     cell_indices: Annotated[list[int], Field(description="List of cell indices to delete (0-based)",min_items=1)],
     include_source: Annotated[bool, Field(description="Whether to include the source of deleted cells")] = True,
@@ -481,7 +546,12 @@ async def delete_cell(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Execute Code",
+        destructiveHint=True,
+    ),
+)
 async def execute_code(
     code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
     timeout: Annotated[int, Field(description="Execution timeout in seconds",le=60)] = 30,
