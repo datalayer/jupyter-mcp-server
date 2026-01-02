@@ -1,0 +1,368 @@
+# Security
+
+Jupyter MCP Server is designed to integrate with your existing Jupyter deployment's security infrastructure. This guide covers authentication methods, token management, and best practices for secure deployments.
+
+## Authentication Overview
+
+Jupyter MCP Server supports multiple authentication methods to work with various Jupyter deployment scenarios:
+
+1. **Bearer Token Authentication** (Recommended for most deployments)
+2. **XSRF Cookie-based Authentication** (For token-less environments)
+3. **External Authentication** (SSO, OAuth, IAM in managed environments)
+
+## Token Authentication
+
+### Understanding Jupyter Tokens
+
+Jupyter tokens are authentication credentials used to secure access to Jupyter servers. When you start JupyterLab with a token:
+
+```bash
+jupyter lab --IdentityProvider.token MY_TOKEN
+```
+
+This token acts as a password that must be provided in API requests to authenticate.
+
+### How Tokens are Used
+
+The MCP server authenticates to Jupyter using Bearer token authentication:
+
+```http
+Authorization: Bearer MY_TOKEN
+```
+
+Tokens are required for:
+- Accessing the Jupyter API (`/api/sessions`, `/api/contents`, etc.)
+- Establishing collaboration sessions (`/api/collaboration/session/`)
+- Executing code in kernels
+- Reading and writing notebook files
+
+### Token Configuration
+
+#### Simplified Configuration (Recommended)
+
+Use `JUPYTER_TOKEN` when your document storage and runtime execution are on the same Jupyter server:
+
+```json
+{
+  "env": {
+    "JUPYTER_URL": "http://localhost:8888",
+    "JUPYTER_TOKEN": "MY_TOKEN"
+  }
+}
+```
+
+#### Advanced Configuration (Separate Services)
+
+For deployments where notebook storage and kernel execution are separate:
+
+```json
+{
+  "env": {
+    "DOCUMENT_URL": "http://storage-server:8888",
+    "DOCUMENT_TOKEN": "storage-token",
+    "RUNTIME_URL": "http://compute-server:8888",
+    "RUNTIME_TOKEN": "compute-token"
+  }
+}
+```
+
+### Token Best Practices
+
+:::warning Security Best Practices
+
+1. **Never commit tokens to version control** - Use environment variables or secure secret management
+2. **Use strong, unique tokens** - Generate random tokens with sufficient entropy
+3. **Rotate tokens regularly** - Especially for production environments
+4. **Limit token scope** - For JupyterHub, create tokens with minimal required scopes
+5. **Use HTTPS in production** - Always encrypt token transmission over the network
+
+:::
+
+#### Generating Secure Tokens
+
+```bash
+# Generate a random secure token
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+#### Storing Tokens Securely
+
+- **Development**: Use environment variables in shell profiles (`.bashrc`, `.zshrc`)
+- **CI/CD**: Use encrypted secrets (GitHub Secrets, GitLab CI Variables)
+- **Production**: Use secret management systems (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault)
+
+## XSRF Protection
+
+### What is XSRF?
+
+Cross-Site Request Forgery (XSRF/CSRF) protection prevents unauthorized commands from being transmitted from a user that the web application trusts. Jupyter uses Tornado's built-in XSRF protection.
+
+### Token-less Environments
+
+As described in [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183), some Jupyter deployments don't use Bearer tokens but rely on XSRF cookies for authentication:
+
+**Affected Environments:**
+- Jupyter servers started without a token: `jupyter lab --IdentityProvider.token ''`
+- Enterprise deployments with SSO/OAuth/IAM
+- Managed environments (AWS SageMaker Studio, Google Colab Enterprise, Azure ML)
+- JupyterHub where authentication is handled by the Hub
+
+### Current Limitations
+
+:::info Current Status
+
+**Bearer Token Required**: Currently, Jupyter MCP Server requires a Bearer token (`JUPYTER_TOKEN`) to authenticate with the Jupyter collaboration API.
+
+**Issue**: The server fails with `403 Forbidden` when connecting to Jupyter deployments that use XSRF protection without Bearer tokens.
+
+**Tracking**: We're working on automatic XSRF cookie handling - see [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183) for details.
+
+:::
+
+### Workarounds for XSRF-only Environments
+
+Until automatic XSRF handling is implemented, you have these options:
+
+#### Option 1: Start Jupyter with a Token (Recommended)
+
+```bash
+jupyter lab --IdentityProvider.token YOUR_SECURE_TOKEN
+```
+
+Then configure MCP server with:
+
+```json
+{
+  "env": {
+    "JUPYTER_TOKEN": "YOUR_SECURE_TOKEN"
+  }
+}
+```
+
+#### Option 2: Disable XSRF (Development Only)
+
+:::danger Not for Production
+
+Only use this in isolated development environments. Never disable XSRF protection in production or shared environments.
+
+:::
+
+```bash
+jupyter lab --ServerApp.disable_check_xsrf True
+```
+
+## JupyterHub Authentication
+
+JupyterHub adds an additional layer of authentication complexity since it manages multiple user servers.
+
+### Token Requirements for JupyterHub
+
+When using Jupyter MCP Server with JupyterHub, you need:
+
+1. **API Token with Proper Scope**: Create a token with the `access:servers` scope
+2. **URL Token Parameter Support**: Enable `JUPYTERHUB_ALLOW_TOKEN_IN_URL` in the single-user environment
+
+### Configuration Steps
+
+#### 1. Enable Token in URL
+
+In your JupyterHub configuration (`jupyterhub_config.py`):
+
+```python
+c.Spawner.environment = {
+    'JUPYTERHUB_ALLOW_TOKEN_IN_URL': '1'
+}
+```
+
+#### 2. Create API Token
+
+Using JupyterHub admin interface or API:
+
+```bash
+# Create a token with access:servers scope
+jupyterhub token <username> --note "MCP Client Token" --scope access:servers
+```
+
+#### 3. Configure MCP Client
+
+```json
+{
+  "env": {
+    "JUPYTER_URL": "https://jupyterhub.example.com/user/username",
+    "JUPYTER_TOKEN": "your-api-token-here"
+  }
+}
+```
+
+### JupyterHub Token Scopes
+
+| Scope | Purpose | Required for MCP |
+|-------|---------|------------------|
+| `access:servers` | Access user's notebook servers | **Yes** |
+| `read:users` | Read user information | No |
+| `admin:users` | Manage users (admin only) | No |
+
+## Managed Jupyter Environments
+
+### AWS SageMaker Studio
+
+SageMaker uses IAM-based authentication combined with XSRF protection.
+
+:::info Status
+
+**Not Currently Supported**: SageMaker's authentication model is not yet supported. Follow [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183) for updates.
+
+:::
+
+### Google Colab Enterprise
+
+Colab Enterprise uses Google's OAuth2 authentication.
+
+:::info Status
+
+**Under Development**: We're evaluating support for Google Colab Enterprise environments.
+
+:::
+
+### Azure ML Notebooks
+
+Azure ML uses Azure AD authentication.
+
+:::info Status
+
+**Under Development**: Azure ML support is being evaluated.
+
+:::
+
+## Network Security
+
+### HTTPS/TLS
+
+:::warning Production Requirement
+
+**Always use HTTPS in production environments** to encrypt all communication, including authentication tokens.
+
+:::
+
+#### Example HTTPS Configuration
+
+```json
+{
+  "env": {
+    "JUPYTER_URL": "https://jupyter.example.com:8888",
+    "JUPYTER_TOKEN": "your-token-here"
+  }
+}
+```
+
+### Firewall Configuration
+
+Ensure appropriate firewall rules:
+
+**STDIO Transport:**
+- No inbound ports needed (uses standard input/output)
+- Outbound access to Jupyter server required
+
+**Streamable HTTP Transport:**
+- Inbound port (default: 4040) for MCP client connections
+- Outbound access to Jupyter server required
+
+### Network Isolation
+
+For sensitive deployments:
+
+1. **Private Networks**: Run Jupyter and MCP server on private networks
+2. **VPN Access**: Require VPN for accessing Jupyter infrastructure
+3. **IP Whitelisting**: Restrict Jupyter server access to known IP ranges
+
+## Docker Security
+
+When running Jupyter MCP Server in Docker:
+
+### Don't Expose Tokens in Logs
+
+```bash
+# ❌ BAD - Token visible in docker ps
+docker run -e JUPYTER_TOKEN=my-secret-token ...
+
+# ✅ GOOD - Use Docker secrets or environment file
+docker run --env-file .env ...
+```
+
+### Use Docker Secrets (Docker Swarm/Kubernetes)
+
+```bash
+# Create secret
+echo "my-secure-token" | docker secret create jupyter_token -
+
+# Use in service
+docker service create \
+  --secret jupyter_token \
+  datalayer/jupyter-mcp-server
+```
+
+### Least Privilege
+
+Run containers with minimal privileges:
+
+```bash
+docker run \
+  --read-only \
+  --cap-drop=ALL \
+  --security-opt=no-new-privileges:true \
+  datalayer/jupyter-mcp-server
+```
+
+## Security Checklist
+
+Use this checklist to ensure your deployment follows security best practices:
+
+### Development
+
+- [ ] Use unique tokens for each developer
+- [ ] Rotate tokens periodically
+- [ ] Don't commit tokens to version control
+- [ ] Use `.env` files (add to `.gitignore`)
+- [ ] Run Jupyter on `localhost` only
+
+### Production
+
+- [ ] Use HTTPS/TLS for all connections
+- [ ] Generate strong random tokens (minimum 32 characters)
+- [ ] Store tokens in secure secret management system
+- [ ] Enable firewall rules to restrict access
+- [ ] Use VPN or private networks when possible
+- [ ] Implement token rotation policy
+- [ ] Enable audit logging on Jupyter server
+- [ ] Regular security updates for all components
+- [ ] Monitor for unauthorized access attempts
+
+### JupyterHub
+
+- [ ] Use API tokens with minimal scopes (`access:servers` only)
+- [ ] Enable `JUPYTERHUB_ALLOW_TOKEN_IN_URL` in single-user environment
+- [ ] Configure token expiration policies
+- [ ] Implement single sign-on (SSO) if available
+- [ ] Regular token audits and cleanup
+
+## Reporting Security Issues
+
+If you discover a security vulnerability in Jupyter MCP Server:
+
+:::danger Security Disclosure
+
+**Do not open a public GitHub issue for security vulnerabilities.**
+
+Instead, please email: **security@datalayer.io**
+
+We will respond promptly to security reports.
+
+:::
+
+## Additional Resources
+
+- [Jupyter Server Security](https://jupyter-server.readthedocs.io/en/latest/operators/security.html)
+- [JupyterHub Security Overview](https://jupyterhub.readthedocs.io/en/stable/reference/websecurity.html)
+- [Tornado XSRF Protection](https://www.tornadoweb.org/en/stable/guide/security.html)
+- [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- [Issue #183: XSRF Support](https://github.com/datalayer/jupyter-mcp-server/issues/183)

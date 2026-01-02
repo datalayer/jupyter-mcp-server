@@ -2,17 +2,104 @@
 
 To use Jupyter MCP Server, you first need to decide which setup fits your needs:
 
-- ***MCP Server Location*** - It can be running as a **Standalone MCP Server** or inside the Jupyter Server **as a Jupyter Server Extension** - The last one has for advantage to avoid running 2 separate servers (Jupyter server + MCP server) but only supports Streamable HTTP transport.
-- ***MCP Transport*** - It supports both ***STDIO Transport*** and ***Streamable HTTP Transport***
-- ***Jupyter Provider*** - It can connect to a **local or remote Jupyter server**, to [**Datalayer**](https://datalayer.ai) or to [Google Colab](https://colab.research.google.com) hosted Notebooks.
+- **MCP Server Location** - It can be running as a [**Standalone MCP Server**](/providers/jupyter-streamable-http-standalone) or inside the Jupyter Server [**as a Jupyter Server Extension**](/providers/jupyter-streamable-http-extension) - The last one has for advantage to avoid running 2 separate servers (Jupyter server + MCP server) but only supports Streamable HTTP transport.
+- **MCP Transport** - It supports both [**STDIO Transport**](/providers/jupyter-stdio) and **Streamable HTTP Transport**
+- **Jupyter Provider** - It can connect to a **local or remote Jupyter server**, to [**JupyterHub**](/providers/jupyterhub-streamable-http), to [**Datalayer**](/providers/datalayer) or to [**Google Colab**](/providers/google-colab) hosted Notebooks.
 
 This guide will help you set up a Jupyter MCP Server to connect your preferred MCP client to a JupyterLab instance.
 
 The Jupyter MCP Server acts as a bridge between the MCP client and the JupyterLab server, allowing you to interact with Jupyter notebooks seamlessly.
 
-You can customize the setup further based on your requirements. Refer to the [server configuration](/configuration) for more details on the possible configurations.
+You can customize the setup further based on your requirements. Refer to the [server configuration](/reference/configuration) for more details on the possible configurations.
+
+## Choosing Your Transport
 
 Jupyter MCP Server supports two types of transport to connect to your MCP client: **STDIO** and **Streamable HTTP**. Choose the one that best fits your needs.
+
 For more details on the different transports, refer to the official MCP documentation [here](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
 
-If you choose Streamable HTTP transport, you can also choose to run the MCP server **as a Jupyter Server Extension** or **as a Standalone Server**. Running the MCP server as a Jupyter Server Extension has the advantage of not requiring to run two separate servers (Jupyter server + MCP server).
+### STDIO Transport
+
+**Best for:** Desktop applications, Docker deployments, single-user setups
+
+- ✅ Simple configuration
+- ✅ Works with most MCP clients (Claude Desktop, Cursor, Windsurf, VS Code)
+- ✅ No additional server ports needed
+- ❌ One client connection at a time
+
+👉 [Get started with STDIO Transport](/providers/jupyter-stdio)
+
+### Streamable HTTP Transport
+
+**Best for:** Web applications, multiple concurrent clients, production deployments
+
+- ✅ Multiple clients can connect simultaneously
+- ✅ Web-based access
+- ✅ Can run as Jupyter Server Extension (no separate MCP server process)
+- ❌ Requires opening network ports
+
+If you choose Streamable HTTP transport, you can also choose to run the MCP server:
+
+- [**As a Jupyter Server Extension**](/providers/jupyter-streamable-http-extension) - MCP server runs inside Jupyter (recommended, simpler setup)
+- [**As a Standalone Server**](/providers/jupyter-streamable-http-standalone) - MCP server runs as a separate process
+
+## Provider Options
+
+### Local/Remote Jupyter Server
+
+Connect to any standard JupyterLab or Jupyter Notebook server.
+
+👉 Choose your transport:
+- [STDIO Transport](/providers/jupyter-stdio)
+- [Streamable HTTP (Extension)](/providers/jupyter-streamable-http-extension)
+- [Streamable HTTP (Standalone)](/providers/jupyter-streamable-http-standalone)
+
+### JupyterHub
+
+Multi-user deployments with authentication and resource management.
+
+👉 [JupyterHub Setup Guide](/providers/jupyterhub-streamable-http)
+
+:::tip Multi-User Deployments
+If you're deploying for multiple users, see the [Multi-User Documentation](/reference/multi-users) for architecture patterns and best practices.
+:::
+
+### Datalayer Platform
+
+Enterprise-grade hosted Jupyter with built-in collaboration and security features.
+
+👉 [Datalayer Provider Documentation](/providers/datalayer)
+
+### Google Colab
+
+Connect to Google Colab notebooks (experimental).
+
+👉 [Google Colab Provider Documentation](/providers/google-colab)
+
+## MCP Client Configuration
+
+Once you've set up your MCP server, you need to configure your MCP client. Choose your client:
+
+- [Claude Desktop](/clients/claude_desktop) - Anthropic's desktop app
+- [VS Code](/clients/vscode) - GitHub Copilot integration
+- [Cursor](/clients/cursor) - AI-first code editor
+- [Cline](/clients/cline) - VS Code extension
+- [Windsurf](/clients/windsurf) - Collaborative coding environment
+
+## Next Steps
+
+After setting up your MCP server and client:
+
+🔧 **Explore Available Tools** - Learn about the [MCP tools](/reference/tools) for interacting with notebooks
+
+📝 **Use Prompts** - Discover [prompt features](/reference/prompts) for citing and referencing notebooks
+
+🔒 **Secure Your Deployment** - Review [security best practices](/reference/security) for token management and authentication
+
+📚 **Learn More** - Check out the [Resources](/resources) section for tutorials, videos, and community content
+
+## Additional Resources
+
+- [Configuration Reference](/reference/configuration) - Complete environment variable and CLI option documentation
+- [Community](/community) - Join discussions, get help, and connect with other users
+- [Releases](/releases) - See what's new in each version
