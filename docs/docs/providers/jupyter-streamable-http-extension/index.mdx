@@ -1,0 +1,74 @@
+# Jupyter Server Extension with Streamable HTTP Transport
+
+The following diagram illustrates how **Jupyter MCP Server** runs as an extension inside a **Jupyter server** and communicates with an MCP client.
+In this configuration, you don't need to run a separate MCP server. It will start automatically when you start your Jupyter server.
+Note that only **Streamable HTTP** transport is supported in this configuration.
+
+<img
+    src="https://assets.datalayer.tech/jupyter-mcp/diagram-jupyter-extension.png"
+    alt="Jupyter MCP Diagram Jupyter Extension"
+    style={{ width: "700px", marginBottom: "2rem" }}
+/>
+
+## 1. Start JupyterLab and the MCP Server
+
+### Environment setup
+
+Make sure you have the following packages installed in your environment. The collaboration package is needed as the modifications made on the notebook can be seen thanks to [Jupyter Real Time Collaboration](https://jupyterlab.readthedocs.io/en/stable/user/rtc.html).
+
+```bash
+pip install "jupyter-mcp-server>=0.15.0" "jupyterlab==4.4.1" "jupyter-collaboration==4.0.2" "ipykernel"
+pip uninstall -y pycrdt datalayer_pycrdt
+pip install datalayer_pycrdt==0.12.17
+```
+
+:::tip
+To confirm your environment is correctly configured:
+1. Open a notebook in JupyterLab
+2. Type some content in any cell (code or markdown)
+3. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
+4. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
+
+This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
+:::
+
+### Start JupyterLab with MCP Extension
+
+Start JupyterLab with the MCP server extension:
+
+```bash
+jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN
+```
+
+This starts JupyterLab at [http://127.0.0.1:4040](http://127.0.0.1:4040) with the MCP server integrated.
+
+For complete configuration options, see the [server configuration guide](/reference/configuration).
+
+## 2. Configure your MCP Client
+
+Use the following configuration to connect to the integrated MCP server:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Extension not loading:**
+- Verify `jupyter-mcp-server` is installed: `pip list | grep jupyter-mcp-server`
+- Check JupyterLab logs for extension errors
+
+**MCP endpoint not accessible:**
+- Verify server is running at: `curl http://localhost:4040/mcp`
+- Check that port 4040 is not blocked
+
+For detailed configuration and troubleshooting, see the [configuration guide](/reference/configuration).

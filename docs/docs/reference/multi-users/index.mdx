@@ -1,0 +1,463 @@
+# Multi-User Deployments
+
+Jupyter MCP Server can be deployed in multi-user environments where multiple people access Jupyter notebooks concurrently. This guide explains the architecture patterns, deployment options, and best practices for multi-user scenarios.
+
+## Understanding Multi-User Challenges
+
+### The Concurrency Problem
+
+As described in [issue #181](https://github.com/datalayer/jupyter-mcp-server/issues/181), when multiple users share a single MCP server instance connected to a shared JupyterLab, they can interfere with each other's work:
+
+**Example Scenario:**
+
+1. User 1's agent activates `user1notebook.ipynb`
+2. Simultaneously, User 2's agent activates `user2notebook.ipynb`
+3. User 1's agent writes code to the **currently active notebook** (now `user2notebook.ipynb`)
+4. **Result**: User 1's code appears in User 2's notebook
+
+This happens because:
+- MCP server maintains a single "active notebook" state
+- Multiple agents share the same MCP server instance
+- Notebook operations are context-dependent (operating on "current" notebook)
+
+## Deployment Architectures
+
+There are three primary architecture patterns for multi-user deployments:
+
+### 1. One MCP Server Per User (Recommended)
+
+**Best for:** Most multi-user scenarios, especially with JupyterHub
+
+Each user gets their own isolated MCP server instance, preventing any cross-user interference.
+
+```
+┌─────────────────────────────────────────────┐
+│           JupyterHub / Multi-User           │
+├─────────────────────────────────────────────┤
+│  User 1                                     │
+│  ┌─────────────┐      ┌─────────────────┐  │
+│  │ MCP Client  │─────▶│ MCP Server      │  │
+│  │  (Agent)    │      │ (Extension)     │  │
+│  └─────────────┘      │   ↓             │  │
+│                       │ JupyterLab      │  │
+│                       │ Single-User     │  │
+│                       └─────────────────┘  │
+├─────────────────────────────────────────────┤
+│  User 2                                     │
+│  ┌─────────────┐      ┌─────────────────┐  │
+│  │ MCP Client  │─────▶│ MCP Server      │  │
+│  │  (Agent)    │      │ (Extension)     │  │
+│  └─────────────┘      │   ↓             │  │
+│                       │ JupyterLab      │  │
+│                       │ Single-User     │  │
+│                       └─────────────────┘  │
+└─────────────────────────────────────────────┘
+```
+
+**Advantages:**
+- ✅ Complete isolation between users
+- ✅ No state conflicts
+- ✅ Scales naturally with JupyterHub
+- ✅ Leverages existing JupyterHub authentication
+
+**Implementation:** See [JupyterHub Deployment](#jupyterhub-deployment)
+
+### 2. Stateless Tool Operations
+
+**Best for:** Shared environments where one-MCP-per-user is not feasible
+
+Make all notebook operations explicitly reference the target notebook by path.
+
+**Current Status:**
+
+:::info Under Development
+
+Currently, some MCP tools maintain "active notebook" state. Work is ongoing to make operations fully stateless by requiring explicit notebook paths in all tool calls.
+
+Track progress: [Issue #181](https://github.com/datalayer/jupyter-mcp-server/issues/181)
+
+:::
+
+**Future API (Planned):**
+
+```json
+{
+  "tool": "execute_cell",
+  "arguments": {
+    "notebook": "user1/analysis.ipynb",
+    "cell_index": 0
+  }
+}
+```
+
+### 3. Session-Based Isolation
+
+**Best for:** Advanced scenarios with custom session management
+
+Use unique session identifiers to isolate user contexts within a shared MCP server.
+
+:::warning Experimental
+
+This approach is not yet implemented in Jupyter MCP Server. Follow development discussions in [issue #181](https://github.com/datalayer/jupyter-mcp-server/issues/181).
+
+:::
+
+## JupyterHub Deployment
+
+JupyterHub is the **recommended platform** for multi-user Jupyter deployments with MCP.
+
+### Architecture
+
+JupyterHub naturally provides user isolation:
+- Each user gets a dedicated single-user Jupyter server
+- MCP server runs as an extension inside each single-user server
+- No shared state between users
+
+### Setup Steps
+
+#### 1. Install in Single-User Environment
+
+Configure your JupyterHub spawner to install the required packages:
+
+```python
+# jupyterhub_config.py
+c.Spawner.environment = {
+    'JUPYTERHUB_ALLOW_TOKEN_IN_URL': '1'
+}
+
+# Install packages in the single-user image or environment
+# Example for DockerSpawner:
+c.DockerSpawner.image = 'your-custom-image:latest'
+```
+
+**Single-User Environment Requirements:**
+
+```dockerfile
+# Dockerfile for single-user image
+FROM jupyter/minimal-notebook:latest
+
+RUN pip install "jupyter-mcp-server>=0.15.0" \
+                "jupyterlab==4.4.1" \
+                "jupyter-collaboration==4.0.2" \
+                "ipykernel"
+RUN pip uninstall -y pycrdt datalayer_pycrdt && \
+    pip install datalayer_pycrdt==0.12.17
+```
+
+#### 2. Configure MCP Extension
+
+The MCP server extension loads automatically when the single-user server starts.
+
+**Verify Installation:**
+
+```bash
+# Inside single-user server
+jupyter server extension list
+# Should show: jupyter_mcp_server enabled
+```
+
+#### 3. User Access Configuration
+
+Each user needs:
+1. A JupyterHub account
+2. An API token with `access:servers` scope
+3. MCP client configuration pointing to their unique URL
+
+**Per-User MCP Client Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://hub.example.com/user/alice/mcp"],
+      "env": {
+        "JUPYTERHUB_API_TOKEN": "alice-api-token"
+      }
+    }
+  }
+}
+```
+
+### Creating User Tokens
+
+**Option 1: JupyterHub Admin UI**
+
+1. Login as admin
+2. Navigate to **Token** management
+3. Create token for user with `access:servers` scope
+
+**Option 2: JupyterHub API**
+
+```bash
+# Create token for specific user
+jupyterhub token alice --note "MCP Client Token" --scope access:servers
+```
+
+**Option 3: User Self-Service**
+
+```python
+# Allow users to create their own tokens
+c.JupyterHub.load_roles = [
+    {
+        "name": "user",
+        "scopes": ["self", "access:servers"],
+    }
+]
+```
+
+### User Isolation
+
+JupyterHub ensures:
+- **File System Isolation**: Each user has separate home directory
+- **Process Isolation**: Separate kernel processes per user
+- **Network Isolation**: Each single-user server on different port/container
+- **Authentication**: JupyterHub manages user identity and access
+
+## Shared JupyterLab (Not Recommended)
+
+:::danger Concurrency Issues
+
+Sharing a single JupyterLab instance among multiple users with a shared MCP server causes the concurrency problems described in [issue #181](https://github.com/datalayer/jupyter-mcp-server/issues/181).
+
+**This deployment pattern is NOT recommended.**
+
+:::
+
+### Why It Causes Problems
+
+```
+❌ PROBLEMATIC SETUP:
+
+User 1 Agent  ─┐
+               ├──▶ Single MCP Server ──▶ Shared JupyterLab
+User 2 Agent  ─┘      (shared state)       (all users)
+
+Problem: Both users' agents share the same "active notebook" state
+```
+
+### If You Must Share
+
+If you absolutely must use a shared JupyterLab:
+
+1. **Use Explicit Notebook Paths**: Always specify full notebook paths
+2. **Implement Access Controls**: Use file system permissions to isolate user directories
+3. **Monitor for Conflicts**: Log and alert on concurrent access
+4. **Consider Alternatives**: Strongly recommend migrating to JupyterHub
+
+## Datalayer Hosted Platform
+
+For enterprise deployments, consider [Datalayer](https://datalayer.ai) which provides:
+
+- **Built-in Multi-User Support**: Isolated notebook environments per user
+- **Managed Authentication**: SSO, OAuth2, SAML integration
+- **Resource Management**: CPU/memory limits per user
+- **Collaboration Features**: Real-time notebook co-editing
+- **Audit Logging**: Track all user actions
+
+### Configuration
+
+```json
+{
+  "mcpServers": {
+    "datalayer": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "PROVIDER": "datalayer",
+        "DATALAYER_URL": "https://app.datalayer.ai",
+        "DATALAYER_TOKEN": "your-user-token"
+      }
+    }
+  }
+}
+```
+
+## Best Practices
+
+### For Multi-User Deployments
+
+#### 1. Use JupyterHub
+
+✅ **Do:**
+- Deploy with JupyterHub for proper user isolation
+- Run MCP server as extension in each single-user server
+- Use JupyterHub's authentication and authorization
+
+❌ **Don't:**
+- Share a single JupyterLab instance among multiple users
+- Use a single MCP server instance for multiple users
+- Rely on application-level isolation instead of OS-level
+
+#### 2. Token Management
+
+✅ **Do:**
+- Create unique API tokens for each user
+- Use minimal token scopes (`access:servers` only)
+- Implement token expiration policies
+- Provide users with self-service token creation
+
+❌ **Don't:**
+- Share tokens between users
+- Use admin-scoped tokens for users
+- Store tokens in shared configuration files
+
+#### 3. Resource Management
+
+```python
+# jupyterhub_config.py
+# Limit resources per user
+c.Spawner.cpu_limit = 2
+c.Spawner.mem_limit = '4G'
+c.Spawner.cpu_guarantee = 1
+c.Spawner.mem_guarantee = '1G'
+
+# Limit concurrent servers
+c.JupyterHub.concurrent_spawn_limit = 10
+
+# Cull idle servers
+c.JupyterHub.services = [
+    {
+        'name': 'idle-culler',
+        'command': [
+            'python3', '-m', 'jupyterhub_idle_culler',
+            '--timeout=3600'
+        ]
+    }
+]
+```
+
+#### 4. Monitoring and Logging
+
+✅ **Do:**
+- Enable audit logging for all MCP operations
+- Monitor resource usage per user
+- Set up alerts for unusual activity
+- Track concurrent user counts
+
+**Example Logging Configuration:**
+
+```python
+# jupyterhub_config.py
+import logging
+
+c.JupyterHub.log_level = 'INFO'
+c.Application.log_format = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
+
+# Log to file
+c.JupyterHub.extra_log_file = '/var/log/jupyterhub/jupyterhub.log'
+```
+
+## Scaling Considerations
+
+### Small Teams (< 10 users)
+
+**Recommended Setup:**
+- Single JupyterHub server
+- Local storage for notebooks
+- Simple spawner (LocalProcessSpawner or DockerSpawner)
+
+### Medium Organizations (10-100 users)
+
+**Recommended Setup:**
+- Kubernetes-based JupyterHub (Zero to JupyterHub)
+- Shared network storage (NFS, EFS)
+- KubeSpawner for pod management
+- Load balancing for hub
+
+### Large Enterprises (100+ users)
+
+**Recommended Setup:**
+- Multi-hub deployment with load balancing
+- Distributed storage (Ceph, GlusterFS)
+- Auto-scaling for user servers
+- Integration with enterprise SSO
+- Consider [Datalayer platform](https://datalayer.ai)
+
+## Troubleshooting Multi-User Issues
+
+### Users Seeing Each Other's Notebooks
+
+**Symptom:** User A sees notebooks created by User B
+
+**Causes:**
+1. Shared JupyterLab instance (see [issue #181](https://github.com/datalayer/jupyter-mcp-server/issues/181))
+2. Incorrect file permissions
+3. Shared home directory
+
+**Solutions:**
+- ✅ Switch to JupyterHub with per-user isolation
+- ✅ Verify file system permissions: `ls -la ~`
+- ✅ Check spawner configuration for home directory isolation
+
+### Concurrent Execution Conflicts
+
+**Symptom:** Code from one user appears in another user's notebook
+
+**Cause:** Shared MCP server with stateful "active notebook"
+
+**Solutions:**
+- ✅ Deploy one MCP server per user (JupyterHub extension mode)
+- ✅ Wait for stateless tool operations (track [issue #181](https://github.com/datalayer/jupyter-mcp-server/issues/181))
+
+### Authentication Failures in Multi-User Environment
+
+**Symptom:** Users can't connect to their MCP server
+
+**Causes:**
+1. Missing or incorrect API tokens
+2. Token lacking required scopes
+3. `JUPYTERHUB_ALLOW_TOKEN_IN_URL` not set
+
+**Solutions:**
+- ✅ Verify token has `access:servers` scope
+- ✅ Check `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in spawner environment
+- ✅ Test token with curl: `curl -H "Authorization: token TOKEN" https://hub.example.com/user/alice/api`
+
+## Migration Guide
+
+### From Shared JupyterLab to JupyterHub
+
+1. **Setup JupyterHub**
+   ```bash
+   pip install jupyterhub
+   jupyterhub --generate-config
+   ```
+
+2. **Create User Accounts**
+   ```bash
+   # Add system users
+   sudo adduser alice
+   sudo adduser bob
+   ```
+
+3. **Install MCP Server in Single-User Environment**
+   - Create a conda/virtual environment for single-user servers
+   - Install required packages (see [JupyterHub setup](#setup-steps))
+
+4. **Configure Spawner**
+   ```python
+   # jupyterhub_config.py
+   c.JupyterHub.spawner_class = 'dockerspawner.DockerSpawner'
+   c.DockerSpawner.image = 'your-mcp-enabled-image:latest'
+   ```
+
+5. **Migrate User Notebooks**
+   ```bash
+   # Copy notebooks to user directories
+   cp -r /shared/notebooks/alice/* /home/alice/
+   chown -R alice:alice /home/alice/
+   ```
+
+6. **Update MCP Client Configurations**
+   - Provide each user with their unique MCP endpoint URL
+   - Generate individual API tokens
+
+## Additional Resources
+
+- [JupyterHub Documentation](https://jupyterhub.readthedocs.io/)
+- [Zero to JupyterHub (Kubernetes)](https://z2jh.jupyter.org/)
+- [JupyterHub Deployment Guide](https://jupyterhub.readthedocs.io/en/stable/reference/technical-overview.html)
+- [JupyterHub Provider Documentation](/providers/jupyterhub-streamable-http)
+- [Issue #181: Multi-user serving](https://github.com/datalayer/jupyter-mcp-server/issues/181)
+- [Datalayer Platform](https://datalayer.ai)

@@ -12,7 +12,7 @@
 
 <!-- omit in toc -->
 
-# 🪐✨ Jupyter MCP Server
+# 🪐🔧 Jupyter MCP Server
 
 **An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage Jupyter Notebooks in real-time**
 
@@ -27,6 +27,16 @@
 ![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
 
 </div>
+
+> [!NOTE]
+> **We Need Your Feedback!**
+> 
+> We're actively developing support for **JupyterHub** and **Google Colab** deployments. If you're using or planning to use Jupyter MCP Server with these platforms, we'd love to hear from you!
+> 
+> - 🏢 **JupyterHub users**: Share your deployment setup and requirements
+> - 🌐 **Google Colab users**: Help us understand your use cases and workflows
+> 
+> Join the conversation in our [Community page](https://jupyter-mcp-server.datalayer.tech/community) - your feedback will help us prioritize features and ensure these integrations work seamlessly for your needs.
 
 ## 📖 Table of Contents
 
@@ -47,10 +57,10 @@
 - 🎨 **JupyterLab integration:** Enhanced UI integration like automatic notebook opening.
 - 🤝 **MCP-compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
 
-Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai/) hosted Notebooks.
+Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai) hosted Notebooks.
 
 
-## ✨ MCP Overview
+## 🔧 MCP Overview
 
 ### 🔧 Tools Overview
 
@@ -257,7 +267,7 @@ We welcome contributions of all kinds! Here are some examples:
 
 - 🐛 Bug fixes
 - 📝 Improvements to existing features
-- ✨ New feature development
+- 🔧 New feature development
 - 📚 Documentation improvements and prompt templates
 
 For detailed instructions on how to get started with development and submit your contributions, please see our [**Contributing Guide**](CONTRIBUTING.md).

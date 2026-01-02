@@ -1,0 +1,42 @@
+# Prompts
+
+The server currently offers 1 prompt for user.
+
+:::warning
+
+Not all MCP Clients support the Prompt Feature. You need to ensure that your MCP Client supports it to enable this feature.
+Current known MCP Client support status for Prompt:
+<br/>
+- Supported: `Claude desktop`, [`Claude Code`](https://docs.claude.com/en/docs/claude-code/mcp#execute-mcp-prompts), [`Gemini CLI`](https://geminicli.com/docs/tools/mcp-server/#invoking-prompts)
+- Not supported: `Cursor`
+
+:::
+
+## Jupyter Core Prompt (1 prompt)
+
+This is the core Prompt component of Jupyter MCP, providing universal and powerful Prompt tools, all prefixed with `jupyter`.
+
+### 1. `jupyter-cite`
+
+This prompt allows users to cite specific cells in a notebook, enabling users to let LLM perform precise subsequent operations on specific cells.
+
+#### Input Parameters
+
+- `--prompt`: User prompt for the cited cells
+- `--cell_indices`: Cell indices to cite (0-based), supporting flexible range format
+    1. **Single Index**: Cite a single cell, such as `"0"` (cites the 1st cell)
+    2. **Range Format**: Cite a continuous range of cells, such as `"0-2"` (cites cells 1 to 3)
+    3. **Mixed Format**: Combine single index and range, such as `"0-2,4"` (cites cells 1-3 and cell 5)
+    4. **Open-ended Range**: From specified index to the end of notebook, such as `"3-"` (cites from cell 4 to the last cell)
+- `--notebook_path`: Name of the notebook to cite cells from, default ("") to current activated notebook
+
+#### Output Format
+
+```
+USER Cite cells {cell_indices} from notebook {notebook_name}, here are the cells:
+=====Cell {cell_index} | type: {cell_type} | execution count: {execution_count}=====
+{cell_source}
+...(other cells)
+=====End of Cited Cells=====
+USER's Instruction are follow: {prompt}
+```
