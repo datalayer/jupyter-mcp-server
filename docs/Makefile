@@ -31,7 +31,7 @@ env:
 	-conda env create -f environment.yml
 	@echo 
 	@echo --------------------------------------------------
-	@echo ✨  Datalayer environment is created.
+	@echo 🔧  Datalayer environment is created.
 	@echo --------------------------------------------------
 	@echo
 
@@ -66,4 +66,4 @@ publish: build ## publish
 			--distribution-id EP7AV0D2EWHSX \
 			--paths "/*" \
 			--profile datalayer && \
-	echo open ✨  https://jupyter-mcp-server.datalayer.tech )
+	echo open 🔧  https://jupyter-mcp-server.datalayer.tech )

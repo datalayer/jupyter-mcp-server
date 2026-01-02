@@ -1,0 +1,123 @@
+# JupyterHub with Streamable HTTP Transport
+
+When running Jupyter MCP Server with JupyterHub, the server runs as a Jupyter Server extension in each user's single-user server. This provides seamless integration with JupyterHub's multi-user environment while maintaining all MCP functionality.
+
+For general information about running Jupyter MCP Server as a Jupyter Server extension, see the [Jupyter Server Extension documentation](../jupyter-streamable-http-extension).
+
+## JupyterHub-Specific Configuration
+
+### 1. Environment Setup
+
+Install the required packages in your JupyterHub single-user server environment:
+
+```bash
+pip install "jupyter-mcp-server>=0.15.0" "jupyterlab==4.4.1" "jupyter-collaboration==4.0.2" "ipykernel"
+pip uninstall -y pycrdt datalayer_pycrdt
+pip install datalayer_pycrdt==0.12.17
+```
+
+### 2. JupyterHub Configuration
+
+Add the following configuration to your JupyterHub config file (`jupyterhub_config.py`):
+
+```python
+# Enable token authentication in URLs for API access
+c.Spawner.environment = {
+    'JUPYTERHUB_ALLOW_TOKEN_IN_URL': '1'
+}
+
+# Optional: Configure single-user server to start on a specific port
+# c.Spawner.port = 8888
+
+# Optional: Ensure the MCP server extension is enabled
+c.ServerApp.jpserver_extensions = {
+    'jupyter_mcp_server': True
+}
+```
+
+### 3. API Token Configuration
+
+MCP clients need to authenticate with JupyterHub. Create an API token with the `access:servers` scope:
+
+1. In the JupyterHub admin panel, navigate to **Token** page
+2. Create a new token with the following scope:
+   - `access:servers` - Required for accessing user notebook servers
+
+Alternatively, use the JupyterHub API or CLI:
+
+```bash
+# Using the JupyterHub API
+jupyterhub token <username> --note "MCP Client Token" --scope access:servers
+```
+
+### 4. Configure Your MCP Client
+
+Use the following configuration to connect to the JupyterHub-hosted MCP server:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://your-jupyterhub.domain/user/<username>/mcp"],
+      "env": {
+        "JUPYTERHUB_API_TOKEN": "your-api-token-here"
+      }
+    }
+  }
+}
+```
+
+Replace:
+- `your-jupyterhub.domain` with your JupyterHub domain
+- `<username>` with the JupyterHub username
+- `your-api-token-here` with the API token created in step 3
+
+:::tip
+For single-user deployments or local testing, you can use the simpler URL format:
+```
+http://localhost:8000/user/<username>/mcp
+```
+:::
+
+## Production Considerations
+
+### Security
+
+- **Use HTTPS**: Always use HTTPS in production to protect API tokens
+- **Token Scope**: Limit tokens to only the `access:servers` scope
+- **Token Rotation**: Regularly rotate API tokens
+- **Network Isolation**: Consider restricting MCP endpoint access to trusted networks
+
+### Multi-User Environment
+
+- Each user's MCP server runs in their isolated single-user server
+- Users can only access their own notebooks through the MCP interface
+- JupyterHub's authentication and authorization apply to all MCP operations
+
+### Performance
+
+- The MCP server adds minimal overhead to the single-user server
+- Real-time collaboration features require adequate server resources
+- Consider resource limits per user in JupyterHub configuration
+
+## Troubleshooting
+
+### Common Issues
+
+**API token not working:**
+- Verify the token has `access:servers` scope
+- Check that `JUPYTERHUB_ALLOW_TOKEN_IN_URL` is set to `1`
+- Ensure the token is not expired
+
+**MCP endpoint not accessible:**
+- Verify the user's single-user server is running
+- Check that the URL format matches your JupyterHub deployment
+- Confirm `jupyter-mcp-server` is installed in the single-user environment
+
+**Extension not loading:**
+- Check JupyterHub logs: `journalctl -u jupyterhub`
+- Verify extension installation: `jupyter server extension list`
+- Ensure all required packages are installed in the single-user environment
+
+For general extension troubleshooting, see the [Jupyter Server Extension documentation](../jupyter-streamable-http-extension).

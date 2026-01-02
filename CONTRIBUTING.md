@@ -17,7 +17,7 @@ This project and everyone participating in it is governed by the [Contributor Co
 We welcome contributions of all kinds, including:
 - 🐛 Bug fixes
 - 📝 Improvements to existing features or documentation
-- ✨ New feature development
+- 🔧 New feature development
 
 ### Reporting Bugs or Suggesting Enhancements
 
