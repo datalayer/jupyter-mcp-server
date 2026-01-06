@@ -158,8 +158,13 @@ class MCPSSEHandler(RequestHandler):
                         
                         if jupyterlab_enabled:
                             # Define specific tools we want to load from jupyter-mcp-tools
+                            # (https://github.com/datalayer/jupyter-mcp-tools)
+                            # jupyter-mcp-tools exposes JupyterLab commands as MCP tools.
+                            # Only tools listed here will be available to MCP clients.
+                            # To add new tools, also update the list in server.py and
+                            # see docs/docs/reference/tools-additional/index.mdx for documentation.
                             allowed_jupyter_tools = [
-                                "notebook_run-all-cells",  # Run all cells in current notebook  
+                                "notebook_run-all-cells",  # Run all cells in current notebook
                                 # Add more specific tools here as needed when JupyterLab mode is enabled
                             ]
                             

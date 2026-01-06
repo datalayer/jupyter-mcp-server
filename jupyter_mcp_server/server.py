@@ -669,8 +669,13 @@ async def get_registered_tools():
                 logger.info(f"Querying jupyter-mcp-tools at {base_url}")
                 
                 # Define specific tools we want to load from jupyter-mcp-tools
+                # (https://github.com/datalayer/jupyter-mcp-tools)
+                # jupyter-mcp-tools exposes JupyterLab commands as MCP tools.
+                # Only tools listed here will be available to MCP clients.
+                # To add new tools, also update the list in handlers.py and
+                # see docs/docs/reference/tools-additional/index.mdx for documentation.
                 allowed_jupyter_tools = [
-                    "notebook_run-all-cells",  # Run all cells in current notebook  
+                    "notebook_run-all-cells",  # Run all cells in current notebook
                 ]
                 
                 # Try querying with caching to avoid expensive repeated calls
