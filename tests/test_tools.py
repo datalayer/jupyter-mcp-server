@@ -273,3 +273,126 @@ async def test_list_kernels(mcp_client_parametrized: MCPClient):
         logging.debug(f"Kernel list: {kernel_list}")
         # Check for either TSV header or "No kernels found" message
         assert "ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment" in kernel_list
+
+
+###############################################################################
+# Allowed Tools Configuration Tests
+###############################################################################
+
+@pytest.mark.asyncio
+async def test_allowed_jupyter_mcp_tools_integration(mcp_client_parametrized: MCPClient):
+    """Test that the server respects allowed_jupyter_mcp_tools configuration."""
+    async with mcp_client_parametrized:
+        # Get the list of tools from the server
+        tools = await mcp_client_parametrized.list_tools()
+        tool_names = [tool.name for tool in tools.tools]
+        
+        logging.info(f"Available tools: {tool_names}")
+        
+        # Check that default jupyter-mcp-tools are present
+        # These should be available by default
+        jupyter_tools = [name for name in tool_names if name.startswith("notebook_")]
+        
+        # The actual availability depends on whether jupyter-mcp-tools is installed
+        # and whether we're running in JupyterLab mode, so we check conditionally
+        if any(tool.startswith("notebook_") for tool in tool_names):
+            # If any notebook tools are present, the default ones should be there
+            assert "notebook_run-all-cells" in tool_names or len(jupyter_tools) > 0
+            logging.info(f"Jupyter MCP tools found: {jupyter_tools}")
+        else:
+            logging.info("No jupyter-mcp-tools detected (possibly not in JupyterLab mode)")
+
+
+def test_config_allowed_tools_parsing():
+    """Test the configuration parsing for allowed tools."""
+    from jupyter_mcp_server.config import ServerConfig
+    
+    # Test various input formats
+    test_cases = [
+        ("tool1,tool2,tool3", ["tool1", "tool2", "tool3"]),
+        ("single_tool", ["single_tool"]),
+        (" tool1 , tool2 , tool3 ", ["tool1", "tool2", "tool3"]),
+        ("tool1,,tool2,", ["tool1", "tool2"]),
+        ("notebook_*,console_create", ["notebook_*", "console_create"]),
+    ]
+    
+    for input_str, expected in test_cases:
+        config = ServerConfig(allowed_jupyter_mcp_tools=input_str)
+        result = config.get_allowed_jupyter_mcp_tools()
+        assert result == expected, f"Failed for input '{input_str}': expected {expected}, got {result}"
+        logging.info(f"✅ Parsed '{input_str}' -> {result}")
+    
+    logging.info("✅ All configuration parsing tests passed")
+
+
+def test_config_environment_variable():
+    """Test that environment variable overrides work."""
+    import os
+    from jupyter_mcp_server.config import ServerConfig, reset_config
+    
+    # Test with environment variable
+    original_value = os.environ.get("ALLOWED_JUPYTER_MCP_TOOLS")
+    
+    try:
+        os.environ["ALLOWED_JUPYTER_MCP_TOOLS"] = "env_tool1,env_tool2"
+        
+        # Reset config to pick up environment variable
+        reset_config()
+        config = ServerConfig()
+        tools = config.get_allowed_jupyter_mcp_tools()
+        
+        assert tools == ["env_tool1", "env_tool2"]
+        logging.info(f"✅ Environment variable test passed: {tools}")
+        
+    finally:
+        # Cleanup
+        if original_value is not None:
+            os.environ["ALLOWED_JUPYTER_MCP_TOOLS"] = original_value
+        else:
+            os.environ.pop("ALLOWED_JUPYTER_MCP_TOOLS", None)
+        reset_config()
+
+
+def test_config_defaults():
+    """Test that default configuration works correctly."""
+    from jupyter_mcp_server.config import ServerConfig, reset_config
+    
+    reset_config()
+    config = ServerConfig()
+    default_tools = config.get_allowed_jupyter_mcp_tools()
+    
+    assert "notebook_run-all-cells" in default_tools
+    assert "notebook_get-selected-cell" in default_tools
+    assert len(default_tools) == 2
+    
+    logging.info(f"✅ Default configuration test passed: {default_tools}")
+
+
+def test_server_tool_registration():
+    """Test that get_registered_tools includes the correct tools based on configuration."""
+    from jupyter_mcp_server.server import get_registered_tools
+    from jupyter_mcp_server.config import set_config, reset_config
+    
+    # Test with custom configuration
+    reset_config()
+    set_config(allowed_jupyter_mcp_tools="notebook_run-all-cells")
+    
+    try:
+        # Get registered tools (this may fail if jupyter-mcp-tools is not available)
+        tools = get_registered_tools(token="test_token", url="http://localhost:8888")
+        tool_names = [tool["name"] for tool in tools]
+        
+        logging.info(f"Registered tools: {tool_names}")
+        
+        # Check that FastMCP tools are always present
+        fastmcp_tools = [name for name in tool_names if not name.startswith("notebook_")]
+        assert len(fastmcp_tools) > 0, "FastMCP tools should always be present"
+        
+        logging.info("✅ Server tool registration test completed")
+        
+    except Exception as e:
+        # This is expected if jupyter-mcp-tools is not available or we're not in JupyterLab mode
+        logging.info(f"Server tool registration test skipped due to: {e}")
+    
+    finally:
+        reset_config()

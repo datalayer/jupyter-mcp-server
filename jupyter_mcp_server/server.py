@@ -143,7 +143,8 @@ async def connect(request: Request):
         runtime_token=document_runtime.runtime_token,
         document_url=document_runtime.document_url,
         document_id=document_runtime.document_id,
-        document_token=document_runtime.document_token
+        document_token=document_runtime.document_token,
+        allowed_jupyter_tools=document_runtime.allowed_jupyter_tools or "notebook_run-all-cells,notebook_get-selected-cell"
     )
     
     # Reset ServerContext to pick up new configuration
@@ -674,14 +675,13 @@ async def get_registered_tools():
                 # Only tools listed here will be available to MCP clients.
                 # To add new tools, also update the list in handlers.py and
                 # see docs/docs/reference/tools-additional/index.mdx for documentation.
-                allowed_jupyter_tools = [
-                    "notebook_run-all-cells",  # Run all cells in current notebook
-                ]
+                config = get_config()
+                allowed_jupyter_mcp_tools = config.get_allowed_jupyter_mcp_tools()
                 
                 # Try querying with caching to avoid expensive repeated calls
                 try:
-                    search_query = ",".join(allowed_jupyter_tools)
-                    logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_tools})")
+                    search_query = ",".join(allowed_jupyter_mcp_tools)
+                    logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_mcp_tools})")
                     
                     # Use cached get_tools to avoid expensive repeated calls
                     tool_cache = get_tool_cache()
@@ -744,24 +744,12 @@ async def get_registered_tools():
         else:
             logger.info("JupyterLab mode disabled, skipping jupyter-mcp-tools integration")
         
-        # Second, add FastMCP tools (excluding duplicates)
-        # Map FastMCP tool names to their jupyter-mcp-tools equivalents
-        fastmcp_to_jupyter_mapping = {
-            # Add mappings as needed when tools overlap
-        }
-        
+        # Second, add FastMCP tools
         try:
             tools_list = await mcp.list_tools()
             logger.info(f"Retrieved {len(tools_list)} tools from FastMCP registry")
             
             for tool in tools_list:
-                # Check if this FastMCP tool has a jupyter-mcp-tools equivalent
-                jupyter_equivalent = fastmcp_to_jupyter_mapping.get(tool.name)
-                
-                if jupyter_equivalent and jupyter_equivalent in jupyter_tool_names:
-                    logger.info(f"Skipping FastMCP tool '{tool.name}' - equivalent '{jupyter_equivalent}' available from jupyter-mcp-tools")
-                    continue
-                
                 # Add FastMCP tool
                 tool_dict = {
                     "name": tool.name,

@@ -16,6 +16,7 @@ class DocumentRuntime(BaseModel):
     runtime_url: str
     runtime_id: str
     runtime_token: str
+    allowed_jupyter_tools: Optional[str] = None
 
 class Cell(BaseModel):
     """Notebook cell information as returned by the MCP server"""

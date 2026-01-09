@@ -22,37 +22,43 @@ pip install jupyter-mcp-tools>=0.1.4
 
 ## Allowed Tools
 
-The following tools from `jupyter-mcp-tools` are currently allowed and exposed by Jupyter MCP Server:
+The following tools from `jupyter-mcp-tools` are enabled by default in Jupyter MCP Server:
 
 | Tool Name | Description |
 |-----------|-------------|
 | `notebook_run-all-cells` | Execute all cells in the current notebook sequentially |
+| `notebook_get-selected-cell` | Get information about the currently selected cell |
 
-:::info Adding New Tools
-To add additional `jupyter-mcp-tools` commands, developers need to add them to the `allowed_jupyter_tools` list in both:
-- [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py) - for standalone/STDIO mode
-- [`jupyter_mcp_server/jupyter_extension/handlers.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/jupyter_extension/handlers.py) - for Jupyter server extension mode
+:::info Configuring Allowed Tools
+The list of allowed `jupyter-mcp-tools` is now configurable! 
+
+The complete **list of available tools** can be found in the **[jupyter-mcp-tools README](https://github.com/datalayer/jupyter-mcp-tools/blob/main/README.md#available-tools)**.
 :::
 
-## Available Commands from jupyter-mcp-tools
+You can specify which tools to enable using:
 
-The `jupyter-mcp-tools` extension provides several custom JupyterLab commands. Here are some notable ones that could be added to `allowed_jupyter_tools`:
+**When running jupyter-mcp-server as a Jupyter Server Extension:**
+```bash
+# Using environment variable
+ALLOWED_JUPYTER_MCP_TOOLS="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute" jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN
 
-### notebook:append-execute
+# Using command-line configuration
+jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN --JupyterMCPServerExtensionApp.allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
+```
 
-Appends a new cell at the end of the current notebook with the given source code and optionally executes it.
+**When running jupyter-mcp-server standalone:**
+```bash
+# CLI Option
+jupyter-mcp-server --allowed-jupyter-mcp-tools "notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
 
-**Parameters:**
-- `source` (string, required): The source code to insert in the cell
-- `type` (string, optional): The cell type - `'code'`, `'markdown'`, or `'raw'` (default: `'code'`)
+# Environment Variable
+export ALLOWED_JUPYTER_MCP_TOOLS="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
+jupyter-mcp-server
+```
 
-### notebook:get-selected-cell
-
-Gets information about the currently selected/active cell in the notebook without executing it.
-
-**Parameters:** None
-
-**Returns:** Cell type, index, source, metadata, and execution count.
+For developers who want to modify the default list programmatically, you can still update the `allowed_jupyter_mcp_tools` configuration in:
+- [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py) - for standalone/STDIO mode
+- [`jupyter_mcp_server/jupyter_extension/handlers.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/jupyter_extension/handlers.py) - for Jupyter server extension mode
 
 ## Architecture
 
@@ -67,5 +73,5 @@ graph LR
 
 When JupyterLab mode is enabled:
 - Jupyter MCP Server queries `jupyter-mcp-tools` for available tools
-- Only tools in the `allowed_jupyter_tools` list are exposed to MCP clients
+- Only tools in the `allowed_jupyter_mcp_tools` configuration are exposed to MCP clients
 - Tool execution is routed through `jupyter-mcp-tools` which communicates with the JupyterLab frontend via WebSocket

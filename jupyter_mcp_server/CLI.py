@@ -95,6 +95,13 @@ def _common_options(f):
             type=click.STRING,
             default=None,
             help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
+        ),
+        click.option(
+            "--allowed-jupyter-mcp-tools",
+            envvar="ALLOWED_JUPYTER_MCP_TOOLS",
+            type=click.STRING,
+            default="notebook_run-all-cells,notebook_get-selected-cell",
+            help="Comma-separated list of jupyter-mcp-tools to enable. Defaults to 'notebook_run-all-cells,notebook_get-selected-cell'.",
         )
     ]
     # Apply decorators in reverse order
@@ -164,6 +171,7 @@ def _do_start(
     port: int,
     provider: str,
     jupyterlab: bool,
+    allowed_jupyter_mcp_tools: str,
 ):
     """Internal function to execute the start logic."""
 
@@ -188,7 +196,8 @@ def _do_start(
         document_id=document_id,
         document_token=document_token,
         port=port,
-        jupyterlab=jupyterlab
+        jupyterlab=jupyterlab,
+        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools
     )
 
     # Reset ServerContext to pick up new configuration
@@ -284,6 +293,7 @@ def server(
     port: int,
     provider: str,
     jupyterlab: bool,
+    allowed_jupyter_mcp_tools: str,
 ):
     """Manages Jupyter MCP Server.
 
@@ -319,6 +329,7 @@ def server(
         port=port,
         provider=provider,
         jupyterlab=jupyterlab,
+        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
     )
 
 
@@ -447,6 +458,7 @@ def start_command(
     port: int,
     provider: str,
     jupyterlab: bool,
+    allowed_jupyter_mcp_tools: str,
 ):
     """Start the Jupyter MCP server with a transport."""
     # Resolve URL and token variables based on priority logic
@@ -471,6 +483,7 @@ def start_command(
         port=port,
         provider=provider,
         jupyterlab=jupyterlab,
+        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
     )
 
 

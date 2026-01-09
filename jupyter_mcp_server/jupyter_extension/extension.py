@@ -100,6 +100,12 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         help='Enable JupyterLab mode (defaults to True)'
     )
     
+    allowed_jupyter_mcp_tools = Unicode(
+        "notebook_run-all-cells,notebook_get-selected-cell",
+        config=True,
+        help='Comma-separated list of jupyter-mcp-tools to enable'
+    )
+    
     def initialize_settings(self):
         """
         Initialize extension settings.
@@ -141,6 +147,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config.runtime_id = self.runtime_id if self.runtime_id else None
         config.provider = self.provider
         config.jupyterlab = self.jupyterlab
+        config.allowed_jupyter_mcp_tools = self.allowed_jupyter_mcp_tools
         
         # Store configuration in settings for handlers
         self.settings.update({
@@ -153,6 +160,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             "mcp_runtime_id": self.runtime_id,
             "mcp_provider": self.provider,
             "mcp_jupyterlab": self.jupyterlab,
+            "mcp_allowed_jupyter_mcp_tools": self.allowed_jupyter_mcp_tools,
             "mcp_serverapp": self.serverapp,
         })
         

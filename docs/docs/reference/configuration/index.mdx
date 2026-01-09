@@ -48,6 +48,7 @@ For most users with standard JupyterLab setups:
 | `JUPYTER_URL` | URL of your Jupyter server | `http://localhost:8888` | `http://localhost:8888` | No |
 | `JUPYTER_TOKEN` | Authentication token for Jupyter server | `my-secret-token` | `None` | No* |
 | `DOCUMENT_ID` | Default notebook path (relative to Jupyter root) | `notebook.ipynb` | `None` | No |
+| `ALLOWED_JUPYTER_MCP_TOOLS` | Comma-separated list of jupyter-mcp-tools to enable | `notebook_run-all-cells,notebook_get-selected-cell` | `notebook_run-all-cells,notebook_get-selected-cell` | No |
 | `ALLOW_IMG_OUTPUT` | Enable multimodal image support | `true` / `false` | `true` | No |
 
 *Required for authentication when connecting to secured Jupyter servers
@@ -93,6 +94,7 @@ Variables are resolved in this order:
 JUPYTER_URL=http://localhost:8888
 JUPYTER_TOKEN=my-token
 DOCUMENT_ID=my-notebook.ipynb
+ALLOWED_JUPYTER_MCP_TOOLS=notebook_run-all-cells,notebook_get-selected-cell
 ALLOW_IMG_OUTPUT=true
 ```
 
@@ -143,6 +145,7 @@ Options:
   --document-token TEXT               Document authentication token (default: None)
   --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
   --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
+  --allowed-jupyter-mcp-tools TEXT    Comma-separated list of jupyter-mcp-tools to enable (default: notebook_run-all-cells,notebook_get-selected-cell)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```
 
@@ -191,6 +194,7 @@ jupyter-mcp-server start \
   --transport streamable-http \
   --jupyter-url http://localhost:8888 \
   --jupyter-token MY_TOKEN \
+  --allowed-jupyter-mcp-tools "notebook_run-all-cells,notebook_get-selected-cell" \
   --port 4040
 ```
 
