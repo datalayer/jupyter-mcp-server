@@ -121,13 +121,7 @@ class MCPSSEHandler(RequestHandler):
                     tools_list = await mcp.list_tools()
                     logger.info(f"Got {len(tools_list)} tools from FastMCP")
                     
-                    # Map FastMCP tool names to their jupyter-mcp-tools equivalents
-                    fastmcp_to_jupyter_mapping = {
-                        "insert_execute_code_cell": "notebook_append-execute",
-                        # Add more mappings as needed
-                    }
-                    
-                    # Track jupyter_mcp_tools tool names to check for duplicates
+                    # Track jupyter_mcp_tools tool names
                     jupyter_tool_names = set()
                     
                     # Get tools from jupyter_mcp_tools extension first to identify duplicates
@@ -163,17 +157,16 @@ class MCPSSEHandler(RequestHandler):
                             # Only tools listed here will be available to MCP clients.
                             # To add new tools, also update the list in server.py and
                             # see docs/docs/reference/tools-additional/index.mdx for documentation.
-                            allowed_jupyter_tools = [
-                                "notebook_run-all-cells",  # Run all cells in current notebook
-                                # Add more specific tools here as needed when JupyterLab mode is enabled
-                            ]
+                            from jupyter_mcp_server.config import get_config
+                            config = get_config()
+                            allowed_jupyter_mcp_tools = config.get_allowed_jupyter_mcp_tools()
                             
-                            logger.info(f"Looking for specific jupyter-mcp-tools: {allowed_jupyter_tools}")
+                            logger.info(f"Looking for specific jupyter-mcp-tools: {allowed_jupyter_mcp_tools}")
                             
                             # Try querying with caching to avoid expensive repeated calls
                             try:
-                                search_query = ",".join(allowed_jupyter_tools)
-                                logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_tools})")
+                                search_query = ",".join(allowed_jupyter_mcp_tools)
+                                logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_mcp_tools})")
                                 
                                 # Use cached get_tools to avoid expensive repeated calls
                                 tool_cache = get_tool_cache()
@@ -218,16 +211,9 @@ class MCPSSEHandler(RequestHandler):
                         # Log but don't fail - just return FastMCP tools
                         logger.warning(f"Could not fetch tools from jupyter_mcp_tools: {jupyter_error}")
                     
-                    # Convert FastMCP tools to MCP protocol format, excluding duplicates
+                    # Convert FastMCP tools to MCP protocol format
                     tools = []
                     for tool in tools_list:
-                        # Check if this FastMCP tool has a jupyter-mcp-tools equivalent
-                        jupyter_equivalent = fastmcp_to_jupyter_mapping.get(tool.name)
-                        
-                        if jupyter_equivalent and jupyter_equivalent in jupyter_tool_names:
-                            logger.info(f"Skipping FastMCP tool '{tool.name}' - equivalent '{jupyter_equivalent}' available from jupyter-mcp-tools")
-                            continue
-                        
                         tools.append({
                             "name": tool.name,
                             "description": tool.description,

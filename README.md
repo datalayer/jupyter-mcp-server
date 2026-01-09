@@ -4,7 +4,7 @@
   ~ BSD 3-Clause License
 -->
 
-[![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
+[![Datalayer](https://images.datalayer.io/brand/logos/datalayer-horizontal.svg)](https://datalayer.io)
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
@@ -24,7 +24,7 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
 
-![Jupyter MCP Server Demo](https://assets.datalayer.tech/jupyter-mcp/mcp-demo-multimodal.gif)
+![Jupyter MCP Server Demo](https://images.datalayer.io/product/jupyter-mcp-server/mcp-demo-multimodal.gif)
 
 </div>
 
@@ -64,7 +64,9 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 
 ### 🔧 Tools Overview
 
-The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows:
+The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows. 
+For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
+
 
 #### Server Management Tools
 
@@ -99,11 +101,26 @@ The server provides a rich set of tools for interacting with Jupyter notebooks, 
 
 *Available only when JupyterLab mode is enabled. It is enabled by default.*
 
-| Name                     | Description                                                                        |
-| :----------------------- | :--------------------------------------------------------------------------------- |
-| `notebook_run-all-cells` | Execute all cells in the current notebook sequentially                             |
+When running in JupyterLab mode, Jupyter MCP Server integrates with [jupyter-mcp-tools](https://github.com/datalayer/jupyter-mcp-tools) to expose additional JupyterLab commands as MCP tools. By default, the following tools are enabled:
 
-For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
+| Name                          | Description                                                                        |
+| :---------------------------- | :--------------------------------------------------------------------------------- |
+| `notebook_run-all-cells`      | Execute all cells in the current notebook sequentially                             |
+| `notebook_get-selected-cell`  | Get information about the currently selected cell                                   |
+
+<details>
+<summary><strong>📚 Learn how to customize additional tools</strong></summary>
+
+You can now customize which tools from `jupyter-mcp-tools` are available using the `allowed_jupyter_mcp_tools` configuration parameter. This allows you to enable additional notebook operations, console commands, file management tools, and more.
+
+```bash
+# Example: Enable additional tools via command-line
+jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN --JupyterMCPServerExtensionApp.allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute,console_create"
+```
+
+For the complete list of available tools and detailed configuration instructions, please refer to the [Additional Tools documentation](https://jupyter-mcp-server.datalayer.tech/reference/tools-additional).
+
+</details>
 
 ### 📝 Prompt Overview
 
@@ -113,7 +130,7 @@ The server also supports [prompt feature](https://modelcontextprotocol.io/specif
 | :------------- | :--------------------------------------------------------------------------------- |
 | `jupyter-cite` | Cite specific cells from specified notebook (like `@` in Coding IDE or CLI)        |
 
-For more details on each prompt, their input parameters, and return content, please refer to the [official Prompt documentation](https://jupyter-mcp-server.datalayer.tech/prompts).
+For more details on each prompt, their input parameters, and return content, please refer to the [official Prompt documentation](https://jupyter-mcp-server.datalayer.tech/reference/prompts).
 
 ## 🏁 Getting Started
 
@@ -144,10 +161,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
 > [!NOTE]
-> If you are running notebooks through JupyterHub instead of JupyterLab as above, you should:
->
-> - Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
-> - Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
+> If you are running notebooks through JupyterHub instead of JupyterLab as above, refer to our [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech//providers/jupyterhub-streamable-http/).
 
 ### 3. Configure Your Preferred MCP Client
 

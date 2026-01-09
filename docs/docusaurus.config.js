@@ -103,12 +103,16 @@ module.exports = {
           title: 'Community',
           items: [
             {
+              label: 'Discord',
+              href: 'https://discord.gg/YQFwvmSSuR',
+            },
+            {
               label: 'GitHub',
               href: 'https://github.com/datalayer',
             },
             {
               label: 'Bluesky',
-              href: 'https://assets.datalayer.tech/logos-social-grey/youtube.svg',
+              href: 'https://bsky.app/profile/datalayer.ai',
             },
             {
               label: 'LinkedIn',

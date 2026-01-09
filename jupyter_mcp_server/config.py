@@ -30,6 +30,7 @@ class JupyterMCPConfig(BaseModel):
     # Server configuration
     port: int = Field(default=4040, description="The port to use for the Streamable HTTP transport")
     jupyterlab: bool = Field(default=True, description="Enable JupyterLab mode (defaults to True)")
+    allowed_jupyter_mcp_tools: str = Field(default="notebook_run-all-cells,notebook_get-selected-cell", description="Comma-separated list of jupyter-mcp-tools to enable")
     
     class Config:
         """Pydantic configuration."""
@@ -47,6 +48,12 @@ class JupyterMCPConfig(BaseModel):
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""
         return self.jupyterlab
+    
+    def get_allowed_jupyter_mcp_tools(self) -> list[str]:
+        """Get allowed jupyter mcp tools as a list."""
+        if not self.allowed_jupyter_mcp_tools:
+            return []
+        return [tool.strip() for tool in self.allowed_jupyter_mcp_tools.split(",") if tool.strip()]
 
 def _get_env_bool(env_name: str, default_value: bool = True) -> bool:
     """

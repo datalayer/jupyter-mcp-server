@@ -127,3 +127,45 @@ def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_se
     assert jupyter_server is not None
     assert jupyter_server_with_extension is not None
     assert jupyter_server != jupyter_server_with_extension  # Different ports
+
+
+###############################################################################
+# Unit Tests - Extension Configuration
+###############################################################################
+
+def test_extension_trait_configuration():
+    """Test that the extension trait handles allowed_jupyter_mcp_tools configuration."""
+    from jupyter_mcp_server.jupyter_extension.extension import JupyterMCPServerExtensionApp
+    
+    # Test default configuration
+    app = JupyterMCPServerExtensionApp()
+    assert hasattr(app, 'allowed_jupyter_mcp_tools')
+    assert app.allowed_jupyter_mcp_tools == "notebook_run-all-cells,notebook_get-selected-cell"
+    
+    # Test custom configuration
+    app.allowed_jupyter_mcp_tools = "notebook_append-execute,console_create"
+    assert app.allowed_jupyter_mcp_tools == "notebook_append-execute,console_create"
+    
+    logging.info("✅ Extension trait configuration test passed")
+
+
+def test_extension_trait_validation():
+    """Test that the extension trait validates allowed_jupyter_mcp_tools input."""
+    from jupyter_mcp_server.jupyter_extension.extension import JupyterMCPServerExtensionApp
+    
+    app = JupyterMCPServerExtensionApp()
+    
+    # Test various valid formats
+    valid_configurations = [
+        "tool1,tool2,tool3",
+        "single_tool",
+        "notebook_*,console_create",
+        "",  # Empty should be allowed
+        " tool1 , tool2 ",  # Spaces should be handled
+    ]
+    
+    for config in valid_configurations:
+        app.allowed_jupyter_mcp_tools = config
+        assert isinstance(app.allowed_jupyter_mcp_tools, str)
+    
+    logging.info("✅ Extension trait validation test passed")
