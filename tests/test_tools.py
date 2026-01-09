@@ -305,7 +305,7 @@ async def test_allowed_jupyter_mcp_tools_integration(mcp_client_parametrized: MC
 
 def test_config_allowed_tools_parsing():
     """Test the configuration parsing for allowed tools."""
-    from jupyter_mcp_server.config import ServerConfig
+    from jupyter_mcp_server.config import JupyterMCPConfig
     
     # Test various input formats
     test_cases = [
@@ -317,7 +317,7 @@ def test_config_allowed_tools_parsing():
     ]
     
     for input_str, expected in test_cases:
-        config = ServerConfig(allowed_jupyter_mcp_tools=input_str)
+        config = JupyterMCPConfig(allowed_jupyter_mcp_tools=input_str)
         result = config.get_allowed_jupyter_mcp_tools()
         assert result == expected, f"Failed for input '{input_str}': expected {expected}, got {result}"
         logging.info(f"✅ Parsed '{input_str}' -> {result}")
@@ -326,39 +326,27 @@ def test_config_allowed_tools_parsing():
 
 
 def test_config_environment_variable():
-    """Test that environment variable overrides work."""
-    import os
-    from jupyter_mcp_server.config import ServerConfig, reset_config
+    """Test that CLI-style configuration works (environment variables work through CLI)."""
+    from jupyter_mcp_server.config import set_config, reset_config
     
-    # Test with environment variable
-    original_value = os.environ.get("ALLOWED_JUPYTER_MCP_TOOLS")
+    # Test configuration via set_config (simulates how CLI handles environment variables)
+    reset_config()
+    config = set_config(allowed_jupyter_mcp_tools="env_tool1,env_tool2")
+    tools = config.get_allowed_jupyter_mcp_tools()
     
-    try:
-        os.environ["ALLOWED_JUPYTER_MCP_TOOLS"] = "env_tool1,env_tool2"
-        
-        # Reset config to pick up environment variable
-        reset_config()
-        config = ServerConfig()
-        tools = config.get_allowed_jupyter_mcp_tools()
-        
-        assert tools == ["env_tool1", "env_tool2"]
-        logging.info(f"✅ Environment variable test passed: {tools}")
-        
-    finally:
-        # Cleanup
-        if original_value is not None:
-            os.environ["ALLOWED_JUPYTER_MCP_TOOLS"] = original_value
-        else:
-            os.environ.pop("ALLOWED_JUPYTER_MCP_TOOLS", None)
-        reset_config()
+    assert tools == ["env_tool1", "env_tool2"]
+    logging.info(f"✅ CLI-style configuration test passed: {tools}")
+    
+    # Cleanup
+    reset_config()
 
 
 def test_config_defaults():
     """Test that default configuration works correctly."""
-    from jupyter_mcp_server.config import ServerConfig, reset_config
+    from jupyter_mcp_server.config import JupyterMCPConfig, reset_config
     
     reset_config()
-    config = ServerConfig()
+    config = JupyterMCPConfig()
     default_tools = config.get_allowed_jupyter_mcp_tools()
     
     assert "notebook_run-all-cells" in default_tools

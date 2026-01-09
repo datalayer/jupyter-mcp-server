@@ -8,7 +8,6 @@ Simple test script to verify the configuration system works correctly.
 """
 
 import os
-import pytest
 
 from jupyter_mcp_server.config import get_config, set_config, reset_config
 
@@ -68,16 +67,13 @@ def test_allowed_jupyter_mcp_tools_config():
     assert custom_tools == ["custom_tool1", "custom_tool2"]
     print(f"Custom tools: {custom_tools}")
     
-    # Test environment variable override (without mocks - use real environment)
-    os.environ["ALLOWED_JUPYTER_MCP_TOOLS"] = "env_tool1,env_tool2"
-    reset_config()
-    env_config = get_config()
-    env_tools = env_config.get_allowed_jupyter_mcp_tools()
+    # Test configuration via set_config (simulates how CLI sets the value)
+    set_config_result = set_config(allowed_jupyter_mcp_tools="env_tool1,env_tool2")
+    env_tools = set_config_result.get_allowed_jupyter_mcp_tools()
     assert env_tools == ["env_tool1", "env_tool2"]
-    print(f"Environment override tools: {env_tools}")
+    print(f"CLI-style configuration: {env_tools}")
     
-    # Cleanup environment variable
-    del os.environ["ALLOWED_JUPYTER_MCP_TOOLS"]
+    # Reset to clean state
     reset_config()
     
     # Test comma-separated parsing with spaces

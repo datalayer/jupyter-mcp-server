@@ -39,21 +39,12 @@ You can specify which tools to enable using:
 
 **When running jupyter-mcp-server as a Jupyter Server Extension:**
 ```bash
-# Using environment variable
-ALLOWED_JUPYTER_MCP_TOOLS="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute" jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN
-
-# Using command-line configuration
 jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN --JupyterMCPServerExtensionApp.allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
 ```
 
 **When running jupyter-mcp-server standalone:**
 ```bash
-# CLI Option
 jupyter-mcp-server --allowed-jupyter-mcp-tools "notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
-
-# Environment Variable
-export ALLOWED_JUPYTER_MCP_TOOLS="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
-jupyter-mcp-server
 ```
 
 For developers who want to modify the default list programmatically, you can still update the `allowed_jupyter_mcp_tools` configuration in:
