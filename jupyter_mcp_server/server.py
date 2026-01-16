@@ -6,7 +6,7 @@
 Jupyter MCP Server Layer
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 from pydantic import Field
 from fastapi import Request
 from jupyter_kernel_client import KernelClient
@@ -52,6 +52,7 @@ from jupyter_mcp_server.tools import (
     ExecuteCodeTool,
     ListFilesTool,
     ListKernelsTool,
+    ConnectJupyterTool,
     # MCP Prompt
     JupyterCitePrompt,
 )
@@ -595,6 +596,39 @@ async def execute_code(
         max_retries=1
     )
 
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Connect to Jupyter Server",
+        destructiveHint=True,
+    ),
+)
+async def connect_to_jupyter(
+    jupyter_url: Annotated[str, Field(description="Jupyter server URL to connect to (e.g., 'http://localhost:8888')")],
+    jupyter_token: Annotated[Optional[str], Field(description="Jupyter server authentication token")] = None,
+    provider: Annotated[str, Field(description="Provider type")] = "jupyter",
+) -> Annotated[str, Field(description="Connection status message")]:
+    """Connect to a Jupyter server dynamically with URL and token.
+    
+    This tool allows you to connect to different Jupyter servers without needing to 
+    restart the MCP server or modify configuration files. Particularly useful when:
+    - Working with multiple Jupyter servers with different ports/tokens
+    - Jupyter server token changes dynamically
+    - Need to switch between different Jupyter instances
+    
+    Example usage:
+    - "Connect to http://localhost:8888 with token abc123"
+    - "Connect to http://localhost:8889 without authentication"
+    """
+    return await safe_notebook_operation(
+        lambda: ConnectJupyterTool().execute(
+            mode=server_context.mode,
+            jupyter_url=jupyter_url,
+            jupyter_token=jupyter_token,
+            provider=provider,
+        )
+    )
+
 ###############################################################################
 # Prompt
 
@@ -750,6 +784,14 @@ async def get_registered_tools():
             logger.info(f"Retrieved {len(tools_list)} tools from FastMCP registry")
             
             for tool in tools_list:
+                logger.info(f"Processing tool: {tool.name}, mode: {mode}")
+                # Skip connect_to_jupyter tool when running as Jupyter extension
+                # since it doesn't make sense to connect to a different server
+                # when already running inside Jupyter
+                if tool.name == "connect_to_jupyter":
+                    logger.info("Skipping connect_to_jupyter tool in JUPYTER_SERVER mode")
+                    continue
+                    
                 # Add FastMCP tool
                 tool_dict = {
                     "name": tool.name,

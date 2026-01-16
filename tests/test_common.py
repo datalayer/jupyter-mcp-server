@@ -41,8 +41,10 @@ JUPYTER_TOOLS = [
     "read_cell",
     "delete_cell",
     "execute_code",
+    # Server Management Tools
     "list_files",
-    "list_kernels"
+    "list_kernels",
+    "connect_to_jupyter"
 ]
 
 

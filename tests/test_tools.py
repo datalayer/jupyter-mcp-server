@@ -63,14 +63,30 @@ def test_mcp_health(jupyter_mcp_server, kernel_expected_status):
 
 
 @pytest.mark.asyncio
-async def test_mcp_tool_list(mcp_client_parametrized: MCPClient):
+async def test_mcp_tool_list(mcp_client_parametrized: MCPClient, request):
     """Check that the list of tools can be retrieved in both MCP_SERVER and JUPYTER_SERVER modes"""
     async with mcp_client_parametrized:
         tools = await mcp_client_parametrized.list_tools()
     tools_name = [tool.name for tool in tools.tools]
     logging.debug(f"tools_name: {tools_name}")
-    assert len(tools_name) == len(JUPYTER_TOOLS) and sorted(tools_name) == sorted(
-        JUPYTER_TOOLS
+    
+    # In JUPYTER_SERVER mode (jupyter_extension), connect_to_jupyter is filtered out
+    # In MCP_SERVER mode (mcp_server), all tools are available
+    expected_tools = JUPYTER_TOOLS.copy()
+    
+    # Get the current test parameter to determine the mode
+    current_param = None
+    for param in request.node.callspec.params.values():
+        if param in ["mcp_server", "jupyter_extension"]:
+            current_param = param
+            break
+    
+    if current_param == "jupyter_extension":
+        # Remove connect_to_jupyter for jupyter_extension mode
+        expected_tools = [tool for tool in JUPYTER_TOOLS if tool != 'connect_to_jupyter']
+    
+    assert len(tools_name) == len(expected_tools) and sorted(tools_name) == sorted(
+        expected_tools
     )
 
 

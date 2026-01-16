@@ -74,6 +74,7 @@ For more details on each tool, their parameters, and return values, please refer
 | :--------------- | :----------------------------------------------------------------------------------------- |
 | `list_files`     | List files and directories in the Jupyter server's file system.                            |
 | `list_kernels`   | List all available and running kernel sessions on the Jupyter server.                      |
+| `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.* [Read more](https://jupyter-mcp-server.datalayer.tech/reference/tools/#3-connect_to_jupyter) |
 
 #### Multi-Notebook Management Tools
 

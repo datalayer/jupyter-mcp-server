@@ -1,8 +1,8 @@
 # Tools
 
-The server currently offers 14 tools organized into 3 categories:
+The server currently offers 15 tools organized into 3 categories:
 
-## Server Management (2 tools)
+## Server Management (3 tools)
 
 #### 1. `list_files`
 
@@ -35,9 +35,25 @@ The server currently offers 14 tools organized into 3 categories:
   - **Last_Activity**: Timestamp of last kernel activity in YYYY-MM-DD HH:MM:SS format
   - **Environment**: Environment variables defined in the kernel spec (truncated if long)
 
+#### 3. `connect_to_jupyter`
+
+- Connect to a Jupyter server dynamically with URL and token.
+- This tool allows you to connect to different Jupyter servers without needing to restart the MCP server or modify configuration files.
+- Input:
+  - `jupyter_url`(string): Jupyter server URL to connect to (e.g., "http://localhost:8888")
+  - `jupyter_token`(string, optional): Jupyter server authentication token
+  - `provider`(string, optional): Provider type (default: "jupyter")
+- Returns: Connection status message confirming successful connection to the Jupyter server
+- **Use Cases**: When working with multiple Jupyter servers with different ports/tokens and you want to switch between them dynamically during a conversation. Or you do not want to hardcode connection details in configuration.
+
+:::warning Availability & Security
+- **Not available** when running MCP server [as a Jupyter extension](/providers/jupyter-streamable-http-extension).
+- **Alternative**: Pre-configure connection details in server configuration for production use as it is **not secure** to provide tokens to LLMs in production.
+:::
+
 ## Multi-Notebook (5 tools)
 
-#### 3. `use_notebook`
+#### 4. `use_notebook`
 
 - Use a notebook and activate it for following cell operations.
 - Input:
@@ -47,7 +63,7 @@ The server currently offers 14 tools organized into 3 categories:
   - `kernel_id`(string, optional): Specific kernel ID to use (will create new if skipped)
 - Returns: Success message with notebook information including activation status, kernel details, and notebook overview
 
-#### 4. `list_notebooks`
+#### 5. `list_notebooks`
 
 - List all notebooks that have been used via use_notebook tool.
 - Input: None
@@ -58,21 +74,21 @@ The server currently offers 14 tools organized into 3 categories:
   - **Kernel_Status**: Current status of the kernel
   - **Activate**: "✓" if this is the currently active notebook, empty otherwise
 
-#### 5. `restart_notebook`
+#### 6. `restart_notebook`
 
 - Restart the kernel for a specific notebook.
 - Input:
   - `notebook_name`(string): Notebook identifier to restart
 - Returns: Success message confirming the kernel has been restarted and memory state cleared
 
-#### 6. `unuse_notebook`
+#### 7. `unuse_notebook`
 
 - Unuse from a specific notebook and release its resources.
 - Input:
   - `notebook_name`(string): Notebook identifier to disconnect
 - Returns: Success message confirming the notebook has been disconnected and resources released
 
-#### 7. `read_notebook`
+#### 8. `read_notebook`
 
 - Read a notebook and return index, source content, type, execution count of each cell.
 - Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
@@ -87,7 +103,7 @@ The server currently offers 14 tools organized into 3 categories:
 
 ## Cell Tools (7 tools)
 
-#### 8. `insert_cell`
+#### 9. `insert_cell`
 
 - Insert a cell to specified position from the currently activated notebook.
 - Input:
@@ -96,7 +112,7 @@ The server currently offers 14 tools organized into 3 categories:
   - `cell_source`(string): Source content for the cell
 - Returns: Success message with insertion confirmation and the structure of surrounding cells (up to 5 cells above and below)
 
-#### 9. `overwrite_cell_source`
+#### 10. `overwrite_cell_source`
 
 - Overwrite the source of a specific cell from the currently activated notebook.
 - It will return a diff style comparison (e.g. `+` for new lines, `-` for deleted lines) of the cell's content
@@ -105,7 +121,7 @@ The server currently offers 14 tools organized into 3 categories:
   - `cell_source`(string): New complete cell source
 - Returns: Success message with diff style comparison showing changes made (e.g. `+` for new lines, `-` for deleted lines)
 
-#### 10. `execute_cell`
+#### 11. `execute_cell`
 
 - Execute a cell from the currently activated notebook with timeout and return it's outputs
 - Input:
@@ -115,7 +131,7 @@ The server currently offers 14 tools organized into 3 categories:
   - `progress_interval`(int, optional): Seconds between progress updates when stream=true (default: 5)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Supports streaming mode with progress updates for long-running cells.
 
-#### 11. `insert_execute_code_cell`
+#### 12. `insert_execute_code_cell`
 
 - Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs.
 - It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time
@@ -125,7 +141,7 @@ The server currently offers 14 tools organized into 3 categories:
   - `timeout`(int, optional): Maximum seconds to wait for execution (default: 90)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Returns both insertion confirmation and execution results.
 
-#### 12. `read_cell`
+#### 13. `read_cell`
 
 - Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
 - Input:
@@ -133,7 +149,7 @@ The server currently offers 14 tools organized into 3 categories:
   - `include_outputs`(bool, optional): Include outputs in the response (only for code cells, default: true)
 - Returns: `list[Union[str, ImageContent]]` - List containing cell metadata (index, type, execution count), source code, and outputs (for code cells with include_outputs=true)
 
-#### 13. `delete_cell`
+#### 14. `delete_cell`
 
 - Delete a specific cell or multiple cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
 - When deleting many cells, MUST delete them in descending order of their index to avoid index shifting.
@@ -142,7 +158,7 @@ The server currently offers 14 tools organized into 3 categories:
   - `include_source`(bool, optional): Whether to include the source of deleted cells (default: true)
 - Returns: Success message with deletion confirmation and the source code of the deleted cells (if include_source=True)
 
-#### 14. `execute_code`
+#### 15. `execute_code`
 
 - Execute code directly in the kernel (not saved to notebook) on the current activated notebook.
 - Recommended to use in following cases:

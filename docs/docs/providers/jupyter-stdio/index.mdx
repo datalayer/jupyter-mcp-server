@@ -38,12 +38,6 @@ The `--ip` is set to `0.0.0.0` to allow the MCP Server running in a Docker conta
 
 :::
 
-:::info
-For JupyterHub:
-- Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
-- Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
-:::
-
 ## 2. Setup Jupyter MCP Server
 
 Choose your deployment method: **uvx** (lightweight, recommended for first try) or **Docker** (production-ready).
@@ -79,6 +73,16 @@ uv --version  # should be 0.6.14 or higher
   }
 }
 ```
+
+:::tip Dynamic Connection
+The `JUPYTER_URL` and `JUPYTER_TOKEN` environment variables are optional thanks to the [`connect_to_jupyter`](/reference/tools/#3-connect_to_jupyter) tool. This tool allows you to connect to different Jupyter servers dynamically during your conversation.
+
+Example usage:
+- **Linux**: *"Connect to jupyter server http://localhost:8888 with token MY_TOKEN"*
+- **Mac/Windows**: *"Connect to jupyter server http://host.docker.internal:8888 with token MY_TOKEN"*
+
+⚠️ **Security Warning**: Using the `connect_to_jupyter` tool means providing the Jupyter token to the LLM, which is not secure in production environments.
+:::
 
 <details>
 <summary><b>Advanced Configuration (Optional)</b></summary>

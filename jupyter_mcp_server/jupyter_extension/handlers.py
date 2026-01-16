@@ -214,6 +214,18 @@ class MCPSSEHandler(RequestHandler):
                     # Convert FastMCP tools to MCP protocol format
                     tools = []
                     for tool in tools_list:
+                        # Skip connect_to_jupyter tool when running as Jupyter extension
+                        # since it doesn't make sense to connect to a different server
+                        # when already running inside Jupyter
+                        from jupyter_mcp_server.tools import ServerMode
+                        context = ServerContext.get_instance()
+                        context.initialize()
+                        mode = context._mode
+                        
+                        if tool.name == "connect_to_jupyter" and mode == ServerMode.JUPYTER_SERVER:
+                            logger.info("Skipping connect_to_jupyter tool in JUPYTER_SERVER mode")
+                            continue
+                            
                         tools.append({
                             "name": tool.name,
                             "description": tool.description,

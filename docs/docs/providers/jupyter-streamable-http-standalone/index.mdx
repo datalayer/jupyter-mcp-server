@@ -46,12 +46,6 @@ If you wish to start the Jupyter MCP server using docker, add `--ip 0.0.0.0` to 
 
 :::
 
-:::info
-For JupyterHub:
-- Set the environment variable `JUPYTERHUB_ALLOW_TOKEN_IN_URL=1` in the single-user environment.
-- Ensure your API token (`MY_TOKEN`) is created with `access:servers` scope in the Hub.
-:::
-
 ## 2. Start Jupyter MCP Server
 
 The server runs on port `4040` and provides a streamable HTTP endpoint at `http://localhost:4040/mcp`.
@@ -68,6 +62,14 @@ jupyter-mcp-server start \
   --jupyter-token MY_TOKEN \
   --port 4040
 ```
+
+:::tip Dynamic Connection
+The `--jupyter-url` and `--jupyter-token` parameters are optional thanks to the [`connect_to_jupyter`](/reference/tools/#3-connect_to_jupyter) tool. This tool allows you to connect to different Jupyter servers dynamically during your conversation without restarting the MCP server.
+
+Example usage: *"Connect to jupyter server http://localhost:8888 with token MY_TOKEN"*
+
+⚠️ **Security Warning**: Using the `connect_to_jupyter` tool means providing the Jupyter token to the LLM, which is not secure in production environments.
+:::
 
 ### Using Docker
 
