@@ -69,6 +69,14 @@ jupyter-mcp-server start \
   --port 4040
 ```
 
+:::tip Dynamic Connection
+The `--jupyter-url` and `--jupyter-token` parameters are optional thanks to the [`connect_to_jupyter`](/reference/tools/#3-connect_to_jupyter) tool. This tool allows you to connect to different Jupyter servers dynamically during your conversation without restarting the MCP server.
+
+Example usage: *"Connect to jupyter server http://localhost:8888 with token MY_TOKEN"*
+
+⚠️ **Security Warning**: Using the `connect_to_jupyter` tool means providing the Jupyter token to the LLM, which is not secure in production environments.
+:::
+
 ### Using Docker
 
 **MacOS/Windows:**

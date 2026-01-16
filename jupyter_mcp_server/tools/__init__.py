@@ -32,6 +32,7 @@ from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
 from jupyter_mcp_server.tools.execute_code_tool import ExecuteCodeTool
 from jupyter_mcp_server.tools.list_files_tool import ListFilesTool
 from jupyter_mcp_server.tools.list_kernels_tool import ListKernelsTool
+from jupyter_mcp_server.tools.connect_jupyter_tool import ConnectJupyterTool
 
 # Import MCP prompt
 from jupyter_mcp_server.tools.jupyter_cite_prompt import JupyterCitePrompt
@@ -57,6 +58,7 @@ __all__ = [
     "ExecuteCodeTool",
     "ListFilesTool",
     "ListKernelsTool",
+    "ConnectJupyterTool",
     # MCP Prompt
     "JupyterCitePrompt",
 ]

@@ -80,6 +80,16 @@ uv --version  # should be 0.6.14 or higher
 }
 ```
 
+:::tip Dynamic Connection
+The `JUPYTER_URL` and `JUPYTER_TOKEN` environment variables are optional thanks to the [`connect_to_jupyter`](/reference/tools/#3-connect_to_jupyter) tool. This tool allows you to connect to different Jupyter servers dynamically during your conversation.
+
+Example usage:
+- **Linux**: *"Connect to jupyter server http://localhost:8888 with token MY_TOKEN"*
+- **Mac/Windows**: *"Connect to jupyter server http://host.docker.internal:8888 with token MY_TOKEN"*
+
+⚠️ **Security Warning**: Using the `connect_to_jupyter` tool means providing the Jupyter token to the LLM, which is not secure in production environments.
+:::
+
 <details>
 <summary><b>Advanced Configuration (Optional)</b></summary>
 
