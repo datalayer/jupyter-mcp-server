@@ -24,7 +24,7 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
 
-![Jupyter MCP Server Demo](https://images.datalayer.io/product/jupyter-mcp-server/mcp-demo-multimodal.gif)
+![Jupyter MCP Server Demo](https://images.datalayer.io/products/jupyter-mcp-server/mcp-demo-multimodal.gif)
 
 </div>
 
