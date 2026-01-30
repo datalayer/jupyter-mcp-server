@@ -101,7 +101,7 @@ def _common_options(f):
             envvar="ALLOWED_JUPYTER_MCP_TOOLS",
             type=click.STRING,
             default="notebook_run-all-cells,notebook_get-selected-cell",
-            help="Comma-separated list of jupyter-mcp-tools to enable. Defaults to 'notebook_run-all-cells,notebook_get-selected-cell'.",
+            help="Comma-separated list of jupyter-mcp-tools to enable. Defaults to 'notebook_run-all-cells,notebook_get-selected-cell' - Only applicable when run as jupyter server extension.",
         )
     ]
     # Apply decorators in reverse order

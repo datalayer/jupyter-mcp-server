@@ -42,10 +42,7 @@ You can specify which tools to enable using:
 jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN --JupyterMCPServerExtensionApp.allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
 ```
 
-**When running jupyter-mcp-server standalone:**
-```bash
-jupyter-mcp-server --allowed-jupyter-mcp-tools "notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute"
-```
+`--allowed-jupyter-mcp-tools` has no effect when running jupyter-mcp-server standalone.
 
 For developers who want to modify the default list programmatically, you can still update the `allowed_jupyter_mcp_tools` configuration in:
 - [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py) - for standalone/STDIO mode
