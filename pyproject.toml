@@ -43,8 +43,8 @@ test = [
     "pytest>=7.0", 
     "pytest-asyncio",
     "pytest-timeout>=2.1.0",
-    "jupyterlab==4.4.1",
-    "jupyter-collaboration==4.0.2",
+    "jupyterlab==4.5.3",
+    "jupyter-collaboration==4.2.0",
     "datalayer_pycrdt==0.12.17",
     "pillow>=10.0.0"
 ]
