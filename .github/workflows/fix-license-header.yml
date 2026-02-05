@@ -45,7 +45,7 @@ jobs:
           git diff
 
       - name: Commit any changes
-        if: steps.files-changed.outputs.N_CHANGES != '0'
+        if: steps.files-changed.outputs.N_CHANGES != '0' && github.event.pull_request.head.repo.full_name == github.repository
         shell: bash -l {0}
         run: |
           git config user.name "github-actions[bot]"
@@ -56,7 +56,6 @@ jobs:
           git add *
           git commit -m "Automatic application of license header"
 
-          git config push.default upstream
-          git push
+          git push origin HEAD:refs/heads/${{ github.event.pull_request.head.ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
