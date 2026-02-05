@@ -22,6 +22,8 @@
     "type": "uv",
     "entry_point": "src/server.py",
     "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--project", "${__dirname}", "${__dirname}/src/server.py"],
       "env": {
         "JUPYTER_URL": "${user_config.jupyter_url}",
         "JUPYTER_TOKEN": "${user_config.jupyter_token}"
