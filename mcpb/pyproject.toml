@@ -1,3 +1,7 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
 [project]
 name = "jupyter-mcp-server-mcpb"
 version = "0.22.1"
