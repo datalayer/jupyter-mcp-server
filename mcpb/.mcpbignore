@@ -1,0 +1,33 @@
+# Build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+*.test.*
+
+# Documentation
+*.md
+!README.md
+
+# UV lock file (dependencies resolved at install time)
+uv.lock

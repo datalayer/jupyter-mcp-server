@@ -1,0 +1,12 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+[project]
+name = "jupyter-mcp-server-mcpb"
+version = "0.22.1"
+description = "Jupyter MCP Server - MCPB bundle for one-click installation in Claude Desktop"
+requires-python = ">=3.10"
+dependencies = [
+    "jupyter-mcp-server>=0.22.1",
+]

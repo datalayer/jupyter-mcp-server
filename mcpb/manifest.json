@@ -1,0 +1,114 @@
+{
+  "manifest_version": "0.4",
+  "name": "jupyter-mcp-server",
+  "display_name": "Jupyter MCP Server",
+  "version": "0.22.1",
+  "description": "Connect AI agents to Jupyter Notebooks - execute code, manage notebooks, and interact with kernels in real-time",
+  "long_description": "The Jupyter MCP Server enables AI agents like Claude to connect to and manage Jupyter Notebooks in real-time. It provides 14 tools to execute code, manage notebooks, read and write cells, and interact with Jupyter kernels through the standardized Model Context Protocol.\n\n**Requirements:** You need a running Jupyter server (JupyterLab or Jupyter Notebook) to connect to. Start one with:\n```\npip install jupyterlab\njupyter lab --port 8888 --IdentityProvider.token MY_TOKEN\n```",
+  "author": {
+    "name": "Datalayer",
+    "email": "info@datalayer.io",
+    "url": "https://datalayer.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/datalayer/jupyter-mcp-server"
+  },
+  "homepage": "https://jupyter-mcp-server.datalayer.tech",
+  "documentation": "https://jupyter-mcp-server.datalayer.tech",
+  "support": "https://github.com/datalayer/jupyter-mcp-server/issues",
+  "license": "BSD-3-Clause",
+  "server": {
+    "type": "uv",
+    "entry_point": "src/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--project", "${__dirname}", "${__dirname}/src/server.py"],
+      "env": {
+        "JUPYTER_URL": "${user_config.jupyter_url}",
+        "JUPYTER_TOKEN": "${user_config.jupyter_token}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "list_files",
+      "description": "List files and directories in the Jupyter server filesystem"
+    },
+    {
+      "name": "list_kernels",
+      "description": "List all available and running kernel sessions"
+    },
+    {
+      "name": "use_notebook",
+      "description": "Connect to an existing notebook or create a new one"
+    },
+    {
+      "name": "list_notebooks",
+      "description": "List all managed notebooks and their status"
+    },
+    {
+      "name": "restart_notebook",
+      "description": "Restart the kernel for a managed notebook"
+    },
+    {
+      "name": "unuse_notebook",
+      "description": "Disconnect from a notebook and release resources"
+    },
+    {
+      "name": "read_notebook",
+      "description": "Read notebook content with brief or detailed format"
+    },
+    {
+      "name": "read_cell",
+      "description": "Read full content of a single cell including metadata and outputs"
+    },
+    {
+      "name": "insert_cell",
+      "description": "Insert new code or markdown cells into a notebook"
+    },
+    {
+      "name": "delete_cell",
+      "description": "Delete cells from a notebook by index"
+    },
+    {
+      "name": "overwrite_cell_source",
+      "description": "Modify the source code of a notebook cell"
+    },
+    {
+      "name": "execute_cell",
+      "description": "Execute a notebook cell with timeout and multimodal output support"
+    },
+    {
+      "name": "insert_execute_code_cell",
+      "description": "Insert and execute a code cell in one step"
+    },
+    {
+      "name": "execute_code",
+      "description": "Execute arbitrary code directly in the kernel"
+    }
+  ],
+  "user_config": {
+    "jupyter_url": {
+      "type": "string",
+      "title": "Jupyter Server URL",
+      "description": "URL of your running Jupyter server (e.g., http://localhost:8888)",
+      "default": "http://localhost:8888",
+      "required": true
+    },
+    "jupyter_token": {
+      "type": "string",
+      "title": "Jupyter Server Token",
+      "description": "Authentication token for your Jupyter server",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  },
+  "keywords": ["jupyter", "notebook", "python", "kernel", "data-science", "code-execution", "mcp"]
+}
