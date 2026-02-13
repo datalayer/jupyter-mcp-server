@@ -7,6 +7,7 @@
 [![Datalayer](https://images.datalayer.io/brand/logos/datalayer-horizontal.svg)](https://datalayer.io)
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
+[![AgentAudit Safe](https://img.shields.io/badge/AgentAudit-Safe-green?logo=data:image/svg%2bxml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMkw0IDV2Ni4wOWMwIDUuMDUgMy40MSA5Ljc2IDggMTAuOTEgNC41OS0xLjE1IDgtNS44NiA4LTEwLjkxVjVsLTgtM3oiIGZpbGw9IiM0Q0FGNTAiLz48cGF0aCBkPSJNMTAgMTUuNWwtMy41LTMuNSAxLjQxLTEuNDFMMTAgMTIuNjdsNS41OS01LjU5TDE3IDguNSAxMCAxNS41eiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=)](https://www.agentaudit.dev/audit/jupyter-mcp-server)
 
 <div align="center">
 
