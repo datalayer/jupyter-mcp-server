@@ -261,6 +261,39 @@ async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
         disconnect_error = await mcp_client_parametrized.unuse_notebook("nonexistent_notebook") 
         assert "not connected" in disconnect_error
 
+
+@pytest.mark.asyncio
+@timeout_wrapper(60)
+async def test_read_cell_without_active_notebook(mcp_client_parametrized: MCPClient):
+    """Test that read_cell returns a helpful error when no notebook is activated.
+
+    Regression test for #208: previously this raised a cryptic
+    'quote_from_bytes() expected bytes' exception because None was
+    passed to contents_manager.get().
+    """
+    async with mcp_client_parametrized:
+        # Ensure no notebook is active by calling list_notebooks first
+        notebook_list = await mcp_client_parametrized.list_notebooks()
+        logging.debug(f"Notebook list before test: {notebook_list}")
+
+        # Call read_cell without activating a notebook first.
+        # Before the fix, this raised: "quote_from_bytes() expected bytes"
+        # After the fix, it should return a helpful message.
+        result = await mcp_client_parametrized.read_cell(0)
+        logging.debug(f"read_cell without active notebook result: {result}")
+
+        assert result is not None, (
+            "read_cell should return a result with a helpful message, "
+            "not raise an exception (got None from error handling)"
+        )
+        assert isinstance(result["result"], list)
+        assert any(
+            "use_notebook" in item.lower()
+            for item in result["result"]
+            if isinstance(item, str)
+        ), "Error message should mention use_notebook tool"
+
+
 @pytest.mark.asyncio
 @timeout_wrapper(60)
 async def test_execute_code(mcp_client_parametrized: MCPClient):

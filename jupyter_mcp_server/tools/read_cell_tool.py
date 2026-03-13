@@ -9,7 +9,7 @@ from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import Notebook
-from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.utils import get_current_notebook_context
 from mcp.types import ImageContent
 
 
@@ -45,8 +45,11 @@ class ReadCellTool(BaseTool):
         """
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # Local mode: read notebook directly from file system
-            notebook_path = notebook_manager.get_current_notebook_path()
-            
+            notebook_path, _ = get_current_notebook_context(notebook_manager)
+
+            if not notebook_path:
+                return ["No active notebook. Use the use_notebook tool to activate a notebook first."]
+
             model = await contents_manager.get(notebook_path, content=True, type='notebook')
             if 'content' not in model:
                 raise ValueError(f"Could not read notebook content from {notebook_path}")
