@@ -12,6 +12,8 @@ from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.utils import get_current_notebook_context
 from mcp.types import ImageContent
 
+NO_ACTIVE_NOTEBOOK_MSG = "No active notebook. Use the use_notebook tool to activate a notebook first."
+
 
 class ReadCellTool(BaseTool):
     """Tool to read a specific cell from a notebook."""
@@ -48,7 +50,7 @@ class ReadCellTool(BaseTool):
             notebook_path, _ = get_current_notebook_context(notebook_manager)
 
             if not notebook_path:
-                return ["No active notebook. Use the use_notebook tool to activate a notebook first."]
+                return [NO_ACTIVE_NOTEBOOK_MSG]
 
             model = await contents_manager.get(notebook_path, content=True, type='notebook')
             if 'content' not in model:
@@ -56,6 +58,9 @@ class ReadCellTool(BaseTool):
             notebook = Notebook(**model['content'])
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
+            if not notebook_manager.get_current_notebook():
+                return [NO_ACTIVE_NOTEBOOK_MSG]
+
             async with notebook_manager.get_current_connection() as notebook_content:
                 notebook = Notebook(**notebook_content.as_dict())
         else:
