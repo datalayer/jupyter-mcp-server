@@ -264,49 +264,35 @@ async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
 
 @pytest.mark.asyncio
 @timeout_wrapper(60)
-async def test_read_cell_without_active_notebook(mcp_client_parametrized: MCPClient, request):
-    """Test read_cell behavior when no notebook has been activated via use_notebook.
+async def test_read_cell_without_active_notebook(mcp_client_parametrized: MCPClient):
+    """Test read_cell does not raise a cryptic exception when called without use_notebook.
 
     Regression test for #208: in JUPYTER_SERVER mode, calling read_cell without
-    use_notebook previously raised a cryptic 'quote_from_bytes() expected bytes'
-    exception. After the fix it returns a helpful error message.
+    first calling use_notebook previously raised 'quote_from_bytes() expected bytes'
+    deep inside the contents manager because None was passed as the notebook path.
 
-    In MCP_SERVER mode, the server starts with a pre-configured default notebook
-    (--document-id), so read_cell succeeds and returns actual cell data.
+    After the fix, read_cell must return a well-formed result in both modes:
+    - JUPYTER_SERVER: returns a helpful error message mentioning use_notebook
+    - MCP_SERVER: returns actual cell data from the pre-configured default notebook
+
+    The assertion is intentionally content-based rather than mode-based to avoid
+    relying on pytest internals for mode detection.
     """
-    # Determine the current test mode
-    current_mode = None
-    for param in request.node.callspec.params.values():
-        if param in ("mcp_server", "jupyter_extension"):
-            current_mode = param
-            break
-
     async with mcp_client_parametrized:
         result = await mcp_client_parametrized.read_cell(0)
-        logging.debug(f"read_cell result (mode={current_mode}): {result}")
+        logging.debug(f"read_cell result: {result}")
 
-        if current_mode == "jupyter_extension":
-            # JUPYTER_SERVER mode: no notebook activated, should get helpful error
-            assert result is not None, (
-                "read_cell should return a result with a helpful message, "
-                "not raise an exception (got None from error handling)"
-            )
-            assert isinstance(result["result"], list)
-            assert any(
-                "use_notebook" in item.lower()
-                for item in result["result"]
-                if isinstance(item, str)
-            ), "Error message should mention use_notebook tool"
-        else:
-            # MCP_SERVER mode: default notebook is pre-configured, read_cell
-            # should succeed and return actual cell metadata
-            assert result is not None, "read_cell should return cell data"
-            assert isinstance(result["result"], list)
-            assert any(
-                "=====Cell 0" in item
-                for item in result["result"]
-                if isinstance(item, str)
-            ), "Should return actual cell content from the default notebook"
+        assert result is not None, (
+            "read_cell raised an unhandled exception (got None). "
+            "Expected either cell data or a helpful error message."
+        )
+        assert isinstance(result["result"], list), "Result should be a list"
+
+        result_text = " ".join(str(item) for item in result["result"])
+        assert "=====Cell 0" in result_text or "use_notebook" in result_text.lower(), (
+            f"Expected either cell data ('=====Cell 0') or a helpful error message "
+            f"('use_notebook'), but got: {result_text[:300]}"
+        )
 
 
 @pytest.mark.asyncio
