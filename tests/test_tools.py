@@ -261,6 +261,40 @@ async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
         disconnect_error = await mcp_client_parametrized.unuse_notebook("nonexistent_notebook") 
         assert "not connected" in disconnect_error
 
+
+@pytest.mark.asyncio
+@timeout_wrapper(60)
+async def test_read_cell_without_active_notebook(mcp_client_parametrized: MCPClient):
+    """Test read_cell does not raise a cryptic exception when called without use_notebook.
+
+    Regression test for #208: in JUPYTER_SERVER mode, calling read_cell without
+    first calling use_notebook previously raised 'quote_from_bytes() expected bytes'
+    deep inside the contents manager because None was passed as the notebook path.
+
+    After the fix, read_cell must return a well-formed result in both modes:
+    - JUPYTER_SERVER: returns a helpful error message mentioning use_notebook
+    - MCP_SERVER: returns actual cell data from the pre-configured default notebook
+
+    The assertion is intentionally content-based rather than mode-based to avoid
+    relying on pytest internals for mode detection.
+    """
+    async with mcp_client_parametrized:
+        result = await mcp_client_parametrized.read_cell(0)
+        logging.debug(f"read_cell result: {result}")
+
+        assert result is not None, (
+            "read_cell raised an unhandled exception (got None). "
+            "Expected either cell data or a helpful error message."
+        )
+        assert isinstance(result["result"], list), "Result should be a list"
+
+        result_text = " ".join(str(item) for item in result["result"])
+        assert "=====Cell 0" in result_text or "use_notebook" in result_text.lower(), (
+            f"Expected either cell data ('=====Cell 0') or a helpful error message "
+            f"('use_notebook'), but got: {result_text[:300]}"
+        )
+
+
 @pytest.mark.asyncio
 @timeout_wrapper(60)
 async def test_execute_code(mcp_client_parametrized: MCPClient):
