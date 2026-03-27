@@ -372,6 +372,22 @@ class MCPSSEHandler(RequestHandler):
                                 result_dict = {"content": serialized_content}
                             else:
                                 result_dict = {"content": [{"type": "text", "text": str(result)}]}
+                        # Handle bare list results from FastMCP (structured_output=False)
+                        elif isinstance(result, list):
+                            serialized_content = []
+                            for item in result:
+                                if hasattr(item, 'model_dump'):
+                                    serialized_item = clean_mcp_response_content(item.model_dump())
+                                    serialized_content.append(serialized_item)
+                                elif hasattr(item, 'dict'):
+                                    serialized_item = clean_mcp_response_content(item.dict())
+                                    serialized_content.append(serialized_item)
+                                elif isinstance(item, dict):
+                                    serialized_item = clean_mcp_response_content(item)
+                                    serialized_content.append(serialized_item)
+                                else:
+                                    serialized_content.append({"type": "text", "text": str(item)})
+                            result_dict = {"content": serialized_content}
                         # Convert result to dict - it's a CallToolResult with content list
                         elif hasattr(result, 'model_dump'):
                             result_dict = clean_mcp_response(result.model_dump())
