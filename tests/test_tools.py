@@ -190,39 +190,41 @@ display(IPythonImage(buffer.getvalue()))
 @timeout_wrapper(90)
 async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
     """Test cell operations across multiple notebooks in both modes"""
+    import uuid
+    tag = uuid.uuid4().hex[:8]
+    marker_a = f"# This is notebook A [{tag}]"
+    marker_b = f"# This is notebook B [{tag}]\nA hidden content"
+
     async with mcp_client_parametrized:
         # Connect to the new notebook
         result = await mcp_client_parametrized.use_notebook("notebook_a", "new.ipynb")
         logging.debug(f"Connect to notebook A: {result}")
         assert "Successfully activate notebook 'notebook_a'" in result
 
-        notebook_a_info = await mcp_client_parametrized.read_notebook("notebook_a")
-        assert "# This is notebook A" not in notebook_a_info
-        
-        # Add a cell to notebook A
-        await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook A")
-        
+        # Add a uniquely-tagged cell to notebook A
+        await mcp_client_parametrized.insert_cell(-1, "markdown", marker_a)
+
         # Try to connect to notebook.ipynb as notebook_b
         result = await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
         logging.debug(f"Connect to notebook B: {result}")
         assert "Successfully activate notebook 'notebook_b'" in result
-        
-        # Add a cell to notebook B
-        await mcp_client_parametrized.insert_cell(-1, "markdown", "# This is notebook B\nA hidden content")
-        
+
+        # Add a uniquely-tagged cell to notebook B
+        await mcp_client_parametrized.insert_cell(-1, "markdown", marker_b)
+
         # Switch back to notebook A
         result = await mcp_client_parametrized.use_notebook("notebook_a", "new.ipynb")
         logging.debug(f"Reactivate notebook A: {result}")
         assert "Reactivating notebook 'notebook_a' and deactivating 'notebook_b'." in result
-        
-        # Verify we're working with notebook A
-        cell_list_a = await mcp_client_parametrized.read_notebook("notebook_a")
-        assert "This is notebook A" in cell_list_a
-        
+
+        # Verify we're working with notebook A (our unique marker is there)
+        cell_list_a = await mcp_client_parametrized.read_notebook("notebook_a", limit=100)
+        assert marker_a in cell_list_a
+
         # Switch to notebook B and verify
         await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
-        cell_list_b = await mcp_client_parametrized.read_notebook("notebook_b", response_format="detailed")
-        assert "A hidden content" in cell_list_b
+        cell_list_b = await mcp_client_parametrized.read_notebook("notebook_b", response_format="detailed", limit=100)
+        assert marker_b in cell_list_b
 
         notebook_list = await mcp_client_parametrized.list_notebooks()
         logging.debug(f"Notebook list after switching: {notebook_list}")
@@ -234,7 +236,7 @@ async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
         restart_result = await mcp_client_parametrized.restart_notebook("notebook_a")
         logging.debug(f"Restart result: {restart_result}")
         assert "Notebook 'notebook_a' kernel restarted successfully" in restart_result
-        
+
         # Clean up - unuse both notebooks
         result = await mcp_client_parametrized.unuse_notebook("notebook_a")
         logging.debug(f"Unuse notebook A: {result}")
