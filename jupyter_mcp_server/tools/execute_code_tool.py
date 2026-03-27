@@ -10,6 +10,7 @@ from typing import Union
 
 from mcp.types import ImageContent
 
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 
@@ -59,26 +60,33 @@ class ExecuteCodeTool(BaseTool):
         # Get current notebook name and kernel
         current_notebook = notebook_manager.get_current_notebook() or "default"
         kernel = notebook_manager.get_kernel(current_notebook)
-        
+
         if not kernel:
             # Ensure kernel is alive
             kernel = ensure_kernel_alive_fn()
-        
+
         # Wait for kernel to be idle before executing
         await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
-        
+
         logger.info(f"Executing IPython code (MCP_SERVER) with timeout {timeout}s: {code[:100]}...")
-        
+
+        kid = notebook_manager.get_kernel_id(current_notebook) or ""
+        hooks = HookRegistry.get_instance()
+        hook_ctx = await hooks.fire(
+            HookEvent.BEFORE_EXECUTE,
+            code=code, kernel_id=kid, metadata={},
+        )
+
         try:
             # Execute code directly with kernel
             execution_task = asyncio.create_task(
                 asyncio.to_thread(kernel.execute, code)
             )
-            
+
             # Wait for execution with timeout
             try:
                 outputs = await asyncio.wait_for(execution_task, timeout=timeout)
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as e:
                 execution_task.cancel()
                 try:
                     if kernel and hasattr(kernel, 'interrupt'):
@@ -86,19 +94,36 @@ class ExecuteCodeTool(BaseTool):
                         logger.info("Sent interrupt signal to kernel due to timeout")
                 except Exception as interrupt_err:
                     logger.error(f"Failed to interrupt kernel: {interrupt_err}")
-                
-                return [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"]
-            
+
+                result = [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"]
+                await hooks.fire(
+                    HookEvent.AFTER_EXECUTE,
+                    code=code, kernel_id=kid, metadata={},
+                    outputs=result, error=e, context=hook_ctx,
+                )
+                return result
+
             # Process and extract outputs
             if outputs:
                 result = safe_extract_outputs_fn(outputs['outputs'])
                 logger.info(f"IPython execution completed successfully with {len(result)} outputs")
-                return result
             else:
-                return ["[No output generated]"]
-                
+                result = ["[No output generated]"]
+
+            await hooks.fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code, kernel_id=kid, metadata={},
+                outputs=result, error=None, context=hook_ctx,
+            )
+            return result
+
         except Exception as e:
             logger.error(f"Error executing IPython code: {e}")
+            await hooks.fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code, kernel_id=kid, metadata={},
+                outputs=[], error=e, context=hook_ctx,
+            )
             return [f"[ERROR: {str(e)}]"]
     
     async def execute(

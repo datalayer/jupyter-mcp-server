@@ -244,6 +244,10 @@ def _do_start(
             logger.error(f"Failed to start kernel on startup: {e}")
     # else: No startup action - user must manually enroll notebooks or create kernels
 
+    # Auto-register OTel hook handler if configured
+    from jupyter_mcp_server.otel_hook import maybe_register_otel
+    maybe_register_otel()
+
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
     if transport == "stdio":

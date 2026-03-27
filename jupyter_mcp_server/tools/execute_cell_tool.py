@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Union, List
 from mcp.types import ImageContent
 
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     get_current_notebook_context,
@@ -248,11 +249,20 @@ class ExecuteCellTool(BaseTool):
         elif mode == ServerMode.MCP_SERVER:
             kernel = ensure_kernel_alive_fn()
             await wait_for_kernel_idle(kernel, max_wait_seconds=30)
+            current_nb = notebook_manager.get_current_notebook() or "default"
+            kid = notebook_manager.get_kernel_id(current_nb) or ""
 
             async with notebook_manager.get_current_connection() as notebook:
                 num_cells = len(notebook)
                 if cell_index >= num_cells:
                     raise ValueError(f"Cell index {cell_index} out of range (notebook has {num_cells} cells)")
+
+                cell_source = str(notebook[cell_index].get("source", ""))
+                hooks = HookRegistry.get_instance()
+                hook_ctx = await hooks.fire(
+                    HookEvent.BEFORE_EXECUTE,
+                    code=cell_source, kernel_id=kid, metadata={},
+                )
 
                 if stream:
                     # Streaming mode: Real-time monitoring with progress updates
@@ -324,7 +334,13 @@ class ExecuteCellTool(BaseTool):
                         except Exception as e:
                             outputs_log.append(f"[ERROR: {e}]")
 
-                    return outputs_log if outputs_log else ["[No output generated]"]
+                    result = outputs_log if outputs_log else ["[No output generated]"]
+                    await hooks.fire(
+                        HookEvent.AFTER_EXECUTE,
+                        code=cell_source, kernel_id=kid, metadata={},
+                        outputs=result, error=None, context=hook_ctx,
+                    )
+                    return result
 
                 else:
                     # Non-streaming mode: Use forced synchronization
@@ -339,6 +355,11 @@ class ExecuteCellTool(BaseTool):
                         result = safe_extract_outputs(outputs)
 
                         logger.info(f"Cell {cell_index} completed successfully with {len(result)} outputs")
+                        await hooks.fire(
+                            HookEvent.AFTER_EXECUTE,
+                            code=cell_source, kernel_id=kid, metadata={},
+                            outputs=result, error=None, context=hook_ctx,
+                        )
                         return result
 
                     except asyncio.TimeoutError as e:
@@ -355,14 +376,30 @@ class ExecuteCellTool(BaseTool):
                             outputs = notebook[cell_index].get("outputs", [])
                             partial_outputs = safe_extract_outputs(outputs)
                             partial_outputs.append(f"[TIMEOUT ERROR: Execution exceeded {timeout_seconds} seconds]")
+                            await hooks.fire(
+                                HookEvent.AFTER_EXECUTE,
+                                code=cell_source, kernel_id=kid, metadata={},
+                                outputs=partial_outputs, error=e, context=hook_ctx,
+                            )
                             return partial_outputs
                         except Exception:
                             pass
 
-                        return [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds and was interrupted]"]
+                        timeout_result = [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds and was interrupted]"]
+                        await hooks.fire(
+                            HookEvent.AFTER_EXECUTE,
+                            code=cell_source, kernel_id=kid, metadata={},
+                            outputs=timeout_result, error=e, context=hook_ctx,
+                        )
+                        return timeout_result
 
                     except Exception as e:
                         logger.error(f"Error executing cell {cell_index}: {e}")
+                        await hooks.fire(
+                            HookEvent.AFTER_EXECUTE,
+                            code=cell_source, kernel_id=kid, metadata={},
+                            outputs=[], error=e, context=hook_ctx,
+                        )
                         raise
         else:
             raise ValueError(f"Invalid mode: {mode}")

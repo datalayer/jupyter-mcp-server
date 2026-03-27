@@ -115,6 +115,10 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         """
         # Reduce noise from httpx logging (used by JupyterLab for PyPI extension discovery)
         logging.getLogger("httpx").setLevel(logging.WARNING)
+
+        # Auto-register OTel hook handler if configured
+        from jupyter_mcp_server.otel_hook import maybe_register_otel
+        maybe_register_otel()
         
         logger.info(f"Initializing Jupyter MCP Server Extension")
         logger.info(f"  Document URL: {self.document_url}")

@@ -114,6 +114,23 @@ def _summarize(value: object) -> str:
     return s[:200] if len(s) > 200 else s
 
 
+def maybe_register_otel() -> None:
+    """Register the OTel hook handler if JUPYTER_MCP_OTEL_FILE is set.
+
+    Safe to call from any entry point (CLI, Jupyter extension).
+    Does nothing if the env var is unset or OTel deps are missing.
+    """
+    otel_file = os.environ.get("JUPYTER_MCP_OTEL_FILE")
+    if not otel_file:
+        return
+
+    from jupyter_mcp_server.hooks import HookRegistry
+
+    handler = create_otel_handler(file_path=otel_file)
+    HookRegistry.get_instance().register(handler)
+    logger.info(f"OTel hook handler registered, writing spans to {otel_file}")
+
+
 def create_otel_handler(file_path: str | Path | None = None) -> OTelHookHandler:
     """Create an OTelHookHandler backed by a FileSpanExporter.
 
