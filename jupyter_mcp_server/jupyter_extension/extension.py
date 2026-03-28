@@ -170,28 +170,17 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         # 2. With new kernel (start_new_runtime=True)
         # 3. Without kernel - notebook-only mode (both False/None)
         if self.document_id:
-            from tornado.ioloop import IOLoop
-            from jupyter_mcp_server.enroll import auto_enroll_document
-            from jupyter_mcp_server.server import notebook_manager, server_context
-            from jupyter_mcp_server.tools import UseNotebookTool
-            
-            # Schedule auto-enrollment to run after Jupyter Server is fully started
-            async def _run_auto_enrollment():
-                try:
-                    logger.info(f"Running auto-enrollment for document '{self.document_id}'")
-                    await auto_enroll_document(
-                        config=config,
-                        notebook_manager=notebook_manager,
-                        use_notebook_tool=UseNotebookTool(),
-                        server_context=server_context,
-                    )
-                    logger.info(f"Auto-enrollment completed for document '{self.document_id}'")
-                except Exception as e:
-                    logger.error(f"Failed to auto-enroll document: {e}", exc_info=True)
-            
-            # Schedule the enrollment to run on the IOLoop after server starts
-            # Use callback with delay to ensure server is fully initialized
-            IOLoop.current().call_later(1.0, lambda: IOLoop.current().add_callback(_run_auto_enrollment))
+            from jupyter_mcp_server.server import notebook_manager
+
+            if "default" not in notebook_manager:
+                notebook_manager.add_notebook(
+                    "default", None,
+                    server_url=self.document_url,
+                    token=self.document_token,
+                    path=self.document_id
+                )
+                notebook_manager.set_current_notebook("default")
+                logger.info(f"Auto-enrolled document '{self.document_id}' as 'default'")
         
         logger.info("Jupyter MCP Server Extension settings initialized")
     
