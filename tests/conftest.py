@@ -18,6 +18,7 @@ import logging
 import os
 import socket
 import subprocess
+import tempfile
 import time
 from http import HTTPStatus
 
@@ -28,6 +29,19 @@ from requests.exceptions import ConnectionError
 
 
 JUPYTER_TOKEN = "MY_TOKEN"
+
+
+def pytest_configure(config):
+    """Set up OTel span collection before any server subprocess starts."""
+    fd, path = tempfile.mkstemp(suffix=".jsonl", prefix="otel_integration_")
+    os.close(fd)
+    os.environ["JUPYTER_MCP_OTEL_FILE"] = path
+    config._otel_spans_file = path
+
+
+def pytest_unconfigure(config):
+    """Clean up OTel env var."""
+    os.environ.pop("JUPYTER_MCP_OTEL_FILE", None)
 
 # Test mode configuration - set to False to skip testing specific modes
 TEST_MCP_SERVER = os.environ.get("TEST_MCP_SERVER", "true").lower() == "true"
@@ -345,3 +359,9 @@ def mcp_client_parametrized(mcp_server_url):
     """
     from .test_common import MCPClient
     return MCPClient(mcp_server_url)
+
+
+@pytest.fixture(scope="session")
+def otel_spans_file(request):
+    """Expose the OTel spans JSONL path set up by pytest_configure."""
+    return request.config._otel_spans_file

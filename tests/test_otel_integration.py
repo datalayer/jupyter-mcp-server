@@ -12,29 +12,10 @@ file to verify that hooks fired correctly end-to-end.
 
 import json
 import logging
-import os
-import tempfile
 
 import pytest
 
 from .test_common import MCPClient, timeout_wrapper
-
-
-# ── Fixture: enable OTel in the MCP server subprocess ─────────────────
-
-@pytest.fixture(scope="session", autouse=True)
-def otel_spans_file():
-    """Point the MCP server subprocess at a temp JSONL file for OTel spans.
-
-    Because conftest starts the server with subprocess.Popen (which inherits
-    the parent environment), setting the env var here is enough.
-    """
-    fd, path = tempfile.mkstemp(suffix=".jsonl", prefix="otel_integration_")
-    os.close(fd)
-    os.environ["JUPYTER_MCP_OTEL_FILE"] = path
-    yield path
-    os.environ.pop("JUPYTER_MCP_OTEL_FILE", None)
-    # Leave the file around for debugging; pytest-tmp will eventually clean up
 
 
 def _read_spans(path: str) -> list[dict]:
