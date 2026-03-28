@@ -436,6 +436,7 @@ async def overwrite_cell_source(
         title="Execute Cell",
         destructiveHint=True,
     ),
+    structured_output=False,
 )
 async def execute_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
@@ -465,6 +466,7 @@ async def execute_cell(
         title="Insert and Execute Code Cell",
         destructiveHint=True,
     ),
+    structured_output=False,
 )
 async def insert_execute_code_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=-1)],
@@ -507,6 +509,7 @@ async def insert_execute_code_cell(
         title="Read Cell",
         readOnlyHint=True,
     ),
+    structured_output=False,
 )
 async def read_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
@@ -553,6 +556,7 @@ async def delete_cell(
         title="Execute Code",
         destructiveHint=True,
     ),
+    structured_output=False,
 )
 async def execute_code(
     code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
