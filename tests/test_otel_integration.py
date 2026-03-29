@@ -22,8 +22,10 @@ def _read_spans(path: str) -> list[dict]:
     try:
         text = open(path).read().strip()  # noqa: SIM115
     except FileNotFoundError:
+        logging.warning(f"Spans file does not exist: {path}")
         return []
     if not text:
+        logging.warning(f"Spans file is empty: {path}")
         return []
     return [json.loads(line) for line in text.splitlines()]
 

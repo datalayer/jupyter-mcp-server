@@ -125,6 +125,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
         # Auto-register OTel hook handler if configured (traitlet → env var fallback)
         from jupyter_mcp_server.otel_hook import maybe_register_otel
+        logger.info(f"  OTel file (traitlet): {self.otel_file!r}")
         maybe_register_otel(self.otel_file or None)
         
         logger.info(f"Initializing Jupyter MCP Server Extension")

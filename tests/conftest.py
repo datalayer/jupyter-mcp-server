@@ -46,6 +46,7 @@ TEST_JUPYTER_SERVER = os.environ.get("TEST_JUPYTER_SERVER", "true").lower() == "
 def _start_server(
     name: str, host: str, port: int, command: list, readiness_endpoint: str,
     max_retries: int = 5, extra_env: dict | None = None,
+    stderr_file: str | None = None,
 ):
     """A Helper that starts a web server as a python subprocess and wait until it's ready to accept connections
 
@@ -54,20 +55,25 @@ def _start_server(
     Uses subprocess.DEVNULL to prevent pipe blocking issues with verbose output.
     When *extra_env* is provided the subprocess inherits ``os.environ`` merged
     with those extra variables (without polluting the parent process).
+    When *stderr_file* is provided, stderr is captured to that file for diagnostics.
     """
     _log_prefix = name
     url = f"http://{host}:{port}"
     url_readiness = f"{url}{readiness_endpoint}"
     logging.info(f"{_log_prefix}: starting ...")
-    logging.debug(f"{_log_prefix}: command: {' '.join(command)}")
+    logging.info(f"{_log_prefix}: command: {' '.join(command)}")
 
     env = {**os.environ, **extra_env} if extra_env else None
 
-    # Use DEVNULL to prevent any pipe blocking issues
+    # Use DEVNULL to prevent any pipe blocking issues.
+    # When stderr_file is set, capture stderr for diagnostics instead.
+    stderr_fh = None
+    if stderr_file:
+        stderr_fh = open(stderr_file, "w")  # noqa: SIM115
     p_serv = subprocess.Popen(
         command,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=stderr_fh or subprocess.DEVNULL,
         env=env,
     )
     _log_prefix = f"{_log_prefix} [{p_serv.pid}]"
@@ -109,6 +115,18 @@ def _start_server(
             logging.error(f"{_log_prefix}: kill timeout, process may be stuck")
     except Exception as e:
         logging.error(f"{_log_prefix}: error during shutdown: {e}")
+    finally:
+        if stderr_fh:
+            stderr_fh.close()
+            # Dump captured stderr to the test log for diagnostics
+            try:
+                with open(stderr_file) as f:
+                    content = f.read().strip()
+                if content:
+                    for line in content.splitlines()[:50]:
+                        logging.info(f"{_log_prefix} stderr: {line}")
+            except Exception:
+                pass
 
 
 @pytest.fixture(scope="session")
@@ -360,13 +378,14 @@ def otel_spans_file(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def jupyter_server_with_extension_otel(otel_spans_file):
+def jupyter_server_with_extension_otel(otel_spans_file, tmp_path_factory):
     """JupyterLab with MCP extension + OTel (port 8890)."""
     if not TEST_JUPYTER_SERVER:
         pytest.skip("TEST_JUPYTER_SERVER is disabled")
 
     host = "localhost"
     port = 8890
+    stderr_log = str(tmp_path_factory.mktemp("otel_diag") / "extension_stderr.log")
     yield from _start_server(
         name="JupyterLab+MCP+OTel",
         host=host,
@@ -374,6 +393,7 @@ def jupyter_server_with_extension_otel(otel_spans_file):
         command=_jupyter_extension_command(host, port, otel_file=otel_spans_file),
         readiness_endpoint="/api",
         max_retries=10,
+        stderr_file=stderr_log,
     )
 
 
