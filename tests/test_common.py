@@ -37,6 +37,7 @@ JUPYTER_TOOLS = [
     "insert_cell",
     "insert_execute_code_cell",
     "overwrite_cell_source",
+    "edit_cell_source",
     "execute_cell",
     "read_cell",
     "delete_cell",
@@ -379,6 +380,14 @@ class MCPClient:
     @requires_session
     async def overwrite_cell_source(self, cell_index, cell_source):
         result = await self._call_tool_safe("overwrite_cell_source", {"cell_index": cell_index, "cell_source": cell_source})
+        return self._get_structured_content_safe(result) if result else None
+
+    @requires_session
+    async def edit_cell_source(self, cell_index, old_string, new_string, replace_all=False):
+        result = await self._call_tool_safe("edit_cell_source", {
+            "cell_index": cell_index, "old_string": old_string,
+            "new_string": new_string, "replace_all": replace_all,
+        })
         return self._get_structured_content_safe(result) if result else None
 
     @requires_session
