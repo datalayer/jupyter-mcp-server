@@ -23,6 +23,7 @@ from jupyter_mcp_server.tools.read_cell_tool import ReadCellTool
 # Import tool implementations - Cell Writing
 from jupyter_mcp_server.tools.insert_cell_tool import InsertCellTool
 from jupyter_mcp_server.tools.overwrite_cell_source_tool import OverwriteCellSourceTool
+from jupyter_mcp_server.tools.edit_cell_source_tool import EditCellSourceTool
 from jupyter_mcp_server.tools.delete_cell_tool import DeleteCellTool
 
 # Import tool implementations - Cell Execution
@@ -51,6 +52,7 @@ __all__ = [
     # Cell Writing
     "InsertCellTool",
     "OverwriteCellSourceTool",
+    "EditCellSourceTool",
     "DeleteCellTool",
     # Cell Execution
     "ExecuteCellTool",

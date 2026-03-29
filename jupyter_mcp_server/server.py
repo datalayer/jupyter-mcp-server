@@ -46,6 +46,7 @@ from jupyter_mcp_server.tools import (
     # Cell Writing
     InsertCellTool,
     OverwriteCellSourceTool,
+    EditCellSourceTool,
     DeleteCellTool,
     # Cell Execution
     ExecuteCellTool,
@@ -462,6 +463,36 @@ async def overwrite_cell_source(
             notebook_manager=notebook_manager,
             cell_index=cell_index,
             cell_source=cell_source,
+        )
+    )
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Edit Cell Source",
+        destructiveHint=True,
+    ),
+)
+async def edit_cell_source(
+    cell_index: Annotated[int, Field(description="Index of the cell to edit (0-based)", ge=0)],
+    old_string: Annotated[str, Field(description="Exact string to find in cell source")],
+    new_string: Annotated[str, Field(description="Replacement string")],
+    replace_all: Annotated[bool, Field(description="Replace all occurrences (default: first only)")] = False,
+) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
+    """Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
+    Finds `old_string` in the cell and replaces it with `new_string`.
+    By default, `old_string` must appear exactly once; set `replace_all=True` for multiple occurrences.
+    Returns a diff of the changes made."""
+    return await safe_notebook_operation(
+        lambda: EditCellSourceTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
+            cell_index=cell_index,
+            old_string=old_string,
+            new_string=new_string,
+            replace_all=replace_all,
         )
     )
 
