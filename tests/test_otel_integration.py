@@ -4,10 +4,9 @@
 
 """Integration test: activate OTel across the real MCP server and parse the span log.
 
-This test sets JUPYTER_MCP_OTEL_FILE so that the MCP server subprocess
-registers the OTel hook handler on startup.  It then exercises real MCP
-tool calls via the parametrized client and finally parses the JSONL span
-file to verify that hooks fired correctly end-to-end.
+These tests use the ``mcp_client_otel`` fixture which spawns dedicated
+server subprocesses with ``JUPYTER_MCP_OTEL_FILE`` injected via
+``extra_env``, keeping OTEL isolated from non-OTEL tests.
 """
 
 import json
@@ -34,14 +33,14 @@ def _read_spans(path: str) -> list[dict]:
 
 @pytest.mark.asyncio
 @timeout_wrapper(90)
-async def test_tool_call_spans_emitted(mcp_client_parametrized: MCPClient, otel_spans_file: str):
+async def test_tool_call_spans_emitted(mcp_client_otel: MCPClient, otel_spans_file: str):
     """Run several MCP tool calls and verify that OTel spans appear in the log."""
-    async with mcp_client_parametrized:
+    async with mcp_client_otel:
         # list_kernels is a simple read-only tool — always available
-        await mcp_client_parametrized.list_kernels()
+        await mcp_client_otel.list_kernels()
 
         # list_notebooks is another lightweight tool
-        await mcp_client_parametrized.list_notebooks()
+        await mcp_client_otel.list_notebooks()
 
     # Parse the span log written by the MCP server subprocess
     spans = _read_spans(otel_spans_file)
@@ -65,13 +64,13 @@ async def test_tool_call_spans_emitted(mcp_client_parametrized: MCPClient, otel_
 
 @pytest.mark.asyncio
 @timeout_wrapper(90)
-async def test_execution_spans_emitted(mcp_client_parametrized: MCPClient, otel_spans_file: str):
+async def test_execution_spans_emitted(mcp_client_otel: MCPClient, otel_spans_file: str):
     """Code execution must emit BEFORE_EXECUTE/AFTER_EXECUTE spans."""
-    async with mcp_client_parametrized:
-        result = await mcp_client_parametrized.insert_execute_code_cell(1, "40 + 2")
+    async with mcp_client_otel:
+        result = await mcp_client_otel.insert_execute_code_cell(1, "40 + 2")
         assert result is not None
         # Clean up
-        await mcp_client_parametrized.delete_cell([1])
+        await mcp_client_otel.delete_cell([1])
 
     spans = _read_spans(otel_spans_file)
     exec_spans = [s for s in spans if s["name"] == "execute"]
@@ -88,14 +87,14 @@ async def test_execution_spans_emitted(mcp_client_parametrized: MCPClient, otel_
 
 @pytest.mark.asyncio
 @timeout_wrapper(90)
-async def test_lifecycle_spans_emitted(mcp_client_parametrized: MCPClient, otel_spans_file: str):
+async def test_lifecycle_spans_emitted(mcp_client_otel: MCPClient, otel_spans_file: str):
     """use_notebook triggers a KERNEL_LIFECYCLE span."""
-    async with mcp_client_parametrized:
-        result = await mcp_client_parametrized.use_notebook("otel_test_nb", "notebook.ipynb")
+    async with mcp_client_otel:
+        result = await mcp_client_otel.use_notebook("otel_test_nb", "notebook.ipynb")
         logging.info(f"use_notebook result: {result}")
 
         # Clean up
-        await mcp_client_parametrized.unuse_notebook("otel_test_nb")
+        await mcp_client_otel.unuse_notebook("otel_test_nb")
 
     spans = _read_spans(otel_spans_file)
     lifecycle_spans = [s for s in spans if s["name"] == "kernel_lifecycle"]
