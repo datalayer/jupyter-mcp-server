@@ -140,9 +140,9 @@ def jupyter_server():
     """
     if not TEST_MCP_SERVER and not TEST_JUPYTER_SERVER:
         pytest.skip("Both TEST_MCP_SERVER and TEST_JUPYTER_SERVER are disabled")
-    
+
     host = "localhost"
-    port = 8888
+    port = _find_free_port()
     yield from _start_server(
         name="JupyterLab",
         host=host,
@@ -255,7 +255,7 @@ def jupyter_server_with_extension():
         pytest.skip("TEST_JUPYTER_SERVER is disabled")
 
     host = "localhost"
-    port = 8889
+    port = _find_free_port()
     yield from _start_server(
         name="JupyterLab+MCP",
         host=host,
@@ -384,7 +384,7 @@ def jupyter_server_with_extension_otel(otel_spans_file, tmp_path_factory):
         pytest.skip("TEST_JUPYTER_SERVER is disabled")
 
     host = "localhost"
-    port = 8890
+    port = _find_free_port()
     stderr_log = str(tmp_path_factory.mktemp("otel_diag") / "extension_stderr.log")
     yield from _start_server(
         name="JupyterLab+MCP+OTel",
