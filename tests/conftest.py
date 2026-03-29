@@ -152,9 +152,9 @@ def jupyter_server():
 ###############################################################################
 
 
-def _jupyter_extension_command(host, port):
+def _jupyter_extension_command(host, port, otel_file=""):
     """Build the ``jupyter lab`` command with the MCP extension enabled."""
-    return [
+    cmd = [
         "jupyter", "lab",
         "--port", str(port),
         "--IdentityProvider.token", JUPYTER_TOKEN,
@@ -163,11 +163,14 @@ def _jupyter_extension_command(host, port):
         "--no-browser",
         "--ServerApp.jpserver_extensions", '{"jupyter_mcp_server": True}',
     ]
+    if otel_file:
+        cmd += ["--JupyterMCPServerExtensionApp.otel_file", otel_file]
+    return cmd
 
 
-def _mcp_server_command(jupyter_url, port):
+def _mcp_server_command(jupyter_url, port, otel_file=""):
     """Build the standalone MCP server command."""
-    return [
+    cmd = [
         "python", "-m", "jupyter_mcp_server",
         "--transport", "streamable-http",
         "--document-url", jupyter_url,
@@ -178,6 +181,9 @@ def _mcp_server_command(jupyter_url, port):
         "--runtime-token", JUPYTER_TOKEN,
         "--port", str(port),
     ]
+    if otel_file:
+        cmd += ["--otel-file", otel_file]
+    return cmd
 
 
 def _get_test_params():
@@ -192,7 +198,7 @@ def _get_test_params():
     return params
 
 
-def _yield_mcp_url(request, extension_fixture, name_suffix="", extra_env=None):
+def _yield_mcp_url(request, extension_fixture, name_suffix="", otel_file=""):
     """Shared generator for the parametrized ``mcp_server_url*`` fixtures.
 
     * ``"mcp_server"``      – spins up a standalone MCP server subprocess.
@@ -206,9 +212,8 @@ def _yield_mcp_url(request, extension_fixture, name_suffix="", extra_env=None):
             name=f"Jupyter MCP{name_suffix}",
             host=host,
             port=port,
-            command=_mcp_server_command(jupyter_server, port),
+            command=_mcp_server_command(jupyter_server, port, otel_file=otel_file),
             readiness_endpoint="/api/healthz",
-            extra_env=extra_env,
         )
     else:  # jupyter_extension
         yield request.getfixturevalue(extension_fixture)
@@ -343,8 +348,8 @@ def mcp_client_parametrized(mcp_server_url):
 ###############################################################################
 # OTel-isolated fixtures
 #
-# These mirror the non-OTel fixtures above but inject JUPYTER_MCP_OTEL_FILE
-# into each subprocess via extra_env, so OTel is never active globally.
+# These mirror the non-OTel fixtures above but pass --otel-file / traitlet
+# args to each subprocess, so OTel is never active globally.
 ###############################################################################
 
 
@@ -366,10 +371,9 @@ def jupyter_server_with_extension_otel(otel_spans_file):
         name="JupyterLab+MCP+OTel",
         host=host,
         port=port,
-        command=_jupyter_extension_command(host, port),
+        command=_jupyter_extension_command(host, port, otel_file=otel_spans_file),
         readiness_endpoint="/api",
         max_retries=10,
-        extra_env={"JUPYTER_MCP_OTEL_FILE": otel_spans_file},
     )
 
 
@@ -379,7 +383,7 @@ def mcp_server_url_otel(request, otel_spans_file):
     yield from _yield_mcp_url(
         request, "jupyter_server_with_extension_otel",
         name_suffix=" (OTel)",
-        extra_env={"JUPYTER_MCP_OTEL_FILE": otel_spans_file},
+        otel_file=otel_spans_file,
     )
 
 

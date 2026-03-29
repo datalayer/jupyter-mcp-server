@@ -114,13 +114,15 @@ def _summarize(value: object) -> str:
     return s[:200] if len(s) > 200 else s
 
 
-def maybe_register_otel() -> None:
-    """Register the OTel hook handler if JUPYTER_MCP_OTEL_FILE is set.
+def maybe_register_otel(file_path: str | Path | None = None) -> None:
+    """Register the OTel hook handler if a span file is configured.
+
+    Resolution order: explicit *file_path* arg → ``JUPYTER_MCP_OTEL_FILE``
+    env var.  Does nothing when neither is set.
 
     Safe to call from any entry point (CLI, Jupyter extension).
-    Does nothing if the env var is unset or OTel deps are missing.
     """
-    otel_file = os.environ.get("JUPYTER_MCP_OTEL_FILE")
+    otel_file = file_path or os.environ.get("JUPYTER_MCP_OTEL_FILE")
     if not otel_file:
         return
 
