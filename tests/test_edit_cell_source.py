@@ -11,8 +11,6 @@ This module contains:
 - Section B: Integration tests using mcp_client_parametrized
   (tests both MCP_SERVER and JUPYTER_SERVER modes)
 
-All tests are expected to FAIL until the edit_cell_source tool is implemented (TDD).
-
 Launch the tests:
 ```
 # Unit tests only (no server needed):
@@ -38,18 +36,9 @@ from .test_common import MCPClient, timeout_wrapper
 # Section A — Unit Tests (no server needed)
 ###############################################################################
 
-try:
-    from jupyter_mcp_server.tools.edit_cell_source_tool import EditCellSourceTool
-except ImportError:
-    EditCellSourceTool = None
-
-_skip_unit = pytest.mark.skipif(
-    EditCellSourceTool is None,
-    reason="edit_cell_source_tool not yet implemented",
-)
+from jupyter_mcp_server.tools.edit_cell_source_tool import EditCellSourceTool
 
 
-@_skip_unit
 class TestEditCellSourceValidation:
     """Tests for _validate_edit(): input validation before applying edits."""
 
@@ -82,7 +71,6 @@ class TestEditCellSourceValidation:
         self.tool._validate_edit("hello world", "hello", "hi", False)
 
 
-@_skip_unit
 class TestEditCellSourceApply:
     """Tests for _apply_edit(): the actual string replacement logic."""
 
