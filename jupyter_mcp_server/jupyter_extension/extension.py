@@ -105,7 +105,14 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config=True,
         help='Comma-separated list of jupyter-mcp-tools to enable'
     )
-    
+
+    otel_file = Unicode(
+        "",
+        config=True,
+        help='Path to JSONL file for OpenTelemetry span export. '
+             'Falls back to JUPYTER_MCP_OTEL_FILE env var when empty.'
+    )
+
     def initialize_settings(self):
         """
         Initialize extension settings.
@@ -115,6 +122,11 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         """
         # Reduce noise from httpx logging (used by JupyterLab for PyPI extension discovery)
         logging.getLogger("httpx").setLevel(logging.WARNING)
+
+        # Auto-register OTel hook handler if configured (traitlet → env var fallback)
+        from jupyter_mcp_server.otel_hook import maybe_register_otel
+        logger.info(f"  OTel file (traitlet): {self.otel_file!r}")
+        maybe_register_otel(self.otel_file or None)
         
         logger.info(f"Initializing Jupyter MCP Server Extension")
         logger.info(f"  Document URL: {self.document_url}")

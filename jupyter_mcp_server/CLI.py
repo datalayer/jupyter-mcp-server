@@ -172,6 +172,7 @@ def _do_start(
     provider: str,
     jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
+    otel_file: str = "",
 ):
     """Internal function to execute the start logic."""
 
@@ -244,6 +245,10 @@ def _do_start(
             logger.error(f"Failed to start kernel on startup: {e}")
     # else: No startup action - user must manually enroll notebooks or create kernels
 
+    # Auto-register OTel hook handler if configured (CLI arg → env var fallback)
+    from jupyter_mcp_server.otel_hook import maybe_register_otel
+    maybe_register_otel(otel_file or None)
+
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
     if transport == "stdio":
@@ -277,6 +282,13 @@ def _do_start(
     default=4040,
     help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.",
 )
+@click.option(
+    "--otel-file",
+    envvar="JUPYTER_MCP_OTEL_FILE",
+    type=click.STRING,
+    default="",
+    help="Path to JSONL file for OpenTelemetry span export.",
+)
 @click.pass_context
 def server(
     ctx,
@@ -294,6 +306,7 @@ def server(
     provider: str,
     jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
+    otel_file: str,
 ):
     """Manages Jupyter MCP Server.
 
@@ -330,6 +343,7 @@ def server(
         provider=provider,
         jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
+        otel_file=otel_file,
     )
 
 
@@ -444,6 +458,13 @@ def stop_command(jupyter_mcp_server_url: str):
     default=4040,
     help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.",
 )
+@click.option(
+    "--otel-file",
+    envvar="JUPYTER_MCP_OTEL_FILE",
+    type=click.STRING,
+    default="",
+    help="Path to JSONL file for OpenTelemetry span export.",
+)
 def start_command(
     transport: str,
     start_new_runtime: bool,
@@ -459,6 +480,7 @@ def start_command(
     provider: str,
     jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
+    otel_file: str,
 ):
     """Start the Jupyter MCP server with a transport."""
     # Resolve URL and token variables based on priority logic
@@ -484,6 +506,7 @@ def start_command(
         provider=provider,
         jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
+        otel_file=otel_file,
     )
 
 

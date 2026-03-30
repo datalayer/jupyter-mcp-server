@@ -46,8 +46,11 @@ test = [
     "jupyterlab==4.4.1",
     "jupyter-collaboration==4.0.2",
     "datalayer_pycrdt==0.12.17",
-    "pillow>=10.0.0"
+    "pillow>=10.0.0",
+    "opentelemetry-api>=1.24.0",
+    "opentelemetry-sdk>=1.24.0"
 ]
+otel = ["opentelemetry-api>=1.24.0", "opentelemetry-sdk>=1.24.0"]
 lint = ["mdformat>0.7", "mdformat-gfm>=0.3.5", "ruff"]
 typing = ["mypy>=0.990"]
 

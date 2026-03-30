@@ -9,6 +9,7 @@ import json
 from typing import Any, Union
 from mcp.types import ImageContent
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_nbmodel_client import NotebookModel
 
 
@@ -472,6 +473,10 @@ async def execute_via_execution_stack(
         
         # Submit execution request
         logger.info(f"Submitting execution request to kernel {kernel_id}")
+        hook_ctx = await HookRegistry.get_instance().fire(
+            HookEvent.BEFORE_EXECUTE,
+            code=code, kernel_id=kernel_id, metadata=metadata,
+        )
         request_id = execution_stack.put(kernel_id, code, metadata)
         logger.info(f"Execution request {request_id} submitted")
         
@@ -493,16 +498,22 @@ async def execute_via_execution_stack(
                 if "error" in result:
                     error_info = result["error"]
                     logger.error(f"Execution error: {error_info}")
-                    return [f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"]
-                
+                    error_output = [f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"]
+                    await HookRegistry.get_instance().fire(
+                        HookEvent.AFTER_EXECUTE,
+                        code=code, kernel_id=kernel_id, metadata=metadata,
+                        outputs=error_output, error=error_info, context=hook_ctx,
+                    )
+                    return error_output
+
                 # Check for pending input (shouldn't happen with allow_stdin=False)
                 if "input_request" in result:
                     logger.warning("Unexpected input request during execution")
                     return ["[ERROR: Unexpected input request]"]
-                
+
                 # Extract outputs
                 outputs = result.get("outputs", [])
-                
+
                 # Parse JSON string if needed (ExecutionStack returns JSON string)
                 if isinstance(outputs, str):
                     import json
@@ -511,14 +522,19 @@ async def execute_via_execution_stack(
                     except json.JSONDecodeError:
                         logger.error(f"Failed to parse outputs JSON: {outputs}")
                         return [f"[ERROR: Invalid output format]"]
-                
+
                 if outputs:
                     formatted = safe_extract_outputs(outputs)
                     logger.info(f"Execution completed with {len(formatted)} formatted outputs: {formatted}")
-                    return formatted
                 else:
+                    formatted = []
                     logger.info("Execution completed with no outputs")
-                    return ["[No output generated]"]
+                await HookRegistry.get_instance().fire(
+                    HookEvent.AFTER_EXECUTE,
+                    code=code, kernel_id=kernel_id, metadata=metadata,
+                    outputs=formatted, error=None, context=hook_ctx,
+                )
+                return formatted if formatted else ["[No output generated]"]
             
             # Still pending, wait before next poll
             await asyncio.sleep(poll_interval)
@@ -578,6 +594,12 @@ async def execute_code_local(
             # Wait for channels to be ready
             await asyncio.sleep(0.1)
         
+        # Fire before-execute hook
+        hook_ctx = await HookRegistry.get_instance().fire(
+            HookEvent.BEFORE_EXECUTE,
+            code=code, kernel_id=kernel_id, metadata={},
+        )
+
         # Send execute request on shell channel
         shell_channel = client.shell_channel
         msg_id = session.msg("execute_request", {
@@ -696,10 +718,16 @@ async def execute_code_local(
         if outputs:
             result = safe_extract_outputs(outputs)
             logger.info(f"Code execution completed with {len(result)} outputs")
-            return result
         else:
-            return ["[No output generated]"]
-            
+            result = ["[No output generated]"]
+
+        await HookRegistry.get_instance().fire(
+            HookEvent.AFTER_EXECUTE,
+            code=code, kernel_id=kernel_id, metadata={},
+            outputs=result, error=None, context=hook_ctx,
+        )
+        return result
+
     except Exception as e:
         logger.error(f"Error executing code locally: {e}")
         return [f"[ERROR: {str(e)}]"]
