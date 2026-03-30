@@ -11,8 +11,6 @@ This module contains:
 - Section B: Integration tests using mcp_client_parametrized
   (tests both MCP_SERVER and JUPYTER_SERVER modes)
 
-All tests are expected to FAIL until the move_cell tool is implemented (TDD).
-
 Launch the tests:
 ```
 # Unit tests only (no server needed):
@@ -35,18 +33,9 @@ from .test_common import MCPClient, timeout_wrapper
 # Section A — Unit Tests (no server needed)
 ###############################################################################
 
-try:
-    from jupyter_mcp_server.tools.move_cell_tool import MoveCellTool
-except ImportError:
-    MoveCellTool = None
-
-_skip_unit = pytest.mark.skipif(
-    MoveCellTool is None,
-    reason="move_cell_tool not yet implemented",
-)
+from jupyter_mcp_server.tools.move_cell_tool import MoveCellTool
 
 
-@_skip_unit
 class TestMoveCellValidation:
     """Tests for _validate_move(): input validation before moving cells."""
 
@@ -79,7 +68,6 @@ class TestMoveCellValidation:
         self.tool._validate_move(source_index=source, target_index=target, total_cells=total)
 
 
-@_skip_unit
 class TestMoveCellApply:
     """Tests for _apply_move(): the actual cell reordering logic."""
 
