@@ -452,8 +452,11 @@ async def overwrite_cell_source(
     cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
     cell_source: Annotated[str, Field(description="New complete cell source")],
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
-    """Overwrite the source of a specific cell from the currently activated notebook.
-    It will return a diff style comparison (e.g. `+` for new lines, `-` for deleted lines) of the cell's content"""
+    """Replace the entire source of a cell in the currently activated notebook.
+    Returns a diff showing the changes made.
+
+    Use this when rewriting a cell completely. For small, targeted changes,
+    prefer edit_cell_source instead — it is safer for partial edits."""
     return await safe_notebook_operation(
         lambda: OverwriteCellSourceTool().execute(
             mode=server_context.mode,
@@ -479,9 +482,13 @@ async def edit_cell_source(
     replace_all: Annotated[bool, Field(description="Replace all occurrences (default: first only)")] = False,
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
     """Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
-    Finds `old_string` in the cell and replaces it with `new_string`.
-    By default, `old_string` must appear exactly once; set `replace_all=True` for multiple occurrences.
-    Returns a diff of the changes made."""
+    Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
+    (not regex) and may span multiple lines. By default, `old_string` must appear exactly once;
+    set `replace_all=True` for multiple occurrences. Returns a diff of the changes made.
+
+    Prefer this over overwrite_cell_source for small, targeted edits — it is safer because
+    unchanged parts of the cell are left untouched. Use read_cell first to see the current
+    source and construct an accurate old_string."""
     return await safe_notebook_operation(
         lambda: EditCellSourceTool().execute(
             mode=server_context.mode,
