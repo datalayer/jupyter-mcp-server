@@ -47,6 +47,7 @@ from jupyter_mcp_server.tools import (
     InsertCellTool,
     OverwriteCellSourceTool,
     DeleteCellTool,
+    MoveCellTool,
     # Cell Execution
     ExecuteCellTool,
     # Other Tools
@@ -585,6 +586,37 @@ async def delete_cell(
             notebook_manager=notebook_manager,
             cell_indices=cell_indices,
             include_source=include_source,
+        )
+    )
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Move Cell",
+        destructiveHint=True,
+    ),
+)
+async def move_cell(
+    source_index: Annotated[int, Field(description="Index of the cell to move (0-based)", ge=0)],
+    target_index: Annotated[int, Field(description="Destination index where the cell will end up (0-based)", ge=0)],
+) -> Annotated[str, Field(description="Success message with moved cell info and surrounding context")]:
+    """Move a cell from source_index to target_index within the currently activated notebook.
+
+    The cell is removed from source_index and placed at target_index. Cells in between shift
+    to fill the gap. The cell's type, source, and outputs are preserved.
+    Example: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].
+
+    Use this tool instead of manually deleting and re-inserting a cell — it is atomic and
+    preserves cell metadata. Use read_notebook first to see cell indices if needed."""
+    return await safe_notebook_operation(
+        lambda: MoveCellTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
+            source_index=source_index,
+            target_index=target_index,
         )
     )
 

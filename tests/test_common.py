@@ -40,6 +40,7 @@ JUPYTER_TOOLS = [
     "execute_cell",
     "read_cell",
     "delete_cell",
+    "move_cell",
     "execute_code",
     # Server Management Tools
     "list_files",
@@ -336,6 +337,11 @@ class MCPClient:
         """List all available kernels"""
         result = await self._session.call_tool("list_kernels")  # type: ignore
         return self._extract_text_content(result)
+
+    @requires_session
+    async def move_cell(self, source_index: int, target_index: int):
+        result = await self._call_tool_safe("move_cell", {"source_index": source_index, "target_index": target_index})
+        return self._get_structured_content_safe(result) if result else None
 
     @requires_session
     async def delete_cell(self, cell_indices: list[int], include_source: bool = True):
