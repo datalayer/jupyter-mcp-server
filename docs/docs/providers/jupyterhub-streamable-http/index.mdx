@@ -52,16 +52,31 @@ jupyterhub token <username> --note "MCP Client Token" --scope access:servers
 
 ### 4. Configure Your MCP Client
 
-Use the following configuration to connect to the JupyterHub-hosted MCP server:
+MCP clients must authenticate using the JupyterHub API token.
+
+#### Claude Code
+
+```bash
+claude mcp add jupyter --transport http \
+  https://your-jupyterhub.domain/user/<username>/mcp \
+  --header "Authorization: Bearer your-api-token-here"
+```
+
+#### Other MCP Clients (using mcp-remote)
 
 ```json
 {
   "mcpServers": {
     "jupyter": {
       "command": "npx",
-      "args": ["mcp-remote", "https://your-jupyterhub.domain/user/<username>/mcp"],
+      "args": [
+        "mcp-remote",
+        "https://your-jupyterhub.domain/user/<username>/mcp",
+        "--header",
+        "Authorization:${JUPYTERHUB_AUTH_HEADER}"
+      ],
       "env": {
-        "JUPYTERHUB_API_TOKEN": "your-api-token-here"
+        "JUPYTERHUB_AUTH_HEADER": "Bearer your-api-token-here"
       }
     }
   }

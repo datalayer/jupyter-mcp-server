@@ -46,18 +46,40 @@ For complete configuration options, see the [server configuration guide](/refere
 
 ## 2. Configure your MCP Client
 
-Use the following configuration to connect to the integrated MCP server:
+MCP clients must authenticate to the MCP server by sending an `Authorization` header with Bearer token
+specified with `--IdentityProvider.token` when starting JupyterLab.
+
+### Claude Code
+
+```bash
+claude mcp add jupyter --transport http http://127.0.0.1:4040/mcp \
+  --header "Authorization: Bearer MY_TOKEN"
+```
+
+### Other MCP Clients (using mcp-remote)
 
 ```json
 {
   "mcpServers": {
     "jupyter": {
       "command": "npx",
-      "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
+      "args": [
+        "mcp-remote",
+        "http://127.0.0.1:4040/mcp",
+        "--header",
+        "Authorization:${MCP_AUTH_HEADER}"
+      ],
+      "env": {
+        "MCP_AUTH_HEADER": "Bearer MY_TOKEN"
+      }
     }
   }
 }
 ```
+
+:::tip
+Some clients (Cursor, Claude Desktop on Windows) have a bug where spaces inside `args` aren't escaped. Use no spaces around `:` in the header arg and put the space-containing value (`Bearer <token>`) in an environment variable as shown above.
+:::
 
 ## Troubleshooting
 
@@ -70,5 +92,8 @@ Use the following configuration to connect to the integrated MCP server:
 **MCP endpoint not accessible:**
 - Verify server is running at: `curl http://localhost:4040/mcp`
 - Check that port 4040 is not blocked
+
+**Authentication errors (401/403):**
+- Verify authentication token is accepted: `curl -H "Authorization: Bearer MY_TOKEN" http://localhost:4040/mcp/healthz`
 
 For detailed configuration and troubleshooting, see the [configuration guide](/reference/configuration).

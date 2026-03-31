@@ -71,6 +71,11 @@ For deployments requiring granular control over document storage and runtime exe
 | `RUNTIME_TOKEN` | Authentication for runtime operations | `compute-access-token` | `None` |
 | `RUNTIME_ID` | Specific kernel ID to use | `kernel-abc123` | `None` |
 
+#### MCP Client Authentication
+| Variable | Description | Example | Default |
+|----------|-------------|---------|---------|
+| `MCP_TOKEN` | Token for authenticating MCP clients (Bearer scheme). | `mcp-client-secret` | Value of `RUNTIME_TOKEN` |
+
 #### Additional Configuration Variables
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
@@ -138,6 +143,7 @@ Options:
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
   --runtime-url TEXT                  Runtime URL for kernel operations (default: None)
   --runtime-token TEXT                Runtime authentication token (default: None)
+  --mcp-token TEXT                    Token for authenticating MCP clients; falls back to RUNTIME_TOKEN
   --runtime-id TEXT                   Specific kernel ID to use (default: None)
   --start-new-runtime BOOLEAN         Create new runtime vs use existing (default: true)
   --document-url TEXT                 Document URL for notebook operations (default: None)

@@ -110,18 +110,54 @@ npx -y @smithery/cli install @datalayer/jupyter-mcp-server --client claude
 
 ## 3. Configure your MCP Client
 
-Use the following configuration to connect to the running server:
+MCP clients must authenticate to the MCP server by sending an `Authorization` header with `MCP_TOKEN` or,  if `MCP_TOKEN` was not set, the `RUNTIME_TOKEN`.
+
+### Claude Code
+
+```bash
+claude mcp add jupyter --transport http http://127.0.0.1:4040/mcp \
+  --header "Authorization: Bearer MY_TOKEN"
+```
+
+### Other MCP Clients (using mcp-remote)
 
 ```json
 {
   "mcpServers": {
     "jupyter": {
       "command": "npx",
-      "args": ["mcp-remote", "http://127.0.0.1:4040/mcp"]
+      "args": [
+        "mcp-remote",
+        "http://127.0.0.1:4040/mcp",
+        "--header",
+        "Authorization:${MCP_AUTH_HEADER}"
+      ],
+      "env": {
+        "MCP_AUTH_HEADER": "Bearer MY_TOKEN"
+      }
     }
   }
 }
 ```
+
+:::tip
+Some clients (Cursor, Claude Desktop on Windows) have a bug where spaces inside `args` aren't escaped. Use no spaces around `:` in the header arg and put the space-containing value (`Bearer <token>`) in an environment variable as shown above.
+:::
+
+### Using a Dedicated MCP Token
+
+To use a separate token for MCP client authentication, set `MCP_TOKEN` when starting the server:
+
+```bash
+jupyter-mcp-server start \
+  --transport streamable-http \
+  --jupyter-url http://localhost:8888 \
+  --jupyter-token MY_JUPYTER_TOKEN \
+  --mcp-token MY_MCP_TOKEN \
+  --port 4040
+```
+
+Then configure your MCP client with `MY_MCP_TOKEN` instead of the Jupyter token.
 
 ## Troubleshooting
 
@@ -132,8 +168,12 @@ Use the following configuration to connect to the running server:
 - Check that port 4040 is not blocked by firewall
 - Ensure Docker port mapping is correct (`-p 4040:4040`)
 
-**Authentication errors:**
+**Authentication (towards Jupyter) errors:**
 - Verify `JUPYTER_TOKEN` matches your Jupyter server token
 - Check Jupyter server is accessible from MCP server
+
+**Authentication (towards MCP server) errors:**
+- MCP clients must send `Authorization: Bearer <token>` header
+- Verify authentication token is accepted: `curl -H "Authorization: Bearer MY_TOKEN" http://localhost:4040/mcp/healthz`
 
 For detailed configuration and troubleshooting, see the [configuration guide](/reference/configuration).
