@@ -167,6 +167,9 @@ def test_post_endpoint_auth(jupyter_server_with_extension, path, body):
     # No token -> 403
     r = requests.post(url, json=body)
     assert r.status_code == HTTPStatus.FORBIDDEN, f"{path} allowed unauthenticated POST"
+    # Wrong token -> 403
+    r = requests.post(url, json=body, headers={"Authorization": "token WRONG"})
+    assert r.status_code == HTTPStatus.FORBIDDEN, f"{path} allowed invalid token"
     # Valid token -> 200
     r = requests.post(url, json=body, headers={"Authorization": f"token {JUPYTER_TOKEN}"})
     assert r.status_code == HTTPStatus.OK, f"{path} rejected valid token"
