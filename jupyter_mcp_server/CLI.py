@@ -249,6 +249,12 @@ def _do_start(
     from jupyter_mcp_server.otel_hook import maybe_register_otel
     maybe_register_otel(otel_file or None)
 
+    # Configure token authentication for the MCP endpoint
+    if config.runtime_token and transport == "streamable-http":
+        from jupyter_mcp_server.server import RuntimeTokenVerifier
+        mcp._token_verifier = RuntimeTokenVerifier(config.runtime_token)
+        logger.info("MCP endpoint token authentication enabled")
+
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
     if transport == "stdio":

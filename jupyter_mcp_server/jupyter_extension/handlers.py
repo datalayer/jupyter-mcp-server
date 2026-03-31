@@ -12,7 +12,6 @@ FastMCP, managing the MCP protocol lifecycle and request proxying.
 import json
 import logging
 from typing import Any
-from tornado.web import RequestHandler
 from jupyter_server.base.handlers import JupyterHandler
 
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
@@ -25,36 +24,26 @@ from jupyter_mcp_server.utils import clean_mcp_response, clean_mcp_response_cont
 logger = logging.getLogger(__name__)
 
 
-class MCPSSEHandler(RequestHandler):
+class MCPSSEHandler(JupyterHandler):
     """
-    Server-Sent Events (SSE) handler for MCP protocol.
-    
-    This handler implements the MCP SSE transport by directly calling
+    Handler for MCP protocol over Streamable HTTP.
+
+    This handler implements the MCP transport by directly calling
     the registered MCP tools instead of trying to wrap the Starlette app.
-    
-    The MCP protocol uses SSE for streaming responses from the server to the client.
+
+    Authentication is enforced via JupyterHandler — clients must provide
+    a valid Jupyter token (e.g. ``Authorization: token <TOKEN>``).
+    Token-authenticated requests automatically bypass XSRF checking.
     """
-    
+
     # Cache of jupyter_mcp_tools tool names for routing decisions
     _jupyter_tool_names = set()
-    
-    def check_xsrf_cookie(self):
-        """Disable XSRF checking for MCP protocol requests."""
-        pass
-    
+
     def set_default_headers(self):
-        """Set headers for SSE and CORS."""
+        """Set headers for SSE responses."""
         self.set_header("Content-Type", "text/event-stream")
         self.set_header("Cache-Control", "no-cache")
         self.set_header("Connection", "keep-alive")
-        self.set_header("Access-Control-Allow-Origin", "*")
-        self.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-    
-    async def options(self, *args, **kwargs):
-        """Handle CORS preflight requests."""
-        self.set_status(204)
-        self.finish()
     
     async def get(self):
         """Handle SSE connection establishment."""
@@ -474,8 +463,21 @@ class MCPSSEHandler(RequestHandler):
 
 
 class MCPHandler(JupyterHandler):
-    """Base handler for MCP endpoints with common functionality."""
-    
+    """Base handler for MCP endpoints with common functionality.
+
+    Requires a valid Jupyter token for all requests (GET and POST).
+    """
+
+    async def prepare(self):
+        """Enforce Jupyter token authentication."""
+        await super().prepare()
+        if not self.current_user:
+            raise self._custom_403()
+
+    def _custom_403(self):
+        from tornado.web import HTTPError
+        return HTTPError(403, "Authentication required")
+
     def get_backend(self):
         """
         Get the appropriate backend based on configuration.
@@ -503,15 +505,8 @@ class MCPHandler(JupyterHandler):
             )
     
     def set_default_headers(self):
-        """Set CORS headers for MCP clients."""
-        self.set_header("Access-Control-Allow-Origin", "*")
-        self.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-    
-    def options(self, *args, **kwargs):
-        """Handle OPTIONS requests for CORS preflight."""
-        self.set_status(204)
-        self.finish()
+        """Set response headers for MCP endpoints."""
+        self.set_header("Content-Type", "application/json")
 
 
 class MCPHealthHandler(MCPHandler):
