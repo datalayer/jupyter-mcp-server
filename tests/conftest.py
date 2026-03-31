@@ -345,7 +345,7 @@ async def mcp_client(jupyter_mcp_server):
         MCPClient: Configured client for MCP protocol communication
     """
     from .test_common import MCPClient
-    return MCPClient(jupyter_mcp_server)
+    return MCPClient(jupyter_mcp_server, token=JUPYTER_TOKEN)
 
 
 @pytest.fixture(scope="function")
@@ -360,7 +360,7 @@ def mcp_client_parametrized(mcp_server_url):
         MCPClient: Configured client for the parametrized server mode
     """
     from .test_common import MCPClient
-    return MCPClient(mcp_server_url)
+    return MCPClient(mcp_server_url, token=JUPYTER_TOKEN)
 
 
 ###############################################################################
@@ -411,4 +411,4 @@ def mcp_server_url_otel(request, otel_spans_file):
 def mcp_client_otel(mcp_server_url_otel):
     """MCPClient talking to an OTel-enabled server (both modes)."""
     from .test_common import MCPClient
-    return MCPClient(mcp_server_url_otel)
+    return MCPClient(mcp_server_url_otel, token=JUPYTER_TOKEN)

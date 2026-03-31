@@ -91,6 +91,28 @@ async def test_mcp_tool_list(mcp_client_parametrized: MCPClient, request):
 
 
 @pytest.mark.asyncio
+@timeout_wrapper(30)
+async def test_mcp_client_connects_with_token(mcp_client_parametrized: MCPClient):
+    """MCP client with a valid token can connect and list tools in both modes."""
+    async with mcp_client_parametrized:
+        tools = await mcp_client_parametrized.list_tools()
+    assert len(tools.tools) > 0
+
+
+@pytest.mark.asyncio
+@timeout_wrapper(30)
+async def test_mcp_client_rejected_without_token(mcp_server_url):
+    """MCP client without a token should be rejected by both server modes."""
+    import httpx
+    r = httpx.post(
+        f"{mcp_server_url}/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+    )
+    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED), \
+        f"Server accepted unauthenticated request (status {r.status_code})"
+
+
+@pytest.mark.asyncio
 @timeout_wrapper(60)
 async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
     """Test cell manipulation (both markdown and code cells) in both MCP_SERVER and JUPYTER_SERVER modes"""
