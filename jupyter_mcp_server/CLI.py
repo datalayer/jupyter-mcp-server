@@ -62,6 +62,13 @@ def _common_options(f):
             help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
         click.option(
+            "--mcp-token",
+            envvar="MCP_TOKEN",
+            type=click.STRING,
+            default=None,
+            help="Token for authenticating MCP clients (Bearer scheme). Falls back to RUNTIME_TOKEN if not set.",
+        ),
+        click.option(
             "--document-url",
             envvar="DOCUMENT_URL",
             type=click.STRING,
@@ -173,6 +180,7 @@ def _do_start(
     jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str = "",
+    mcp_token: str = None,
 ):
     """Internal function to execute the start logic."""
 
@@ -250,10 +258,12 @@ def _do_start(
     maybe_register_otel(otel_file or None)
 
     # Configure token authentication for the MCP endpoint
-    if config.runtime_token and transport == "streamable-http":
+    # MCP_TOKEN takes priority; fall back to RUNTIME_TOKEN if not set
+    auth_token = mcp_token or config.runtime_token
+    if auth_token and transport == "streamable-http":
         from jupyter_mcp_server.server import RuntimeTokenVerifier
-        mcp._token_verifier = RuntimeTokenVerifier(config.runtime_token)
-        logger.info("MCP endpoint token authentication enabled")
+        mcp._token_verifier = RuntimeTokenVerifier(auth_token)
+        logger.info(f"MCP endpoint token authentication enabled (using {'MCP_TOKEN' if mcp_token else 'RUNTIME_TOKEN'})")
 
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
@@ -303,6 +313,7 @@ def server(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
+    mcp_token: str,
     document_url: str,
     document_id: str,
     document_token: str,
@@ -350,6 +361,7 @@ def server(
         jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
+        mcp_token=mcp_token,
     )
 
 
@@ -477,6 +489,7 @@ def start_command(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
+    mcp_token: str,
     document_url: str,
     document_id: str,
     document_token: str,
@@ -513,6 +526,7 @@ def start_command(
         jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
+        mcp_token=mcp_token,
     )
 
 
