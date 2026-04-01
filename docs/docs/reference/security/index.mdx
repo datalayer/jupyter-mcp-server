@@ -20,7 +20,13 @@ Authorization: Bearer MY_TOKEN
 
 ### Standalone Server (streamable-http)
 
-The standalone MCP server can be explicitly configured with `MCP_TOKEN` credentials, independently from `RUNTIME_TOKEN` it uses to authenticate with Jupyter.
+:::warning Breaking Change in 1.0.0
+
+Starting with version 1.0.0, MCP client authentication is **required** for the `streamable-http` transport. You must either set `MCP_TOKEN` or explicitly opt out with `--insecure-mcp-noauth`.
+
+:::
+
+The standalone MCP server requires `MCP_TOKEN` for client authentication, independently from `RUNTIME_TOKEN` used to authenticate with Jupyter.
 This allows you to use a different token for MCP client authentication than the one used for Jupyter API access.
 
 ```bash
@@ -30,8 +36,18 @@ jupyter-mcp-server start \
   --mcp-token MCP_CLIENT_SECRET
 ```
 
-When `MCP_TOKEN` is set, only that token is accepted for MCP client requests.
-When it is not set, `RUNTIME_TOKEN` is accepted as a fallback.
+If you intentionally want to run without MCP client authentication (e.g. local development behind a firewall), you must explicitly opt in:
+
+```bash
+jupyter-mcp-server start \
+  --transport streamable-http \
+  --jupyter-token JUPYTER_SECRET \
+  --insecure-mcp-noauth
+```
+
+:::warning
+`--insecure-mcp-noauth` disables all MCP client authentication. Any client can connect and execute tools without credentials, including arbitrary code execution on the connected Jupyter kernel. Strong network isolation is advisable in production and shared environments.
+:::
 
 ### Extension Mode (Jupyter Server)
 

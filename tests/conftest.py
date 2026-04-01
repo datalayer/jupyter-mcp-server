@@ -197,6 +197,9 @@ def _mcp_server_command(jupyter_url, port, otel_file=""):
         "--runtime-url", jupyter_url,
         "--start-new-runtime", "True",
         "--runtime-token", JUPYTER_TOKEN,
+        # Below we use the same token for simplicity in tests.
+        # The separation tested in test_mcp_token_rejects_runtime_token()
+        "--mcp-token", JUPYTER_TOKEN, 
         "--port", str(port),
     ]
     if otel_file:
@@ -302,6 +305,9 @@ def jupyter_mcp_server(request, jupyter_server):
             "--runtime-url", jupyter_server,
             "--start-new-runtime", str(start_new_runtime),
             "--runtime-token", JUPYTER_TOKEN,
+            # Below we use the same token for simplicity in tests.
+            # The separation tested in test_mcp_token_rejects_runtime_token()
+            "--mcp-token", JUPYTER_TOKEN,
             "--port", str(port),
         ],
         readiness_endpoint="/api/healthz",

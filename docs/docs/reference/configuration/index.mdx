@@ -74,7 +74,8 @@ For deployments requiring granular control over document storage and runtime exe
 #### MCP Client Authentication
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `MCP_TOKEN` | Token for authenticating MCP clients (Bearer scheme). | `mcp-client-secret` | Value of `RUNTIME_TOKEN` |
+| `MCP_TOKEN` | Token for authenticating MCP clients (Bearer scheme). Required for `streamable-http` unless `INSECURE_MCP_NOAUTH` is set. | `mcp-client-secret` | — |
+| `INSECURE_MCP_NOAUTH` | Allow `streamable-http` without MCP client authentication. **Not recommended for production.** | `true` | `false` |
 
 #### Additional Configuration Variables
 | Variable | Description | Example | Default |
@@ -143,7 +144,8 @@ Options:
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
   --runtime-url TEXT                  Runtime URL for kernel operations (default: None)
   --runtime-token TEXT                Runtime authentication token (default: None)
-  --mcp-token TEXT                    Token for authenticating MCP clients; falls back to RUNTIME_TOKEN
+  --mcp-token TEXT                    Token for authenticating MCP clients (required unless --insecure-mcp-noauth)
+  --insecure-mcp-noauth               Allow streamable-http without MCP client auth (not recommended)
   --runtime-id TEXT                   Specific kernel ID to use (default: None)
   --start-new-runtime BOOLEAN         Create new runtime vs use existing (default: true)
   --document-url TEXT                 Document URL for notebook operations (default: None)

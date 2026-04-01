@@ -174,11 +174,64 @@ def test_mcp_token_rejects_runtime_token(mcp_server_with_mcp_token):
     assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED)
 
 
+def _mcp_server_command_insecure_noauth(jupyter_url, port):
+    """Build standalone MCP server command with --insecure-mcp-noauth (no --mcp-token)."""
+    return [
+        "python", "-m", "jupyter_mcp_server",
+        "--transport", "streamable-http",
+        "--document-url", jupyter_url,
+        "--document-id", "notebook.ipynb",
+        "--document-token", JUPYTER_TOKEN,
+        "--runtime-url", jupyter_url,
+        "--start-new-runtime", "True",
+        "--runtime-token", JUPYTER_TOKEN,
+        "--insecure-mcp-noauth",
+        "--port", str(port),
+    ]
+
+
+@pytest.fixture(scope="function")
+def mcp_server_insecure_noauth(jupyter_server):
+    """Standalone MCP server with --insecure-mcp-noauth (no --mcp-token)."""
+    from .conftest import _find_free_port, _start_server
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="Jupyter MCP (insecure-noauth)",
+        host=host,
+        port=port,
+        command=_mcp_server_command_insecure_noauth(jupyter_server, port),
+        readiness_endpoint="/api/healthz",
+    )
+
+
 @pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
-def test_runtime_token_fallback(jupyter_mcp_server):
-    """When --mcp-token is NOT set, RUNTIME_TOKEN is accepted as fallback."""
-    r = _post_mcp_init(jupyter_mcp_server, token=JUPYTER_TOKEN)
+def test_insecure_noauth_allows_anonymous(mcp_server_insecure_noauth):
+    """With --insecure-mcp-noauth and no --mcp-token, unauthenticated requests succeed."""
+    r = _post_mcp_init(mcp_server_insecure_noauth)
     assert r.status_code == HTTPStatus.OK
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_server_refuses_start_without_auth(jupyter_server):
+    """Without --mcp-token or --insecure-mcp-noauth, the server should fail to start."""
+    import subprocess
+    from .conftest import _find_free_port
+    port = _find_free_port()
+    cmd = [
+        "python", "-m", "jupyter_mcp_server",
+        "--transport", "streamable-http",
+        "--document-url", jupyter_server,
+        "--document-id", "notebook.ipynb",
+        "--document-token", JUPYTER_TOKEN,
+        "--runtime-url", jupyter_server,
+        "--start-new-runtime", "True",
+        "--runtime-token", JUPYTER_TOKEN,
+        "--port", str(port),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    assert result.returncode != 0, "Server should refuse to start without MCP auth config"
+    assert "insecure-mcp-noauth" in result.stderr
 
 
 ###############################################################################

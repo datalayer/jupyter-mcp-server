@@ -60,6 +60,7 @@ jupyter-mcp-server start \
   --transport streamable-http \
   --jupyter-url http://localhost:8888 \
   --jupyter-token MY_TOKEN \
+  --mcp-token MY_MCP_TOKEN \
   --port 4040
 ```
 
@@ -78,6 +79,7 @@ Example usage: *"Connect to jupyter server http://localhost:8888 with token MY_T
 docker run \
   -e JUPYTER_URL="http://host.docker.internal:8888" \
   -e JUPYTER_TOKEN="MY_TOKEN" \
+  -e MCP_TOKEN="MY_MCP_TOKEN" \
   -p 4040:4040 \
   datalayer/jupyter-mcp-server:latest \
   --transport streamable-http
@@ -89,6 +91,7 @@ docker run \
   --network=host \
   -e JUPYTER_URL="http://localhost:8888" \
   -e JUPYTER_TOKEN="MY_TOKEN" \
+  -e MCP_TOKEN="MY_MCP_TOKEN" \
   -p 4040:4040 \
   datalayer/jupyter-mcp-server:latest \
   --transport streamable-http
@@ -110,13 +113,13 @@ npx -y @smithery/cli install @datalayer/jupyter-mcp-server --client claude
 
 ## 3. Configure your MCP Client
 
-MCP clients must authenticate to the MCP server by sending an `Authorization` header with `MCP_TOKEN` or,  if `MCP_TOKEN` was not set, the `RUNTIME_TOKEN`.
+MCP clients must authenticate to the MCP server by sending an `Authorization` header with the `MCP_TOKEN`.
 
 ### Claude Code
 
 ```bash
 claude mcp add jupyter --transport http http://127.0.0.1:4040/mcp \
-  --header "Authorization: Bearer MY_TOKEN"
+  --header "Authorization: Bearer MY_MCP_TOKEN"
 ```
 
 ### Other MCP Clients (using mcp-remote)
@@ -133,7 +136,7 @@ claude mcp add jupyter --transport http http://127.0.0.1:4040/mcp \
         "Authorization:${MCP_AUTH_HEADER}"
       ],
       "env": {
-        "MCP_AUTH_HEADER": "Bearer MY_TOKEN"
+        "MCP_AUTH_HEADER": "Bearer MY_MCP_TOKEN"
       }
     }
   }
@@ -143,21 +146,6 @@ claude mcp add jupyter --transport http http://127.0.0.1:4040/mcp \
 :::tip
 Some clients (Cursor, Claude Desktop on Windows) have a bug where spaces inside `args` aren't escaped. Use no spaces around `:` in the header arg and put the space-containing value (`Bearer <token>`) in an environment variable as shown above.
 :::
-
-### Using a Dedicated MCP Token
-
-To use a separate token for MCP client authentication, set `MCP_TOKEN` when starting the server:
-
-```bash
-jupyter-mcp-server start \
-  --transport streamable-http \
-  --jupyter-url http://localhost:8888 \
-  --jupyter-token MY_JUPYTER_TOKEN \
-  --mcp-token MY_MCP_TOKEN \
-  --port 4040
-```
-
-Then configure your MCP client with `MY_MCP_TOKEN` instead of the Jupyter token.
 
 ## Troubleshooting
 
