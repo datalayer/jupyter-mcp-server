@@ -79,6 +79,7 @@ For deployments requiring granular control over document storage and runtime exe
 | `TRANSPORT` | Transport method for MCP | `stdio` / `streamable-http` | `stdio` |
 | `PORT` | Port for streamable HTTP transport | `4040` | `4040` |
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
+| `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
 
 ### Configuration Priority
 
@@ -146,6 +147,7 @@ Options:
   --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
   --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
   --allowed-jupyter-mcp-tools TEXT    Comma-separated list of jupyter-mcp-tools to enable (default: notebook_run-all-cells,notebook_get-selected-cell)
+  --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```
 
