@@ -56,6 +56,7 @@
 - 📚 **Multi-notebook support:** Seamlessly switch between multiple notebooks.
 - 🎨 **JupyterLab integration:** Enhanced UI integration like automatic notebook opening.
 - 🤝 **MCP-compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
+- 🔍 **Observability:** Built-in hook system with OpenTelemetry integration for tracing tool calls and kernel executions.
 
 Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai) hosted Notebooks.
 

@@ -274,6 +274,36 @@ class NotebookManager:
         """Get WebSocket connection (MCP_SERVER mode only)."""
 ```
 
+### 8. Hook System (`hooks.py`, `otel_hook.py`)
+
+**Pre/Post Hook System** - Observability and extensibility layer:
+
+```python
+class HookEvent(str, Enum):
+    BEFORE_TOOL_CALL = "before_tool_call"
+    AFTER_TOOL_CALL = "after_tool_call"
+    BEFORE_EXECUTE = "before_execute"
+    AFTER_EXECUTE = "after_execute"
+    KERNEL_LIFECYCLE = "kernel_lifecycle"
+```
+
+**Key Components**:
+- **HookRegistry**: Singleton that manages handler registration and event dispatch
+- **HookHandler Protocol**: Interface for custom handlers with `propagate_errors` flag
+- **`@with_hooks` Decorator**: Applied to all tool functions in `server.py` to fire `BEFORE_TOOL_CALL` / `AFTER_TOOL_CALL` events
+- **Context Correlation**: Before/after event pairs share a context dict for handler state
+
+**Built-in OTel Handler** (`otel_hook.py`):
+- Emits OpenTelemetry spans for tool calls, code execution, and kernel lifecycle
+- Uses `FileSpanExporter` to write spans as JSONL
+- Activated via `--otel-file` CLI arg, `JUPYTER_MCP_OTEL_FILE` env var, or Jupyter traitlet
+- Non-propagating (`propagate_errors = False`) — never disrupts tool execution
+
+**Integration Points**:
+- `server.py`: All tools decorated with `@with_hooks`; kernel lifecycle events fired on use/restart/unuse
+- `execute_cell_tool.py`, `execute_code_tool.py`: Fire `BEFORE_EXECUTE` / `AFTER_EXECUTE` around kernel execution
+- `utils.py`: Fires execution hooks in shared utility functions
+
 ## Configuration
 
 ### MCP_SERVER Mode (Standalone)
@@ -489,6 +519,17 @@ jupyter_mcp_server/
 │   ├── Output processing and formatting
 │   ├── Kernel management helpers
 │   └── YDoc integration support
+│
+├── hooks.py                    # 🔍 Hook System
+│   ├── HookEvent enum (5 event types)
+│   ├── HookHandler protocol
+│   ├── HookRegistry singleton
+│   └── @with_hooks decorator
+│
+├── otel_hook.py                # 📡 OpenTelemetry Integration
+│   ├── OTelHookHandler (span emission)
+│   ├── FileSpanExporter (JSONL output)
+│   └── maybe_register_otel() auto-setup
 │
 ├── enroll.py                   # 🔗 Auto-Enrollment System
 │   ├── Automatic notebook connection
