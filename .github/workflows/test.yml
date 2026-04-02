@@ -28,6 +28,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Smoke test (bare install)
+        run: |
+          python -m pip install .
+          python -c "
+          import jupyter_mcp_server, importlib, pkgutil
+          for mod in pkgutil.walk_packages(jupyter_mcp_server.__path__, 'jupyter_mcp_server.'):
+              importlib.import_module(mod.name)
+              print(f'  OK: {mod.name}')
+          "
+          jupyter-mcp-server --help
+          jupyter server extension list 2>&1 | grep jupyter_mcp_server
+
       - name: Install the extension
         run: |
           python -m pip install ".[test]"

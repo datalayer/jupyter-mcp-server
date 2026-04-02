@@ -1,0 +1,168 @@
+# Hooks & Observability
+
+## Overview
+
+Jupyter MCP Server includes a **hook system** that fires events before and after MCP tool calls and kernel executions. This enables observability, auditing, and custom integrations without modifying core server code.
+
+A built-in **OpenTelemetry handler** is provided to emit spans as JSONL, making it easy to trace and debug MCP operations.
+
+## Hook Events
+
+The hook system fires the following events:
+
+| Event | When Fired | Key Data |
+|-------|-----------|----------|
+| `BEFORE_TOOL_CALL` | Before any MCP tool executes | `tool_name`, `arguments` |
+| `AFTER_TOOL_CALL` | After any MCP tool completes | `tool_name`, `arguments`, `result`, `error` |
+| `BEFORE_EXECUTE` | Before code execution in a kernel | `kernel_id`, `code` |
+| `AFTER_EXECUTE` | After code execution completes | `kernel_id`, `outputs`, `error` |
+| `KERNEL_LIFECYCLE` | On kernel start, restart, or shutdown | `event_type`, `kernel_id`, `kernel_name` |
+
+All built-in tools are instrumented with `BEFORE_TOOL_CALL` / `AFTER_TOOL_CALL` hooks. Cell and code execution tools additionally fire `BEFORE_EXECUTE` / `AFTER_EXECUTE` hooks around kernel interactions.
+
+## Architecture
+
+Each tool function is wrapped with a `@with_hooks` decorator that fires `BEFORE_TOOL_CALL` / `AFTER_TOOL_CALL` events. For execution tools, `BEFORE_EXECUTE` / `AFTER_EXECUTE` events are additionally fired around the kernel interaction. All events are dispatched through a singleton `HookRegistry` to registered handlers.
+
+### Handler Error Behavior
+
+Each handler declares a `propagate_errors` flag:
+
+:::warning Critical vs Optional Handlers
+- **`propagate_errors = True`** (critical): Exceptions propagate to the caller and may fail the tool call.
+- **`propagate_errors = False`** (optional): Exceptions are logged at DEBUG level and suppressed. The built-in OTel handler uses this mode.
+:::
+
+### Context Correlation
+
+Before/after event pairs share a `context` dictionary. Handlers can store data in the context during `BEFORE_*` events and retrieve it during the corresponding `AFTER_*` event. For example, the OTel handler stores a span reference in `context["_otel_span"]` to end it on the after event.
+
+## OpenTelemetry Integration
+
+The built-in OpenTelemetry handler emits spans for every tool call and kernel execution, writing them as JSONL to a file.
+
+### Enabling OTel Tracing
+
+#### Via CLI
+
+```bash
+jupyter-mcp-server start \
+  --otel-file /tmp/mcp_spans.jsonl \
+  --transport stdio \
+  --jupyter-url http://localhost:8888 \
+  --jupyter-token MY_TOKEN
+```
+
+#### Via Environment Variable
+
+```bash
+export JUPYTER_MCP_OTEL_FILE=/tmp/mcp_spans.jsonl
+jupyter-mcp-server start ...
+```
+
+#### Via Jupyter Extension Traitlet
+
+```bash
+jupyter lab \
+  --JupyterMCPServerExtensionApp.otel_file=/tmp/mcp_spans.jsonl \
+  --port 8888 \
+  --IdentityProvider.token MY_TOKEN
+```
+
+Or in `jupyter_server_config.py`:
+
+```python
+c.JupyterMCPServerExtensionApp.otel_file = "/tmp/mcp_spans.jsonl"
+```
+
+### Span Output Format
+
+Spans are written as one JSON object per line (JSONL). Each span includes:
+
+```json
+{
+  "name": "tool_call:execute_cell",
+  "context": {
+    "trace_id": "0x...",
+    "span_id": "0x..."
+  },
+  "start_time": "2025-01-15T10:30:00.000000Z",
+  "end_time": "2025-01-15T10:30:02.500000Z",
+  "attributes": {
+    "tool.name": "execute_cell",
+    "result.summary": "..."
+  }
+}
+```
+
+### Span Types
+
+| Span Name | Attributes | Source Event |
+|-----------|-----------|--------------|
+| `tool_call:<tool_name>` | `tool.name`, `result.summary` or `error`/`error.message` | Tool call |
+| `execute` | `kernel.id`, `code.snippet` (first 200 chars), `output.count` | Code execution |
+| `kernel_lifecycle` | `event_type`, `kernel.id`, `kernel.name` | Kernel start/restart/shutdown |
+
+## Writing a Custom Hook Handler
+
+You can create custom handlers for logging, metrics, auditing, or any other purpose.
+
+### Handler Interface
+
+```python
+class HookHandler(Protocol):
+    propagate_errors: bool
+
+    async def on_event(self, event: HookEvent, **kwargs) -> None: ...
+```
+
+### Example: Simple Logging Handler
+
+```python
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
+
+class LoggingHandler:
+    propagate_errors = False  # Don't break tool calls on logging errors
+
+    async def on_event(self, event: HookEvent, **kwargs) -> None:
+        if event == HookEvent.BEFORE_TOOL_CALL:
+            print(f"Tool called: {kwargs.get('tool_name')}")
+        elif event == HookEvent.AFTER_TOOL_CALL:
+            error = kwargs.get("error")
+            if error:
+                print(f"Tool failed: {kwargs.get('tool_name')} - {error}")
+            else:
+                print(f"Tool completed: {kwargs.get('tool_name')}")
+
+# Register the handler
+handler = LoggingHandler()
+HookRegistry.get_instance().register(handler)
+```
+
+### Registering Handlers
+
+Handlers are registered with the singleton `HookRegistry`:
+
+```python
+from jupyter_mcp_server.hooks import HookRegistry
+
+registry = HookRegistry.get_instance()
+
+# Register
+registry.register(my_handler)
+
+# Unregister when done
+registry.unregister(my_handler)
+```
+
+## Configuration Reference
+
+| Configuration | Type | Description |
+|--------------|------|-------------|
+| `--otel-file` | CLI option | Path for JSONL span output |
+| `JUPYTER_MCP_OTEL_FILE` | Environment variable | Fallback path for JSONL span output |
+| `JupyterMCPServerExtensionApp.otel_file` | Jupyter traitlet | Path for JSONL span output (extension mode) |
+
+:::info Resolution Order
+CLI argument → environment variable → not enabled.
+:::

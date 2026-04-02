@@ -479,66 +479,85 @@ async def execute_via_execution_stack(
         )
         request_id = execution_stack.put(kernel_id, code, metadata)
         logger.info(f"Execution request {request_id} submitted")
-        
-        # Poll for results
+
+        # Poll for results with proper cleanup on cancellation.
+        # If the polling loop is interrupted (e.g. by asyncio.CancelledError
+        # from an MCP user-cancel), the request_id would remain orphaned in
+        # ExecutionStack, causing subsequent execute_cell calls to hang.
+        # The try/except ensures we cancel the kernel execution on any
+        # abnormal exit.
         start_time = asyncio.get_event_loop().time()
-        while True:
-            elapsed = asyncio.get_event_loop().time() - start_time
-            if elapsed > timeout:
-                raise TimeoutError(f"Execution timed out after {timeout} seconds")
-            
-            # Get result (returns None if pending, result dict if complete)
-            result = execution_stack.get(kernel_id, request_id)
-            
-            if result is not None:
-                # Execution complete
-                logger.info(f"Execution request {request_id} completed")
-                
-                # Check for errors
-                if "error" in result:
-                    error_info = result["error"]
-                    logger.error(f"Execution error: {error_info}")
-                    error_output = [f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"]
+        try:
+            while True:
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed > timeout:
+                    raise TimeoutError(f"Execution timed out after {timeout} seconds")
+
+                # Get result (returns None if pending, result dict if complete)
+                result = execution_stack.get(kernel_id, request_id)
+
+                if result is not None:
+                    # Execution complete
+                    logger.info(f"Execution request {request_id} completed")
+
+                    # Check for errors
+                    if "error" in result:
+                        error_info = result["error"]
+                        logger.error(f"Execution error: {error_info}")
+                        error_output = [f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"]
+                        await HookRegistry.get_instance().fire(
+                            HookEvent.AFTER_EXECUTE,
+                            code=code, kernel_id=kernel_id, metadata=metadata,
+                            outputs=error_output, error=error_info, context=hook_ctx,
+                        )
+                        return error_output
+
+                    # Check for pending input (shouldn't happen with allow_stdin=False)
+                    if "input_request" in result:
+                        logger.warning("Unexpected input request during execution")
+                        return ["[ERROR: Unexpected input request]"]
+
+                    # Extract outputs
+                    outputs = result.get("outputs", [])
+
+                    # Parse JSON string if needed (ExecutionStack returns JSON string)
+                    if isinstance(outputs, str):
+                        import json
+                        try:
+                            outputs = json.loads(outputs)
+                        except json.JSONDecodeError:
+                            logger.error(f"Failed to parse outputs JSON: {outputs}")
+                            return [f"[ERROR: Invalid output format]"]
+
+                    if outputs:
+                        formatted = safe_extract_outputs(outputs)
+                        logger.info(f"Execution completed with {len(formatted)} formatted outputs: {formatted}")
+                    else:
+                        formatted = []
+                        logger.info("Execution completed with no outputs")
                     await HookRegistry.get_instance().fire(
                         HookEvent.AFTER_EXECUTE,
                         code=code, kernel_id=kernel_id, metadata=metadata,
-                        outputs=error_output, error=error_info, context=hook_ctx,
+                        outputs=formatted, error=None, context=hook_ctx,
                     )
-                    return error_output
+                    return formatted if formatted else ["[No output generated]"]
 
-                # Check for pending input (shouldn't happen with allow_stdin=False)
-                if "input_request" in result:
-                    logger.warning("Unexpected input request during execution")
-                    return ["[ERROR: Unexpected input request]"]
+                # Still pending, wait before next poll
+                await asyncio.sleep(poll_interval)
 
-                # Extract outputs
-                outputs = result.get("outputs", [])
+        except (asyncio.CancelledError, TimeoutError):
+            # Clean up the orphaned execution request to prevent subsequent
+            # execute_cell calls from hanging on stale state.
+            logger.warning(
+                f"Execution request {request_id} interrupted, "
+                f"cancelling kernel {kernel_id} execution"
+            )
+            try:
+                execution_stack.cancel(kernel_id)
+            except Exception as cancel_err:
+                logger.error(f"Failed to cancel execution on kernel {kernel_id}: {cancel_err}")
+            raise
 
-                # Parse JSON string if needed (ExecutionStack returns JSON string)
-                if isinstance(outputs, str):
-                    import json
-                    try:
-                        outputs = json.loads(outputs)
-                    except json.JSONDecodeError:
-                        logger.error(f"Failed to parse outputs JSON: {outputs}")
-                        return [f"[ERROR: Invalid output format]"]
-
-                if outputs:
-                    formatted = safe_extract_outputs(outputs)
-                    logger.info(f"Execution completed with {len(formatted)} formatted outputs: {formatted}")
-                else:
-                    formatted = []
-                    logger.info("Execution completed with no outputs")
-                await HookRegistry.get_instance().fire(
-                    HookEvent.AFTER_EXECUTE,
-                    code=code, kernel_id=kernel_id, metadata=metadata,
-                    outputs=formatted, error=None, context=hook_ctx,
-                )
-                return formatted if formatted else ["[No output generated]"]
-            
-            # Still pending, wait before next poll
-            await asyncio.sleep(poll_interval)
-            
     except Exception as e:
         logger.error(f"Error executing via ExecutionStack: {e}", exc_info=True)
         return [f"[ERROR: {str(e)}]"]
