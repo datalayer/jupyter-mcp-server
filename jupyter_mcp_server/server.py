@@ -12,6 +12,7 @@ from fastapi import Request
 from jupyter_kernel_client import KernelClient
 
 from mcp.server import FastMCP
+from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.types import ImageContent, ToolAnnotations
 from starlette.middleware.cors import CORSMiddleware
 from starlette.applications import Starlette
@@ -64,14 +65,38 @@ from jupyter_mcp_server.tools import (
 ###############################################################################
 # Globals.
 
+class RuntimeTokenVerifier:
+    """Verify MCP client requests against the configured runtime token."""
+
+    def __init__(self, token: str):
+        self._token = token
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if token != self._token:
+            return None
+        return AccessToken(token=token, client_id="mcp-client", scopes=[])
+
+
 class FastMCPWithCORS(FastMCP):
     def streamable_http_app(self) -> Starlette:
-        """Return StreamableHTTP server app with CORS middleware
+        """Return StreamableHTTP server app with CORS and auth middleware.
+
         See: https://github.com/modelcontextprotocol/python-sdk/issues/187
         """
-        # Get the original Starlette app
+        # Get the original Starlette app (includes RequireAuthMiddleware
+        # when _token_verifier is set, but NOT the AuthenticationMiddleware
+        # that actually validates Bearer tokens — that requires settings.auth
+        # which we don't use). Add it here directly.
         app = super().streamable_http_app()
-        
+
+        if self._token_verifier:
+            from starlette.middleware.authentication import AuthenticationMiddleware
+            from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend
+            app.add_middleware(
+                AuthenticationMiddleware,
+                backend=BearerAuthBackend(self._token_verifier),
+            )
+
         # Add CORS middleware
         app.add_middleware(
             CORSMiddleware,

@@ -26,7 +26,7 @@ import pytest
 import requests
 
 from .test_common import MCPClient, JUPYTER_TOOLS, timeout_wrapper
-from .conftest import JUPYTER_TOKEN
+from .conftest import JUPYTER_TOKEN, TEST_MCP_SERVER
 
 
 ###############################################################################
@@ -88,6 +88,155 @@ async def test_mcp_tool_list(mcp_client_parametrized: MCPClient, request):
     assert len(tools_name) == len(expected_tools) and sorted(tools_name) == sorted(
         expected_tools
     )
+
+
+@pytest.mark.asyncio
+@timeout_wrapper(30)
+async def test_mcp_client_connects_with_token(mcp_client_parametrized: MCPClient):
+    """MCP client with a valid token can connect and list tools in both modes."""
+    async with mcp_client_parametrized:
+        tools = await mcp_client_parametrized.list_tools()
+    assert len(tools.tools) > 0
+
+
+def _post_mcp_init(url, token=None):
+    """POST an MCP initialize request, optionally with a Bearer token."""
+    import httpx
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "Content-Type": "application/json",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return httpx.post(
+        f"{url}/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        headers=headers,
+    )
+
+
+def test_mcp_client_rejected_without_token(mcp_server_url):
+    """MCP client without a token should be rejected by both server modes."""
+    r = _post_mcp_init(mcp_server_url)
+    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED), \
+        f"Server accepted unauthenticated request (status {r.status_code})"
+
+
+###############################################################################
+# MCP_TOKEN tests (standalone MCP server only)
+###############################################################################
+
+MCP_TOKEN = "MY_MCP_TOKEN"
+
+
+def _mcp_server_command_with_mcp_token(jupyter_url, port):
+    """Build standalone MCP server command with both --mcp-token and --runtime-token."""
+    return [
+        "python", "-m", "jupyter_mcp_server",
+        "--transport", "streamable-http",
+        "--document-url", jupyter_url,
+        "--document-id", "notebook.ipynb",
+        "--document-token", JUPYTER_TOKEN,
+        "--runtime-url", jupyter_url,
+        "--start-new-runtime", "True",
+        "--runtime-token", JUPYTER_TOKEN,
+        "--mcp-token", MCP_TOKEN,
+        "--port", str(port),
+    ]
+
+
+@pytest.fixture(scope="function")
+def mcp_server_with_mcp_token(jupyter_server):
+    """Standalone MCP server with --mcp-token set (separate from --runtime-token)."""
+    from .conftest import _find_free_port, _start_server
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="Jupyter MCP (mcp-token)",
+        host=host,
+        port=port,
+        command=_mcp_server_command_with_mcp_token(jupyter_server, port),
+        readiness_endpoint="/api/healthz",
+    )
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_mcp_token_accepted(mcp_server_with_mcp_token):
+    """When --mcp-token is set, clients authenticating with MCP_TOKEN are accepted."""
+    r = _post_mcp_init(mcp_server_with_mcp_token, token=MCP_TOKEN)
+    assert r.status_code == HTTPStatus.OK
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_mcp_token_rejects_runtime_token(mcp_server_with_mcp_token):
+    """When --mcp-token is set, clients using RUNTIME_TOKEN should be rejected."""
+    r = _post_mcp_init(mcp_server_with_mcp_token, token=JUPYTER_TOKEN)
+    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED)
+
+
+def _mcp_server_command_insecure_noauth(jupyter_url, port):
+    """Build standalone MCP server command with --insecure-mcp-noauth (no --mcp-token)."""
+    return [
+        "python", "-m", "jupyter_mcp_server",
+        "--transport", "streamable-http",
+        "--document-url", jupyter_url,
+        "--document-id", "notebook.ipynb",
+        "--document-token", JUPYTER_TOKEN,
+        "--runtime-url", jupyter_url,
+        "--start-new-runtime", "True",
+        "--runtime-token", JUPYTER_TOKEN,
+        "--insecure-mcp-noauth",
+        "--port", str(port),
+    ]
+
+
+@pytest.fixture(scope="function")
+def mcp_server_insecure_noauth(jupyter_server):
+    """Standalone MCP server with --insecure-mcp-noauth (no --mcp-token)."""
+    from .conftest import _find_free_port, _start_server
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="Jupyter MCP (insecure-noauth)",
+        host=host,
+        port=port,
+        command=_mcp_server_command_insecure_noauth(jupyter_server, port),
+        readiness_endpoint="/api/healthz",
+    )
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_insecure_noauth_allows_anonymous(mcp_server_insecure_noauth):
+    """With --insecure-mcp-noauth and no --mcp-token, unauthenticated requests succeed."""
+    r = _post_mcp_init(mcp_server_insecure_noauth)
+    assert r.status_code == HTTPStatus.OK
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_server_refuses_start_without_auth(jupyter_server):
+    """Without --mcp-token or --insecure-mcp-noauth, the server should fail to start."""
+    import subprocess
+    from .conftest import _find_free_port
+    port = _find_free_port()
+    cmd = [
+        "python", "-m", "jupyter_mcp_server",
+        "--transport", "streamable-http",
+        "--document-url", jupyter_server,
+        "--document-id", "notebook.ipynb",
+        "--document-token", JUPYTER_TOKEN,
+        "--runtime-url", jupyter_server,
+        "--start-new-runtime", "True",
+        "--runtime-token", JUPYTER_TOKEN,
+        "--port", str(port),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    assert result.returncode != 0, "Server should refuse to start without MCP auth config"
+    assert "insecure-mcp-noauth" in result.stderr
+
+
+###############################################################################
+# Cell & tool tests
+###############################################################################
 
 
 @pytest.mark.asyncio

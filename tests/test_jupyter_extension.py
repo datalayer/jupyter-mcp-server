@@ -130,6 +130,52 @@ def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_se
 
 
 ###############################################################################
+# Integration Tests - Authentication
+#
+# These tests validate that MCP extension endpoints enforce Jupyter token
+# authentication, consistent with how standard Jupyter API endpoints work.
+#
+# MCPHealthHandler, MCPToolsListHandler, and MCPToolsCallHandler all extend
+# JupyterHandler and should require a valid token. MCPSSEHandler (the main
+# /mcp protocol endpoint) also extends JupyterHandler and requires a valid
+# Jupyter token.
+###############################################################################
+
+
+@pytest.mark.parametrize("path", ["/api/status", "/mcp/healthz", "/mcp/tools/list"])
+def test_get_endpoint_auth(jupyter_server_with_extension, path):
+    """GET endpoints reject unauthenticated/bad-token requests and accept valid tokens."""
+    url = f"{jupyter_server_with_extension}{path}"
+    # No token -> rejected
+    r = requests.get(url, allow_redirects=False)
+    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.FOUND), f"{path} allowed unauthenticated GET"
+    # Wrong token -> rejected
+    r = requests.get(url, headers={"Authorization": "token WRONG"}, allow_redirects=False)
+    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.FOUND), f"{path} allowed invalid token"
+    # Valid token -> 200
+    r = requests.get(url, headers={"Authorization": f"token {JUPYTER_TOKEN}"})
+    assert r.status_code == HTTPStatus.OK, f"{path} rejected valid token"
+
+
+@pytest.mark.parametrize("path,body", [
+    ("/mcp/tools/call", {"tool_name": "list_notebooks", "arguments": {}}),
+    ("/mcp", {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+])
+def test_post_endpoint_auth(jupyter_server_with_extension, path, body):
+    """POST endpoints reject unauthenticated requests and accept valid tokens."""
+    url = f"{jupyter_server_with_extension}{path}"
+    # No token -> 403
+    r = requests.post(url, json=body)
+    assert r.status_code == HTTPStatus.FORBIDDEN, f"{path} allowed unauthenticated POST"
+    # Wrong token -> 403
+    r = requests.post(url, json=body, headers={"Authorization": "token WRONG"})
+    assert r.status_code == HTTPStatus.FORBIDDEN, f"{path} allowed invalid token"
+    # Valid token -> 200
+    r = requests.post(url, json=body, headers={"Authorization": f"token {JUPYTER_TOKEN}"})
+    assert r.status_code == HTTPStatus.OK, f"{path} rejected valid token"
+
+
+###############################################################################
 # Unit Tests - Extension Configuration
 ###############################################################################
 

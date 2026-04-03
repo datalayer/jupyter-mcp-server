@@ -62,6 +62,20 @@ def _common_options(f):
             help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
         click.option(
+            "--mcp-token",
+            envvar="MCP_TOKEN",
+            type=click.STRING,
+            default=None,
+            help="Token for authenticating MCP clients (Bearer scheme). Required for streamable-http unless --insecure-mcp-noauth is set.",
+        ),
+        click.option(
+            "--insecure-mcp-noauth",
+            envvar="INSECURE_MCP_NOAUTH",
+            is_flag=True,
+            default=False,
+            help="Allow running streamable-http transport without MCP client authentication. NOT recommended for production.",
+        ),
+        click.option(
             "--document-url",
             envvar="DOCUMENT_URL",
             type=click.STRING,
@@ -173,8 +187,18 @@ def _do_start(
     jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str = "",
+    mcp_token: str = None,
+    insecure_mcp_noauth: bool = False,
 ):
     """Internal function to execute the start logic."""
+
+    # Validate MCP auth configuration early, before any heavy startup work
+    if transport == "streamable-http" and not mcp_token and not insecure_mcp_noauth:
+        raise click.UsageError(
+            "streamable-http transport requires MCP client authentication. "
+            "Set --mcp-token / MCP_TOKEN, or pass --insecure-mcp-noauth to "
+            "explicitly allow unauthenticated access."
+        )
 
     # Log the received configuration for diagnostics
     # Note: set_config() will automatically normalize string "None" values
@@ -249,6 +273,20 @@ def _do_start(
     from jupyter_mcp_server.otel_hook import maybe_register_otel
     maybe_register_otel(otel_file or None)
 
+    # Configure token authentication for the MCP endpoint
+    if transport == "streamable-http":
+        if mcp_token:
+            from jupyter_mcp_server.server import RuntimeTokenVerifier
+            mcp._token_verifier = RuntimeTokenVerifier(mcp_token)
+            logger.info("MCP endpoint token authentication enabled (using MCP_TOKEN)")
+        elif insecure_mcp_noauth:
+            logger.warning(
+                "MCP endpoint authentication DISABLED (--insecure-mcp-noauth). "
+                "Any client can connect without credentials. Not recommended for production."
+            )
+        else:
+            assert False, "early validation should have caught missing MCP auth config"
+
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
     if transport == "stdio":
@@ -297,6 +335,8 @@ def server(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
+    mcp_token: str,
+    insecure_mcp_noauth: bool,
     document_url: str,
     document_id: str,
     document_token: str,
@@ -344,6 +384,8 @@ def server(
         jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
+        mcp_token=mcp_token,
+        insecure_mcp_noauth=insecure_mcp_noauth,
     )
 
 
@@ -361,11 +403,16 @@ def connect_command(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
+    mcp_token: str,
+    insecure_mcp_noauth: bool,
     document_url: str,
     document_id: str,
     document_token: str,
     provider: str,
     jupyterlab: bool,
+    jupyter_url: str,
+    jupyter_token: str,
+    allowed_jupyter_mcp_tools: str,
 ):
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
@@ -471,6 +518,8 @@ def start_command(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
+    mcp_token: str,
+    insecure_mcp_noauth: bool,
     document_url: str,
     document_id: str,
     document_token: str,
@@ -507,6 +556,8 @@ def start_command(
         jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
+        mcp_token=mcp_token,
+        insecure_mcp_noauth=insecure_mcp_noauth,
     )
 
 

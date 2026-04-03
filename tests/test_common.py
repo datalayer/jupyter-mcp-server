@@ -22,7 +22,7 @@ from contextlib import AsyncExitStack
 import pytest
 import requests
 from mcp import ClientSession, types
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
 
 # TODO: could be retrieved from code (inspect)
@@ -94,14 +94,24 @@ class MCPClient:
     It uses the `requires_session` decorator to check if the session is connected.
     """
 
-    def __init__(self, url):
+    def __init__(self, url, token=None):
         self.url = f"{url}/mcp"
+        self.token = token
         self._session: ClientSession | None = None
         self._exit_stack = AsyncExitStack()
+        self._http_client = None
 
     async def __aenter__(self):
         """Initiate the session (enter session context)"""
-        streams_context = streamablehttp_client(self.url)
+        if self.token:
+            import httpx
+            self._http_client = httpx.AsyncClient(
+                headers={"Authorization": f"Bearer {self.token}"},
+                timeout=httpx.Timeout(30, read=None),
+            )
+        streams_context = streamable_http_client(
+            self.url, http_client=self._http_client
+        )
         read_stream, write_stream, _ = await self._exit_stack.enter_async_context(
             streams_context
         )
@@ -114,6 +124,8 @@ class MCPClient:
         """Close the session (exit session context)"""
         if self._exit_stack:
             await self._exit_stack.aclose()
+        if self._http_client:
+            await self._http_client.aclose()
         self._session = None
 
     @staticmethod

@@ -197,6 +197,9 @@ def _mcp_server_command(jupyter_url, port, otel_file=""):
         "--runtime-url", jupyter_url,
         "--start-new-runtime", "True",
         "--runtime-token", JUPYTER_TOKEN,
+        # Below we use the same token for simplicity in tests.
+        # The separation tested in test_mcp_token_rejects_runtime_token()
+        "--mcp-token", JUPYTER_TOKEN, 
         "--port", str(port),
     ]
     if otel_file:
@@ -302,6 +305,9 @@ def jupyter_mcp_server(request, jupyter_server):
             "--runtime-url", jupyter_server,
             "--start-new-runtime", str(start_new_runtime),
             "--runtime-token", JUPYTER_TOKEN,
+            # Below we use the same token for simplicity in tests.
+            # The separation tested in test_mcp_token_rejects_runtime_token()
+            "--mcp-token", JUPYTER_TOKEN,
             "--port", str(port),
         ],
         readiness_endpoint="/api/healthz",
@@ -345,7 +351,7 @@ async def mcp_client(jupyter_mcp_server):
         MCPClient: Configured client for MCP protocol communication
     """
     from .test_common import MCPClient
-    return MCPClient(jupyter_mcp_server)
+    return MCPClient(jupyter_mcp_server, token=JUPYTER_TOKEN)
 
 
 @pytest.fixture(scope="function")
@@ -360,7 +366,7 @@ def mcp_client_parametrized(mcp_server_url):
         MCPClient: Configured client for the parametrized server mode
     """
     from .test_common import MCPClient
-    return MCPClient(mcp_server_url)
+    return MCPClient(mcp_server_url, token=JUPYTER_TOKEN)
 
 
 ###############################################################################
@@ -411,4 +417,4 @@ def mcp_server_url_otel(request, otel_spans_file):
 def mcp_client_otel(mcp_server_url_otel):
     """MCPClient talking to an OTel-enabled server (both modes)."""
     from .test_common import MCPClient
-    return MCPClient(mcp_server_url_otel)
+    return MCPClient(mcp_server_url_otel, token=JUPYTER_TOKEN)
