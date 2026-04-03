@@ -111,6 +111,27 @@ def _common_options(f):
             help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
         ),
         click.option(
+            "--runtime-password",
+            envvar="RUNTIME_PASSWORD",
+            type=click.STRING,
+            default=None,
+            help="Password for runtime Jupyter server authentication (alternative to token).",
+        ),
+        click.option(
+            "--document-password",
+            envvar="DOCUMENT_PASSWORD",
+            type=click.STRING,
+            default=None,
+            help="Password for document Jupyter server authentication (alternative to token).",
+        ),
+        click.option(
+            "--jupyter-password",
+            envvar="JUPYTER_PASSWORD",
+            type=click.STRING,
+            default=None,
+            help="Shared password for both runtime and document servers (fallback if individual passwords not set).",
+        ),
+        click.option(
             "--allowed-jupyter-mcp-tools",
             envvar="ALLOWED_JUPYTER_MCP_TOOLS",
             type=click.STRING,
@@ -128,12 +149,15 @@ def _resolve_url_and_token_variables(
     jupyter_url, jupyter_token,
     document_url, document_token,
     runtime_url, runtime_token,
-) -> tuple[str, str | None, str, str | None]:
-    """Resolve URL and token variables based on priority logic.
+    jupyter_password=None,
+    document_password=None,
+    runtime_password=None,
+) -> tuple[str, str | None, str, str | None, str | None, str | None]:
+    """Resolve URL, token, and password variables based on priority logic.
 
     Priority order:
-    1. Individual URL/token variables take precedence if set
-    2. JUPYTER_URL/JUPYTER_TOKEN used as fallback if individual variables are None
+    1. Individual URL/token/password variables take precedence if set
+    2. JUPYTER_URL/JUPYTER_TOKEN/JUPYTER_PASSWORD used as fallback if individual variables are None
     3. Keep original default values if neither individual nor merged variables are set
 
     Args:
@@ -143,9 +167,12 @@ def _resolve_url_and_token_variables(
         document_token: The individual document token (takes precedence if set)
         runtime_url: The individual runtime URL (takes precedence if set)
         runtime_token: The individual runtime token (takes precedence if set)
+        jupyter_password: The merged Jupyter password variable
+        document_password: The individual document password (takes precedence if set)
+        runtime_password: The individual runtime password (takes precedence if set)
 
     Returns:
-        Tuple of (resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token)
+        Tuple of (resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token, resolved_document_password, resolved_runtime_password)
     """
 
     # Resolve document_url
@@ -170,7 +197,11 @@ def _resolve_url_and_token_variables(
     # Resolve runtime_token
     resolved_runtime_token = runtime_token or jupyter_token
 
-    return resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token
+    # Resolve passwords
+    resolved_document_password = document_password or jupyter_password
+    resolved_runtime_password = runtime_password or jupyter_password
+
+    return resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token, resolved_document_password, resolved_runtime_password
 
 
 def _do_start(
@@ -189,6 +220,8 @@ def _do_start(
     otel_file: str = "",
     mcp_token: str = None,
     insecure_mcp_noauth: bool = False,
+    runtime_password: str = None,
+    document_password: str = None,
 ):
     """Internal function to execute the start logic."""
 
@@ -222,7 +255,9 @@ def _do_start(
         document_token=document_token,
         port=port,
         jupyterlab=jupyterlab,
-        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools
+        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
+        runtime_password=runtime_password,
+        document_password=document_password,
     )
 
     # Reset ServerContext to pick up new configuration
@@ -342,6 +377,9 @@ def server(
     document_token: str,
     jupyter_url: str,
     jupyter_token: str,
+    runtime_password: str,
+    document_password: str,
+    jupyter_password: str,
     port: int,
     provider: str,
     jupyterlab: bool,
@@ -360,14 +398,17 @@ def server(
         return
 
     # No subcommand provided - execute the default start behavior
-    # Resolve URL and token variables based on priority logic
-    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+    # Resolve URL, token, and password variables based on priority logic
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token, resolved_document_password, resolved_runtime_password = _resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
         document_token=document_token,
         runtime_url=runtime_url,
         runtime_token=runtime_token,
+        jupyter_password=jupyter_password,
+        document_password=document_password,
+        runtime_password=runtime_password,
     )
 
     _do_start(
@@ -386,6 +427,8 @@ def server(
         otel_file=otel_file,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
+        runtime_password=resolved_runtime_password,
+        document_password=resolved_document_password,
     )
 
 
@@ -525,6 +568,9 @@ def start_command(
     document_token: str,
     jupyter_url: str,
     jupyter_token: str,
+    runtime_password: str,
+    document_password: str,
+    jupyter_password: str,
     port: int,
     provider: str,
     jupyterlab: bool,
@@ -532,14 +578,17 @@ def start_command(
     otel_file: str,
 ):
     """Start the Jupyter MCP server with a transport."""
-    # Resolve URL and token variables based on priority logic
-    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+    # Resolve URL, token, and password variables based on priority logic
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token, resolved_document_password, resolved_runtime_password = _resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
         document_token=document_token,
         runtime_url=runtime_url,
         runtime_token=runtime_token,
+        jupyter_password=jupyter_password,
+        document_password=document_password,
+        runtime_password=runtime_password,
     )
 
     _do_start(
@@ -558,6 +607,8 @@ def start_command(
         otel_file=otel_file,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
+        runtime_password=resolved_runtime_password,
+        document_password=resolved_document_password,
     )
 
 

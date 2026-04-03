@@ -254,13 +254,15 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 def create_kernel(config, logger):
     """Create a new kernel instance using current configuration."""
     from jupyter_kernel_client import KernelClient
+    from jupyter_mcp_server.server_context import ServerContext
     kernel = None
     try:
-        # Initialize the kernel client with the provided parameters.
+        auth_headers = ServerContext.get_instance().auth_headers
         kernel = KernelClient(
-            server_url=config.runtime_url, 
-            token=config.runtime_token, 
-            kernel_id=config.runtime_id
+            server_url=config.runtime_url,
+            token=None if auth_headers else config.runtime_token,
+            kernel_id=config.runtime_id,
+            headers=auth_headers or None,
         )
         kernel.start()
         logger.info("Kernel created and started successfully")

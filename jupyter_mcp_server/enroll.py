@@ -88,6 +88,7 @@ async def auto_enroll_document(
             notebook_manager=notebook_manager,
             runtime_url=config.runtime_url if config.runtime_url != "local" else None,
             runtime_token=config.runtime_token,
+            auth_headers=server_context.auth_headers or None,
         )
         logger.info(f"Auto-enrollment result: {result}")
     except Exception as e:
