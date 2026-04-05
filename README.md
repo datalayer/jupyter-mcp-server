@@ -14,7 +14,7 @@
 
 # 🪐🔧 Jupyter MCP Server
 
-**An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage Jupyter Notebooks in real-time**
+**An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage [Jupyter](https://jupyter.org) Notebooks in real-time**
 
 *Developed by [Datalayer](https://github.com/datalayer)*
 
@@ -27,6 +27,11 @@
 ![Jupyter MCP Server Demo](https://images.datalayer.io/products/jupyter-mcp-server/mcp-demo-multimodal.gif)
 
 </div>
+
+> [!IMPORTANT]
+> **Breaking change in v1.0.0:** You must configure `MCP_TOKEN` in your MCP client setup.
+> 
+> For setup details, see: https://jupyter-mcp-server.datalayer.tech/providers/jupyter-streamable-http-standalone/#3-configure-your-mcp-client
 
 > [!NOTE]
 > **We Need Your Feedback!**
