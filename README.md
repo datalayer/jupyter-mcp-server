@@ -99,7 +99,9 @@ For more details on each tool, their parameters, and return values, please refer
 | `read_cell`                | Read the full content (Metadata, Source and Outputs) of a single cell.           |
 | `insert_cell`              | Insert a new code or markdown cell at a specified position.                      |
 | `delete_cell`              | Delete a cell at a specified index.                                              |
+| `move_cell`                | Move a cell from one position to another within a notebook.                      |
 | `overwrite_cell_source`    | Overwrite the source code of an existing cell.                                   |
+| `edit_cell_source`         | Apply surgical find-and-replace edits to a cell's source without full rewrite.   |
 | `execute_cell`             | Execute a cell with timeout, supports multimodal output including images.        |
 | `insert_execute_code_cell` | Insert a new code cell and execute it in one step.                               |
 | `execute_code`             | Execute code directly in the kernel, supports magic commands and shell commands. |
