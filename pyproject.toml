@@ -21,11 +21,11 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "jupyter-kernel-client>=0.7.3",
+    "jupyter-kernel-client>=0.9.0",
     "jupyter-mcp-tools>=0.1.6",
-    "jupyter-nbmodel-client>=0.14.4",
+    "jupyter-nbmodel-client>=0.14.6",
     "jupyter-server-nbmodel>=0.1.1a4",
-    "jupyter-server-client",
+    "jupyter-server-client>=0.1.1",
     "jupyter_server>=1.6,<3",
     "tornado>=6.1",
     "traitlets>=5.0",

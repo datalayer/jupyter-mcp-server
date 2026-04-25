@@ -148,9 +148,7 @@ For comprehensive setup instructions—including `Streamable HTTP` transport, ru
 ### 1. Set Up Your Environment
 
 ```bash
-pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 jupyter-mcp-tools>=0.1.4 ipykernel
-pip uninstall -y pycrdt datalayer_pycrdt
-pip install datalayer_pycrdt==0.12.17
+pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 jupyter-mcp-tools>=0.1.4 ipykernel pycrdt
 ```
 
 > [!TIP]

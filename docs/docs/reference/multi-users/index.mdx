@@ -139,9 +139,8 @@ FROM jupyter/minimal-notebook:latest
 RUN pip install "jupyter-mcp-server>=0.15.0" \
                 "jupyterlab==4.4.1" \
                 "jupyter-collaboration==4.0.2" \
-                "ipykernel"
-RUN pip uninstall -y pycrdt datalayer_pycrdt && \
-    pip install datalayer_pycrdt==0.12.17
+                "ipykernel" \
+                "pycrdt"
 ```
 
 #### 2. Configure MCP Extension
