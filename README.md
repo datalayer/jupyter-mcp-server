@@ -33,7 +33,7 @@
 > 
 > For setup details, see: https://jupyter-mcp-server.datalayer.tech/providers/jupyter-streamable-http-standalone/#3-configure-your-mcp-client
 > 
-> **Update in v1.0.1:** The default pycrdt library is now supported, so installing datalayer_pycrdt is no longer required.
+> **Update in v1.0.2:** `pycrdt` is now supported, so installing `datalayer_pycrdt` is no longer required.
 > 
 
 > [!NOTE]
