@@ -695,8 +695,13 @@ async def move_cell(
 async def execute_code(
     code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
     timeout: Annotated[int, Field(description="Execution timeout in seconds",le=60)] = 30,
+    kernel_id: Annotated[str | None, Field(description="Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.")] = None,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed code")]:
-    """Execute code directly in the kernel (not saved to notebook) on the current activated notebook.
+    """Execute code directly in a kernel (not saved to notebook).
+
+    Targets the current activated notebook's kernel by default. Pass kernel_id
+    to execute in a specific kernel directly — including raw kernels with no
+    notebook attached.
 
     Recommended to use in following cases:
     1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)
@@ -709,15 +714,10 @@ async def execute_code(
     1. Import new modules or perform variable assignments that affect subsequent Notebook execution
     2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
     """
-    # Get kernel_id for JUPYTER_SERVER mode
-    # Let the tool handle getting kernel_id via get_current_notebook_context()
-    kernel_id = None
-    if server_context.mode == ServerMode.JUPYTER_SERVER:
+    if kernel_id is None and server_context.mode == ServerMode.JUPYTER_SERVER:
         current_notebook = notebook_manager.get_current_notebook() or "default"
         kernel_id = notebook_manager.get_kernel_id(current_notebook)
-        # Note: kernel_id might be None here if notebook not in manager,
-        # but the tool will fall back to config values via get_current_notebook_context()
-    
+
     return await safe_notebook_operation(
         lambda: ExecuteCodeTool().execute(
             mode=server_context.mode,

@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 class ExecuteCodeTool(BaseTool):
-    """Execute code directly in the kernel on the current active notebook"""
+    """Execute code directly in a kernel.
+
+    Defaults to the current active notebook's kernel; pass kernel_id to target
+    a specific kernel, including raw kernels with no notebook attached.
+    """
     
     async def _execute_via_kernel_manager(
         self,
