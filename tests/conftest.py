@@ -14,6 +14,7 @@ This module provides:
 - JUPYTER_TOKEN: Authentication token for Jupyter API
 """
 
+import json
 import logging
 import os
 import socket
@@ -214,6 +215,7 @@ def _get_test_params():
         params.append("mcp_server")
     if TEST_JUPYTER_SERVER:
         params.append("jupyter_extension")
+        params.append("jupyter_extension_no_collab")
     if not params:
         pytest.skip("Both TEST_MCP_SERVER and TEST_JUPYTER_SERVER are disabled")
     return params
@@ -236,8 +238,10 @@ def _yield_mcp_url(request, extension_fixture, name_suffix="", otel_file=""):
             command=_mcp_server_command(jupyter_server, port, otel_file=otel_file),
             readiness_endpoint="/api/healthz",
         )
-    else:  # jupyter_extension
-        yield request.getfixturevalue(extension_fixture)
+    elif request.param == "jupyter_extension":
+        yield request.getfixturevalue("jupyter_server_with_extension")
+    elif request.param == "jupyter_extension_no_collab":
+        yield request.getfixturevalue("jupyter_server_no_collab")
 
 
 ###############################################################################
@@ -266,6 +270,30 @@ def jupyter_server_with_extension():
         command=_jupyter_extension_command(host, port),
         readiness_endpoint="/api",
         max_retries=10,
+    )
+
+
+@pytest.fixture(scope="session")
+def jupyter_server_no_collab():
+    """Start Jupyter server with MCP extension but WITHOUT jupyter-collaboration.
+    
+    Forces all cell mutation tools (insert_cell, delete_cell, overwrite_cell_source,
+    edit_cell_source, move_cell) to use the file-based code path instead of YDoc,
+    covering the fallback branch when collaboration is active.
+    """
+    if not TEST_JUPYTER_SERVER:
+        pytest.skip("TEST_JUPYTER_SERVER is disabled")
+
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="JupyterLab+MCP (no collab)",
+        host=host,
+        port=port,
+        command=_jupyter_extension_command(host, port),
+        readiness_endpoint="/api",
+        max_retries=10,
+        extra_env={"JUPYTERLAB_COLLABORATION": "false"},
     )
 
 
