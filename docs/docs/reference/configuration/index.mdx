@@ -47,11 +47,12 @@ For most users with standard JupyterLab setups:
 |----------|-------------|---------|---------|----------|
 | `JUPYTER_URL` | URL of your Jupyter server | `http://localhost:8888` | `http://localhost:8888` | No |
 | `JUPYTER_TOKEN` | Authentication token for Jupyter server | `my-secret-token` | `None` | No* |
+| `JUPYTER_PASSWORD` | Password for Jupyter server authentication (alternative to token) | `my-password` | `None` | No* |
 | `DOCUMENT_ID` | Default notebook path (relative to Jupyter root) | `notebook.ipynb` | `None` | No |
 | `ALLOWED_JUPYTER_MCP_TOOLS` | Comma-separated list of jupyter-mcp-tools to enable | `notebook_run-all-cells,notebook_get-selected-cell` | `notebook_run-all-cells,notebook_get-selected-cell` | No |
 | `ALLOW_IMG_OUTPUT` | Enable multimodal image support | `true` / `false` | `true` | No |
 
-*Required for authentication when connecting to secured Jupyter servers
+*Either `JUPYTER_TOKEN` or `JUPYTER_PASSWORD` is required when connecting to secured Jupyter servers. See [Security](/reference/security) for details on when to use each.
 
 ### Advanced Configuration (Complex Deployments)
 
@@ -62,6 +63,7 @@ For deployments requiring granular control over document storage and runtime exe
 |----------|-------------|---------|---------|
 | `DOCUMENT_URL` | URL for notebook file operations | `http://notebook-storage:8888` | `http://localhost:8888` |
 | `DOCUMENT_TOKEN` | Authentication for document operations | `storage-access-token` | `None` |
+| `DOCUMENT_PASSWORD` | Password for document server authentication (alternative to token) | `storage-password` | `None` |
 | `DOCUMENT_ID` | Notebook path/ID | `shared/analysis.ipynb` | `None` |
 
 #### Runtime Execution Variables  
@@ -69,6 +71,7 @@ For deployments requiring granular control over document storage and runtime exe
 |----------|-------------|---------|---------|
 | `RUNTIME_URL` | URL for kernel/execution operations | `http://compute-cluster:8888` | `http://localhost:8888` |
 | `RUNTIME_TOKEN` | Authentication for runtime operations | `compute-access-token` | `None` |
+| `RUNTIME_PASSWORD` | Password for runtime server authentication (alternative to token) | `compute-password` | `None` |
 | `RUNTIME_ID` | Specific kernel ID to use | `kernel-abc123` | `None` |
 
 #### MCP Client Authentication
@@ -93,6 +96,10 @@ Variables are resolved in this order:
 1. **Individual variables** (`DOCUMENT_*`, `RUNTIME_*`) - highest priority
 2. **Simplified variables** (`JUPYTER_*`) - fallback
 3. **Default values** - when no variables are set
+
+This applies to tokens, passwords, and URLs alike. For example, `RUNTIME_PASSWORD` takes precedence over `JUPYTER_PASSWORD` for runtime server authentication.
+
+When both a password and a token are configured for the same server, password authentication takes precedence and the token is ignored.
 
 ## Configuration Examples
 
@@ -123,6 +130,13 @@ RUNTIME_TOKEN=compute-access-token
 ALLOW_IMG_OUTPUT=false
 ```
 
+### Password-Protected Jupyter Server
+```bash
+JUPYTER_URL=http://localhost:8888
+JUPYTER_PASSWORD=my-jupyter-password
+DOCUMENT_ID=my-notebook.ipynb
+```
+
 ### Development Setup
 ```bash
 JUPYTER_URL=http://localhost:8888
@@ -145,6 +159,7 @@ Options:
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
   --runtime-url TEXT                  Runtime URL for kernel operations (default: None)
   --runtime-token TEXT                Runtime authentication token (default: None)
+  --runtime-password TEXT             Password for runtime Jupyter server authentication (default: None)
   --mcp-token TEXT                    Token for authenticating MCP clients (required unless --insecure-mcp-noauth)
   --insecure-mcp-noauth               Allow streamable-http without MCP client auth (not recommended)
   --runtime-id TEXT                   Specific kernel ID to use (default: None)
@@ -152,8 +167,10 @@ Options:
   --document-url TEXT                 Document URL for notebook operations (default: None)
   --document-id TEXT                  Notebook path/ID (default: None)
   --document-token TEXT               Document authentication token (default: None)
+  --document-password TEXT            Password for document Jupyter server authentication (default: None)
   --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
   --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
+  --jupyter-password TEXT             Shared password for both runtime and document servers (default: None)
   --allowed-jupyter-mcp-tools TEXT    Comma-separated list of jupyter-mcp-tools to enable (default: notebook_run-all-cells,notebook_get-selected-cell)
   --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)

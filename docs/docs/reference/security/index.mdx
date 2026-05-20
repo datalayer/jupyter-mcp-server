@@ -155,23 +155,103 @@ As described in [issue #183](https://github.com/datalayer/jupyter-mcp-server/iss
 - Managed environments (AWS SageMaker Studio, Google Colab Enterprise, Azure ML)
 - JupyterHub where authentication is handled by the Hub
 
-### Current Limitations
+## Password Authentication
 
-:::info Current Status
+For Jupyter servers configured with password-based login (instead of or in addition to tokens), the MCP server can authenticate by performing the standard Jupyter `/login` flow and using the resulting session cookies for all subsequent requests.
 
-**Bearer Token Required**: Currently, Jupyter MCP Server requires a Bearer token (`JUPYTER_TOKEN`) to authenticate with the Jupyter collaboration API.
+This is useful when:
+- Your Jupyter server uses a password set via `jupyter server password` or `--ServerApp.password`
+- You don't have a Bearer token available
+- Your deployment relies on XSRF cookie protection
 
-**Issue**: The server fails with `403 Forbidden` when connecting to Jupyter deployments that use XSRF protection without Bearer tokens.
+### How It Works
 
-**Tracking**: We're working on automatic XSRF cookie handling - see [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183) for details.
+1. The MCP server POSTs to `/login` on the Jupyter server with the configured password
+2. Jupyter returns session cookies (including the `_xsrf` token)
+3. These cookies are injected into all HTTP requests (API calls, kernel operations) and WebSocket connections (notebook collaboration)
+4. The `X-XSRFToken` header is automatically included in requests that require XSRF protection
+
+### Configuration
+
+#### Simplified (Same Password for Both Servers)
+
+When document storage and runtime execution use the same Jupyter server:
+
+```json
+{
+  "env": {
+    "JUPYTER_URL": "http://localhost:8888",
+    "JUPYTER_PASSWORD": "my-jupyter-password"
+  }
+}
+```
+
+Or via CLI:
+
+```bash
+jupyter-mcp-server start \
+  --jupyter-url http://localhost:8888 \
+  --jupyter-password my-jupyter-password
+```
+
+#### Advanced (Separate Passwords)
+
+For deployments where document and runtime servers have different passwords:
+
+```json
+{
+  "env": {
+    "DOCUMENT_URL": "http://storage-server:8888",
+    "DOCUMENT_PASSWORD": "storage-password",
+    "RUNTIME_URL": "http://compute-server:8888",
+    "RUNTIME_PASSWORD": "compute-password"
+  }
+}
+```
+
+### Password vs Token
+
+| | Token Auth | Password Auth |
+|---|---|---|
+| **Mechanism** | Bearer token in `Authorization` header | Session cookies + XSRF token |
+| **Setup** | `--IdentityProvider.token MY_TOKEN` | `jupyter server password` |
+| **Best for** | API access, automation, JupyterHub | Local servers, password-protected deployments |
+| **XSRF handling** | Not needed (token bypasses XSRF) | Automatic (cookies include XSRF) |
+
+:::info Priority
+
+When both a password and a token are configured for the same server, **password authentication takes precedence**. The token is ignored and a warning is logged. This avoids ambiguity about which authentication method is active.
 
 :::
 
-### Workarounds for XSRF-only Environments
+### Setting a Jupyter Server Password
 
-Until automatic XSRF handling is implemented, you have these options:
+If your Jupyter server doesn't have a password configured yet:
 
-#### Option 1: Start Jupyter with a Token (Recommended)
+```bash
+# Interactive prompt to set a password
+jupyter server password
+```
+
+This stores a hashed password in `~/.jupyter/jupyter_server_config.json`. Then start Jupyter without a token:
+
+```bash
+jupyter lab --IdentityProvider.token ''
+```
+
+### Limitations
+
+:::info Partial Coverage of Issue #183
+
+Password authentication addresses the XSRF-protected scenario described in [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183) for password-protected Jupyter servers. Other scenarios mentioned in that issue — SSO/OAuth, IAM-based auth in managed environments — are not yet supported.
+
+:::
+
+### Alternatives for Token-less Environments
+
+If password auth doesn't fit your deployment:
+
+#### Option 1: Start Jupyter with a Token
 
 ```bash
 jupyter lab --IdentityProvider.token YOUR_SECURE_TOKEN
