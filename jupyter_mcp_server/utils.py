@@ -257,7 +257,7 @@ def create_kernel(config, logger):
     from jupyter_mcp_server.server_context import ServerContext
     kernel = None
     try:
-        auth_headers = ServerContext.get_instance().auth_headers
+        auth_headers = ServerContext.get_instance().runtime_auth_headers
         kernel = KernelClient(
             server_url=config.runtime_url,
             token=None if auth_headers else config.runtime_token,

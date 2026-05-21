@@ -26,51 +26,80 @@ class JupyterPasswordAuth:
         self._xsrf_token: Optional[str] = None
         self._authenticated = False
 
-    def login(self) -> None:
+    def login(self, timeout: float = 10.0) -> None:
         """Perform the /login POST to obtain session cookies.
+
+        Args:
+            timeout: Per-request timeout in seconds (applied to GET /login,
+                POST /login, and the verification GET /api/status).
 
         Raises:
             RuntimeError: If login fails.
         """
-        session = requests.Session()
+        with requests.Session() as session:
+            # GET /login to obtain the initial _xsrf cookie
+            try:
+                session.get(f"{self.server_url}/login", timeout=timeout)
+            except requests.exceptions.ConnectionError as error:
+                raise RuntimeError(
+                    f"Cannot connect to Jupyter server at {self.server_url}: {error}"
+                ) from error
+            except requests.exceptions.Timeout as error:
+                raise RuntimeError(
+                    f"Timed out connecting to Jupyter server at {self.server_url} "
+                    f"after {timeout}s: {error}"
+                ) from error
 
-        # GET /login to obtain the initial _xsrf cookie
-        try:
-            session.get(f"{self.server_url}/login")
-        except requests.exceptions.ConnectionError as error:
-            raise RuntimeError(
-                f"Cannot connect to Jupyter server at {self.server_url}: {error}"
-            ) from error
+            xsrf = session.cookies.get("_xsrf", "")
 
-        xsrf = session.cookies.get("_xsrf", "")
+            # POST /login with password (and _xsrf if present)
+            post_data = {"password": self.password}
+            if xsrf:
+                post_data["_xsrf"] = xsrf
 
-        # POST /login with password (and _xsrf if present)
-        post_data = {"password": self.password}
-        if xsrf:
-            post_data["_xsrf"] = xsrf
+            try:
+                response = session.post(
+                    f"{self.server_url}/login",
+                    data=post_data,
+                    allow_redirects=False,
+                    timeout=timeout,
+                )
+            except requests.exceptions.Timeout as error:
+                raise RuntimeError(
+                    f"Timed out posting credentials to {self.server_url}/login "
+                    f"after {timeout}s: {error}"
+                ) from error
 
-        response = session.post(
-            f"{self.server_url}/login",
-            data=post_data,
-            allow_redirects=False,
-        )
+            if response.status_code >= 500:
+                raise RuntimeError(
+                    f"Jupyter server returned {response.status_code} on /login — "
+                    "the server is failing, not an auth problem."
+                )
+            if response.status_code not in (200, 302):
+                raise RuntimeError(
+                    f"Password login failed with status {response.status_code}. "
+                    "Check that the Jupyter server is configured for password auth."
+                )
 
-        if response.status_code not in (200, 302):
-            raise RuntimeError(
-                f"Password login failed with status {response.status_code}. "
-                "Check that the Jupyter server is configured for password auth."
-            )
+            # Verify we actually got authenticated by testing the API.
+            # This also ensures we have the latest _xsrf cookie from the server.
+            try:
+                verify = session.get(f"{self.server_url}/api/status", timeout=timeout)
+            except requests.exceptions.Timeout as error:
+                raise RuntimeError(
+                    f"Timed out verifying session at {self.server_url}/api/status "
+                    f"after {timeout}s: {error}"
+                ) from error
 
-        # Verify we actually got authenticated by testing the API.
-        # This also ensures we have the latest _xsrf cookie from the server.
-        verify = session.get(f"{self.server_url}/api/status")
-        if verify.status_code == 403:
-            raise RuntimeError(
-                "Password login did not produce valid session cookies. "
-                "The password may be incorrect."
-            )
+            if verify.status_code != 200:
+                raise RuntimeError(
+                    f"Password login did not produce a valid session "
+                    f"(GET /api/status returned {verify.status_code}). "
+                    "The password may be incorrect."
+                )
 
-        self._cookies = dict(session.cookies)
+            self._cookies = dict(session.cookies)
+
         self._xsrf_token = self._cookies.get("_xsrf", "")
         if not self._xsrf_token:
             logger.warning("No _xsrf cookie found after login — XSRF-protected POST requests may fail")

@@ -22,15 +22,16 @@ class ServerContext:
     _session_manager = None
     _server_client = None
     _kernel_client = None
-    _password_auth = None
+    _runtime_password_auth = None
+    _document_password_auth = None
     _initialized = False
-    
+
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-    
+
     @classmethod
     def reset(cls):
         """Reset the singleton instance. Use this when config changes."""
@@ -43,10 +44,18 @@ class ServerContext:
             cls._instance._session_manager = None
             cls._instance._server_client = None
             cls._instance._kernel_client = None
-            cls._instance._password_auth = None
-    
+            cls._instance._runtime_password_auth = None
+            cls._instance._document_password_auth = None
+
     def _init_mcp_server_mode(self):
-        """Initialize MCP_SERVER mode with HTTP client and optional password auth."""
+        """Initialize MCP_SERVER mode with HTTP client and optional password auth.
+
+        Sets up up to two password-auth sessions:
+        - `_runtime_password_auth` for the runtime server (kernel ops).
+        - `_document_password_auth` for the document server (collaboration API).
+        When runtime and document URLs point to the same server, the runtime
+        auth is reused for document operations to avoid a redundant login.
+        """
         self._mode = ServerMode.MCP_SERVER
         config = get_config()
 
@@ -62,17 +71,38 @@ class ServerContext:
 
         logger.info(f"Initializing MCP_SERVER mode with runtime_url: {runtime_url}")
 
-        # Password auth takes precedence over token auth
+        from jupyter_mcp_server.auth import JupyterPasswordAuth
+
+        # Runtime auth — password takes precedence over token
         if config.runtime_password:
-            from jupyter_mcp_server.auth import JupyterPasswordAuth
-            self._password_auth = JupyterPasswordAuth(runtime_url, config.runtime_password)
-            self._password_auth.login()
+            self._runtime_password_auth = JupyterPasswordAuth(runtime_url, config.runtime_password)
+            self._runtime_password_auth.login()
             if config.runtime_token:
                 logger.warning("Both runtime_password and runtime_token are set. Password auth takes precedence.")
             self._server_client = JupyterServerClient(base_url=runtime_url, token=None)
-            self._password_auth.inject_into_session(self._server_client.http_client.session)
+            self._runtime_password_auth.inject_into_session(self._server_client.http_client.session)
         else:
             self._server_client = JupyterServerClient(base_url=runtime_url, token=config.runtime_token)
+
+        # Document auth — only needed when the document server differs from runtime.
+        # When URLs match, share the runtime auth so collaboration API calls reuse it.
+        document_url = config.document_url
+        if document_url and document_url == runtime_url:
+            self._document_password_auth = self._runtime_password_auth
+        elif config.document_password:
+            self._document_password_auth = JupyterPasswordAuth(document_url, config.document_password)
+            self._document_password_auth.login()
+            if config.document_token:
+                logger.warning("Both document_password and document_token are set. Password auth takes precedence.")
+        elif config.runtime_password and not config.document_token:
+            # Document server is different but only runtime_password is set —
+            # the runtime cookies won't authenticate there. Warn loudly.
+            logger.warning(
+                "document_url (%s) differs from runtime_url (%s) but no document_password "
+                "is configured. Collaboration API requests will not be authenticated. "
+                "Set --document-password (or DOCUMENT_PASSWORD), or --document-token.",
+                document_url, runtime_url,
+            )
 
     def initialize(self):
         """Initialize context once."""
@@ -143,16 +173,19 @@ class ServerContext:
         return self._kernel_client
 
     @property
-    def auth_headers(self) -> dict[str, str]:
-        """Get auth headers for password-based auth (empty dict if using token auth).
+    def runtime_auth_headers(self) -> dict[str, str]:
+        """Auth headers for the runtime server (kernel operations).
 
-        When password auth is active, reads the latest cookies from the
-        JupyterServerClient session (which may have been refreshed by the
-        server) rather than using the stale login-time snapshot.
+        Empty dict when no runtime password auth is configured. When password
+        auth is active, reads the latest cookies from the JupyterServerClient
+        session (which the server may have refreshed) rather than the stale
+        login-time snapshot.
         """
         if not self._initialized:
             self.initialize()
-        if self._password_auth is not None and self._server_client is not None:
+        if self._runtime_password_auth is None:
+            return {}
+        if self._server_client is not None:
             session = self._server_client.http_client.session
             cookies = dict(session.cookies)
             if cookies:
@@ -162,9 +195,34 @@ class ServerContext:
                 if xsrf:
                     headers["X-XSRFToken"] = xsrf
                 return headers
-            # Fall back to login-time headers if session has no cookies
-            return self._password_auth.get_headers()
-        return {}
+        # Fall back to login-time headers
+        return self._runtime_password_auth.get_headers()
+
+    @property
+    def document_auth_headers(self) -> dict[str, str]:
+        """Auth headers for the document server (collaboration API).
+
+        When runtime_url == document_url, this returns the same fresh headers
+        as `runtime_auth_headers` (single shared session). When the document
+        server is separate, returns the login-time headers from the dedicated
+        document auth.
+        """
+        if not self._initialized:
+            self.initialize()
+        if self._document_password_auth is None:
+            return {}
+        # Shared session with runtime — read fresh cookies from the runtime client
+        if self._document_password_auth is self._runtime_password_auth:
+            return self.runtime_auth_headers
+        return self._document_password_auth.get_headers()
+
+    @property
+    def auth_headers(self) -> dict[str, str]:
+        """Backwards-compatible alias for runtime_auth_headers.
+
+        Prefer `runtime_auth_headers` or `document_auth_headers` explicitly.
+        """
+        return self.runtime_auth_headers
     
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""

@@ -24,7 +24,7 @@ from .config import get_config
 
 logger = logging.getLogger(__name__)
 
-_HTTP_PROTOCOL_RE = re.compile(r"^http")
+_HTTP_SCHEME_RE = re.compile(r"^http")
 
 
 def _get_jupyter_notebook_ws_url_with_auth(
@@ -54,7 +54,7 @@ def _get_jupyter_notebook_ws_url_with_auth(
     content = response.json()
 
     room_id = f"{content['format']}:{content['type']}:{content['fileId']}"
-    base_ws_url = _HTTP_PROTOCOL_RE.sub("ws", server_url, 1)
+    base_ws_url = _HTTP_SCHEME_RE.sub("ws", server_url, 1)
     room_url = url_path_join(base_ws_url, "api/collaboration/room", room_id)
     # For websocket, pass cookies as header param
     params = {"sessionId": content["sessionId"]}
@@ -90,7 +90,7 @@ class NotebookConnection:
         path = self.notebook_info.get("path", config.document_id)
 
         from jupyter_mcp_server.server_context import ServerContext
-        auth_headers = ServerContext.get_instance().auth_headers
+        auth_headers = ServerContext.get_instance().document_auth_headers
 
         if auth_headers and config.provider == "jupyter":
             ws_url = _get_jupyter_notebook_ws_url_with_auth(

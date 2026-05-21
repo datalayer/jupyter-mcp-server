@@ -4,14 +4,27 @@
 
 """Tests for password-based authentication support."""
 
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock
 
 import pytest
 import requests
+from requests.cookies import RequestsCookieJar
 
 from jupyter_mcp_server.auth import JupyterPasswordAuth
 from jupyter_mcp_server.config import reset_config, set_config, get_config
 from jupyter_mcp_server.server_context import ServerContext
+
+
+def _patch_session(mock_session_cls):
+    """Wire mock_session_cls so `with requests.Session() as session:` yields the mock.
+
+    Returns the inner session mock that test code should configure.
+    """
+    session = MagicMock()
+    mock_session_cls.return_value = session
+    session.__enter__.return_value = session
+    session.__exit__.return_value = False
+    return session
 
 
 # ---------------------------------------------------------------------------
@@ -29,43 +42,32 @@ class TestJupyterPasswordAuth:
 
     @patch("jupyter_mcp_server.auth.requests.Session")
     def test_login_success(self, mock_session_cls):
-        """Successful login stores cookies and XSRF token."""
-        session = MagicMock()
-        mock_session_cls.return_value = session
+        """Successful login extracts cookies from session and authenticates."""
+        session = _patch_session(mock_session_cls)
+        # Real cookie jar so dict(session.cookies) works naturally
+        jar = RequestsCookieJar()
+        jar.set("_xsrf", "2|abc123")
+        jar.set("username-localhost", "user123")
+        session.cookies = jar
 
-        # GET /login sets _xsrf cookie
-        session.cookies.get.return_value = "2|abc123"
-        # POST /login returns 302
-        post_response = MagicMock(status_code=302)
-        # GET /api/status returns 200
-        status_response = MagicMock(status_code=200)
-        session.get.side_effect = [MagicMock(), status_response]
-        session.post.return_value = post_response
-
-        # After login, session.cookies should yield our cookies
-        session.cookies.__iter__ = MagicMock(
-            return_value=iter([("_xsrf", "2|abc123"), ("username-localhost", "user123")])
-        )
-        session.cookies.items = MagicMock(
-            return_value=[("_xsrf", "2|abc123"), ("username-localhost", "user123")]
-        )
-
-        def cookies_dict_side_effect(cookies):
-            return {"_xsrf": "2|abc123", "username-localhost": "user123"}
-
-        with patch("builtins.dict", side_effect=cookies_dict_side_effect):
-            # Can't easily patch dict(), so let's test differently
-            pass
+        # GET /login (no-op) → POST /login → GET /api/status → 200
+        session.get.side_effect = [MagicMock(), MagicMock(status_code=200)]
+        session.post.return_value = MagicMock(status_code=302)
 
         auth = self._make_auth()
-        # Directly set internal state to test get_headers/inject_into_session
-        auth._cookies = {"_xsrf": "2|abc123", "username-localhost": "user123"}
-        auth._xsrf_token = "2|abc123"
-        auth._authenticated = True
+        auth.login()
+
+        assert auth._authenticated is True
+        assert auth._cookies == {"_xsrf": "2|abc123", "username-localhost": "user123"}
+        assert auth._xsrf_token == "2|abc123"
+
+        # POST /login must have included the _xsrf from the initial GET
+        post_call = session.post.call_args
+        assert post_call.kwargs["data"]["password"] == "secret"
+        assert post_call.kwargs["data"]["_xsrf"] == "2|abc123"
+        assert post_call.kwargs["allow_redirects"] is False
 
         headers = auth.get_headers()
-        assert "Cookie" in headers
-        assert "X-XSRFToken" in headers
         assert headers["X-XSRFToken"] == "2|abc123"
         assert "_xsrf=2|abc123" in headers["Cookie"]
         assert "username-localhost=user123" in headers["Cookie"]
@@ -141,8 +143,8 @@ class TestJupyterPasswordAuth:
     @patch("jupyter_mcp_server.auth.requests.Session")
     def test_login_connection_error(self, mock_session_cls):
         """login raises RuntimeError on connection failure."""
-        session = MagicMock()
-        mock_session_cls.return_value = session
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
         session.get.side_effect = requests.exceptions.ConnectionError("refused")
 
         auth = self._make_auth()
@@ -150,27 +152,63 @@ class TestJupyterPasswordAuth:
             auth.login()
 
     @patch("jupyter_mcp_server.auth.requests.Session")
-    def test_login_bad_status(self, mock_session_cls):
-        """login raises RuntimeError on unexpected status code."""
-        session = MagicMock()
-        mock_session_cls.return_value = session
-        session.cookies.get.return_value = ""
-        session.get.return_value = MagicMock()
-        session.post.return_value = MagicMock(status_code=500)
+    def test_login_connection_timeout(self, mock_session_cls):
+        """login raises RuntimeError on timeout during GET /login."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.get.side_effect = requests.exceptions.Timeout("slow")
 
         auth = self._make_auth()
-        with pytest.raises(RuntimeError, match="login failed with status 500"):
+        with pytest.raises(RuntimeError, match="Timed out connecting"):
+            auth.login(timeout=0.5)
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_server_error_5xx(self, mock_session_cls):
+        """5xx from /login surfaces a 'server is failing' message, not an auth message."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.get.return_value = MagicMock()
+        session.post.return_value = MagicMock(status_code=503)
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match=r"503.*server is failing"):
             auth.login()
 
     @patch("jupyter_mcp_server.auth.requests.Session")
-    def test_login_wrong_password(self, mock_session_cls):
-        """login raises RuntimeError when cookies don't work (wrong password)."""
-        session = MagicMock()
-        mock_session_cls.return_value = session
-        session.cookies.get.return_value = ""
+    def test_login_bad_status(self, mock_session_cls):
+        """Non-200/302 status from /login is treated as a login failure."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.get.return_value = MagicMock()
+        session.post.return_value = MagicMock(status_code=400)
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match="login failed with status 400"):
+            auth.login()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_wrong_password_403(self, mock_session_cls):
+        """403 from /api/status verify means cookies didn't authenticate."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
         session.get.side_effect = [
             MagicMock(),                    # GET /login
-            MagicMock(status_code=403),     # GET /api/status -> forbidden
+            MagicMock(status_code=403),     # GET /api/status → forbidden
+        ]
+        session.post.return_value = MagicMock(status_code=302)
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match="password may be incorrect"):
+            auth.login()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_wrong_password_401(self, mock_session_cls):
+        """401 from /api/status verify is also treated as auth failure (not just 403)."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.get.side_effect = [
+            MagicMock(),                    # GET /login
+            MagicMock(status_code=401),     # GET /api/status → unauthorized
         ]
         session.post.return_value = MagicMock(status_code=302)
 
@@ -242,7 +280,7 @@ class TestServerContextAuthHeaders:
         # Manually set up MCP_SERVER mode without password
         from jupyter_mcp_server.tools import ServerMode
         context._mode = ServerMode.MCP_SERVER
-        context._password_auth = None
+        context._runtime_password_auth = None
         context._server_client = MagicMock()
         context._initialized = True
 
@@ -259,11 +297,11 @@ class TestServerContextAuthHeaders:
         # Set up a mock password auth and server client
         mock_auth = MagicMock()
         mock_auth.get_headers.return_value = {"Cookie": "old=stale", "X-XSRFToken": "old"}
-        context._password_auth = mock_auth
+        context._runtime_password_auth = mock_auth
 
         mock_client = MagicMock()
         mock_session = MagicMock()
-        mock_session.cookies = requests.cookies.RequestsCookieJar()
+        mock_session.cookies = RequestsCookieJar()
         mock_session.cookies.set("_xsrf", "fresh_token")
         mock_session.cookies.set("username-localhost", "user1")
         mock_client.http_client.session = mock_session
@@ -285,11 +323,11 @@ class TestServerContextAuthHeaders:
 
         mock_auth = MagicMock()
         mock_auth.get_headers.return_value = {"Cookie": "login=cookie", "X-XSRFToken": "login_xsrf"}
-        context._password_auth = mock_auth
+        context._runtime_password_auth = mock_auth
 
         mock_client = MagicMock()
         mock_session = MagicMock()
-        mock_session.cookies = requests.cookies.RequestsCookieJar()  # empty jar
+        mock_session.cookies = RequestsCookieJar()  # empty jar
         mock_client.http_client.session = mock_session
         context._server_client = mock_client
 
@@ -308,15 +346,79 @@ class TestServerContextAuthHeaders:
             mock_init.assert_called_once()
 
     def test_reset_clears_password_auth(self):
-        """ServerContext.reset() clears _password_auth."""
+        """ServerContext.reset() clears both runtime and document password auth."""
         context = ServerContext.get_instance()
-        context._password_auth = MagicMock()
+        context._runtime_password_auth = MagicMock()
+        context._document_password_auth = MagicMock()
         context._initialized = True
 
         ServerContext.reset()
 
-        assert context._password_auth is None
+        assert context._runtime_password_auth is None
+        assert context._document_password_auth is None
         assert context._initialized is False
+
+    def test_document_auth_headers_shares_runtime_when_urls_match(self):
+        """When document and runtime URLs match, document auth reuses runtime session."""
+        from jupyter_mcp_server.tools import ServerMode
+
+        context = ServerContext.get_instance()
+        context._mode = ServerMode.MCP_SERVER
+        context._initialized = True
+
+        shared_auth = MagicMock()
+        shared_auth.get_headers.return_value = {"Cookie": "stale", "X-XSRFToken": "stale"}
+        context._runtime_password_auth = shared_auth
+        context._document_password_auth = shared_auth  # same instance → shared
+
+        mock_client = MagicMock()
+        jar = RequestsCookieJar()
+        jar.set("_xsrf", "fresh")
+        jar.set("session", "fresh-session")
+        mock_client.http_client.session.cookies = jar
+        context._server_client = mock_client
+
+        # document_auth_headers should return the FRESH runtime cookies,
+        # not the stale login-time snapshot
+        headers = context.document_auth_headers
+        assert headers["X-XSRFToken"] == "fresh"
+        assert "_xsrf=fresh" in headers["Cookie"]
+
+    def test_document_auth_headers_separate_when_urls_differ(self):
+        """When document and runtime URLs differ, document auth uses its own session."""
+        from jupyter_mcp_server.tools import ServerMode
+
+        context = ServerContext.get_instance()
+        context._mode = ServerMode.MCP_SERVER
+        context._initialized = True
+
+        runtime_auth = MagicMock()
+        runtime_auth.get_headers.return_value = {"Cookie": "runtime=cookie"}
+        document_auth = MagicMock()
+        document_auth.get_headers.return_value = {"Cookie": "doc=cookie", "X-XSRFToken": "doc-xsrf"}
+
+        context._runtime_password_auth = runtime_auth
+        context._document_password_auth = document_auth  # different instance
+
+        mock_client = MagicMock()
+        mock_client.http_client.session.cookies = RequestsCookieJar()
+        context._server_client = mock_client
+
+        # document_auth_headers should come from document_auth, not runtime
+        headers = context.document_auth_headers
+        assert headers == {"Cookie": "doc=cookie", "X-XSRFToken": "doc-xsrf"}
+
+    def test_document_auth_headers_empty_without_password(self):
+        """document_auth_headers returns {} when no document password configured."""
+        from jupyter_mcp_server.tools import ServerMode
+
+        context = ServerContext.get_instance()
+        context._mode = ServerMode.MCP_SERVER
+        context._initialized = True
+        context._runtime_password_auth = None
+        context._document_password_auth = None
+
+        assert context.document_auth_headers == {}
 
 
 # ---------------------------------------------------------------------------
@@ -337,8 +439,10 @@ class TestNotebookConnectionAuth:
         ServerContext.reset()
         ServerContext._instance = None
 
-    def test_ws_connect_patched_with_auth_headers(self):
-        """When auth_headers present, websocket connect is patched with Cookie header."""
+    @pytest.mark.asyncio
+    async def test_ws_connect_patched_with_auth_headers(self):
+        """When auth_headers present, websocket connect is patched with Cookie header,
+        and the original connect is restored after __aenter__ returns."""
         import jupyter_nbmodel_client.client as nbmodel_client_module
         from jupyter_mcp_server.notebook_manager import NotebookConnection
 
@@ -351,7 +455,6 @@ class TestNotebookConnectionAuth:
             provider="jupyter",
         )
 
-        # Set up a mock ServerContext with auth
         from jupyter_mcp_server.tools import ServerMode
         context = ServerContext.get_instance()
         context._mode = ServerMode.MCP_SERVER
@@ -361,10 +464,12 @@ class TestNotebookConnectionAuth:
             "Cookie": "_xsrf=tok; session=abc",
             "X-XSRFToken": "tok",
         }
-        context._password_auth = mock_auth
+        context._runtime_password_auth = mock_auth
+        # Share runtime auth with document since URLs match in this test
+        context._document_password_auth = mock_auth
         context._server_client = MagicMock()
         mock_session = MagicMock()
-        mock_session.cookies = requests.cookies.RequestsCookieJar()
+        mock_session.cookies = RequestsCookieJar()
         mock_session.cookies.set("_xsrf", "tok")
         mock_session.cookies.set("session", "abc")
         context._server_client.http_client.session = mock_session
@@ -377,55 +482,64 @@ class TestNotebookConnectionAuth:
             }
         )
 
-        # Patch the collaboration session PUT request to return valid JSON
-        with patch("jupyter_mcp_server.notebook_manager.nbmodel_fetch") as mock_fetch:
-            mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "format": "json",
-                "type": "notebook",
-                "fileId": "abc-123",
-                "sessionId": "sess-456",
-            }
-            mock_response.raise_for_status = MagicMock()
-            mock_fetch.return_value = mock_response
+        captured = {}
 
-            captured_connect_kwargs = {}
+        # When NbModelClient.__aenter__ is invoked, simulate what the real client
+        # does: call the (potentially patched) connect from the nbmodel module.
+        async def fake_aenter(self_):
+            connect_fn = nbmodel_client_module.connect
+            # Call it with no kwargs to verify the wrapper injects additional_headers
+            connect_fn("ws://example/socket")
+            captured["connect_during_aenter"] = connect_fn
+            return self_
 
-            async def mock_connect(uri, **kwargs):
-                captured_connect_kwargs.update(kwargs)
-                raise ConnectionError("stop here — we only want to test the patch")
+        async def fake_aexit(self_, *args):
+            return None
 
-            # Patch the original connect so our wrapper calls it
-            with patch("jupyter_mcp_server.notebook_manager.NbModelClient") as MockClient:
-                mock_notebook = MagicMock()
+        captured_connect_kwargs = {}
 
-                async def mock_aenter():
-                    # Simulate what __aenter__ does but trigger our patched connect
-                    pass
+        def fake_original_connect(uri, **kwargs):
+            captured_connect_kwargs["uri"] = uri
+            captured_connect_kwargs.update(kwargs)
+            return MagicMock()
 
-                MockClient.return_value = mock_notebook
-                mock_notebook.__aenter__ = MagicMock(return_value=mock_notebook)
+        with patch(
+            "jupyter_mcp_server.notebook_manager.nbmodel_fetch"
+        ) as mock_fetch, patch(
+            "jupyter_mcp_server.notebook_manager.NbModelClient"
+        ) as MockClient, patch(
+            "websockets.asyncio.client.connect", side_effect=fake_original_connect
+        ):
+            mock_fetch.return_value = MagicMock(
+                json=MagicMock(return_value={
+                    "format": "json",
+                    "type": "notebook",
+                    "fileId": "abc-123",
+                    "sessionId": "sess-456",
+                }),
+                raise_for_status=MagicMock(),
+            )
+            mock_notebook = MagicMock()
+            mock_notebook.__aenter__ = fake_aenter
+            mock_notebook.__aexit__ = fake_aexit
+            MockClient.return_value = mock_notebook
 
-                import asyncio
+            await connection.__aenter__()
 
-                # We can't easily test the full async flow in a sync test,
-                # but we CAN verify the fetch was called with auth headers
-                try:
-                    asyncio.get_event_loop().run_until_complete(connection.__aenter__())
-                except Exception:
-                    pass
+        # The connect function used inside __aenter__ should be the wrapper,
+        # NOT whatever nbmodel_client_module.connect was before
+        assert captured["connect_during_aenter"] is not original_connect
+        # The wrapper must inject Cookie via additional_headers
+        assert "additional_headers" in captured_connect_kwargs
+        assert captured_connect_kwargs["additional_headers"]["Cookie"] == "_xsrf=tok; session=abc"
+        # And the wrapper must have been removed after __aenter__ returned
+        # (i.e., nbmodel_client_module.connect is no longer the captured wrapper)
+        assert nbmodel_client_module.connect is not captured["connect_during_aenter"]
 
-                # Verify the collaboration session PUT included auth headers
-                if mock_fetch.called:
-                    call_kwargs = mock_fetch.call_args
-                    headers = call_kwargs.kwargs.get("headers", {}) if call_kwargs.kwargs else {}
-                    if not headers and len(call_kwargs.args) > 0:
-                        # Check positional args
-                        pass
-                    assert "X-XSRFToken" in headers or mock_fetch.call_count > 0
-
-        # Verify connect function was restored
-        assert nbmodel_client_module.connect is original_connect
+        # Restore manually in case the production code's "restore" target diverged
+        # from what was there at test start (it imports connect fresh from websockets,
+        # which our patches intercepted).
+        nbmodel_client_module.connect = original_connect
 
     def test_collaboration_session_called_with_auth_headers(self):
         """The PUT /api/collaboration/session request includes Cookie and X-XSRFToken."""
