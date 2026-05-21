@@ -418,3 +418,74 @@ def mcp_client_otel(mcp_server_url_otel):
     """MCPClient talking to an OTel-enabled server (both modes)."""
     from .test_common import MCPClient
     return MCPClient(mcp_server_url_otel, token=JUPYTER_TOKEN)
+
+
+###############################################################################
+# Password-auth fixtures (e2e tests for password-based authentication)
+###############################################################################
+
+JUPYTER_PASSWORD = "test-password-e2e"
+
+
+@pytest.fixture(scope="session")
+def jupyter_server_password():
+    """Start a Jupyter server with password auth (no token).
+
+    Uses ``jupyter server password`` hashing to set a password and disables
+    token auth so the only way to authenticate is via the /login flow.
+    """
+    if not TEST_MCP_SERVER:
+        pytest.skip("TEST_MCP_SERVER is disabled — password e2e tests only run in MCP_SERVER mode")
+
+    from jupyter_server.auth import passwd
+    password_hash = passwd(JUPYTER_PASSWORD)
+
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="JupyterLab (password)",
+        host=host,
+        port=port,
+        command=[
+            "jupyter", "lab",
+            "--port", str(port),
+            "--IdentityProvider.token", "",
+            "--ServerApp.password", password_hash,
+            "--ip", host,
+            "--ServerApp.root_dir", "./dev/content",
+            "--no-browser",
+        ],
+        readiness_endpoint="/login",
+        max_retries=10,
+    )
+
+
+@pytest.fixture(scope="function")
+def jupyter_mcp_server_password(jupyter_server_password):
+    """Start a standalone MCP server that authenticates to Jupyter via password."""
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="Jupyter MCP (password)",
+        host=host,
+        port=port,
+        command=[
+            "python", "-m", "jupyter_mcp_server",
+            "--transport", "streamable-http",
+            "--document-url", jupyter_server_password,
+            "--document-id", "notebook.ipynb",
+            "--runtime-url", jupyter_server_password,
+            "--start-new-runtime", "True",
+            "--jupyter-password", JUPYTER_PASSWORD,
+            "--insecure-mcp-noauth",
+            "--port", str(port),
+        ],
+        readiness_endpoint="/api/healthz",
+    )
+
+
+@pytest.fixture(scope="function")
+def mcp_client_password(jupyter_mcp_server_password):
+    """MCPClient connected to the password-auth MCP server (no Bearer token needed)."""
+    from .test_common import MCPClient
+    return MCPClient(jupyter_mcp_server_password, token=None)

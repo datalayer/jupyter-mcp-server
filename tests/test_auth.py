@@ -468,3 +468,68 @@ class TestNotebookConnectionAuth:
             assert ws_url.startswith("ws://localhost:8888/api/collaboration/room/")
             assert "sessionId=session-id-456" in ws_url
             assert "json:notebook:file-id-123" in ws_url
+
+
+# ---------------------------------------------------------------------------
+# End-to-end tests against a real password-protected Jupyter server
+# ---------------------------------------------------------------------------
+
+
+class TestPasswordAuthE2E:
+    """E2E tests that spin up a real Jupyter server with password auth
+    and verify the full MCP flow works end-to-end.
+
+    These tests use the ``mcp_client_password`` fixture which starts:
+    1. A JupyterLab server with password auth (no token)
+    2. A standalone MCP server configured with --jupyter-password
+    3. An MCPClient connected to the MCP server
+    """
+
+    @pytest.mark.asyncio
+    async def test_password_auth_health(self, jupyter_mcp_server_password):
+        """MCP server health endpoint works when authenticated via password."""
+        import requests
+        response = requests.get(f"{jupyter_mcp_server_password}/api/healthz")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+
+    @pytest.mark.asyncio
+    async def test_password_auth_list_tools(self, mcp_client_password):
+        """MCP protocol list_tools works with password auth."""
+        async with mcp_client_password:
+            tools = await mcp_client_password.list_tools()
+        tool_names = [tool.name for tool in tools.tools]
+        assert "execute_code" in tool_names
+        assert "use_notebook" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_password_auth_execute_code(self, mcp_client_password):
+        """KernelClient works with password cookie/XSRF auth."""
+        async with mcp_client_password:
+            result = await mcp_client_password.execute_code("2 + 2")
+        assert result is not None
+        assert "result" in result
+        outputs = result["result"]
+        assert any("4" in str(output) for output in outputs)
+
+    @pytest.mark.asyncio
+    async def test_password_auth_notebook_operations(self, mcp_client_password):
+        """WebSocket collaboration path works with password auth.
+
+        This is the most critical test — it exercises the monkey-patched
+        websocket connect that injects Cookie headers into NbModelClient.
+        """
+        async with mcp_client_password:
+            # Connect to the notebook (triggers WebSocket collaboration)
+            use_result = await mcp_client_password.use_notebook(
+                notebook_name="password_test",
+                notebook_path="notebook.ipynb",
+                mode="connect",
+            )
+            assert use_result is not None
+            assert "error" not in use_result.lower() if isinstance(use_result, str) else True
+
+            # Read a cell to verify the notebook connection is working
+            cell = await mcp_client_password.read_cell(cell_index=0)
+            assert cell is not None
