@@ -11,6 +11,19 @@ import requests
 from jupyter_mcp_server.log import logger
 
 
+_BODY_PREVIEW_CHARS = 200
+
+
+def _truncate(text: str) -> str:
+    """Trim a response body for inclusion in an error message."""
+    if not text:
+        return "<empty>"
+    snippet = text.strip().replace("\n", " ")
+    if len(snippet) <= _BODY_PREVIEW_CHARS:
+        return repr(snippet)
+    return repr(snippet[:_BODY_PREVIEW_CHARS] + "…")
+
+
 class JupyterPasswordAuth:
     """Handles password-based authentication with a Jupyter server.
 
@@ -78,12 +91,14 @@ class JupyterPasswordAuth:
             if response.status_code >= 500:
                 raise RuntimeError(
                     f"Jupyter server returned {response.status_code} on /login — "
-                    "the server is failing, not an auth problem."
+                    f"the server is failing, not an auth problem. "
+                    f"Body: {_truncate(response.text)}"
                 )
             if response.status_code not in (200, 302):
                 raise RuntimeError(
                     f"Password login failed with status {response.status_code}. "
-                    "Check that the Jupyter server is configured for password auth."
+                    f"Check that the Jupyter server is configured for password auth. "
+                    f"Body: {_truncate(response.text)}"
                 )
 
             # Verify we actually got authenticated by testing the API.
@@ -96,17 +111,18 @@ class JupyterPasswordAuth:
                 raise RuntimeError(
                     f"Password login did not produce a valid session "
                     f"(GET /api/status returned {verify.status_code}). "
-                    "The password may be incorrect."
+                    f"The password may be incorrect. Body: {_truncate(verify.text)}"
                 )
             if verify.status_code >= 500:
                 raise RuntimeError(
                     f"Jupyter server returned {verify.status_code} on /api/status — "
-                    "the server is failing, not an auth problem."
+                    f"the server is failing, not an auth problem. "
+                    f"Body: {_truncate(verify.text)}"
                 )
             if verify.status_code != 200:
                 raise RuntimeError(
                     f"Unexpected status {verify.status_code} from /api/status "
-                    "while verifying the login session."
+                    f"while verifying the login session. Body: {_truncate(verify.text)}"
                 )
 
             self._xsrf_token = session.cookies.get("_xsrf", "")
@@ -159,12 +175,15 @@ class JupyterPasswordAuth:
         return headers
 
     def inject_into_session(self, session: requests.Session) -> None:
-        """Copy current cookies and X-XSRFToken header into another session."""
+        """Copy current cookies into another session.
+
+        Deliberately does NOT set `X-XSRFToken` as a default header — if the
+        server ever rotates the `_xsrf` cookie, a frozen header value would go
+        stale. Callers that need the XSRF token per-request must read it from
+        the live cookie jar (see `ServerContext.runtime_auth_headers`) or call
+        `get_headers()` on this auth.
+        """
         if not self._authenticated:
             return
-        cookies = self._live_cookies()
-        for name, value in cookies.items():
+        for name, value in self._live_cookies().items():
             session.cookies.set(name, value)
-        xsrf = cookies.get("_xsrf", "")
-        if xsrf:
-            session.headers["X-XSRFToken"] = xsrf

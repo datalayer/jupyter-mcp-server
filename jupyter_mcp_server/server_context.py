@@ -34,8 +34,13 @@ class ServerContext:
 
     @classmethod
     def reset(cls):
-        """Reset the singleton instance. Use this when config changes."""
+        """Reset the singleton instance. Use this when config changes.
+
+        Closes any active password-auth sessions so their connection pools
+        are released rather than waiting for GC.
+        """
         if cls._instance is not None:
+            cls._instance._close_auth()
             cls._instance._initialized = False
             cls._instance._mode = None
             cls._instance._contents_manager = None
@@ -44,8 +49,21 @@ class ServerContext:
             cls._instance._session_manager = None
             cls._instance._server_client = None
             cls._instance._kernel_client = None
-            cls._instance._runtime_password_auth = None
-            cls._instance._document_password_auth = None
+
+    def _close_auth(self):
+        """Close auth sessions if present; safe to call multiple times.
+
+        Document auth may be the same instance as runtime auth (shared session
+        when URLs match), so guard against double-close.
+        """
+        runtime = self._runtime_password_auth
+        document = self._document_password_auth
+        self._runtime_password_auth = None
+        self._document_password_auth = None
+        if runtime is not None:
+            runtime.close()
+        if document is not None and document is not runtime:
+            document.close()
 
     def _init_mcp_server_mode(self):
         """Initialize MCP_SERVER mode with HTTP client and optional password auth.
@@ -55,6 +73,9 @@ class ServerContext:
         - `_document_password_auth` for the document server (collaboration API).
         When runtime and document URLs point to the same server, the runtime
         auth is reused for document operations to avoid a redundant login.
+
+        On any failure partway through, closes whatever auth sessions were
+        created so we don't leak.
         """
         self._mode = ServerMode.MCP_SERVER
         config = get_config()
@@ -73,36 +94,42 @@ class ServerContext:
 
         from jupyter_mcp_server.auth import JupyterPasswordAuth
 
-        # Runtime auth — password takes precedence over token
-        if config.runtime_password:
-            self._runtime_password_auth = JupyterPasswordAuth(runtime_url, config.runtime_password)
-            self._runtime_password_auth.login()
-            if config.runtime_token:
-                logger.warning("Both runtime_password and runtime_token are set. Password auth takes precedence.")
-            self._server_client = JupyterServerClient(base_url=runtime_url, token=None)
-            self._runtime_password_auth.inject_into_session(self._server_client.http_client.session)
-        else:
-            self._server_client = JupyterServerClient(base_url=runtime_url, token=config.runtime_token)
+        try:
+            # Runtime auth — password takes precedence over token
+            if config.runtime_password:
+                self._runtime_password_auth = JupyterPasswordAuth(runtime_url, config.runtime_password)
+                self._runtime_password_auth.login()
+                if config.runtime_token:
+                    logger.warning("Both runtime_password and runtime_token are set. Password auth takes precedence.")
+                self._server_client = JupyterServerClient(base_url=runtime_url, token=None)
+                self._runtime_password_auth.inject_into_session(self._server_client.http_client.session)
+            else:
+                self._server_client = JupyterServerClient(base_url=runtime_url, token=config.runtime_token)
 
-        # Document auth — only needed when the document server differs from runtime.
-        # When URLs match, share the runtime auth so collaboration API calls reuse it.
-        document_url = config.document_url
-        if document_url and document_url == runtime_url:
-            self._document_password_auth = self._runtime_password_auth
-        elif config.document_password:
-            self._document_password_auth = JupyterPasswordAuth(document_url, config.document_password)
-            self._document_password_auth.login()
-            if config.document_token:
-                logger.warning("Both document_password and document_token are set. Password auth takes precedence.")
-        elif config.runtime_password and not config.document_token:
-            # Document server is different but only runtime_password is set —
-            # the runtime cookies won't authenticate there. Warn loudly.
-            logger.warning(
-                "document_url (%s) differs from runtime_url (%s) but no document_password "
-                "is configured. Collaboration API requests will not be authenticated. "
-                "Set --document-password (or DOCUMENT_PASSWORD), or --document-token.",
-                document_url, runtime_url,
-            )
+            # Document auth — only needed when the document server is explicitly
+            # different from the runtime server. When URLs match (or document_url
+            # is unset/falsy and would default to runtime), reuse the runtime auth.
+            document_url = config.document_url
+            urls_match = (not document_url) or (document_url == runtime_url)
+            if urls_match:
+                self._document_password_auth = self._runtime_password_auth
+            elif config.document_password:
+                self._document_password_auth = JupyterPasswordAuth(document_url, config.document_password)
+                self._document_password_auth.login()
+                if config.document_token:
+                    logger.warning("Both document_password and document_token are set. Password auth takes precedence.")
+            elif config.runtime_password and not config.document_token:
+                # Document server is genuinely different but only runtime_password is set —
+                # the runtime cookies won't authenticate there.
+                logger.warning(
+                    "document_url (%s) differs from runtime_url (%s) but no document_password "
+                    "is configured. Collaboration API requests will not be authenticated. "
+                    "Set --document-password (or DOCUMENT_PASSWORD), or --document-token.",
+                    document_url, runtime_url,
+                )
+        except BaseException:
+            self._close_auth()
+            raise
 
     def initialize(self):
         """Initialize context once.

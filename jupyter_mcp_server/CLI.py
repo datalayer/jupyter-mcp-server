@@ -25,12 +25,14 @@ from jupyter_mcp_server.server import (
 )
 
 # Shared options decorator to reduce code duplication
-def _connection_options(f):
-    """Decorator adding options that identify the document and runtime servers.
+def _remote_connection_options(f):
+    """Decorator with only the options that `connect` can forward over /api/connect.
 
-    These are the only options needed by `connect` (which forwards them to a
-    remote MCP server). `_common_options` extends this with start-time-only
-    options like MCP auth and `--jupyter-*` aliases.
+    Passwords are intentionally excluded — `DocumentRuntime` (the wire format
+    used by /api/connect) does not carry password fields, so accepting
+    --runtime-password / --document-password on `connect` would silently drop
+    them. If/when the wire format is extended to include passwords, fold them
+    in here and into `DocumentRuntime`.
     """
     options = [
         click.option(
@@ -69,13 +71,6 @@ def _connection_options(f):
             help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
         click.option(
-            "--runtime-password",
-            envvar="RUNTIME_PASSWORD",
-            type=click.STRING,
-            default=None,
-            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
-        ),
-        click.option(
             "--document-url",
             envvar="DOCUMENT_URL",
             type=click.STRING,
@@ -96,6 +91,28 @@ def _connection_options(f):
             default=None,
             help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
+    ]
+    for option in reversed(options):
+        f = option(f)
+    return f
+
+
+def _connection_options(f):
+    """Decorator with all connection options (remote-forwardable + local-only passwords).
+
+    Used by the in-process `start` command and the default no-subcommand path.
+    `connect` (which forwards over the wire) uses the narrower
+    `_remote_connection_options` instead.
+    """
+    f = _remote_connection_options(f)
+    password_options = [
+        click.option(
+            "--runtime-password",
+            envvar="RUNTIME_PASSWORD",
+            type=click.STRING,
+            default=None,
+            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
+        ),
         click.option(
             "--document-password",
             envvar="DOCUMENT_PASSWORD",
@@ -104,7 +121,7 @@ def _connection_options(f):
             help="Password for document Jupyter server authentication. Takes precedence over --document-token if both are set.",
         ),
     ]
-    for option in reversed(options):
+    for option in reversed(password_options):
         f = option(f)
     return f
 
@@ -432,7 +449,7 @@ def server(
 
 
 @server.command("connect")
-@_connection_options
+@_remote_connection_options
 @click.option(
     "--jupyter-mcp-server-url",
     envvar="JUPYTER_MCP_SERVER_URL",
@@ -445,27 +462,28 @@ def connect_command(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
-    runtime_password: str,
     document_url: str,
     document_id: str,
     document_token: str,
-    document_password: str,
     provider: str,
     jupyterlab: bool,
 ):
-    """Command to connect a Jupyter MCP Server to a document and a runtime."""
+    """Command to connect a Jupyter MCP Server to a document and a runtime.
 
+    Note: password auth is not currently forwarded over the /api/connect
+    wire format. To use password auth, start the MCP server with
+    --runtime-password / --document-password directly (or DOCUMENT_PASSWORD
+    / RUNTIME_PASSWORD env vars).
+    """
     # Set configuration using the singleton
     config = set_config(
         provider=provider,
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
-        runtime_password=runtime_password,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
-        document_password=document_password,
         jupyterlab=jupyterlab,
     )
     

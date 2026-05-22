@@ -27,10 +27,22 @@ def _patch_session(mock_session_cls):
     return session
 
 
+def _make_response(status_code: int = 200, text: str = "") -> MagicMock:
+    """Build a MagicMock response with a real `.text` attribute.
+
+    `auth._truncate` reads `response.text`; we set it explicitly so error-path
+    tests don't accidentally feed a MagicMock into string ops.
+    """
+    response = MagicMock(spec_set=["status_code", "text"])
+    response.status_code = status_code
+    response.text = text
+    return response
+
+
 def _request_responses(*responses):
     """Build a side_effect that yields the given responses in order.
 
-    Mix of HTTP responses (MagicMock(status_code=...)) and exceptions.
+    Mix of HTTP responses (MagicMock-like) and exceptions.
     """
     iterator = iter(responses)
 
@@ -142,7 +154,7 @@ class TestJupyterPasswordAuth:
     # -- inject_into_session -------------------------------------------------
 
     def test_inject_into_session(self):
-        """inject_into_session copies live cookies and sets X-XSRFToken header."""
+        """inject_into_session copies live cookies but NOT a stale XSRF header."""
         auth = self._make_auth()
         auth._authenticated = True
         src_session = requests.Session()
@@ -155,7 +167,9 @@ class TestJupyterPasswordAuth:
 
         assert target.cookies.get("_xsrf") == "token123"
         assert target.cookies.get("session") == "abc"
-        assert target.headers.get("X-XSRFToken") == "token123"
+        # X-XSRFToken is deliberately NOT injected as a default header; it must
+        # be set per-request from the live cookie jar so cookie rotation works.
+        assert "X-XSRFToken" not in target.headers
 
     def test_inject_into_session_not_authenticated(self):
         """inject_into_session is a no-op when not authenticated."""
@@ -328,6 +342,20 @@ class TestJupyterPasswordAuth:
 
         auth = self._make_auth()
         with pytest.raises(RuntimeError, match=r"Unexpected status 302"):
+            auth.login()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_error_includes_response_body(self, mock_session_cls):
+        """Login failures surface a (truncated) response body for debuggability."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.request.side_effect = _request_responses(
+            _make_response(),
+            _make_response(status_code=400, text="<html>Bad password!</html>"),
+        )
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match="Bad password"):
             auth.login()
 
     @patch("jupyter_mcp_server.auth.requests.Session")
