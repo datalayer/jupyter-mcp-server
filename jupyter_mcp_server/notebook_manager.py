@@ -9,13 +9,57 @@ This module provides centralized management for Jupyter notebooks and kernels,
 replacing the scattered global variable approach with a unified architecture.
 """
 
+import logging
+import re
 from typing import Dict, Any, Optional, Callable, Union
 from types import TracebackType
+from urllib.parse import quote, urlencode
 
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
+from jupyter_nbmodel_client.utils import fetch as nbmodel_fetch
+from jupyter_nbmodel_client.utils import url_path_join
 from jupyter_kernel_client import KernelClient
 
 from .config import get_config
+
+logger = logging.getLogger(__name__)
+
+_HTTP_SCHEME_RE = re.compile(r"^http")
+
+
+def _get_jupyter_notebook_ws_url_with_auth(
+    server_url: str,
+    path: str,
+    auth_headers: dict[str, str],
+) -> str:
+    """Get the collaboration websocket URL using cookie/XSRF auth instead of token.
+
+    Replicates the logic of jupyter_nbmodel_client.helpers.get_jupyter_notebook_websocket_url
+    but passes auth_headers (Cookie + X-XSRFToken) to the PUT request.
+    """
+    session_url = url_path_join(server_url, "/api/collaboration/session", quote(path))
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    headers.update(auth_headers)
+    response = nbmodel_fetch(
+        session_url,
+        token=None,
+        method="PUT",
+        json={"format": "json", "type": "notebook"},
+        headers=headers,
+    )
+    response.raise_for_status()
+    content = response.json()
+
+    room_id = f"{content['format']}:{content['type']}:{content['fileId']}"
+    base_ws_url = _HTTP_SCHEME_RE.sub("ws", server_url, 1)
+    room_url = url_path_join(base_ws_url, "api/collaboration/room", room_id)
+    # For websocket, pass cookies as header param
+    params = {"sessionId": content["sessionId"]}
+    room_url += "?" + urlencode(params)
+    return room_url
 
 
 class NotebookConnection:
@@ -39,16 +83,50 @@ class NotebookConnection:
                 "NotebookConnection cannot be used in local/JUPYTER_SERVER mode. "
                 "Cell operations in local mode should use contents_manager directly to read notebook JSON files."
             )
-        
+
         config = get_config()
-        ws_url = get_notebook_websocket_url(
-            server_url=self.notebook_info.get("server_url", config.document_url),
-            token=self.notebook_info.get("token", config.document_token),
-            path=self.notebook_info.get("path", config.document_id),
-            provider=config.provider
-        )
+        server_url = self.notebook_info.get("server_url", config.document_url)
+        token = self.notebook_info.get("token", config.document_token)
+        path = self.notebook_info.get("path", config.document_id)
+
+        from jupyter_mcp_server.server_context import ServerContext
+        auth_headers = ServerContext.get_instance().document_auth_headers
+
+        if auth_headers and config.provider == "jupyter":
+            ws_url = _get_jupyter_notebook_ws_url_with_auth(
+                server_url=server_url,
+                path=path,
+                auth_headers=auth_headers,
+            )
+        else:
+            ws_url = get_notebook_websocket_url(
+                server_url=server_url,
+                token=token,
+                path=path,
+                provider=config.provider,
+            )
         self._notebook = NbModelClient(ws_url)
-        await self._notebook.__aenter__()
+
+        # For password auth, patch the websocket connect to include auth cookies.
+        # NbModelClient doesn't expose additional_headers, so we temporarily
+        # replace the connect function it imports with one that injects our headers.
+        if auth_headers:
+            import jupyter_nbmodel_client.client as nbmodel_client_module
+            from websockets.asyncio.client import connect as original_connect
+            cookie_header = auth_headers.get("Cookie", "")
+
+            def _connect_with_auth(uri, **kwargs):
+                kwargs.setdefault("additional_headers", {})
+                kwargs["additional_headers"]["Cookie"] = cookie_header
+                return original_connect(uri, **kwargs)
+
+            nbmodel_client_module.connect = _connect_with_auth
+            try:
+                await self._notebook.__aenter__()
+            finally:
+                nbmodel_client_module.connect = original_connect
+        else:
+            await self._notebook.__aenter__()
         return self._notebook
     
     async def __aexit__(

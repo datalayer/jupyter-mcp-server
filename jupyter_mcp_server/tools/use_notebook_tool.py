@@ -127,6 +127,7 @@ class UseNotebookTool(BaseTool):
         kernel_id: Optional[str] = None,
         runtime_url: Optional[str] = None,
         runtime_token: Optional[str] = None,
+        auth_headers: Optional[dict[str, str]] = None,
         **kwargs
     ) -> str:
         """Execute the use_notebook tool.
@@ -197,8 +198,9 @@ class UseNotebookTool(BaseTool):
                         return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."
                 kernel = KernelClient(
                     server_url=runtime_url,
-                    token=runtime_token,
-                    kernel_id=kernel_id
+                    token=None if auth_headers else runtime_token,
+                    kernel_id=kernel_id,
+                    headers=auth_headers or None,
                 )
                 # FIXED: Ensure kernel is started with the same path as the notebook
                 kernel.start(path=notebook_path)
