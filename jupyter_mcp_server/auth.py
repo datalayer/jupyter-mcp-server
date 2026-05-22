@@ -14,17 +14,32 @@ from jupyter_mcp_server.log import logger
 class JupyterPasswordAuth:
     """Handles password-based authentication with a Jupyter server.
 
-    Performs POST /login with the password, extracts session cookies
-    and XSRF token, and provides them as headers for injection into
-    both requests-based and websocket-based clients.
+    Performs POST /login with the password, then keeps a `requests.Session`
+    alive so cookies refreshed by the server during subsequent requests are
+    visible via `live_headers()`. Use `inject_into_session()` to copy cookies
+    into another `Session` (e.g. the one inside `JupyterServerClient`).
     """
 
     def __init__(self, server_url: str, password: str):
         self.server_url = server_url.rstrip("/")
         self.password = password
-        self._cookies: dict[str, str] = {}
+        self._session: Optional[requests.Session] = None
         self._xsrf_token: Optional[str] = None
         self._authenticated = False
+
+    def _do_request(self, method: str, url: str, stage: str, timeout: float, **kwargs):
+        """Wrap session.request with consistent error translation per stage."""
+        assert self._session is not None  # set by login() before calling
+        try:
+            return self._session.request(method, url, timeout=timeout, **kwargs)
+        except requests.exceptions.Timeout as error:
+            raise RuntimeError(
+                f"Timed out during {stage} ({method} {url}) after {timeout}s: {error}"
+            ) from error
+        except requests.exceptions.ConnectionError as error:
+            raise RuntimeError(
+                f"Connection error during {stage} ({method} {url}): {error}"
+            ) from error
 
     def login(self, timeout: float = 10.0) -> None:
         """Perform the /login POST to obtain session cookies.
@@ -34,42 +49,32 @@ class JupyterPasswordAuth:
                 POST /login, and the verification GET /api/status).
 
         Raises:
-            RuntimeError: If login fails.
+            RuntimeError: If login fails (connection, timeout, bad credentials,
+                server error, or missing XSRF cookie).
         """
-        with requests.Session() as session:
-            # GET /login to obtain the initial _xsrf cookie
-            try:
-                session.get(f"{self.server_url}/login", timeout=timeout)
-            except requests.exceptions.ConnectionError as error:
-                raise RuntimeError(
-                    f"Cannot connect to Jupyter server at {self.server_url}: {error}"
-                ) from error
-            except requests.exceptions.Timeout as error:
-                raise RuntimeError(
-                    f"Timed out connecting to Jupyter server at {self.server_url} "
-                    f"after {timeout}s: {error}"
-                ) from error
-
+        # Build the session and only retain it on success — on failure, close
+        # it so we don't leak connections.
+        session = requests.Session()
+        self._session = session
+        try:
+            # GET /login to obtain the initial _xsrf cookie. Disable redirects
+            # so we don't silently follow to a different origin (e.g. JupyterHub).
+            self._do_request(
+                "GET", f"{self.server_url}/login",
+                stage="initial XSRF fetch", timeout=timeout,
+                allow_redirects=False,
+            )
             xsrf = session.cookies.get("_xsrf", "")
 
-            # POST /login with password (and _xsrf if present)
+            # POST /login with password (and _xsrf if present).
             post_data = {"password": self.password}
             if xsrf:
                 post_data["_xsrf"] = xsrf
-
-            try:
-                response = session.post(
-                    f"{self.server_url}/login",
-                    data=post_data,
-                    allow_redirects=False,
-                    timeout=timeout,
-                )
-            except requests.exceptions.Timeout as error:
-                raise RuntimeError(
-                    f"Timed out posting credentials to {self.server_url}/login "
-                    f"after {timeout}s: {error}"
-                ) from error
-
+            response = self._do_request(
+                "POST", f"{self.server_url}/login",
+                stage="login POST", timeout=timeout,
+                data=post_data, allow_redirects=False,
+            )
             if response.status_code >= 500:
                 raise RuntimeError(
                     f"Jupyter server returned {response.status_code} on /login — "
@@ -82,53 +87,84 @@ class JupyterPasswordAuth:
                 )
 
             # Verify we actually got authenticated by testing the API.
-            # This also ensures we have the latest _xsrf cookie from the server.
-            try:
-                verify = session.get(f"{self.server_url}/api/status", timeout=timeout)
-            except requests.exceptions.Timeout as error:
-                raise RuntimeError(
-                    f"Timed out verifying session at {self.server_url}/api/status "
-                    f"after {timeout}s: {error}"
-                ) from error
-
-            if verify.status_code != 200:
+            # Distinguish 401/403 (bad credentials) from other failure modes.
+            verify = self._do_request(
+                "GET", f"{self.server_url}/api/status",
+                stage="session verification", timeout=timeout,
+            )
+            if verify.status_code in (401, 403):
                 raise RuntimeError(
                     f"Password login did not produce a valid session "
                     f"(GET /api/status returned {verify.status_code}). "
                     "The password may be incorrect."
                 )
+            if verify.status_code >= 500:
+                raise RuntimeError(
+                    f"Jupyter server returned {verify.status_code} on /api/status — "
+                    "the server is failing, not an auth problem."
+                )
+            if verify.status_code != 200:
+                raise RuntimeError(
+                    f"Unexpected status {verify.status_code} from /api/status "
+                    "while verifying the login session."
+                )
 
-            self._cookies = dict(session.cookies)
+            self._xsrf_token = session.cookies.get("_xsrf", "")
+            if not self._xsrf_token:
+                raise RuntimeError(
+                    "Login succeeded but no _xsrf cookie was set. "
+                    "XSRF-protected POST requests would deterministically fail; "
+                    "refusing to proceed. Check the Jupyter server's XSRF configuration."
+                )
+            self._authenticated = True
+            logger.info(f"Password authentication successful for {self.server_url}")
+        except BaseException:
+            session.close()
+            self._session = None
+            raise
 
-        self._xsrf_token = self._cookies.get("_xsrf", "")
-        if not self._xsrf_token:
-            logger.warning("No _xsrf cookie found after login — XSRF-protected POST requests may fail")
-        self._authenticated = True
-        logger.info(f"Password authentication successful for {self.server_url}")
+    def close(self) -> None:
+        """Close the underlying session. Safe to call multiple times."""
+        if self._session is not None:
+            self._session.close()
+            self._session = None
+        self._authenticated = False
+
+    def _live_cookies(self) -> dict[str, str]:
+        """Snapshot the current cookie jar (post-login, may include refreshes)."""
+        if self._session is None:
+            return {}
+        return dict(self._session.cookies)
 
     @property
     def cookie_header(self) -> str:
-        """Return cookies formatted as a Cookie header value."""
-        return "; ".join(f"{name}={value}" for name, value in self._cookies.items())
+        """Cookie header value built from the current (live) cookie jar."""
+        return "; ".join(f"{name}={value}" for name, value in self._live_cookies().items())
 
     def get_headers(self) -> dict[str, str]:
         """Return headers dict with Cookie and X-XSRFToken for injection.
 
-        Suitable for passing to both jupyter_server_client and
-        jupyter_kernel_client (via their headers kwargs).
+        Reads the live cookie jar so a refreshed `_xsrf` is picked up.
+        Returns an empty dict if `login()` has not been called or has failed.
         """
         if not self._authenticated:
             return {}
-        headers = {"Cookie": self.cookie_header}
-        if self._xsrf_token:
-            headers["X-XSRFToken"] = self._xsrf_token
+        cookies = self._live_cookies()
+        if not cookies:
+            return {}
+        headers = {"Cookie": "; ".join(f"{name}={value}" for name, value in cookies.items())}
+        xsrf = cookies.get("_xsrf", "")
+        if xsrf:
+            headers["X-XSRFToken"] = xsrf
         return headers
 
     def inject_into_session(self, session: requests.Session) -> None:
-        """Inject auth cookies directly into a requests.Session."""
+        """Copy current cookies and X-XSRFToken header into another session."""
         if not self._authenticated:
             return
-        for name, value in self._cookies.items():
+        cookies = self._live_cookies()
+        for name, value in cookies.items():
             session.cookies.set(name, value)
-        if self._xsrf_token:
-            session.headers["X-XSRFToken"] = self._xsrf_token
+        xsrf = cookies.get("_xsrf", "")
+        if xsrf:
+            session.headers["X-XSRFToken"] = xsrf

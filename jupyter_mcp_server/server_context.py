@@ -105,14 +105,23 @@ class ServerContext:
             )
 
     def initialize(self):
-        """Initialize context once."""
+        """Initialize context once.
+
+        Tries to detect a Jupyter-extension context (JUPYTER_SERVER mode).
+        Falls back to MCP_SERVER mode ONLY when the extension's context module
+        cannot be imported — any other exception during mode setup (config
+        errors, login failures, etc.) propagates to the caller.
+        """
         if self._initialized:
             return
 
         try:
             from jupyter_mcp_server.jupyter_extension.context import get_server_context
+        except ImportError:
+            # Not running under jupyter-extension — fall back to MCP_SERVER mode.
+            self._init_mcp_server_mode()
+        else:
             context = get_server_context()
-
             if context.is_local_document() and context.get_contents_manager() is not None:
                 self._mode = ServerMode.JUPYTER_SERVER
                 self._contents_manager = context.get_contents_manager()
@@ -121,11 +130,6 @@ class ServerContext:
                 self._session_manager = context.get_session_manager() if hasattr(context, 'get_session_manager') else None
             else:
                 self._init_mcp_server_mode()
-        except (ImportError, Exception) as e:
-            if not isinstance(e, (ValueError, RuntimeError)):
-                self._init_mcp_server_mode()
-            else:
-                raise
 
         self._initialized = True
         logger.info(f"Server mode initialized: {self._mode}")

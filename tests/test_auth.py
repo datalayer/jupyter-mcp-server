@@ -16,15 +16,31 @@ from jupyter_mcp_server.server_context import ServerContext
 
 
 def _patch_session(mock_session_cls):
-    """Wire mock_session_cls so `with requests.Session() as session:` yields the mock.
+    """Wire mock_session_cls so `requests.Session()` returns a controllable mock.
 
-    Returns the inner session mock that test code should configure.
+    The auth module now uses `session.request(method, url, ...)` for all HTTP
+    calls (via `_do_request`), so configure `session.request` rather than
+    `session.get` / `session.post`. Returns the mock session.
     """
     session = MagicMock()
     mock_session_cls.return_value = session
-    session.__enter__.return_value = session
-    session.__exit__.return_value = False
     return session
+
+
+def _request_responses(*responses):
+    """Build a side_effect that yields the given responses in order.
+
+    Mix of HTTP responses (MagicMock(status_code=...)) and exceptions.
+    """
+    iterator = iter(responses)
+
+    def side_effect(method, url, **kwargs):
+        value = next(iterator)
+        if isinstance(value, BaseException):
+            raise value
+        return value
+
+    return side_effect
 
 
 # ---------------------------------------------------------------------------
@@ -42,35 +58,66 @@ class TestJupyterPasswordAuth:
 
     @patch("jupyter_mcp_server.auth.requests.Session")
     def test_login_success(self, mock_session_cls):
-        """Successful login extracts cookies from session and authenticates."""
+        """Successful login keeps the session alive and exposes live cookies."""
         session = _patch_session(mock_session_cls)
-        # Real cookie jar so dict(session.cookies) works naturally
         jar = RequestsCookieJar()
         jar.set("_xsrf", "2|abc123")
         jar.set("username-localhost", "user123")
         session.cookies = jar
 
-        # GET /login (no-op) → POST /login → GET /api/status → 200
-        session.get.side_effect = [MagicMock(), MagicMock(status_code=200)]
-        session.post.return_value = MagicMock(status_code=302)
+        # GET /login, POST /login (302), GET /api/status (200)
+        session.request.side_effect = _request_responses(
+            MagicMock(),                      # GET /login
+            MagicMock(status_code=302),       # POST /login
+            MagicMock(status_code=200),       # GET /api/status
+        )
 
         auth = self._make_auth()
         auth.login()
 
         assert auth._authenticated is True
-        assert auth._cookies == {"_xsrf": "2|abc123", "username-localhost": "user123"}
+        assert auth._session is session  # session kept alive
         assert auth._xsrf_token == "2|abc123"
 
-        # POST /login must have included the _xsrf from the initial GET
-        post_call = session.post.call_args
+        # POST /login must include the _xsrf token and disable redirects
+        post_call = session.request.call_args_list[1]
+        assert post_call.args[0] == "POST"
         assert post_call.kwargs["data"]["password"] == "secret"
         assert post_call.kwargs["data"]["_xsrf"] == "2|abc123"
         assert post_call.kwargs["allow_redirects"] is False
+        # Initial GET /login must also disable redirects (cross-origin guard)
+        get_call = session.request.call_args_list[0]
+        assert get_call.args[0] == "GET"
+        assert get_call.kwargs["allow_redirects"] is False
 
         headers = auth.get_headers()
         assert headers["X-XSRFToken"] == "2|abc123"
         assert "_xsrf=2|abc123" in headers["Cookie"]
         assert "username-localhost=user123" in headers["Cookie"]
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_get_headers_returns_live_cookies(self, mock_session_cls):
+        """get_headers reflects cookies set on the session AFTER login."""
+        session = _patch_session(mock_session_cls)
+        jar = RequestsCookieJar()
+        jar.set("_xsrf", "initial")
+        session.cookies = jar
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=302),
+            MagicMock(status_code=200),
+        )
+
+        auth = self._make_auth()
+        auth.login()
+
+        # Simulate the server rotating a cookie post-login
+        jar.set("_xsrf", "rotated")
+        jar.set("new", "value")
+
+        headers = auth.get_headers()
+        assert headers["X-XSRFToken"] == "rotated"
+        assert "new=value" in headers["Cookie"]
 
     # -- get_headers ---------------------------------------------------------
 
@@ -79,99 +126,148 @@ class TestJupyterPasswordAuth:
         auth = self._make_auth()
         assert auth.get_headers() == {}
 
-    def test_get_headers_with_xsrf(self):
-        """get_headers includes Cookie and X-XSRFToken."""
+    def test_get_headers_without_xsrf_in_jar(self):
+        """get_headers omits X-XSRFToken when no _xsrf cookie is present."""
         auth = self._make_auth()
         auth._authenticated = True
-        auth._cookies = {"_xsrf": "token123", "session": "abc"}
-        auth._xsrf_token = "token123"
-
-        headers = auth.get_headers()
-        assert headers["X-XSRFToken"] == "token123"
-        assert "_xsrf=token123" in headers["Cookie"]
-        assert "session=abc" in headers["Cookie"]
-
-    def test_get_headers_without_xsrf(self):
-        """get_headers omits X-XSRFToken when _xsrf cookie is empty."""
-        auth = self._make_auth()
-        auth._authenticated = True
-        auth._cookies = {"session": "abc"}
-        auth._xsrf_token = ""
+        session = requests.Session()
+        session.cookies.set("session", "abc")
+        auth._session = session
 
         headers = auth.get_headers()
         assert "Cookie" in headers
+        assert "session=abc" in headers["Cookie"]
         assert "X-XSRFToken" not in headers
-
-    # -- cookie_header -------------------------------------------------------
-
-    def test_cookie_header_format(self):
-        """cookie_header formats cookies correctly."""
-        auth = self._make_auth()
-        auth._cookies = {"a": "1", "b": "2"}
-        assert "a=1" in auth.cookie_header
-        assert "b=2" in auth.cookie_header
-        assert "; " in auth.cookie_header
 
     # -- inject_into_session -------------------------------------------------
 
     def test_inject_into_session(self):
-        """inject_into_session sets cookies and X-XSRFToken header."""
+        """inject_into_session copies live cookies and sets X-XSRFToken header."""
         auth = self._make_auth()
         auth._authenticated = True
-        auth._cookies = {"_xsrf": "token123", "session": "abc"}
-        auth._xsrf_token = "token123"
+        src_session = requests.Session()
+        src_session.cookies.set("_xsrf", "token123")
+        src_session.cookies.set("session", "abc")
+        auth._session = src_session
 
-        session = requests.Session()
-        auth.inject_into_session(session)
+        target = requests.Session()
+        auth.inject_into_session(target)
 
-        assert session.cookies.get("_xsrf") == "token123"
-        assert session.cookies.get("session") == "abc"
-        assert session.headers.get("X-XSRFToken") == "token123"
+        assert target.cookies.get("_xsrf") == "token123"
+        assert target.cookies.get("session") == "abc"
+        assert target.headers.get("X-XSRFToken") == "token123"
 
     def test_inject_into_session_not_authenticated(self):
         """inject_into_session is a no-op when not authenticated."""
         auth = self._make_auth()
-        session = requests.Session()
-        original_cookies = dict(session.cookies)
+        target = requests.Session()
+        original_cookies = dict(target.cookies)
 
-        auth.inject_into_session(session)
+        auth.inject_into_session(target)
 
-        assert dict(session.cookies) == original_cookies
+        assert dict(target.cookies) == original_cookies
+
+    # -- close ---------------------------------------------------------------
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_close_clears_state(self, mock_session_cls):
+        session = _patch_session(mock_session_cls)
+        jar = RequestsCookieJar()
+        jar.set("_xsrf", "x")
+        session.cookies = jar
+        session.request.side_effect = _request_responses(
+            MagicMock(), MagicMock(status_code=302), MagicMock(status_code=200),
+        )
+
+        auth = self._make_auth()
+        auth.login()
+        auth.close()
+        session.close.assert_called_once()
+        assert auth._session is None
+        assert auth._authenticated is False
 
     # -- login error cases ---------------------------------------------------
 
     @patch("jupyter_mcp_server.auth.requests.Session")
-    def test_login_connection_error(self, mock_session_cls):
-        """login raises RuntimeError on connection failure."""
+    def test_login_connection_error_on_initial_get(self, mock_session_cls):
+        """ConnectionError on initial GET surfaces as RuntimeError."""
         session = _patch_session(mock_session_cls)
         session.cookies = RequestsCookieJar()
-        session.get.side_effect = requests.exceptions.ConnectionError("refused")
+        session.request.side_effect = requests.exceptions.ConnectionError("refused")
 
         auth = self._make_auth()
-        with pytest.raises(RuntimeError, match="Cannot connect"):
+        with pytest.raises(RuntimeError, match="Connection error"):
+            auth.login()
+        # Session must be closed on failure
+        session.close.assert_called_once()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_connection_error_on_post(self, mock_session_cls):
+        """ConnectionError on POST /login also surfaces as RuntimeError."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            requests.exceptions.ConnectionError("reset"),
+        )
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match="Connection error.*POST"):
+            auth.login()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_connection_error_on_verify(self, mock_session_cls):
+        """ConnectionError on /api/status verify also surfaces as RuntimeError."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=302),
+            requests.exceptions.ConnectionError("reset during verify"),
+        )
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match="Connection error.*api/status"):
             auth.login()
 
     @patch("jupyter_mcp_server.auth.requests.Session")
     def test_login_connection_timeout(self, mock_session_cls):
-        """login raises RuntimeError on timeout during GET /login."""
+        """Timeout on GET /login surfaces as RuntimeError."""
         session = _patch_session(mock_session_cls)
         session.cookies = RequestsCookieJar()
-        session.get.side_effect = requests.exceptions.Timeout("slow")
+        session.request.side_effect = requests.exceptions.Timeout("slow")
 
         auth = self._make_auth()
-        with pytest.raises(RuntimeError, match="Timed out connecting"):
+        with pytest.raises(RuntimeError, match="Timed out"):
             auth.login(timeout=0.5)
 
     @patch("jupyter_mcp_server.auth.requests.Session")
-    def test_login_server_error_5xx(self, mock_session_cls):
-        """5xx from /login surfaces a 'server is failing' message, not an auth message."""
+    def test_login_server_error_5xx_on_login(self, mock_session_cls):
+        """5xx from /login surfaces a 'server is failing' message."""
         session = _patch_session(mock_session_cls)
         session.cookies = RequestsCookieJar()
-        session.get.return_value = MagicMock()
-        session.post.return_value = MagicMock(status_code=503)
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=503),
+        )
 
         auth = self._make_auth()
         with pytest.raises(RuntimeError, match=r"503.*server is failing"):
+            auth.login()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_server_error_5xx_on_verify(self, mock_session_cls):
+        """5xx from /api/status is also classified as server failure, not auth."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=302),
+            MagicMock(status_code=502),
+        )
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match=r"502.*server is failing"):
             auth.login()
 
     @patch("jupyter_mcp_server.auth.requests.Session")
@@ -179,8 +275,10 @@ class TestJupyterPasswordAuth:
         """Non-200/302 status from /login is treated as a login failure."""
         session = _patch_session(mock_session_cls)
         session.cookies = RequestsCookieJar()
-        session.get.return_value = MagicMock()
-        session.post.return_value = MagicMock(status_code=400)
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=400),
+        )
 
         auth = self._make_auth()
         with pytest.raises(RuntimeError, match="login failed with status 400"):
@@ -191,11 +289,11 @@ class TestJupyterPasswordAuth:
         """403 from /api/status verify means cookies didn't authenticate."""
         session = _patch_session(mock_session_cls)
         session.cookies = RequestsCookieJar()
-        session.get.side_effect = [
-            MagicMock(),                    # GET /login
-            MagicMock(status_code=403),     # GET /api/status → forbidden
-        ]
-        session.post.return_value = MagicMock(status_code=302)
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=302),
+            MagicMock(status_code=403),
+        )
 
         auth = self._make_auth()
         with pytest.raises(RuntimeError, match="password may be incorrect"):
@@ -206,15 +304,48 @@ class TestJupyterPasswordAuth:
         """401 from /api/status verify is also treated as auth failure (not just 403)."""
         session = _patch_session(mock_session_cls)
         session.cookies = RequestsCookieJar()
-        session.get.side_effect = [
-            MagicMock(),                    # GET /login
-            MagicMock(status_code=401),     # GET /api/status → unauthorized
-        ]
-        session.post.return_value = MagicMock(status_code=302)
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=302),
+            MagicMock(status_code=401),
+        )
 
         auth = self._make_auth()
         with pytest.raises(RuntimeError, match="password may be incorrect"):
             auth.login()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_unexpected_verify_status(self, mock_session_cls):
+        """Non-200/4xx/5xx from /api/status (e.g. 3xx redirect) is its own error."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.cookies.set("_xsrf", "tok")  # set so we don't hit the missing-xsrf raise
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=302),
+            MagicMock(status_code=302),  # /api/status redirect (unexpected)
+        )
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match=r"Unexpected status 302"):
+            auth.login()
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_fails_when_no_xsrf_cookie(self, mock_session_cls):
+        """Login that succeeds at HTTP level but leaves no _xsrf cookie must fail fast."""
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()  # never sets _xsrf
+        session.request.side_effect = _request_responses(
+            MagicMock(),
+            MagicMock(status_code=302),
+            MagicMock(status_code=200),
+        )
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match="no _xsrf cookie"):
+            auth.login()
+        # Session is closed on failure
+        session.close.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -641,8 +772,8 @@ class TestPasswordAuthE2E:
                 notebook_path="notebook.ipynb",
                 mode="connect",
             )
-            assert use_result is not None
-            assert "error" not in use_result.lower() if isinstance(use_result, str) else True
+            assert isinstance(use_result, str)
+            assert "error" not in use_result.lower(), f"use_notebook returned an error: {use_result}"
 
             # Read a cell to verify the notebook connection is working
             cell = await mcp_client_password.read_cell(cell_index=0)

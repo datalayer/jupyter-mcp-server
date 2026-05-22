@@ -25,8 +25,13 @@ from jupyter_mcp_server.server import (
 )
 
 # Shared options decorator to reduce code duplication
-def _common_options(f):
-    """Decorator that adds common start options to a command."""
+def _connection_options(f):
+    """Decorator adding options that identify the document and runtime servers.
+
+    These are the only options needed by `connect` (which forwards them to a
+    remote MCP server). `_common_options` extends this with start-time-only
+    options like MCP auth and `--jupyter-*` aliases.
+    """
     options = [
         click.option(
             "--provider",
@@ -64,18 +69,11 @@ def _common_options(f):
             help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
         click.option(
-            "--mcp-token",
-            envvar="MCP_TOKEN",
+            "--runtime-password",
+            envvar="RUNTIME_PASSWORD",
             type=click.STRING,
             default=None,
-            help="Token for authenticating MCP clients (Bearer scheme). Required for streamable-http unless --insecure-mcp-noauth is set.",
-        ),
-        click.option(
-            "--insecure-mcp-noauth",
-            envvar="INSECURE_MCP_NOAUTH",
-            is_flag=True,
-            default=False,
-            help="Allow running streamable-http transport without MCP client authentication. NOT recommended for production.",
+            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
         ),
         click.option(
             "--document-url",
@@ -99,6 +97,37 @@ def _common_options(f):
             help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
         click.option(
+            "--document-password",
+            envvar="DOCUMENT_PASSWORD",
+            type=click.STRING,
+            default=None,
+            help="Password for document Jupyter server authentication. Takes precedence over --document-token if both are set.",
+        ),
+    ]
+    for option in reversed(options):
+        f = option(f)
+    return f
+
+
+def _common_options(f):
+    """Decorator adding all start-time options (extends `_connection_options`)."""
+    f = _connection_options(f)
+    extra_options = [
+        click.option(
+            "--mcp-token",
+            envvar="MCP_TOKEN",
+            type=click.STRING,
+            default=None,
+            help="Token for authenticating MCP clients (Bearer scheme). Required for streamable-http unless --insecure-mcp-noauth is set.",
+        ),
+        click.option(
+            "--insecure-mcp-noauth",
+            envvar="INSECURE_MCP_NOAUTH",
+            is_flag=True,
+            default=False,
+            help="Allow running streamable-http transport without MCP client authentication. NOT recommended for production.",
+        ),
+        click.option(
             "--jupyter-url",
             envvar="JUPYTER_URL",
             type=click.STRING,
@@ -113,20 +142,6 @@ def _common_options(f):
             help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
         ),
         click.option(
-            "--runtime-password",
-            envvar="RUNTIME_PASSWORD",
-            type=click.STRING,
-            default=None,
-            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
-        ),
-        click.option(
-            "--document-password",
-            envvar="DOCUMENT_PASSWORD",
-            type=click.STRING,
-            default=None,
-            help="Password for document Jupyter server authentication. Takes precedence over --document-token if both are set.",
-        ),
-        click.option(
             "--jupyter-password",
             envvar="JUPYTER_PASSWORD",
             type=click.STRING,
@@ -139,10 +154,9 @@ def _common_options(f):
             type=click.STRING,
             default="notebook_run-all-cells,notebook_get-selected-cell",
             help="Comma-separated list of jupyter-mcp-tools to enable. Defaults to 'notebook_run-all-cells,notebook_get-selected-cell' - Only applicable when run as jupyter server extension.",
-        )
+        ),
     ]
-    # Apply decorators in reverse order
-    for option in reversed(options):
+    for option in reversed(extra_options):
         f = option(f)
     return f
 
@@ -303,7 +317,9 @@ def _do_start(
                 "Any client can connect without credentials. Not recommended for production."
             )
         else:
-            assert False, "early validation should have caught missing MCP auth config"
+            # Unreachable: early validation in start_command / server should have caught
+            # this. Use raise (not assert) so `python -O` doesn't strip the check.
+            raise RuntimeError("MCP auth config missing; early validation should have caught this")
 
     logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
 
@@ -416,7 +432,7 @@ def server(
 
 
 @server.command("connect")
-@_common_options
+@_connection_options
 @click.option(
     "--jupyter-mcp-server-url",
     envvar="JUPYTER_MCP_SERVER_URL",
@@ -429,16 +445,13 @@ def connect_command(
     runtime_url: str,
     runtime_id: str,
     runtime_token: str,
-    mcp_token: str,
-    insecure_mcp_noauth: bool,
+    runtime_password: str,
     document_url: str,
     document_id: str,
     document_token: str,
+    document_password: str,
     provider: str,
     jupyterlab: bool,
-    jupyter_url: str,
-    jupyter_token: str,
-    allowed_jupyter_mcp_tools: str,
 ):
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
@@ -448,10 +461,12 @@ def connect_command(
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
+        runtime_password=runtime_password,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
-        jupyterlab=jupyterlab
+        document_password=document_password,
+        jupyterlab=jupyterlab,
     )
     
     # Also update the jupyter_extension ServerContext with the jupyterlab flag
