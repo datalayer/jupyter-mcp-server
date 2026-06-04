@@ -179,13 +179,23 @@ def _common_options(f):
 
 
 class _ResolvedConnection(NamedTuple):
-    """Result of resolving connection variables (URL, token, password) for both servers."""
+    """Fully-resolved connection inputs for both the document and runtime servers.
+
+    Carries the complete set of per-server connection fields so callers can pass a
+    single object to `_do_start` instead of mixing resolved values (URLs/tokens/
+    passwords) with un-resolved ones (ids/provider/jupyterlab). The id/provider/
+    jupyterlab fields are threaded through the resolver unchanged.
+    """
     document_url: str
+    document_id: Optional[str]
     document_token: Optional[str]
-    runtime_url: str
-    runtime_token: Optional[str]
     document_password: Optional[str]
+    runtime_url: str
+    runtime_id: Optional[str]
+    runtime_token: Optional[str]
     runtime_password: Optional[str]
+    provider: str
+    jupyterlab: bool
 
 
 def _resolve_connection_variables(
@@ -193,9 +203,13 @@ def _resolve_connection_variables(
     jupyter_url: Optional[str],
     jupyter_token: Optional[str],
     document_url: Optional[str],
+    document_id: Optional[str],
     document_token: Optional[str],
     runtime_url: Optional[str],
+    runtime_id: Optional[str],
     runtime_token: Optional[str],
+    provider: str,
+    jupyterlab: bool,
     jupyter_password: Optional[str] = None,
     document_password: Optional[str] = None,
     runtime_password: Optional[str] = None,
@@ -206,36 +220,36 @@ def _resolve_connection_variables(
     1. Individual variables (document_*, runtime_*) take precedence if set
     2. Shared `jupyter_*` variables used as fallback if individual variables are None
     3. Default values when neither individual nor shared variables are set
+
+    The `document_id`, `runtime_id`, `provider`, and `jupyterlab` fields have no
+    resolution logic; they are carried through unchanged so the returned tuple holds
+    the full connection input set.
     """
     default_url = "http://localhost:8888"
     return _ResolvedConnection(
         document_url=document_url or jupyter_url or default_url,
+        document_id=document_id,
         document_token=document_token or jupyter_token,
-        runtime_url=runtime_url or jupyter_url or default_url,
-        runtime_token=runtime_token or jupyter_token,
         document_password=document_password or jupyter_password,
+        runtime_url=runtime_url or jupyter_url or default_url,
+        runtime_id=runtime_id,
+        runtime_token=runtime_token or jupyter_token,
         runtime_password=runtime_password or jupyter_password,
+        provider=provider,
+        jupyterlab=jupyterlab,
     )
 
 
 def _do_start(
+    *,
     transport: str,
     start_new_runtime: bool,
-    runtime_url: str,
-    runtime_id: str,
-    runtime_token: str,
-    document_url: str,
-    document_id: str,
-    document_token: str,
+    resolved: _ResolvedConnection,
     port: int,
-    provider: str,
-    jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str = "",
     mcp_token: str = None,
     insecure_mcp_noauth: bool = False,
-    runtime_password: str = None,
-    document_password: str = None,
 ):
     """Internal function to execute the start logic."""
 
@@ -250,8 +264,8 @@ def _do_start(
     # Log the received configuration for diagnostics
     # Note: set_config() will automatically normalize string "None" values
     logger.info(
-        f"Start command received - runtime_url: {repr(runtime_url)}, "
-        f"document_url: {repr(document_url)}, provider: {provider}, "
+        f"Start command received - runtime_url: {repr(resolved.runtime_url)}, "
+        f"document_url: {repr(resolved.document_url)}, provider: {resolved.provider}, "
         f"transport: {transport}"
     )
 
@@ -259,19 +273,19 @@ def _do_start(
     # String "None" values will be automatically normalized by set_config()
     config = set_config(
         transport=transport,
-        provider=provider,
-        runtime_url=runtime_url,
+        provider=resolved.provider,
+        runtime_url=resolved.runtime_url,
         start_new_runtime=start_new_runtime,
-        runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        document_url=document_url,
-        document_id=document_id,
-        document_token=document_token,
+        runtime_id=resolved.runtime_id,
+        runtime_token=resolved.runtime_token,
+        document_url=resolved.document_url,
+        document_id=resolved.document_id,
+        document_token=resolved.document_token,
         port=port,
-        jupyterlab=jupyterlab,
+        jupyterlab=resolved.jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
-        runtime_password=runtime_password,
-        document_password=document_password,
+        runtime_password=resolved.runtime_password,
+        document_password=resolved.document_password,
     )
 
     # Reset ServerContext to pick up new configuration
@@ -419,9 +433,13 @@ def server(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
+        document_id=document_id,
         document_token=document_token,
         runtime_url=runtime_url,
+        runtime_id=runtime_id,
         runtime_token=runtime_token,
+        provider=provider,
+        jupyterlab=jupyterlab,
         jupyter_password=jupyter_password,
         document_password=document_password,
         runtime_password=runtime_password,
@@ -430,21 +448,12 @@ def server(
     _do_start(
         transport=transport,
         start_new_runtime=start_new_runtime,
-        runtime_url=resolved.runtime_url,
-        runtime_id=runtime_id,
-        runtime_token=resolved.runtime_token,
-        document_url=resolved.document_url,
-        document_id=document_id,
-        document_token=resolved.document_token,
+        resolved=resolved,
         port=port,
-        provider=provider,
-        jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
-        runtime_password=resolved.runtime_password,
-        document_password=resolved.document_password,
     )
 
 
@@ -599,9 +608,13 @@ def start_command(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
+        document_id=document_id,
         document_token=document_token,
         runtime_url=runtime_url,
+        runtime_id=runtime_id,
         runtime_token=runtime_token,
+        provider=provider,
+        jupyterlab=jupyterlab,
         jupyter_password=jupyter_password,
         document_password=document_password,
         runtime_password=runtime_password,
@@ -610,21 +623,12 @@ def start_command(
     _do_start(
         transport=transport,
         start_new_runtime=start_new_runtime,
-        runtime_url=resolved.runtime_url,
-        runtime_id=runtime_id,
-        runtime_token=resolved.runtime_token,
-        document_url=resolved.document_url,
-        document_id=document_id,
-        document_token=resolved.document_token,
+        resolved=resolved,
         port=port,
-        provider=provider,
-        jupyterlab=jupyterlab,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
-        runtime_password=resolved.runtime_password,
-        document_password=resolved.document_password,
     )
 
 

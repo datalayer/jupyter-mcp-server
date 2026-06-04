@@ -779,30 +779,47 @@ class TestPasswordAuthE2E:
     @pytest.mark.asyncio
     async def test_password_auth_execute_code(self, mcp_client_password):
         """KernelClient works with password cookie/XSRF auth."""
+        # Multiply two large ints so the expected value can't appear incidentally
+        # in an error message or unrelated output (a bare "4" easily could).
+        factor_a, factor_b = 98765, 43210
+        expected_product = str(factor_a * factor_b)
         async with mcp_client_password:
-            result = await mcp_client_password.execute_code("2 + 2")
+            result = await mcp_client_password.execute_code(f"{factor_a} * {factor_b}")
         assert result is not None
         assert "result" in result
         outputs = result["result"]
-        assert any("4" in str(output) for output in outputs)
+        assert any(expected_product in str(output) for output in outputs), (
+            f"expected product {expected_product} not found in outputs: {outputs}"
+        )
 
     @pytest.mark.asyncio
-    async def test_password_auth_notebook_operations(self, mcp_client_password):
+    async def test_password_auth_notebook_operations(self, mcp_client_password, password_notebook):
         """WebSocket collaboration path works with password auth.
 
         This is the most critical test — it exercises the monkey-patched
-        websocket connect that injects Cookie headers into NbModelClient.
+        websocket connect that injects Cookie headers into NbModelClient. It
+        drives a full round-trip over the collaboration WebSocket: insert and
+        execute a cell, then read its output back, verifying actual content
+        rather than merely a non-null read.
         """
+        factor_a, factor_b = 13577, 24683
+        expected_product = str(factor_a * factor_b)
         async with mcp_client_password:
             # Connect to the notebook (triggers WebSocket collaboration)
             use_result = await mcp_client_password.use_notebook(
                 notebook_name="password_test",
-                notebook_path="notebook.ipynb",
+                notebook_path=password_notebook,
                 mode="connect",
             )
             assert isinstance(use_result, str)
             assert "error" not in use_result.lower(), f"use_notebook returned an error: {use_result}"
 
-            # Read a cell to verify the notebook connection is working
+            # Insert + execute a cell over the WebSocket collaboration path...
+            await mcp_client_password.insert_execute_code_cell(0, f"{factor_a} * {factor_b}")
+
+            # ...and read it back to confirm the round-trip produced the right output.
             cell = await mcp_client_password.read_cell(cell_index=0)
             assert cell is not None
+            assert expected_product in str(cell), (
+                f"expected product {expected_product} not found in cell: {cell}"
+            )

@@ -19,8 +19,10 @@ import os
 import socket
 import subprocess
 import time
+import uuid
 from http import HTTPStatus
 
+import nbformat
 import pytest
 import pytest_asyncio
 import requests
@@ -428,11 +430,24 @@ JUPYTER_PASSWORD = "test-password-e2e"
 
 
 @pytest.fixture(scope="session")
-def jupyter_server_password():
-    """Start a Jupyter server with password auth (no token).
+def jupyter_password_root_dir(tmp_path_factory):
+    """Isolated root directory for the password-auth Jupyter server.
 
-    Uses ``jupyter server password`` hashing to set a password and disables
-    token auth so the only way to authenticate is via the /login flow.
+    Tests write their own scratch notebooks here instead of into the repo's
+    ``./dev/content`` (which holds notebooks that ship with the repo).
+    """
+    return tmp_path_factory.mktemp("jupyter_password_content")
+
+
+@pytest.fixture(scope="session")
+def jupyter_server_password(jupyter_password_root_dir):
+    """Start a Jupyter server with both a password and a token configured.
+
+    The password is set via ``jupyter server password`` hashing. A token is also
+    configured on purpose: token and password are independent mechanisms, so this
+    verifies the MCP server authenticates via password (the only credential it is
+    given) even when the server still accepts a token — the real-world scenario,
+    and it avoids leaving the server with no authentication at all.
     """
     if not TEST_MCP_SERVER:
         pytest.skip("TEST_MCP_SERVER is disabled — password e2e tests only run in MCP_SERVER mode")
@@ -449,10 +464,10 @@ def jupyter_server_password():
         command=[
             "jupyter", "lab",
             "--port", str(port),
-            "--IdentityProvider.token", "",
+            "--IdentityProvider.token", JUPYTER_TOKEN,
             "--ServerApp.password", password_hash,
             "--ip", host,
-            "--ServerApp.root_dir", "./dev/content",
+            "--ServerApp.root_dir", str(jupyter_password_root_dir),
             "--no-browser",
         ],
         readiness_endpoint="/login",
@@ -461,7 +476,21 @@ def jupyter_server_password():
 
 
 @pytest.fixture(scope="function")
-def jupyter_mcp_server_password(jupyter_server_password):
+def password_notebook(jupyter_password_root_dir):
+    """Create a uniquely-named empty notebook in the password server's root dir.
+
+    Yields the notebook filename (relative to the server root). A unique name per
+    test avoids cross-test collisions on a shared hardcoded notebook path.
+    """
+    notebook_name = f"password_test_{uuid.uuid4().hex[:8]}.ipynb"
+    notebook_path = jupyter_password_root_dir / notebook_name
+    nbformat.write(nbformat.v4.new_notebook(), str(notebook_path))
+    yield notebook_name
+    notebook_path.unlink(missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def jupyter_mcp_server_password(jupyter_server_password, password_notebook):
     """Start a standalone MCP server that authenticates to Jupyter via password."""
     host = "localhost"
     port = _find_free_port()
@@ -473,7 +502,7 @@ def jupyter_mcp_server_password(jupyter_server_password):
             "python", "-m", "jupyter_mcp_server",
             "--transport", "streamable-http",
             "--document-url", jupyter_server_password,
-            "--document-id", "notebook.ipynb",
+            "--document-id", password_notebook,
             "--runtime-url", jupyter_server_password,
             "--start-new-runtime", "True",
             "--jupyter-password", JUPYTER_PASSWORD,

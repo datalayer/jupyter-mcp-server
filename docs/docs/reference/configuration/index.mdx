@@ -52,7 +52,7 @@ For most users with standard JupyterLab setups:
 | `ALLOWED_JUPYTER_MCP_TOOLS` | Comma-separated list of jupyter-mcp-tools to enable | `notebook_run-all-cells,notebook_get-selected-cell` | `notebook_run-all-cells,notebook_get-selected-cell` | No |
 | `ALLOW_IMG_OUTPUT` | Enable multimodal image support | `true` / `false` | `true` | No |
 
-*Either `JUPYTER_TOKEN` or `JUPYTER_PASSWORD` is required when connecting to secured Jupyter servers. See [Security](../security) for details on when to use each.
+*At least one of `JUPYTER_TOKEN` or `JUPYTER_PASSWORD` is required when connecting to a secured Jupyter server. They are independent authentication mechanisms — a server may have both configured, and supplying either one is sufficient to connect. When both are provided to the MCP server, password authentication takes precedence. See [Security](../security) for details on when to use each.
 
 ### Advanced Configuration (Complex Deployments)
 

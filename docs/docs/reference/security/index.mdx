@@ -150,7 +150,7 @@ Cross-Site Request Forgery (XSRF/CSRF) protection prevents unauthorized commands
 As described in [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183), some Jupyter deployments don't use Bearer tokens but rely on XSRF cookies for authentication:
 
 **Affected Environments:**
-- Jupyter servers started without a token: `jupyter lab --IdentityProvider.token ''`
+- Jupyter servers that run without a Bearer token (for example, password-protected servers)
 - Enterprise deployments with SSO/OAuth/IAM
 - Managed environments (AWS SageMaker Studio, Google Colab Enterprise, Azure ML)
 - JupyterHub where authentication is handled by the Hub
@@ -233,11 +233,20 @@ If your Jupyter server doesn't have a password configured yet:
 jupyter server password
 ```
 
-This stores a hashed password in `~/.jupyter/jupyter_server_config.json`. Then start Jupyter without a token:
+This stores a hashed password in `~/.jupyter/jupyter_server_config.json`. Then start Jupyter normally — the password is active immediately, so the MCP server can authenticate against it:
 
 ```bash
-jupyter lab --IdentityProvider.token ''
+jupyter lab
 ```
+
+:::warning Keep the token configured
+
+Do **not** blank out the server token (e.g. `--IdentityProvider.token ''`) just to enable password
+auth. Token and password are independent mechanisms — password auth works whether or not a token is
+set. Leaving a token in place keeps a working fallback: if password authentication ever fails, the
+server still requires *some* credential rather than being left open with no authentication at all.
+
+:::
 
 ### Limitations
 
@@ -247,11 +256,11 @@ Password authentication addresses the XSRF-protected scenario described in [issu
 
 :::
 
-### Alternatives for Token-less Environments
+### Alternatives to Password Authentication
 
-If password auth doesn't fit your deployment:
+If password auth doesn't fit your deployment, you can authenticate with a token instead (or, for development only, disable XSRF):
 
-#### Option 1: Start Jupyter with a Token
+#### Option 1: Token-based Authentication
 
 ```bash
 jupyter lab --IdentityProvider.token YOUR_SECURE_TOKEN
