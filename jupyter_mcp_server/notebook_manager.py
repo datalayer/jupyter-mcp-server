@@ -55,6 +55,10 @@ class NotebookConnection:
         auth_headers = server_context.document_auth_headers
 
         ws_url = self._get_ws_url(server_url, token, path, config, auth_headers)
+        # _get_ws_url may have re-authenticated on an expired cookie; re-read the
+        # (possibly rotated) cookie so the WebSocket handshake uses a fresh one
+        # rather than the snapshot captured before any relogin.
+        auth_headers = server_context.document_auth_headers
         websocket_headers = (
             {"Cookie": auth_headers["Cookie"]}
             if auth_headers and "Cookie" in auth_headers

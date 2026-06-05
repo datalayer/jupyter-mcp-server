@@ -534,7 +534,7 @@ def jupyter_short_cookie_root_dir(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def jupyter_server_short_cookie(jupyter_short_cookie_root_dir):
+def jupyter_server_short_cookie(jupyter_short_cookie_root_dir, tmp_path_factory):
     """Jupyter server whose session cookie expires after a few seconds.
 
     Writes a ``jupyter_server_config.py`` that sets
@@ -545,8 +545,7 @@ def jupyter_server_short_cookie(jupyter_short_cookie_root_dir):
     if not TEST_MCP_SERVER:
         pytest.skip("TEST_MCP_SERVER is disabled")
 
-    config_dir = jupyter_short_cookie_root_dir.parent / "jupyter_short_cookie_config"
-    config_dir.mkdir(exist_ok=True)
+    config_dir = tmp_path_factory.mktemp("jupyter_short_cookie_config")
 
     expires_days = _COOKIE_TTL_SECONDS / (24 * 60 * 60)
     config_py = config_dir / "jupyter_server_config.py"

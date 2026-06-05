@@ -787,12 +787,8 @@ class TestSessionExpiry:
     """Tests that verify behaviour when a password-auth session cookie expires.
 
     ``jupyter_server_short_cookie`` starts a Jupyter server whose session cookie
-    is configured to expire after a very short TTL (see conftest._COOKIE_TTL_SECONDS).
+    is configured to expire after a very short TTL (``_COOKIE_TTL_SECONDS``).
     """
-
-    # Same constants as conftest — kept local to avoid import gymnastics.
-    _PASSWORD = "test-password-e2e"
-    _TTL = 2  # must match conftest._COOKIE_TTL_SECONDS
 
     def test_expired_cookie_causes_auth_failure(self, jupyter_server_short_cookie):
         """After the cookie TTL elapses, GET /api/status returns 401 or 403.
@@ -801,8 +797,9 @@ class TestSessionExpiry:
         a prerequisite for any re-login logic being meaningful.
         """
         import time
+        from tests.conftest import JUPYTER_PASSWORD, _COOKIE_TTL_SECONDS
 
-        auth = JupyterPasswordAuth(jupyter_server_short_cookie, self._PASSWORD)
+        auth = JupyterPasswordAuth(jupyter_server_short_cookie, JUPYTER_PASSWORD)
         auth.login()
 
         # Sanity-check: session works immediately after login.
@@ -812,7 +809,7 @@ class TestSessionExpiry:
         )
 
         # Wait for the cookie to expire.
-        time.sleep(self._TTL + 1)
+        time.sleep(_COOKIE_TTL_SECONDS + 1)
 
         # The session cookie has expired; the request should now be rejected.
         expired = auth._session.get(f"{jupyter_server_short_cookie}/api/status")
@@ -825,11 +822,12 @@ class TestSessionExpiry:
     def test_relogin_restores_session_after_expiry(self, jupyter_server_short_cookie):
         """relogin() obtains a fresh session and subsequent requests succeed."""
         import time
+        from tests.conftest import JUPYTER_PASSWORD, _COOKIE_TTL_SECONDS
 
-        auth = JupyterPasswordAuth(jupyter_server_short_cookie, self._PASSWORD)
+        auth = JupyterPasswordAuth(jupyter_server_short_cookie, JUPYTER_PASSWORD)
         auth.login()
 
-        time.sleep(self._TTL + 1)
+        time.sleep(_COOKIE_TTL_SECONDS + 1)
 
         # Confirm the session is stale.
         assert auth._session.get(
@@ -859,7 +857,12 @@ class TestSessionExpiry:
         import time
         import uuid
         import nbformat
-        from tests.conftest import _find_free_port, _start_server
+        from tests.conftest import (
+            _find_free_port,
+            _start_server,
+            JUPYTER_PASSWORD,
+            _COOKIE_TTL_SECONDS,
+        )
         from tests.test_common import MCPClient
 
         factor_a, factor_b = 47293, 81637
@@ -881,14 +884,14 @@ class TestSessionExpiry:
                 "--document-id", notebook_name,
                 "--runtime-url", jupyter_server_short_cookie,
                 "--start-new-runtime", "True",
-                "--jupyter-password", self._PASSWORD,
+                "--jupyter-password", JUPYTER_PASSWORD,
                 "--insecure-mcp-noauth",
                 "--port", str(port),
             ],
             readiness_endpoint="/api/healthz",
         ):
             # Wait for the session cookie to expire before making notebook calls.
-            time.sleep(self._TTL + 1)
+            time.sleep(_COOKIE_TTL_SECONDS + 1)
 
             async with MCPClient(mcp_url, token=None) as client:
                 use_result = await client.use_notebook(
