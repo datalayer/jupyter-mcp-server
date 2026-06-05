@@ -247,6 +247,41 @@ class ServerContext:
             return self.runtime_auth_headers
         return self._document_password_auth.get_headers()
 
+    def relogin_runtime(self, timeout: float = 10.0) -> None:
+        """Re-authenticate the runtime server session after cookie expiry.
+
+        Calls `relogin()` on the runtime auth instance and re-injects the fresh
+        cookies into the JupyterServerClient session so subsequent HTTP requests
+        (kernel management, etc.) carry valid credentials.
+
+        No-op when no runtime password auth is configured.
+        """
+        if self._runtime_password_auth is None:
+            return
+        self._runtime_password_auth.relogin(timeout=timeout)
+        if self._server_client is not None:
+            self._runtime_password_auth.inject_into_session(
+                self._server_client.http_client.session
+            )
+        logger.info("Runtime session re-authenticated after cookie expiry.")
+
+    def relogin_document(self, timeout: float = 10.0) -> None:
+        """Re-authenticate the document server session after cookie expiry.
+
+        When runtime and document auth are shared (same URL), delegates to
+        `relogin_runtime()` so the shared session is only re-established once.
+        For a separate document auth instance, re-logins independently.
+
+        No-op when no document password auth is configured.
+        """
+        if self._document_password_auth is None:
+            return
+        if self._document_password_auth is self._runtime_password_auth:
+            self.relogin_runtime(timeout=timeout)
+            return
+        self._document_password_auth.relogin(timeout=timeout)
+        logger.info("Document session re-authenticated after cookie expiry.")
+
     @property
     def auth_headers(self) -> dict[str, str]:
         """Backwards-compatible alias for runtime_auth_headers.

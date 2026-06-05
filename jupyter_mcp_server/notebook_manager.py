@@ -13,6 +13,8 @@ import logging
 from typing import Dict, Any, Optional, Callable, Union
 from types import TracebackType
 
+import requests
+
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from jupyter_kernel_client import KernelClient
 
@@ -49,19 +51,10 @@ class NotebookConnection:
         path = self.notebook_info.get("path", config.document_id)
 
         from jupyter_mcp_server.server_context import ServerContext
-        auth_headers = ServerContext.get_instance().document_auth_headers
+        server_context = ServerContext.get_instance()
+        auth_headers = server_context.document_auth_headers
 
-        # For password/XSRF auth, the Cookie + X-XSRFToken headers are forwarded to
-        # the collaboration-session PUT request, and the Cookie alone is forwarded to
-        # the WebSocket handshake. For token auth, auth_headers is empty and both
-        # default to None, leaving token-based behavior unchanged.
-        ws_url = get_notebook_websocket_url(
-            server_url=server_url,
-            token=token,
-            path=path,
-            provider=config.provider,
-            headers=auth_headers or None,
-        )
+        ws_url = self._get_ws_url(server_url, token, path, config, auth_headers)
         websocket_headers = (
             {"Cookie": auth_headers["Cookie"]}
             if auth_headers and "Cookie" in auth_headers
@@ -70,6 +63,38 @@ class NotebookConnection:
         self._notebook = NbModelClient(ws_url, additional_headers=websocket_headers)
         await self._notebook.__aenter__()
         return self._notebook
+
+    def _get_ws_url(self, server_url, token, path, config, auth_headers):
+        """Fetch the collaboration WebSocket URL, retrying once after a re-login
+        if the session cookie has expired (HTTP 401 or 403 on the session PUT).
+        """
+        from jupyter_mcp_server.server_context import ServerContext
+
+        try:
+            return get_notebook_websocket_url(
+                server_url=server_url,
+                token=token,
+                path=path,
+                provider=config.provider,
+                headers=auth_headers or None,
+            )
+        except requests.HTTPError as error:
+            if error.response is None or error.response.status_code not in (401, 403):
+                raise
+            logger.warning(
+                "Collaboration session request returned %s — session cookie likely "
+                "expired. Re-authenticating and retrying.",
+                error.response.status_code,
+            )
+            ServerContext.get_instance().relogin_document()
+            fresh_headers = ServerContext.get_instance().document_auth_headers
+            return get_notebook_websocket_url(
+                server_url=server_url,
+                token=token,
+                path=path,
+                provider=config.provider,
+                headers=fresh_headers or None,
+            )
     
     async def __aexit__(
         self, 

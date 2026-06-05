@@ -518,3 +518,61 @@ def mcp_client_password(jupyter_mcp_server_password):
     """MCPClient connected to the password-auth MCP server (no Bearer token needed)."""
     from .test_common import MCPClient
     return MCPClient(jupyter_mcp_server_password, token=None)
+
+
+###############################################################################
+# Short-cookie fixtures (session-expiry / re-login tests)
+###############################################################################
+
+_COOKIE_TTL_SECONDS = 2
+
+
+@pytest.fixture(scope="session")
+def jupyter_short_cookie_root_dir(tmp_path_factory):
+    """Isolated root directory for the short-cookie Jupyter server."""
+    return tmp_path_factory.mktemp("jupyter_short_cookie_content")
+
+
+@pytest.fixture(scope="session")
+def jupyter_server_short_cookie(jupyter_short_cookie_root_dir):
+    """Jupyter server whose session cookie expires after a few seconds.
+
+    Writes a ``jupyter_server_config.py`` that sets
+    ``IdentityProvider.cookie_options = {"expires_days": N}`` where N is a
+    tiny fraction of a day, then passes ``JUPYTER_CONFIG_DIR`` so Jupyter
+    picks it up.  Used to exercise the re-login path without waiting 30 days.
+    """
+    if not TEST_MCP_SERVER:
+        pytest.skip("TEST_MCP_SERVER is disabled")
+
+    config_dir = jupyter_short_cookie_root_dir.parent / "jupyter_short_cookie_config"
+    config_dir.mkdir(exist_ok=True)
+
+    expires_days = _COOKIE_TTL_SECONDS / (24 * 60 * 60)
+    config_py = config_dir / "jupyter_server_config.py"
+    config_py.write_text(
+        f"c.IdentityProvider.cookie_options = {{'expires_days': {expires_days}}}\n"
+    )
+
+    from jupyter_server.auth import passwd
+    password_hash = passwd(JUPYTER_PASSWORD)
+
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="JupyterLab (short-cookie)",
+        host=host,
+        port=port,
+        command=[
+            "jupyter", "lab",
+            "--port", str(port),
+            "--IdentityProvider.token", JUPYTER_TOKEN,
+            "--ServerApp.password", password_hash,
+            "--ip", host,
+            "--ServerApp.root_dir", str(jupyter_short_cookie_root_dir),
+            "--no-browser",
+        ],
+        readiness_endpoint="/login",
+        max_retries=10,
+        extra_env={"JUPYTER_CONFIG_DIR": str(config_dir)},
+    )

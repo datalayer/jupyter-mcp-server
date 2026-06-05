@@ -174,6 +174,14 @@ class JupyterPasswordAuth:
             headers["X-XSRFToken"] = xsrf
         return headers
 
+    def relogin(self, timeout: float = 10.0) -> None:
+        """Re-authenticate after session expiry. Closes the current session and logs in again.
+
+        Raises the same errors as `login()` if the new login fails.
+        """
+        self.close()
+        self.login(timeout=timeout)
+
     def inject_into_session(self, session: requests.Session) -> None:
         """Copy current cookies into another session.
 

@@ -776,3 +776,132 @@ class TestPasswordAuthE2E:
             assert expected_product in str(cell), (
                 f"expected product {expected_product} not found in cell: {cell}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Session-expiry / re-login tests
+# ---------------------------------------------------------------------------
+
+
+class TestSessionExpiry:
+    """Tests that verify behaviour when a password-auth session cookie expires.
+
+    ``jupyter_server_short_cookie`` starts a Jupyter server whose session cookie
+    is configured to expire after a very short TTL (see conftest._COOKIE_TTL_SECONDS).
+    """
+
+    # Same constants as conftest — kept local to avoid import gymnastics.
+    _PASSWORD = "test-password-e2e"
+    _TTL = 2  # must match conftest._COOKIE_TTL_SECONDS
+
+    def test_expired_cookie_causes_auth_failure(self, jupyter_server_short_cookie):
+        """After the cookie TTL elapses, GET /api/status returns 401 or 403.
+
+        This is the red test that proves expiry actually breaks the session —
+        a prerequisite for any re-login logic being meaningful.
+        """
+        import time
+
+        auth = JupyterPasswordAuth(jupyter_server_short_cookie, self._PASSWORD)
+        auth.login()
+
+        # Sanity-check: session works immediately after login.
+        initial = auth._session.get(f"{jupyter_server_short_cookie}/api/status")
+        assert initial.status_code == 200, (
+            f"Expected 200 right after login, got {initial.status_code}"
+        )
+
+        # Wait for the cookie to expire.
+        time.sleep(self._TTL + 1)
+
+        # The session cookie has expired; the request should now be rejected.
+        expired = auth._session.get(f"{jupyter_server_short_cookie}/api/status")
+        assert expired.status_code in (401, 403), (
+            f"Expected 401/403 after cookie expiry, got {expired.status_code}"
+        )
+
+        auth.close()
+
+    def test_relogin_restores_session_after_expiry(self, jupyter_server_short_cookie):
+        """relogin() obtains a fresh session and subsequent requests succeed."""
+        import time
+
+        auth = JupyterPasswordAuth(jupyter_server_short_cookie, self._PASSWORD)
+        auth.login()
+
+        time.sleep(self._TTL + 1)
+
+        # Confirm the session is stale.
+        assert auth._session.get(
+            f"{jupyter_server_short_cookie}/api/status"
+        ).status_code in (401, 403)
+
+        # Re-login and verify the session is working again.
+        auth.relogin()
+        restored = auth._session.get(f"{jupyter_server_short_cookie}/api/status")
+        assert restored.status_code == 200, (
+            f"Expected 200 after relogin, got {restored.status_code}"
+        )
+
+        auth.close()
+
+    @pytest.mark.asyncio
+    async def test_notebook_operations_recover_after_session_expiry(
+        self, jupyter_server_short_cookie, jupyter_short_cookie_root_dir
+    ):
+        """Notebook collaboration operations succeed even after the session cookie
+        expires, because NotebookConnection auto-relogs on 401/403.
+
+        The MCP server is started fresh against the short-cookie Jupyter server so
+        it logs in at startup, then the test waits for the cookie to expire before
+        attempting a notebook operation.
+        """
+        import time
+        import uuid
+        import nbformat
+        from tests.conftest import _find_free_port, _start_server
+        from tests.test_common import MCPClient
+
+        factor_a, factor_b = 47293, 81637
+        expected_product = str(factor_a * factor_b)
+        notebook_name = f"relogin_test_{uuid.uuid4().hex[:8]}.ipynb"
+        notebook_path = jupyter_short_cookie_root_dir / notebook_name
+        nbformat.write(nbformat.v4.new_notebook(), str(notebook_path))
+
+        host = "localhost"
+        port = _find_free_port()
+        for mcp_url in _start_server(
+            name="MCP (relogin test)",
+            host=host,
+            port=port,
+            command=[
+                "python", "-m", "jupyter_mcp_server",
+                "--transport", "streamable-http",
+                "--document-url", jupyter_server_short_cookie,
+                "--document-id", notebook_name,
+                "--runtime-url", jupyter_server_short_cookie,
+                "--start-new-runtime", "True",
+                "--jupyter-password", self._PASSWORD,
+                "--insecure-mcp-noauth",
+                "--port", str(port),
+            ],
+            readiness_endpoint="/api/healthz",
+        ):
+            # Wait for the session cookie to expire before making notebook calls.
+            time.sleep(self._TTL + 1)
+
+            async with MCPClient(mcp_url, token=None) as client:
+                use_result = await client.use_notebook(
+                    notebook_name="relogin_test",
+                    notebook_path=notebook_name,
+                    mode="connect",
+                )
+                assert "error" not in str(use_result).lower(), (
+                    f"use_notebook failed after session expiry: {use_result}"
+                )
+                await client.insert_execute_code_cell(0, f"{factor_a} * {factor_b}")
+                cell = await client.read_cell(cell_index=0)
+                assert expected_product in str(cell), (
+                    f"Expected product {expected_product} not found in cell: {cell}"
+                )
+        notebook_path.unlink(missing_ok=True)
