@@ -598,14 +598,11 @@ class TestNotebookConnectionAuth:
         ServerContext.reset()
         ServerContext._instance = None
 
-    @pytest.mark.asyncio
-    async def test_ws_connect_patched_with_auth_headers(self):
-        """When auth_headers present, websocket connect is patched with Cookie header,
-        and the original connect is restored after __aenter__ returns."""
-        import jupyter_nbmodel_client.client as nbmodel_client_module
+    def _make_password_auth_connection(self):
+        """Set up MCP_SERVER mode with shared runtime/document password auth and
+        return a NotebookConnection whose document_auth_headers resolve to the
+        fresh session cookies (Cookie: ``_xsrf=tok; session=abc``)."""
         from jupyter_mcp_server.notebook_manager import NotebookConnection
-
-        original_connect = nbmodel_client_module.connect
 
         set_config(
             runtime_url="http://localhost:8888",
@@ -619,10 +616,6 @@ class TestNotebookConnectionAuth:
         context._mode = ServerMode.MCP_SERVER
         context._initialized = True
         mock_auth = MagicMock()
-        mock_auth.get_headers.return_value = {
-            "Cookie": "_xsrf=tok; session=abc",
-            "X-XSRFToken": "tok",
-        }
         context._runtime_password_auth = mock_auth
         # Share runtime auth with document since URLs match in this test
         context._document_password_auth = mock_auth
@@ -633,7 +626,7 @@ class TestNotebookConnectionAuth:
         mock_session.cookies.set("session", "abc")
         context._server_client.http_client.session = mock_session
 
-        connection = NotebookConnection(
+        return NotebookConnection(
             notebook_info={
                 "server_url": "http://localhost:8888",
                 "token": None,
@@ -641,43 +634,24 @@ class TestNotebookConnectionAuth:
             }
         )
 
-        captured = {}
+    @pytest.mark.asyncio
+    async def test_nbmodel_client_receives_cookie_in_additional_headers(self):
+        """When auth_headers present, NbModelClient is constructed with the Cookie
+        header so the WebSocket handshake carries the password session cookie."""
+        connection = self._make_password_auth_connection()
 
-        # When NbModelClient.__aenter__ is invoked, simulate what the real client
-        # does: call the (potentially patched) connect from the nbmodel module.
         async def fake_aenter(self_):
-            connect_fn = nbmodel_client_module.connect
-            # Call it with no kwargs to verify the wrapper injects additional_headers
-            connect_fn("ws://example/socket")
-            captured["connect_during_aenter"] = connect_fn
             return self_
 
         async def fake_aexit(self_, *args):
             return None
 
-        captured_connect_kwargs = {}
-
-        def fake_original_connect(uri, **kwargs):
-            captured_connect_kwargs["uri"] = uri
-            captured_connect_kwargs.update(kwargs)
-            return MagicMock()
-
         with patch(
-            "jupyter_mcp_server.notebook_manager.nbmodel_fetch"
-        ) as mock_fetch, patch(
+            "jupyter_mcp_server.notebook_manager.get_notebook_websocket_url",
+            return_value="ws://localhost:8888/api/collaboration/room/abc",
+        ), patch(
             "jupyter_mcp_server.notebook_manager.NbModelClient"
-        ) as MockClient, patch(
-            "websockets.asyncio.client.connect", side_effect=fake_original_connect
-        ):
-            mock_fetch.return_value = MagicMock(
-                json=MagicMock(return_value={
-                    "format": "json",
-                    "type": "notebook",
-                    "fileId": "abc-123",
-                    "sessionId": "sess-456",
-                }),
-                raise_for_status=MagicMock(),
-            )
+        ) as MockClient:
             mock_notebook = MagicMock()
             mock_notebook.__aenter__ = fake_aenter
             mock_notebook.__aexit__ = fake_aexit
@@ -685,62 +659,41 @@ class TestNotebookConnectionAuth:
 
             await connection.__aenter__()
 
-        # The connect function used inside __aenter__ should be the wrapper,
-        # NOT whatever nbmodel_client_module.connect was before
-        assert captured["connect_during_aenter"] is not original_connect
-        # The wrapper must inject Cookie via additional_headers
-        assert "additional_headers" in captured_connect_kwargs
-        assert captured_connect_kwargs["additional_headers"]["Cookie"] == "_xsrf=tok; session=abc"
-        # And the wrapper must have been removed after __aenter__ returned
-        # (i.e., nbmodel_client_module.connect is no longer the captured wrapper)
-        assert nbmodel_client_module.connect is not captured["connect_during_aenter"]
-
-        # Restore manually in case the production code's "restore" target diverged
-        # from what was there at test start (it imports connect fresh from websockets,
-        # which our patches intercepted).
-        nbmodel_client_module.connect = original_connect
-
-    def test_collaboration_session_called_with_auth_headers(self):
-        """The PUT /api/collaboration/session request includes Cookie and X-XSRFToken."""
-        from jupyter_mcp_server.notebook_manager import _get_jupyter_notebook_ws_url_with_auth
-
-        auth_headers = {
-            "Cookie": "_xsrf=mytoken; session=abc",
-            "X-XSRFToken": "mytoken",
+        # The WebSocket handshake carries only the Cookie, not the XSRF token.
+        assert MockClient.call_args.kwargs["additional_headers"] == {
+            "Cookie": "_xsrf=tok; session=abc"
         }
 
-        with patch("jupyter_mcp_server.notebook_manager.nbmodel_fetch") as mock_fetch:
-            mock_response = MagicMock()
-            mock_response.json.return_value = {
-                "format": "json",
-                "type": "notebook",
-                "fileId": "file-id-123",
-                "sessionId": "session-id-456",
-            }
-            mock_response.raise_for_status = MagicMock()
-            mock_fetch.return_value = mock_response
+    @pytest.mark.asyncio
+    async def test_collaboration_session_url_called_with_auth_headers(self):
+        """The collaboration-session URL request carries Cookie and X-XSRFToken,
+        forwarded to get_notebook_websocket_url via the headers kwarg."""
+        connection = self._make_password_auth_connection()
 
-            ws_url = _get_jupyter_notebook_ws_url_with_auth(
-                server_url="http://localhost:8888",
-                path="test.ipynb",
-                auth_headers=auth_headers,
-            )
+        async def fake_aenter(self_):
+            return self_
 
-            # Verify fetch was called with merged headers
-            mock_fetch.assert_called_once()
-            call_kwargs = mock_fetch.call_args
-            headers = call_kwargs.kwargs["headers"]
-            assert headers["X-XSRFToken"] == "mytoken"
-            assert headers["Cookie"] == "_xsrf=mytoken; session=abc"
-            assert headers["Accept"] == "application/json"
-            assert headers["Content-Type"] == "application/json"
-            assert call_kwargs.kwargs["method"] == "PUT"
-            assert "token" in call_kwargs.args or call_kwargs.kwargs.get("token") is None
+        async def fake_aexit(self_, *args):
+            return None
 
-            # Verify the returned WebSocket URL
-            assert ws_url.startswith("ws://localhost:8888/api/collaboration/room/")
-            assert "sessionId=session-id-456" in ws_url
-            assert "json:notebook:file-id-123" in ws_url
+        with patch(
+            "jupyter_mcp_server.notebook_manager.get_notebook_websocket_url",
+            return_value="ws://localhost:8888/api/collaboration/room/abc",
+        ) as mock_ws_url, patch(
+            "jupyter_mcp_server.notebook_manager.NbModelClient"
+        ) as MockClient:
+            mock_notebook = MagicMock()
+            mock_notebook.__aenter__ = fake_aenter
+            mock_notebook.__aexit__ = fake_aexit
+            MockClient.return_value = mock_notebook
+
+            await connection.__aenter__()
+
+        assert mock_ws_url.call_args.kwargs["headers"] == {
+            "Cookie": "_xsrf=tok; session=abc",
+            "X-XSRFToken": "tok",
+        }
+        assert mock_ws_url.call_args.kwargs["provider"] == "jupyter"
 
 
 # ---------------------------------------------------------------------------
@@ -796,9 +749,9 @@ class TestPasswordAuthE2E:
     async def test_password_auth_notebook_operations(self, mcp_client_password, password_notebook):
         """WebSocket collaboration path works with password auth.
 
-        This is the most critical test — it exercises the monkey-patched
-        websocket connect that injects Cookie headers into NbModelClient. It
-        drives a full round-trip over the collaboration WebSocket: insert and
+        This is the most critical test — it exercises the Cookie header that
+        NbModelClient injects into the WebSocket handshake via additional_headers.
+        It drives a full round-trip over the collaboration WebSocket: insert and
         execute a cell, then read its output back, verifying actual content
         rather than merely a non-null read.
         """
