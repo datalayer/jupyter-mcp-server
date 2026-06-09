@@ -253,6 +253,19 @@ class UseNotebookTool(BaseTool):
                     # Use local API to create notebook
                     await contents_manager.new(model={'type': 'notebook'}, path=notebook_path)
                 elif mode == ServerMode.MCP_SERVER and server_client is not None:
+                    # Creating a notebook is a state-changing PUT to /api/contents,
+                    # which Jupyter's XSRF protection guards. The injected session
+                    # carries the _xsrf cookie but not the matching X-XSRFToken
+                    # header, and the cookie alone fails the check ("'_xsrf'
+                    # argument missing from POST"). Echo the token from the live
+                    # cookie jar here, fresh at call-time, so a rotated cookie can't
+                    # go stale (see JupyterPasswordAuth.inject_into_session). Token
+                    # auth has no _xsrf cookie and satisfies XSRF via the Bearer
+                    # header, so this is a no-op there.
+                    session = server_client.http_client.session
+                    xsrf_token = session.cookies.get("_xsrf")
+                    if xsrf_token:
+                        session.headers["X-XSRFToken"] = xsrf_token
                     server_client.contents.create_notebook(notebook_path, content=content)
             
             # Add notebook to notebook_manager

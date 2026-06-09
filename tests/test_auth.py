@@ -4,6 +4,7 @@
 
 """Tests for password-based authentication support."""
 
+import uuid
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -744,6 +745,53 @@ class TestPasswordAuthE2E:
         assert any(expected_product in str(output) for output in outputs), (
             f"expected product {expected_product} not found in outputs: {outputs}"
         )
+
+    @pytest.mark.asyncio
+    async def test_password_auth_create_notebook(
+        self, mcp_client_password, jupyter_password_root_dir
+    ):
+        """Creating a notebook via mode="create" works under password auth.
+
+        Creating a notebook is a state-changing PUT to /api/contents, which
+        Jupyter's XSRF protection guards. The injected session carries the
+        _xsrf cookie but not the matching X-XSRFToken header; without the header
+        the create POST fails with "403: '_xsrf' argument missing from POST".
+        This exercises the header-echo fix and is the create-mode counterpart to
+        test_password_auth_notebook_operations (which only covers connect).
+        """
+        notebook_name = f"created_{uuid.uuid4().hex[:8]}.ipynb"
+        notebook_path = jupyter_password_root_dir / notebook_name
+        try:
+            async with mcp_client_password:
+                create_result = await mcp_client_password.use_notebook(
+                    notebook_name="created_test",
+                    notebook_path=notebook_name,
+                    mode="create",
+                )
+                assert isinstance(create_result, str)
+                assert "error" not in create_result.lower(), (
+                    f"use_notebook(mode='create') returned an error: {create_result}"
+                )
+                assert "_xsrf" not in create_result, (
+                    f"create hit the XSRF check: {create_result}"
+                )
+                # The file must actually exist on the server's disk.
+                assert notebook_path.exists(), (
+                    f"notebook was not created on disk at {notebook_path}"
+                )
+
+                # A round-trip over the freshly-created notebook should work too.
+                factor_a, factor_b = 31337, 71993
+                expected_product = str(factor_a * factor_b)
+                await mcp_client_password.insert_execute_code_cell(
+                    0, f"{factor_a} * {factor_b}"
+                )
+                cell = await mcp_client_password.read_cell(cell_index=0)
+                assert expected_product in str(cell), (
+                    f"expected product {expected_product} not found in cell: {cell}"
+                )
+        finally:
+            notebook_path.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
     async def test_password_auth_notebook_operations(self, mcp_client_password, password_notebook):
