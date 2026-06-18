@@ -351,8 +351,10 @@ class LocalBackend(Backend):
         if kernel_id and kernel_id in self.kernel_manager:
             return kernel_id
         
-        # Start new kernel
-        kernel_id = await self.kernel_manager.start_kernel()
+        # Pass path so MappingKernelManager.cwd_for_path() sets the kernel's
+        # working directory to the notebook's directory, matching JupyterLab's
+        # behavior for human users.
+        kernel_id = await self.kernel_manager.start_kernel(path=path)
         return kernel_id
     
     async def execute_cell(
