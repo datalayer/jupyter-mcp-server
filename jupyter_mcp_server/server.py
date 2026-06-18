@@ -324,6 +324,7 @@ async def use_notebook(
             notebook_manager=notebook_manager,
             runtime_url=config.runtime_url if config.runtime_url != "local" else None,
             runtime_token=config.runtime_token,
+            auth_headers=server_context.runtime_auth_headers or None,
         )
     )
     kid = notebook_manager.get_kernel_id(notebook_name) or "unknown"

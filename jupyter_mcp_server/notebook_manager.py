@@ -9,13 +9,18 @@ This module provides centralized management for Jupyter notebooks and kernels,
 replacing the scattered global variable approach with a unified architecture.
 """
 
+import logging
 from typing import Dict, Any, Optional, Callable, Union
 from types import TracebackType
+
+import requests
 
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from jupyter_kernel_client import KernelClient
 
 from .config import get_config
+
+logger = logging.getLogger(__name__)
 
 
 class NotebookConnection:
@@ -39,17 +44,61 @@ class NotebookConnection:
                 "NotebookConnection cannot be used in local/JUPYTER_SERVER mode. "
                 "Cell operations in local mode should use contents_manager directly to read notebook JSON files."
             )
-        
+
         config = get_config()
-        ws_url = get_notebook_websocket_url(
-            server_url=self.notebook_info.get("server_url", config.document_url),
-            token=self.notebook_info.get("token", config.document_token),
-            path=self.notebook_info.get("path", config.document_id),
-            provider=config.provider
+        server_url = self.notebook_info.get("server_url", config.document_url)
+        token = self.notebook_info.get("token", config.document_token)
+        path = self.notebook_info.get("path", config.document_id)
+
+        from jupyter_mcp_server.server_context import ServerContext
+        server_context = ServerContext.get_instance()
+        auth_headers = server_context.document_auth_headers
+
+        ws_url = self._get_ws_url(server_url, token, path, config, auth_headers)
+        # _get_ws_url may have re-authenticated on an expired cookie; re-read the
+        # (possibly rotated) cookie so the WebSocket handshake uses a fresh one
+        # rather than the snapshot captured before any relogin.
+        auth_headers = server_context.document_auth_headers
+        websocket_headers = (
+            {"Cookie": auth_headers["Cookie"]}
+            if auth_headers and "Cookie" in auth_headers
+            else None
         )
-        self._notebook = NbModelClient(ws_url)
+        self._notebook = NbModelClient(ws_url, additional_headers=websocket_headers)
         await self._notebook.__aenter__()
         return self._notebook
+
+    def _get_ws_url(self, server_url, token, path, config, auth_headers):
+        """Fetch the collaboration WebSocket URL, retrying once after a re-login
+        if the session cookie has expired (HTTP 401 or 403 on the session PUT).
+        """
+        from jupyter_mcp_server.server_context import ServerContext
+
+        try:
+            return get_notebook_websocket_url(
+                server_url=server_url,
+                token=token,
+                path=path,
+                provider=config.provider,
+                headers=auth_headers or None,
+            )
+        except requests.HTTPError as error:
+            if error.response is None or error.response.status_code not in (401, 403):
+                raise
+            logger.warning(
+                "Collaboration session request returned %s — session cookie likely "
+                "expired. Re-authenticating and retrying.",
+                error.response.status_code,
+            )
+            ServerContext.get_instance().relogin_document()
+            fresh_headers = ServerContext.get_instance().document_auth_headers
+            return get_notebook_websocket_url(
+                server_url=server_url,
+                token=token,
+                path=path,
+                provider=config.provider,
+                headers=fresh_headers or None,
+            )
     
     async def __aexit__(
         self, 
