@@ -8,8 +8,9 @@ Simple test script to verify the configuration system works correctly.
 """
 
 import os
+from unittest.mock import MagicMock, patch
 
-from jupyter_mcp_server.config import get_config, set_config, reset_config
+from jupyter_mcp_server.config import JupyterMCPConfig, get_config, reset_config, set_config
 
 def test_config():
     """Test the configuration singleton."""
@@ -109,7 +110,85 @@ def test_jupyter_extension_trait():
     print("✅ Jupyter extension trait test completed successfully!")
 
 
+def test_create_kernel_passes_reconnect_interval():
+    """Verify create_kernel passes reconnect_interval to KernelClient via client_kwargs."""
+    from jupyter_mcp_server.utils import create_kernel
+
+    config = JupyterMCPConfig(
+        runtime_url="http://localhost:8888",
+        runtime_token="test_token",
+        runtime_id="test-kernel-id",
+        reconnect_interval=5,
+    )
+
+    with patch("jupyter_kernel_client.KernelClient") as MockKernelClient:
+        mock_kernel = MagicMock()
+        MockKernelClient.return_value = mock_kernel
+
+        create_kernel(config, MagicMock())
+
+        MockKernelClient.assert_called_once_with(
+            server_url="http://localhost:8888",
+            token="test_token",
+            kernel_id="test-kernel-id",
+            client_kwargs={"reconnect_interval": 5},
+        )
+        mock_kernel.start.assert_called_once()
+
+    print("test create_kernel passes reconnect_interval: OK")
+
+
+def test_create_kernel_no_reconnect_by_default():
+    """Verify create_kernel does not pass client_kwargs when reconnect_interval=0."""
+    from jupyter_mcp_server.utils import create_kernel
+
+    config = JupyterMCPConfig(
+        runtime_url="http://localhost:8888",
+        runtime_token="test_token",
+        runtime_id="test-kernel-id",
+        reconnect_interval=0,
+    )
+
+    with patch("jupyter_kernel_client.KernelClient") as MockKernelClient:
+        mock_kernel = MagicMock()
+        MockKernelClient.return_value = mock_kernel
+
+        create_kernel(config, MagicMock())
+
+        MockKernelClient.assert_called_once_with(
+            server_url="http://localhost:8888",
+            token="test_token",
+            kernel_id="test-kernel-id",
+            client_kwargs=None,
+        )
+
+    print("test create_kernel no reconnect by default: OK")
+
+
+def test_reconnect_interval_config():
+    """Test the reconnect_interval configuration field."""
+    reset_config()
+
+    # Default should be 0 (disabled)
+    config = get_config()
+    assert config.reconnect_interval == 0
+
+    # Setting a positive value
+    new_config = set_config(reconnect_interval=5)
+    assert new_config.reconnect_interval == 5
+
+    # Singleton reflects the update
+    assert get_config().reconnect_interval == 5
+
+    # Reset restores to 0
+    reset_config()
+    assert get_config().reconnect_interval == 0
+
+    print("✅ reconnect_interval configuration test completed successfully!")
+
+
 if __name__ == "__main__":
     test_config()
     test_allowed_jupyter_mcp_tools_config()
     test_jupyter_extension_trait()
+    test_reconnect_interval_config()
