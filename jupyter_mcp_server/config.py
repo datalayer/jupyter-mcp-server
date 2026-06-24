@@ -31,6 +31,7 @@ class JupyterMCPConfig(BaseModel):
     port: int = Field(default=4040, description="The port to use for the Streamable HTTP transport")
     jupyterlab: bool = Field(default=True, description="Enable JupyterLab mode (defaults to True)")
     allowed_jupyter_mcp_tools: str = Field(default="notebook_run-all-cells,notebook_get-selected-cell", description="Comma-separated list of jupyter-mcp-tools to enable")
+    reconnect_interval: int = Field(default=0, description="Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect.")
     
     class Config:
         """Pydantic configuration."""

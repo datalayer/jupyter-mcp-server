@@ -257,10 +257,14 @@ def create_kernel(config, logger):
     kernel = None
     try:
         # Initialize the kernel client with the provided parameters.
+        client_kwargs = {}
+        if getattr(config, "reconnect_interval", 0):
+            client_kwargs["reconnect_interval"] = config.reconnect_interval
         kernel = KernelClient(
-            server_url=config.runtime_url, 
-            token=config.runtime_token, 
-            kernel_id=config.runtime_id
+            server_url=config.runtime_url,
+            token=config.runtime_token,
+            kernel_id=config.runtime_id,
+            client_kwargs=client_kwargs if client_kwargs else None,
         )
         kernel.start()
         logger.info("Kernel created and started successfully")

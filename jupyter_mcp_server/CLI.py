@@ -116,7 +116,14 @@ def _common_options(f):
             type=click.STRING,
             default="notebook_run-all-cells,notebook_get-selected-cell",
             help="Comma-separated list of jupyter-mcp-tools to enable. Defaults to 'notebook_run-all-cells,notebook_get-selected-cell' - Only applicable when run as jupyter server extension.",
-        )
+        ),
+        click.option(
+            "--reconnect-interval",
+            envvar="RECONNECT_INTERVAL",
+            type=click.INT,
+            default=0,
+            help="Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. Defaults to 0 (disabled).",
+        ),
     ]
     # Apply decorators in reverse order
     for option in reversed(options):
@@ -189,6 +196,7 @@ def _do_start(
     otel_file: str = "",
     mcp_token: str = None,
     insecure_mcp_noauth: bool = False,
+    reconnect_interval: int = 0,
 ):
     """Internal function to execute the start logic."""
 
@@ -222,7 +230,8 @@ def _do_start(
         document_token=document_token,
         port=port,
         jupyterlab=jupyterlab,
-        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools
+        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
+        reconnect_interval=reconnect_interval,
     )
 
     # Reset ServerContext to pick up new configuration
@@ -347,6 +356,7 @@ def server(
     jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str,
+    reconnect_interval: int,
 ):
     """Manages Jupyter MCP Server.
 
@@ -386,6 +396,7 @@ def server(
         otel_file=otel_file,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
+        reconnect_interval=reconnect_interval,
     )
 
 
@@ -530,6 +541,7 @@ def start_command(
     jupyterlab: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str,
+    reconnect_interval: int,
 ):
     """Start the Jupyter MCP server with a transport."""
     # Resolve URL and token variables based on priority logic
@@ -558,6 +570,7 @@ def start_command(
         otel_file=otel_file,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
+        reconnect_interval=reconnect_interval,
     )
 
 
