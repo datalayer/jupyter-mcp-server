@@ -694,7 +694,7 @@ async def move_cell(
 @with_hooks("execute_code")
 async def execute_code(
     code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
-    timeout: Annotated[int, Field(description="Execution timeout in seconds",le=60)] = 30,
+    timeout: Annotated[int, Field(description="Execution timeout in seconds",le=3600)] = 30,
     kernel_id: Annotated[str | None, Field(description="Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.")] = None,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed code")]:
     """Execute code directly in a kernel (not saved to notebook).
