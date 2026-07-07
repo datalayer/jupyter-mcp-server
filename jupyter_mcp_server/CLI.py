@@ -180,6 +180,12 @@ def _resolve_url_and_token_variables(
     return resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token
 
 
+def _mcp_auth_headers(mcp_token: str | None) -> dict[str, str]:
+    if not mcp_token:
+        return {}
+    return {"Authorization": f"Bearer {mcp_token}"}
+
+
 def _do_start(
     transport: str,
     start_new_runtime: bool,
@@ -424,18 +430,28 @@ def connect_command(
     jupyter_url: str,
     jupyter_token: str,
     allowed_jupyter_mcp_tools: str,
+    reconnect_interval: int,
 ):
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
+
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+        jupyter_url=jupyter_url,
+        jupyter_token=jupyter_token,
+        document_url=document_url,
+        document_token=document_token,
+        runtime_url=runtime_url,
+        runtime_token=runtime_token,
+    )
 
     # Set configuration using the singleton
     config = set_config(
         provider=provider,
-        runtime_url=runtime_url,
+        runtime_url=resolved_runtime_url,
         runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        document_url=document_url,
+        runtime_token=resolved_runtime_token,
+        document_url=resolved_document_url,
         document_id=document_id,
-        document_token=document_token,
+        document_token=resolved_document_token,
         jupyterlab=jupyterlab
     )
     
@@ -472,6 +488,7 @@ def connect_command(
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
+            **_mcp_auth_headers(mcp_token),
         },
         content=document_runtime.model_dump_json(),
     )
@@ -486,9 +503,17 @@ def connect_command(
     default="http://localhost:4040",
     help="The URL of the Jupyter MCP Server to stop. Defaults to 'http://localhost:4040'.",
 )
-def stop_command(jupyter_mcp_server_url: str):
+@click.option(
+    "--mcp-token",
+    envvar="MCP_TOKEN",
+    type=click.STRING,
+    default=None,
+    help="Token for authenticating to the Jupyter MCP Server management route.",
+)
+def stop_command(jupyter_mcp_server_url: str, mcp_token: str):
     r = httpx.delete(
         f"{jupyter_mcp_server_url}/api/stop",
+        headers=_mcp_auth_headers(mcp_token),
     )
     r.raise_for_status()
 

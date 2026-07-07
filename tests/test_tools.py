@@ -174,6 +174,84 @@ def test_mcp_token_rejects_runtime_token(mcp_server_with_mcp_token):
     assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED)
 
 
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_management_routes_reject_forged_host(mcp_server_with_mcp_token):
+    """Management routes reject DNS-rebinding Host headers."""
+    import httpx
+
+    r = httpx.put(
+        f"{mcp_server_with_mcp_token}/api/connect",
+        headers={
+            "Host": "attacker.example",
+            "Origin": "http://attacker.example",
+            "Content-Type": "application/json",
+        },
+        json={},
+    )
+    assert r.status_code == HTTPStatus.MISDIRECTED_REQUEST
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_management_routes_reject_forged_origin(mcp_server_with_mcp_token):
+    """Management routes reject browser requests from non-local origins."""
+    import httpx
+
+    r = httpx.delete(
+        f"{mcp_server_with_mcp_token}/api/stop",
+        headers={
+            "Host": "localhost",
+            "Origin": "http://attacker.example",
+        },
+    )
+    assert r.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_management_routes_require_mcp_token(mcp_server_with_mcp_token):
+    """State-changing management routes require MCP_TOKEN."""
+    import httpx
+
+    r = httpx.put(
+        f"{mcp_server_with_mcp_token}/api/connect",
+        headers={"Content-Type": "application/json"},
+        json={},
+    )
+    assert r.status_code == HTTPStatus.UNAUTHORIZED
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_management_routes_reject_runtime_token(mcp_server_with_mcp_token):
+    """State-changing management routes reject the Jupyter runtime token."""
+    import httpx
+
+    r = httpx.delete(
+        f"{mcp_server_with_mcp_token}/api/stop",
+        headers={"Authorization": f"Bearer {JUPYTER_TOKEN}"},
+    )
+    assert r.status_code == HTTPStatus.UNAUTHORIZED
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_management_routes_accept_mcp_token(mcp_server_with_mcp_token):
+    """State-changing management routes accept MCP_TOKEN."""
+    import httpx
+
+    r = httpx.delete(
+        f"{mcp_server_with_mcp_token}/api/stop",
+        headers={"Authorization": f"Bearer {MCP_TOKEN}"},
+    )
+    assert r.status_code == HTTPStatus.OK
+
+
+@pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
+def test_management_routes_allow_local_non_browser_request(mcp_server_with_mcp_token):
+    """Local health requests without Origin remain accepted."""
+    import httpx
+
+    r = httpx.get(f"{mcp_server_with_mcp_token}/api/healthz")
+    assert r.status_code == HTTPStatus.OK
+
+
 def _mcp_server_command_insecure_noauth(jupyter_url, port):
     """Build standalone MCP server command with --insecure-mcp-noauth (no --mcp-token)."""
     return [
