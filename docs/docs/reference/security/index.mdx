@@ -29,6 +29,17 @@ Starting with version 1.0.0, MCP client authentication is **required** for the `
 The standalone MCP server requires `MCP_TOKEN` for client authentication, independently from `RUNTIME_TOKEN` used to authenticate with Jupyter.
 This allows you to use a different token for MCP client authentication than the one used for Jupyter API access.
 
+### Management Routes Security (Standalone `streamable-http`)
+
+In standalone mode, management routes are protected with additional checks:
+
+- `GET /api/healthz`, `PUT /api/connect`, and `DELETE /api/stop` only accept local `Host` values (`localhost`, `127.0.0.1`, `::1`)
+- Browser requests with non-local `Origin` are rejected
+- State-changing routes (`/api/connect`, `/api/stop`) require `Authorization: Bearer <MCP_TOKEN>`
+- `/api/healthz` remains available for local readiness checks
+
+This protection mitigates unauthenticated management access and DNS rebinding risks on adjacent management endpoints.
+
 ```bash
 jupyter-mcp-server start \
   --transport streamable-http \

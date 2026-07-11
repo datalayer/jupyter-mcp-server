@@ -84,6 +84,7 @@ For deployments requiring granular control over document storage and runtime exe
 | `PROVIDER` | Provider type for document and runtime | `jupyter` / `datalayer` | `jupyter` |
 | `TRANSPORT` | Transport method for MCP | `stdio` / `streamable-http` | `stdio` |
 | `PORT` | Port for streamable HTTP transport | `4040` | `4040` |
+| `RECONNECT_INTERVAL` | Seconds before retrying a dropped kernel WebSocket connection. `0` disables auto-reconnect. | `5` | `0` |
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
 
@@ -155,6 +156,7 @@ Options:
   --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
   --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
   --allowed-jupyter-mcp-tools TEXT    Comma-separated list of jupyter-mcp-tools to enable (default: notebook_run-all-cells,notebook_get-selected-cell)
+  --reconnect-interval INTEGER         Seconds before retrying a dropped kernel WebSocket connection (default: 0)
   --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```
@@ -176,12 +178,14 @@ Options:
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
   --runtime-url TEXT                  Runtime URL for kernel operations (default: None)
   --runtime-token TEXT                Runtime authentication token (default: None)
+  --mcp-token TEXT                    MCP token used to authenticate to /api/connect (Bearer)
   --runtime-id TEXT                   Specific kernel ID to use (default: None)
   --document-url TEXT                 Document URL for notebook operations (default: None)
   --document-id TEXT                  Notebook path/ID (default: None)
   --document-token TEXT               Document authentication token (default: None)
   --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
   --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
+  --reconnect-interval INTEGER        Seconds before retrying a dropped kernel WebSocket connection (default: 0)
   --jupyter-mcp-server-url TEXT       URL of the Jupyter MCP Server to connect to (default: http://localhost:4040)
 ```
 
@@ -195,6 +199,7 @@ Stop a running Jupyter MCP Server.
 
 Options:
   --jupyter-mcp-server-url TEXT       URL of the Jupyter MCP Server to stop (default: http://localhost:4040)
+  --mcp-token TEXT                    MCP token used to authenticate to /api/stop (Bearer)
 ```
 
 ### Usage Examples

@@ -113,6 +113,14 @@ npx -y @smithery/cli install @datalayer/jupyter-mcp-server --client claude
 
 MCP clients must authenticate to the MCP server by sending an `Authorization` header with the `MCP_TOKEN`.
 
+:::important Management Route Security
+In standalone `streamable-http` mode, management routes are restricted to local hostnames.
+
+- `PUT /api/connect` and `DELETE /api/stop` require `Authorization: Bearer <MCP_TOKEN>`
+- Non-local `Host` and browser `Origin` values are rejected for `/api/connect`, `/api/stop`, and `/api/healthz`
+- `GET /api/healthz` remains available for local readiness checks
+:::
+
 ### Claude Code
 
 ```bash
@@ -160,6 +168,7 @@ Some clients (Cursor, Claude Desktop on Windows) have a bug where spaces inside 
 
 **Authentication (towards MCP server) errors:**
 - MCP clients must send `Authorization: Bearer <token>` header
-- Verify authentication token is accepted: `curl -H "Authorization: Bearer MY_TOKEN" http://localhost:4040/mcp/healthz`
+- Verify authentication token is accepted: `curl -H "Authorization: Bearer MY_MCP_TOKEN" http://localhost:4040/mcp/healthz`
+- Management route example (requires MCP token): `curl -X DELETE -H "Authorization: Bearer MY_MCP_TOKEN" http://localhost:4040/api/stop`
 
 For detailed configuration and troubleshooting, see the [configuration guide](/reference/configuration).
