@@ -7,16 +7,16 @@ See the latest release notes on the [GitHub Releases page](https://github.com/da
 ## Recent Updates
 
 - [Protect management routes](https://github.com/datalayer/jupyter-mcp-server/pull/262)
-	- Hardened standalone management endpoints (`/api/connect`, `/api/stop`, `/api/healthz`)
-	- Enforced local Host/Origin checks on management routes
-	- Required `MCP_TOKEN` bearer auth for state-changing management routes
+  - Hardened standalone management endpoints (`/api/connect`, `/api/stop`, `/api/healthz`)
+  - Enforced local Host/Origin checks on management routes
+  - Required `MCP_TOKEN` bearer auth for state-changing management routes
 - [Increase `execute_code` timeout maximum from 60s to 3600s](https://github.com/datalayer/jupyter-mcp-server/pull/257)
 - [Add `--reconnect-interval` option for WebSocket auto-reconnect](https://github.com/datalayer/jupyter-mcp-server/pull/255)
-	- Added CLI flag and env var `RECONNECT_INTERVAL`
+  - Added CLI flag and env var `RECONNECT_INTERVAL`
 - [Working directory fix for notebook kernels](https://github.com/datalayer/jupyter-mcp-server/pull/254)
-	- New kernels now start with the notebook path context to align with JupyterLab behavior
+  - New kernels now start with the notebook path context to align with JupyterLab behavior
 - [Allow `execute_code` to target a specific kernel](https://github.com/datalayer/jupyter-mcp-server/pull/245)
-	- Added optional `kernel_id` support
+  - Added optional `kernel_id` support
 
 ## Older Releases
 
