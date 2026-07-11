@@ -63,6 +63,10 @@ The server currently offers 15 tools organized into 3 categories:
   - `kernel_id`(string, optional): Specific kernel ID to use (will create new if skipped)
 - Returns: Success message with notebook information including activation status, kernel details, and notebook overview
 
+:::tip
+When `use_notebook` starts a new kernel for a notebook, the kernel is started with the notebook path context so execution behavior matches JupyterLab's working-directory behavior.
+:::
+
 #### 5. `list_notebooks`
 
 - List all notebooks that have been used via use_notebook tool.
@@ -172,5 +176,10 @@ The server currently offers 15 tools organized into 3 categories:
   2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
 - Input:
   - `code`(string): Code to execute (supports magic commands with %, shell commands with !)
-  - `timeout`(int, optional): Execution timeout in seconds (default: 30, max: 60)
+  - `timeout`(int, optional): Execution timeout in seconds (default: 30, max: 3600)
+  - `kernel_id`(string, optional): Target an existing kernel by ID. If omitted, the current notebook kernel is used.
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed code including text, HTML, images, and shell command results. Supports magic commands and shell commands with ! prefix.
+
+:::tip
+`execute_code` can now target a specific existing kernel (including raw kernels not attached to a notebook) by passing `kernel_id`.
+:::

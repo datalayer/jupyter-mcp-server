@@ -29,11 +29,18 @@
 </div>
 
 > [!IMPORTANT]
+> **Hotfixes in v1.0.3:**
+> - **Management routes security (`/api/connect`, `/api/stop`, `/api/healthz`)** has been hardened in standalone `streamable-http` mode:
+>   - local `Host` is required for all management routes
+>   - non-local browser `Origin` is rejected
+>   - `MCP_TOKEN` (Bearer) is required for state-changing routes (`/api/connect`, `/api/stop`)
+> - **Timeout configuration update:** `execute_code` now supports up to **3600s** timeout (default remains **30s**).
+> 
+> **Update in v1.0.2:** `pycrdt` is now supported, so installing `datalayer_pycrdt` is no longer required.
+> 
 > **Breaking change in v1.0.0:** You must configure `MCP_TOKEN` in your MCP client setup.
 > 
 > For setup details, see: https://jupyter-mcp-server.datalayer.tech/providers/jupyter-streamable-http-standalone/#3-configure-your-mcp-client
-> 
-> **Update in v1.0.2:** `pycrdt` is now supported, so installing `datalayer_pycrdt` is no longer required.
 > 
 
 > [!NOTE]
