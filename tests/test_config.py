@@ -12,6 +12,84 @@ from unittest.mock import MagicMock, patch
 
 from jupyter_mcp_server.config import JupyterMCPConfig, get_config, reset_config, set_config
 
+
+def test_mcp_auth_headers_include_bearer_token():
+    """Management CLI requests include the MCP bearer token when configured."""
+    from jupyter_mcp_server.CLI import _mcp_auth_headers
+
+    assert _mcp_auth_headers("client-token") == {
+        "Authorization": "Bearer client-token",
+    }
+
+
+def test_mcp_auth_headers_empty_without_token():
+    """Management CLI requests stay unauthenticated in explicit no-auth mode."""
+    from jupyter_mcp_server.CLI import _mcp_auth_headers
+
+    assert _mcp_auth_headers(None) == {}
+
+
+def test_connect_command_sends_mcp_token():
+    """The first-party connect command remains compatible with protected routes."""
+    from click.testing import CliRunner
+
+    from jupyter_mcp_server.CLI import server
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+    seen = {}
+
+    def fake_put(url, headers=None, content=None):
+        seen["headers"] = headers
+        return Response()
+
+    with patch("jupyter_mcp_server.CLI.httpx.put", fake_put):
+        result = CliRunner().invoke(
+            server,
+            [
+                "connect",
+                "--jupyter-url",
+                "http://localhost:8888",
+                "--jupyter-token",
+                "jupyter-token",
+                "--runtime-id",
+                "kernel-id",
+                "--document-id",
+                "notebook.ipynb",
+                "--mcp-token",
+                "client-token",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert seen["headers"]["Authorization"] == "Bearer client-token"
+
+
+def test_stop_command_sends_mcp_token():
+    """The first-party stop command remains compatible with protected routes."""
+    from click.testing import CliRunner
+
+    from jupyter_mcp_server.CLI import server
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+    seen = {}
+
+    def fake_delete(url, headers=None):
+        seen["headers"] = headers
+        return Response()
+
+    with patch("jupyter_mcp_server.CLI.httpx.delete", fake_delete):
+        result = CliRunner().invoke(server, ["stop", "--mcp-token", "client-token"])
+
+    assert result.exit_code == 0
+    assert seen["headers"]["Authorization"] == "Bearer client-token"
+
+
 def test_config():
     """Test the configuration singleton."""
     print("Testing Jupyter MCP Configuration System")

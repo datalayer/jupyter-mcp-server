@@ -7,15 +7,17 @@ Jupyter MCP Server Layer
 """
 
 from typing import Annotated, Literal, Optional
-from pydantic import Field
+from urllib.parse import urlsplit
+
 from fastapi import Request
 from jupyter_kernel_client import KernelClient
-
 from mcp.server import FastMCP
-from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.provider import AccessToken
 from mcp.types import ImageContent, ToolAnnotations
-from starlette.middleware.cors import CORSMiddleware
+from pydantic import Field
 from starlette.applications import Starlette
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from jupyter_mcp_server.log import logger
@@ -77,6 +79,74 @@ class RuntimeTokenVerifier:
         return AccessToken(token=token, client_id="mcp-client", scopes=[])
 
 
+MANAGEMENT_ROUTE_PATHS = {"/api/connect", "/api/stop", "/api/healthz"}
+AUTHENTICATED_MANAGEMENT_ROUTE_PATHS = {"/api/connect", "/api/stop"}
+LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
+
+
+def _is_local_hostname(hostname: str | None) -> bool:
+    return bool(hostname and hostname.lower() in LOCAL_HOSTNAMES)
+
+
+def _is_management_route(path: str) -> bool:
+    return path.rstrip("/") in MANAGEMENT_ROUTE_PATHS
+
+
+def _is_authenticated_management_route(path: str) -> bool:
+    return path.rstrip("/") in AUTHENTICATED_MANAGEMENT_ROUTE_PATHS
+
+
+class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
+    """Apply authentication and browser-origin checks to management routes."""
+
+    def __init__(self, app, token_verifier=None):
+        super().__init__(app)
+        self._token_verifier = token_verifier
+
+    async def dispatch(self, request: Request, call_next):
+        if not _is_management_route(request.url.path):
+            return await call_next(request)
+
+        if not _is_local_hostname(request.url.hostname):
+            return JSONResponse({"error": "Invalid Host header"}, status_code=421)
+
+        origin = request.headers.get("origin")
+        if origin:
+            origin_hostname = urlsplit(origin).hostname
+            if not _is_local_hostname(origin_hostname):
+                return JSONResponse({"error": "Invalid Origin header"}, status_code=403)
+
+        if self._token_verifier and _is_authenticated_management_route(request.url.path):
+            auth_header = request.headers.get("authorization", "")
+            scheme, _, token = auth_header.partition(" ")
+            if scheme.lower() != "bearer" or not token:
+                return JSONResponse(
+                    {"error": "invalid_token", "error_description": "Authentication required"},
+                    status_code=401,
+                    headers={
+                        "WWW-Authenticate": (
+                            'Bearer error="invalid_token", '
+                            'error_description="Authentication required"'
+                        )
+                    },
+                )
+
+            access_token = await self._token_verifier.verify_token(token)
+            if not access_token:
+                return JSONResponse(
+                    {"error": "invalid_token", "error_description": "Invalid token"},
+                    status_code=401,
+                    headers={
+                        "WWW-Authenticate": (
+                            'Bearer error="invalid_token", '
+                            'error_description="Invalid token"'
+                        )
+                    },
+                )
+
+        return await call_next(request)
+
+
 class FastMCPWithCORS(FastMCP):
     def streamable_http_app(self) -> Starlette:
         """Return StreamableHTTP server app with CORS and auth middleware.
@@ -88,6 +158,11 @@ class FastMCPWithCORS(FastMCP):
         # that actually validates Bearer tokens — that requires settings.auth
         # which we don't use). Add it here directly.
         app = super().streamable_http_app()
+
+        app.add_middleware(
+            ManagementRouteSecurityMiddleware,
+            token_verifier=self._token_verifier,
+        )
 
         if self._token_verifier:
             from starlette.middleware.authentication import AuthenticationMiddleware
