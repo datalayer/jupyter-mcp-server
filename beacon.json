@@ -1,0 +1,24 @@
+{
+  "beacon_manifest": "0.1",
+  "id": "datalayer/jupyter-mcp-server",
+  "name": "Jupyter Mcp Server",
+  "description": "Open-source AI agent \u2014 ai, jupyter, mcp, mcp-server.",
+  "capabilities": [
+    "ai",
+    "jupyter",
+    "mcp",
+    "mcp-server",
+    "model",
+    "context",
+    "protocol",
+    "server"
+  ],
+  "interfaces": [
+    {
+      "type": "mcp",
+      "endpoint": "https://github.com/datalayer/jupyter-mcp-server"
+    }
+  ],
+  "source": "https://github.com/datalayer/jupyter-mcp-server",
+  "homepage": "https://github.com/datalayer/jupyter-mcp-server"
+}

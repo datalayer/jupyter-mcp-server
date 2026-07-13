@@ -325,3 +325,9 @@ ______________________________________________________________________
 Made with ❤️ by [Datalayer](https://github.com/datalayer)
 
 </div>
+
+## Discovery
+
+[![Beacon Verified](https://registry-ruby.vercel.app/api/v1/agents/datalayer%2Fjupyter-mcp-server/badge.svg)](https://portal-five-phi-54.vercel.app/?q=datalayer%2Fjupyter-mcp-server)
+
+Listed on [Beacon](https://portal-five-phi-54.vercel.app) — searchable index of open-source MCP servers.
