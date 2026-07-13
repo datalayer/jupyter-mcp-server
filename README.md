@@ -34,7 +34,7 @@
 >   - local `Host` is required for all management routes
 >   - non-local browser `Origin` is rejected
 >   - `MCP_TOKEN` (Bearer) is required for state-changing routes (`/api/connect`, `/api/stop`)
-> - **Timeout configuration update:** `execute_code` now supports up to **3600s** timeout (default remains **30s**).
+> - **Configurable timeout:** `execute_cell` timeout is now configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var or `execution_timeout` config (default: 120s, max: 3600s). Per-call `timeout=0` uses the config default.
 > 
 > **Update in v1.0.2:** `pycrdt` is now supported, so installing `datalayer_pycrdt` is no longer required.
 > 

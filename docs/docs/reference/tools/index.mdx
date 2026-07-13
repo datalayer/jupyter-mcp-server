@@ -130,7 +130,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 - Execute a cell from the currently activated notebook with timeout and return it's outputs
 - Input:
   - `cell_index`(int): Index of the cell to execute (0-based)
-  - `timeout`(int, optional): Maximum seconds to wait for execution (default: 90)
+  - `timeout`(int, optional): Maximum seconds to wait for execution (0 = use config default, default: 0). Configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var (default: 120s, max: 3600s)
   - `stream`(bool, optional): Enable streaming progress updates for long-running cells (default: false)
   - `progress_interval`(int, optional): Seconds between progress updates when stream=true (default: 5)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Supports streaming mode with progress updates for long-running cells.
@@ -142,7 +142,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 - Input:
   - `cell_index`(int): Index of the cell to insert and execute (0-based)
   - `cell_source`(string): Code source for the cell
-  - `timeout`(int, optional): Maximum seconds to wait for execution (default: 90)
+  - `timeout`(int, optional): Maximum seconds to wait for execution (0 = use config default, default: 0). Configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var (default: 120s, max: 3600s)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Returns both insertion confirmation and execution results.
 
 #### 13. `read_cell`
