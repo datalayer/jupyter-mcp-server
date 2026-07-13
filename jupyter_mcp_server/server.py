@@ -614,11 +614,15 @@ async def edit_cell_source(
 @with_hooks("execute_cell")
 async def execute_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
-    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 0,
     stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
     progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True")] = 5,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
+    config = get_config()
+    # Use config default if timeout is 0, otherwise clamp to max
+    effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
@@ -627,7 +631,7 @@ async def execute_cell(
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
-            timeout_seconds=timeout,
+            timeout_seconds=effective_timeout,
             stream=stream,
             progress_interval=progress_interval,
             ensure_kernel_alive_fn=__ensure_kernel_alive
@@ -646,10 +650,13 @@ async def execute_cell(
 async def insert_execute_code_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=-1)],
     cell_source: Annotated[str, Field(description="Code source for the cell")],
-    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution")] = 90,
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 0,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
     It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
+    config = get_config()
+    effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+
     await safe_notebook_operation(
         lambda: InsertCellTool().execute(
             mode=server_context.mode,
@@ -671,7 +678,7 @@ async def insert_execute_code_cell(
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
-            timeout_seconds=timeout,
+            timeout_seconds=effective_timeout,
             stream=False,
             progress_interval=0,
             ensure_kernel_alive_fn=__ensure_kernel_alive
