@@ -236,9 +236,13 @@ def test_management_routes_accept_mcp_token(mcp_server_with_mcp_token):
     """State-changing management routes accept MCP_TOKEN."""
     import httpx
 
+    # /api/stop shuts the kernel down inline and KernelClient.stop() is allowed
+    # REQUEST_TIMEOUT (10s) to do it, so the client has to outwait the server's
+    # own budget. The httpx default is 5s.
     r = httpx.delete(
         f"{mcp_server_with_mcp_token}/api/stop",
         headers={"Authorization": f"Bearer {MCP_TOKEN}"},
+        timeout=30.0,
     )
     assert r.status_code == HTTPStatus.OK
 
