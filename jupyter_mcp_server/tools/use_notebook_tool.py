@@ -188,6 +188,28 @@ class UseNotebookTool(BaseTool):
                     return f"The path '{notebook_path}' is not the correct path for notebook '{notebook_name}'. Do you mean connect to '{notebook_manager.get_notebook_path(notebook_name)}'?"
         # add new notebook to notebook_manager
         else:
+            # Create notebook if needed
+            # This runs before the kernel and the Jupyter session below, which are
+            # both pointed at notebook_path and so need the file to exist already.
+            if use_mode == "create":
+                content = {
+                    "cells": [{
+                        "cell_type": "markdown",
+                        "metadata": {},
+                        "source": [
+                            "New Notebook Created by Jupyter MCP Server",
+                        ]
+                    }],
+                    "metadata": {},
+                    "nbformat": 4,
+                    "nbformat_minor": 4
+                }
+                if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+                    # Use local API to create notebook
+                    await contents_manager.new(model={'type': 'notebook', 'content': content, 'format': 'json'}, path=notebook_path)
+                elif mode == ServerMode.MCP_SERVER and server_client is not None:
+                    server_client.contents.create_notebook(notebook_path, content=content)
+
             # # Create/connect to kernel based on mode
             if mode == ServerMode.MCP_SERVER and server_client is not None:
                 if kernel_id is not None:
@@ -233,26 +255,6 @@ class UseNotebookTool(BaseTool):
                 else:
                     logger.warning("No session_manager available. Notebook may not be properly connected in JupyterLab UI.")
 
-            # Create notebook if needed
-            if use_mode == "create":
-                content = {
-                    "cells": [{
-                        "cell_type": "markdown",
-                        "metadata": {},
-                        "source": [
-                            "New Notebook Created by Jupyter MCP Server",
-                        ]
-                    }],
-                    "metadata": {},
-                    "nbformat": 4,
-                    "nbformat_minor": 4
-                }
-                if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-                    # Use local API to create notebook
-                    await contents_manager.new(model={'type': 'notebook'}, path=notebook_path)
-                elif mode == ServerMode.MCP_SERVER and server_client is not None:
-                    server_client.contents.create_notebook(notebook_path, content=content)
-            
             # Add notebook to notebook_manager
             if mode == ServerMode.MCP_SERVER and runtime_url:
                 notebook_manager.add_notebook(
