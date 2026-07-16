@@ -90,6 +90,8 @@ For deployments requiring granular control over document storage and runtime exe
 | `TRANSPORT` | Transport method for MCP | `stdio` / `streamable-http` | `stdio` |
 | `PORT` | Port for streamable HTTP transport | `4040` | `4040` |
 | `RECONNECT_INTERVAL` | Seconds before retrying a dropped kernel WebSocket connection. `0` disables auto-reconnect. | `5` | `0` |
+| `JUPYTER_MCP_EXECUTION_TIMEOUT` | Default timeout in seconds for code execution, used when a tool call does not pass its own timeout. Must be greater than `0`. | `300` | `120` |
+| `JUPYTER_MCP_MAX_EXECUTION_TIMEOUT` | Maximum timeout in seconds a tool call may request for code execution. Must be greater than `0`. | `7200` | `3600` |
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
 | `OPEN_NOTEBOOK_IN_UI` | Open the notebook in the JupyterLab UI on `use_notebook`, activating its tab | `true` / `false` | `false` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
@@ -163,6 +165,9 @@ Options:
   --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
   --allowed-jupyter-mcp-tools TEXT    Comma-separated list of jupyter-mcp-tools to enable (default: notebook_run-all-cells,notebook_get-selected-cell)
   --reconnect-interval INTEGER         Seconds before retrying a dropped kernel WebSocket connection (default: 0)
+  --execution-timeout INTEGER RANGE   Default timeout in seconds for code execution when a tool call passes no timeout (default: 120)
+  --max-execution-timeout INTEGER RANGE
+                                      Maximum timeout in seconds a tool call may request (default: 3600)
   --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```
@@ -192,6 +197,9 @@ Options:
   --jupyter-url TEXT                  Jupyter URL as default for both document and runtime URLs (default: None)
   --jupyter-token TEXT                Jupyter token as default for both document and runtime tokens (default: None)
   --reconnect-interval INTEGER        Seconds before retrying a dropped kernel WebSocket connection (default: 0)
+  --execution-timeout INTEGER RANGE   Default timeout in seconds for code execution when a tool call passes no timeout (default: 120)
+  --max-execution-timeout INTEGER RANGE
+                                      Maximum timeout in seconds a tool call may request (default: 3600)
   --jupyter-mcp-server-url TEXT       URL of the Jupyter MCP Server to connect to (default: http://localhost:4040)
 ```
 

@@ -35,8 +35,8 @@ class JupyterMCPConfig(BaseModel):
     reconnect_interval: int = Field(default=0, description="Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect.")
 
     # Execution timeout configuration
-    execution_timeout: int = Field(default=120, description="Default timeout in seconds for code execution. Set to 0 for unlimited (use with caution).")
-    max_execution_timeout: int = Field(default=3600, description="Maximum allowed timeout in seconds for code execution.")
+    execution_timeout: int = Field(default=120, gt=0, description="Default timeout in seconds for code execution.")
+    max_execution_timeout: int = Field(default=3600, gt=0, description="Maximum allowed timeout in seconds for code execution.")
     
     class Config:
         """Pydantic configuration."""
