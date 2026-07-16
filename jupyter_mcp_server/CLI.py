@@ -41,6 +41,13 @@ def _common_options(f):
             help="Enable JupyterLab mode. Defaults to True.",
         ),
         click.option(
+            "--open-notebook-in-ui",
+            envvar="OPEN_NOTEBOOK_IN_UI",
+            type=click.BOOL,
+            default=False,
+            help="Open the notebook in the JupyterLab UI when using it, which activates its tab. Defaults to False.",
+        ),
+        click.option(
             "--runtime-url",
             envvar="RUNTIME_URL",
             type=click.STRING,
@@ -198,6 +205,7 @@ def _do_start(
     port: int,
     provider: str,
     jupyterlab: bool,
+    open_notebook_in_ui: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str = "",
     mcp_token: str = None,
@@ -236,6 +244,7 @@ def _do_start(
         document_token=document_token,
         port=port,
         jupyterlab=jupyterlab,
+        open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         reconnect_interval=reconnect_interval,
     )
@@ -360,6 +369,7 @@ def server(
     port: int,
     provider: str,
     jupyterlab: bool,
+    open_notebook_in_ui: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str,
     reconnect_interval: int,
@@ -398,6 +408,7 @@ def server(
         port=port,
         provider=provider,
         jupyterlab=jupyterlab,
+        open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
         mcp_token=mcp_token,
@@ -427,6 +438,7 @@ def connect_command(
     document_token: str,
     provider: str,
     jupyterlab: bool,
+    open_notebook_in_ui: bool,
     jupyter_url: str,
     jupyter_token: str,
     allowed_jupyter_mcp_tools: str,
@@ -452,7 +464,8 @@ def connect_command(
         document_url=resolved_document_url,
         document_id=document_id,
         document_token=resolved_document_token,
-        jupyterlab=jupyterlab
+        jupyterlab=jupyterlab,
+        open_notebook_in_ui=open_notebook_in_ui
     )
     
     # Also update the jupyter_extension ServerContext with the jupyterlab flag
@@ -564,6 +577,7 @@ def start_command(
     port: int,
     provider: str,
     jupyterlab: bool,
+    open_notebook_in_ui: bool,
     allowed_jupyter_mcp_tools: str,
     otel_file: str,
     reconnect_interval: int,
@@ -591,6 +605,7 @@ def start_command(
         port=port,
         provider=provider,
         jupyterlab=jupyterlab,
+        open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
         mcp_token=mcp_token,

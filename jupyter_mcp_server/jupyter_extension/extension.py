@@ -100,6 +100,12 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         help='Enable JupyterLab mode (defaults to True)'
     )
     
+    open_notebook_in_ui = Bool(
+        False,
+        config=True,
+        help='Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False)'
+    )
+    
     allowed_jupyter_mcp_tools = Unicode(
         "notebook_run-all-cells,notebook_get-selected-cell",
         config=True,
@@ -134,6 +140,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         logger.info(f"  Document ID: {self.document_id}")
         logger.info(f"  Start New Runtime: {self.start_new_runtime}")
         logger.info(f"  JupyterLab Mode: {self.jupyterlab}")
+        logger.info(f"  Open Notebook in UI: {self.open_notebook_in_ui}")
         if self.runtime_id:
             logger.info(f"  Runtime ID: {self.runtime_id}")
         
@@ -159,6 +166,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config.runtime_id = self.runtime_id if self.runtime_id else None
         config.provider = self.provider
         config.jupyterlab = self.jupyterlab
+        config.open_notebook_in_ui = self.open_notebook_in_ui
         config.allowed_jupyter_mcp_tools = self.allowed_jupyter_mcp_tools
         
         # Store configuration in settings for handlers
@@ -172,6 +180,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             "mcp_runtime_id": self.runtime_id,
             "mcp_provider": self.provider,
             "mcp_jupyterlab": self.jupyterlab,
+            "mcp_open_notebook_in_ui": self.open_notebook_in_ui,
             "mcp_allowed_jupyter_mcp_tools": self.allowed_jupyter_mcp_tools,
             "mcp_serverapp": self.serverapp,
         })
