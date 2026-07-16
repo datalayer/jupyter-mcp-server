@@ -297,12 +297,14 @@ class UseNotebookTool(BaseTool):
         except Exception as e:
             logger.debug(f"Failed to get notebook summary: {e}")
         
-        # Check if we should open in JupyterLab UI (when JupyterLab mode is enabled)
+        # Check if we should open in JupyterLab UI (when JupyterLab mode is
+        # enabled and the user opted in, since opening activates the tab)
         try:
+            from jupyter_mcp_server.config import get_config
             from jupyter_mcp_server.jupyter_extension.context import get_server_context
             context = get_server_context()
-            
-            if context.is_jupyterlab_mode():
+
+            if context.is_jupyterlab_mode() and get_config().open_notebook_in_ui:
                 logger.info(f"JupyterLab mode enabled, attempting to open notebook '{notebook_path}' in JupyterLab UI")
                 
                 # Determine base_url and token based on mode

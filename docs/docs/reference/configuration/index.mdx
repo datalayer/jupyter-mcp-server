@@ -16,8 +16,13 @@ The server automatically detects the appropriate mode based on deployment contex
 ### JupyterLab Mode
 **Environment Variable:** `JUPYTERLAB=true` (default)
 
-- **Enabled**: Automatic notebook opening, enhanced UI tools, `notebook_run-all-cells` tool
+- **Enabled**: Enhanced UI tools, `notebook_run-all-cells` tool
 - **Disabled**: Basic operations only, headless usage
+
+### Open Notebook in UI
+**Environment Variable:** `OPEN_NOTEBOOK_IN_UI=false` (default)
+
+When enabled together with JupyterLab mode, `use_notebook` also opens the notebook in the JupyterLab UI, which activates its tab. It is off by default so that notebooks used over MCP do not pull the focus away from the tab you are working in.
 
 ## Transport & Providers
 
@@ -86,6 +91,7 @@ For deployments requiring granular control over document storage and runtime exe
 | `PORT` | Port for streamable HTTP transport | `4040` | `4040` |
 | `RECONNECT_INTERVAL` | Seconds before retrying a dropped kernel WebSocket connection. `0` disables auto-reconnect. | `5` | `0` |
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
+| `OPEN_NOTEBOOK_IN_UI` | Open the notebook in the JupyterLab UI on `use_notebook`, activating its tab | `true` / `false` | `false` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
 
 ### Configuration Priority
