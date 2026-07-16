@@ -10,6 +10,12 @@ Simple test script to verify the configuration system works correctly.
 import os
 from unittest.mock import MagicMock, patch
 
+import click
+import pytest
+from click.testing import CliRunner
+from pydantic import ValidationError
+
+from jupyter_mcp_server.CLI import _common_options
 from jupyter_mcp_server.config import JupyterMCPConfig, get_config, reset_config, set_config
 
 
@@ -265,8 +271,114 @@ def test_reconnect_interval_config():
     print("✅ reconnect_interval configuration test completed successfully!")
 
 
+def test_execution_timeout_env_var_is_read():
+    """The documented JUPYTER_MCP_EXECUTION_TIMEOUT env var reaches the CLI option."""
+    seen = {}
+
+    @click.command()
+    @_common_options
+    def _probe(**kwargs):
+        seen.update(kwargs)
+
+    result = CliRunner().invoke(
+        _probe, [], env={"JUPYTER_MCP_EXECUTION_TIMEOUT": "300"}
+    )
+
+    assert result.exit_code == 0, result.output
+    assert seen["execution_timeout"] == 300
+
+
+def test_max_execution_timeout_env_var_is_read():
+    """JUPYTER_MCP_MAX_EXECUTION_TIMEOUT reaches the CLI option."""
+    seen = {}
+
+    @click.command()
+    @_common_options
+    def _probe(**kwargs):
+        seen.update(kwargs)
+
+    result = CliRunner().invoke(
+        _probe, [], env={"JUPYTER_MCP_MAX_EXECUTION_TIMEOUT": "7200"}
+    )
+
+    assert result.exit_code == 0, result.output
+    assert seen["max_execution_timeout"] == 7200
+
+
+def test_execution_timeout_defaults_when_env_var_unset():
+    """Without the env var, the CLI default matches the config default."""
+    seen = {}
+
+    @click.command()
+    @_common_options
+    def _probe(**kwargs):
+        seen.update(kwargs)
+
+    result = CliRunner().invoke(_probe, [], env={})
+
+    assert result.exit_code == 0, result.output
+    assert seen["execution_timeout"] == 120
+    assert seen["max_execution_timeout"] == 3600
+
+
+def test_execution_timeout_zero_is_rejected_at_startup():
+    """A timeout of 0 fails at startup rather than expiring every execution."""
+    ran = []
+
+    @click.command()
+    @_common_options
+    def _probe(**kwargs):
+        ran.append(True)
+
+    result = CliRunner().invoke(
+        _probe, [], env={"JUPYTER_MCP_EXECUTION_TIMEOUT": "0"}
+    )
+
+    assert result.exit_code != 0
+    assert not ran, "startup continued with a timeout that expires immediately"
+
+
+def test_execution_timeout_config_rejects_non_positive():
+    """The config object itself refuses a non-positive execution timeout."""
+    reset_config()
+
+    with pytest.raises(ValidationError):
+        JupyterMCPConfig(execution_timeout=0)
+
+    with pytest.raises(ValidationError):
+        JupyterMCPConfig(max_execution_timeout=0)
+
+    # validate_assignment=True means the singleton rejects it too
+    with pytest.raises(ValidationError):
+        set_config(execution_timeout=0)
+
+    reset_config()
+
+
+def test_execution_timeout_config():
+    """Test the execution_timeout configuration field."""
+    reset_config()
+
+    config = get_config()
+    assert config.execution_timeout == 120
+    assert config.max_execution_timeout == 3600
+
+    new_config = set_config(execution_timeout=300)
+    assert new_config.execution_timeout == 300
+
+    # Singleton reflects the update
+    assert get_config().execution_timeout == 300
+
+    # Reset restores the default
+    reset_config()
+    assert get_config().execution_timeout == 120
+
+    print("✅ execution_timeout configuration test completed successfully!")
+
+
 if __name__ == "__main__":
     test_config()
     test_allowed_jupyter_mcp_tools_config()
     test_jupyter_extension_trait()
     test_reconnect_interval_config()
+    test_execution_timeout_config()

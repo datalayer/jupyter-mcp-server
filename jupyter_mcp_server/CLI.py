@@ -131,6 +131,20 @@ def _common_options(f):
             default=0,
             help="Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. Defaults to 0 (disabled).",
         ),
+        click.option(
+            "--execution-timeout",
+            envvar="JUPYTER_MCP_EXECUTION_TIMEOUT",
+            type=click.IntRange(min=1),
+            default=120,
+            help="Default timeout in seconds for code execution, used when a tool call does not pass its own timeout. Defaults to 120.",
+        ),
+        click.option(
+            "--max-execution-timeout",
+            envvar="JUPYTER_MCP_MAX_EXECUTION_TIMEOUT",
+            type=click.IntRange(min=1),
+            default=3600,
+            help="Maximum timeout in seconds a tool call may request for code execution. Defaults to 3600.",
+        ),
     ]
     # Apply decorators in reverse order
     for option in reversed(options):
@@ -211,6 +225,8 @@ def _do_start(
     mcp_token: str = None,
     insecure_mcp_noauth: bool = False,
     reconnect_interval: int = 0,
+    execution_timeout: int = 120,
+    max_execution_timeout: int = 3600,
 ):
     """Internal function to execute the start logic."""
 
@@ -247,6 +263,8 @@ def _do_start(
         open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         reconnect_interval=reconnect_interval,
+        execution_timeout=execution_timeout,
+        max_execution_timeout=max_execution_timeout,
     )
 
     # Reset ServerContext to pick up new configuration
@@ -373,6 +391,8 @@ def server(
     allowed_jupyter_mcp_tools: str,
     otel_file: str,
     reconnect_interval: int,
+    execution_timeout: int,
+    max_execution_timeout: int,
 ):
     """Manages Jupyter MCP Server.
 
@@ -414,6 +434,8 @@ def server(
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
         reconnect_interval=reconnect_interval,
+        execution_timeout=execution_timeout,
+        max_execution_timeout=max_execution_timeout,
     )
 
 
@@ -443,6 +465,8 @@ def connect_command(
     jupyter_token: str,
     allowed_jupyter_mcp_tools: str,
     reconnect_interval: int,
+    execution_timeout: int,
+    max_execution_timeout: int,
 ):
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
@@ -581,6 +605,8 @@ def start_command(
     allowed_jupyter_mcp_tools: str,
     otel_file: str,
     reconnect_interval: int,
+    execution_timeout: int,
+    max_execution_timeout: int,
 ):
     """Start the Jupyter MCP server with a transport."""
     # Resolve URL and token variables based on priority logic
@@ -611,6 +637,8 @@ def start_command(
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
         reconnect_interval=reconnect_interval,
+        execution_timeout=execution_timeout,
+        max_execution_timeout=max_execution_timeout,
     )
 
 
