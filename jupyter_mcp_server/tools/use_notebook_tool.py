@@ -12,6 +12,7 @@ from jupyter_kernel_client import KernelClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import Notebook
+from jupyter_core.utils import ensure_async
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class UseNotebookTool(BaseTool):
             parent_path = str(path.parent) if str(path.parent) != "." else ""
             
             # Get directory contents using local API
-            model = await contents_manager.get(parent_path, content=True, type='directory')
+            model = await ensure_async(contents_manager.get(parent_path, content=True, type='directory'))
             
             if mode == "connect":
                 file_exists = any(item['name'] == path.name for item in model.get('content', []))
@@ -206,7 +207,7 @@ class UseNotebookTool(BaseTool):
                 }
                 if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
                     # Use local API to create notebook
-                    await contents_manager.new(model={'type': 'notebook', 'content': content, 'format': 'json'}, path=notebook_path)
+                    await ensure_async(contents_manager.new(model={'type': 'notebook', 'content': content, 'format': 'json'}, path=notebook_path))
                 elif mode == ServerMode.MCP_SERVER and server_client is not None:
                     server_client.contents.create_notebook(notebook_path, content=content)
 
@@ -282,7 +283,7 @@ class UseNotebookTool(BaseTool):
         try:
             if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
                 # Read notebook to get cell count and first 20 cells
-                model = await contents_manager.get(notebook_path, content=True, type='notebook')
+                model = await ensure_async(contents_manager.get(notebook_path, content=True, type='notebook'))
                 if 'content' in model:
                     notebook = Notebook(**model['content'])
                 else:

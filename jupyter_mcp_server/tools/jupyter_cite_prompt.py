@@ -10,6 +10,7 @@ from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import Notebook
+from jupyter_core.utils import ensure_async
 
 
 class JupyterCitePrompt(BaseTool):
@@ -142,7 +143,7 @@ class JupyterCitePrompt(BaseTool):
             # Local mode: read notebook directly from file system
             notebook_path = notebook_manager.get_notebook_path(notebook_name)
             
-            model = await contents_manager.get(notebook_path, content=True, type='notebook')
+            model = await ensure_async(contents_manager.get(notebook_path, content=True, type='notebook'))
             if 'content' not in model:
                 raise ValueError(f"Could not read notebook content from {notebook_path}")
             notebook = Notebook(**model['content'])

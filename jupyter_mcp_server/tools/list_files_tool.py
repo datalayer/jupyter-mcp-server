@@ -11,6 +11,7 @@ from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.utils import format_TSV
+from jupyter_core.utils import ensure_async
 
 
 def format_size(size_bytes: int) -> str:
@@ -106,7 +107,7 @@ async def _list_files_local(
     
     try:
         # Get directory contents
-        model = await contents_manager.get(path, content=True, type='directory')
+        model = await ensure_async(contents_manager.get(path, content=True, type='directory'))
         
         if 'content' not in model:
             return all_files
