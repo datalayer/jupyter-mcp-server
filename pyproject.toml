@@ -27,6 +27,7 @@ dependencies = [
     "jupyter-server-nbmodel>=0.1.1a4",
     "jupyter-server-client>=0.1.1",
     "jupyter_server>=1.6,<3",
+    "jupyter-collaboration",
     "tornado>=6.1",
     "traitlets>=5.0",
     "mcp[cli]>=1.10.1",
@@ -40,13 +41,12 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "ipykernel", 
-    "jupyter_server>=1.6,<3", 
-    "pytest>=7.0", 
+    "ipykernel",
+    "jupyter_server>=1.6,<3",
+    "pytest>=7.0",
     "pytest-asyncio",
     "pytest-timeout>=2.1.0",
     "jupyterlab",
-    "jupyter-collaboration",
     "pillow>=10.0.0"
 ]
 lint = ["mdformat>0.7", "mdformat-gfm>=0.3.5", "ruff"]

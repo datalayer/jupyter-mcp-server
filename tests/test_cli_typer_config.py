@@ -320,3 +320,23 @@ def test_execution_timeout_config():
 
     reset_config()
     assert get_config().execution_timeout == 120
+
+
+def test_jupyter_collaboration_is_a_required_dependency():
+    """jupyter-collaboration must be a hard dependency, not test-only.
+
+    Without it, JUPYTER_SERVER mode has no file_id_manager, so insert_cell,
+    overwrite_cell_source, execute_cell and insert_execute_code_cell all fail
+    with "file_id_manager not available in serverapp" on a plain install
+    (see #259).
+    """
+    import importlib.metadata as metadata
+    from packaging.requirements import Requirement
+
+    requires = metadata.requires("jupyter_mcp_server") or []
+    matching = [Requirement(r) for r in requires if Requirement(r).name == "jupyter-collaboration"]
+
+    assert matching, "jupyter-collaboration is missing from the distribution's requirements"
+    assert all(
+        r.marker is None or not r.marker.evaluate({"extra": "test"}) for r in matching
+    ), "jupyter-collaboration must not be gated behind the 'test' extra"
