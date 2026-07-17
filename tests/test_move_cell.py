@@ -24,6 +24,8 @@ $ pytest tests/test_move_cell.py -v
 ```
 """
 
+import contextlib
+
 import pytest
 
 from .test_common import MCPClient, timeout_wrapper
@@ -110,6 +112,56 @@ class TestMoveCellApply:
         assert cells == ["A", "B", "C"]
 
 
+class TestMoveCellPreservesPayload:
+    """A move is a reorder: the moved cell keeps everything but its position."""
+
+    def setup_method(self):
+        self.tool = MoveCellTool()
+
+    @staticmethod
+    def _notebook_model():
+        """A three-cell notebook whose middle cell has been executed."""
+        from jupyter_nbmodel_client import NotebookModel
+        from jupyter_ydoc import YNotebook
+
+        nb = NotebookModel()
+        nb._doc = YNotebook()
+        nb._doc.set({
+            "cells": [
+                {"cell_type": "code", "source": "a = 1", "metadata": {},
+                 "outputs": [], "execution_count": None},
+                {"cell_type": "code", "source": "print('hello')",
+                 "metadata": {"tags": ["keep-me"]}, "execution_count": 7,
+                 "outputs": [{"output_type": "stream", "name": "stdout",
+                              "text": "hello\n"}]},
+                {"cell_type": "code", "source": "b = 2", "metadata": {},
+                 "outputs": [], "execution_count": None},
+            ],
+            "metadata": {}, "nbformat": 4, "nbformat_minor": 5,
+        })
+        return nb
+
+    @pytest.mark.asyncio
+    async def test_websocket_move_preserves_cell_payload(self):
+        """_move_cell_websocket must not rebuild the cell from its source."""
+        nb = self._notebook_model()
+        before = nb.as_dict()["cells"][1]
+
+        class _Manager:
+            @contextlib.asynccontextmanager
+            async def get_current_connection(_self):
+                yield nb
+
+        await self.tool._move_cell_websocket(_Manager(), 1, 2)
+
+        after = nb.as_dict()["cells"][2]
+        assert after["source"] == "print('hello')"
+        assert after["outputs"] == before["outputs"]
+        assert after["execution_count"] == 7
+        assert after["metadata"]["tags"] == ["keep-me"]
+        assert after["id"] == before["id"]
+
+
 ###############################################################################
 # Section B — Integration Tests (MCP_SERVER and JUPYTER_SERVER modes)
 ###############################################################################
@@ -119,6 +171,15 @@ async def _setup_cells(client: MCPClient, labels: list[str], cell_type: str = "c
     """Insert cells with the given labels at indices 1..N."""
     for i, label in enumerate(labels):
         await client.insert_cell(i + 1, cell_type, label)
+
+
+def _execution_count(header: str) -> str:
+    """Extract the execution count from a read_cell header line.
+
+    Header format: "=====Cell N | type: <type> | execution count: <count>====="
+    Returns the count as a string, or "N/A" when the cell has none.
+    """
+    return str(header).split("execution count:")[1].strip("= ")
 
 
 async def _read_cell_header(client: MCPClient, index: int) -> tuple[str, str]:
@@ -298,13 +359,24 @@ async def test_move_cell_preserves_outputs(mcp_client_parametrized: MCPClient):
         exec_result = await c.execute_cell(1)
         assert exec_result is not None
 
+        # Read the cell before the move, so the move is compared against it.
+        before = await c.read_cell(1, include_outputs=True)
+        before_header, _before_source, *before_outputs = before["result"]
+
         # Move the executed cell from index 1 to index 2
         await c.move_cell(1, 2)
 
-        # Read cell at new position with outputs
+        # read_cell returns [header, source, *outputs], so assert on the outputs
+        # region only: the source is print('hello') and contains "hello" whether
+        # or not the outputs survived the move.
         cell = await c.read_cell(2, include_outputs=True)
-        cell_text = " ".join(str(item) for item in cell["result"]).strip()
-        assert "hello" in cell_text
+        header, _source, *outputs = cell["result"]
+        outputs_text = " ".join(str(item) for item in outputs).strip()
+        assert "hello" in outputs_text
+        assert outputs == before_outputs
+        # The execution count travels with the cell; "N/A" means it was lost.
+        assert _execution_count(header) == _execution_count(before_header)
+        assert _execution_count(header) != "N/A"
 
         await _cleanup_cells(c, 2)
 
