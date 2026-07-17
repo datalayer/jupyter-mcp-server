@@ -11,6 +11,7 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.utils import get_current_notebook_context
 from mcp.types import ImageContent
+from jupyter_core.utils import ensure_async
 
 
 class ReadCellTool(BaseTool):
@@ -52,7 +53,7 @@ class ReadCellTool(BaseTool):
             if not notebook_path:
                 return ["No active notebook. Use the use_notebook tool to activate a notebook first."]
 
-            model = await contents_manager.get(notebook_path, content=True, type='notebook')
+            model = await ensure_async(contents_manager.get(notebook_path, content=True, type='notebook'))
             if 'content' not in model:
                 raise ValueError(f"Could not read notebook content from {notebook_path}")
             notebook = Notebook(**model['content'])
