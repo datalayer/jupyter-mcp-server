@@ -8,6 +8,8 @@ These run against the real Jupyter server fixture with two real kernels, since
 what is under test is which kernel the code actually reaches.
 """
 
+import time
+
 import pytest
 from jupyter_kernel_client import KernelClient
 from jupyter_server_client import JupyterServerClient
@@ -19,6 +21,25 @@ from jupyter_mcp_server.tools.execute_code_tool import ExecuteCodeTool
 from jupyter_mcp_server.utils import safe_extract_outputs, wait_for_kernel_idle
 
 from .conftest import JUPYTER_TOKEN
+
+
+def _seed(server_client, kernel, marker, timeout=60):
+    """Wait for a kernel to be ready, then give it its identity.
+
+    A kernel is created asynchronously, so ``start()`` returns while the server may
+    still report it as ``starting``. ``KernelClient.execution_state`` cannot answer
+    this: it caches the creation reply and is only valid after ``refresh()``. Ask
+    the server, then assert the seeding ran, so a kernel that never came up fails
+    here rather than as a puzzling timeout inside the assertion under test.
+    """
+    deadline = time.monotonic() + timeout
+    while server_client.kernels.get_kernel(kernel.id).execution_state != "idle":
+        if time.monotonic() > deadline:
+            raise AssertionError(f"kernel {kernel.id} was not ready within {timeout}s")
+        time.sleep(0.1)
+
+    reply = kernel.execute(f"MARKER = {marker!r}")
+    assert reply["status"] == "ok", f"seeding {marker} failed: {reply}"
 
 
 @pytest.fixture
@@ -36,8 +57,8 @@ def targeting_setup(jupyter_server):
 
     try:
         # Give each kernel its own identity so the assertion cannot pass by luck.
-        current_kernel.execute("MARKER = 'current-notebook-kernel'")
-        raw_kernel.execute("MARKER = 'raw-kernel'")
+        _seed(server_client, current_kernel, "current-notebook-kernel")
+        _seed(server_client, raw_kernel, "raw-kernel")
 
         notebook_manager = NotebookManager()
         notebook_manager.add_notebook(
