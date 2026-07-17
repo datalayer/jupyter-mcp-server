@@ -6,7 +6,7 @@ import re
 import asyncio
 import time
 import json
-from typing import Any, Union
+from typing import Any, Optional, Union
 from mcp.types import ImageContent
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
@@ -428,10 +428,11 @@ async def execute_via_execution_stack(
     cell_id: str = None,
     timeout: int = 300,
     poll_interval: float = 0.1,
-    logger = None
+    logger = None,
+    raw_outputs: Optional[list] = None
 ) -> list[Union[str, ImageContent]]:
     """Execute code using ExecutionStack (JUPYTER_SERVER mode with jupyter-server-nbmodel).
-    
+
     This uses the ExecutionStack from jupyter-server-nbmodel extension directly,
     avoiding the reentrant HTTP call issue. This is the preferred method for code
     execution in JUPYTER_SERVER mode.
@@ -445,7 +446,12 @@ async def execute_via_execution_stack(
         timeout: Maximum time to wait for execution (seconds)
         poll_interval: Time between polling for results (seconds)
         logger: Logger instance (optional)
-        
+        raw_outputs: Optional list. When provided, the nbformat-shaped outputs
+            reported by the kernel are appended to it, so callers that persist
+            outputs to disk can keep each output's real ``output_type`` instead
+            of re-deriving it from the formatted strings. The formatted return
+            value is unaffected.
+
     Returns:
         List of formatted outputs (strings or ImageContent)
         
@@ -509,6 +515,13 @@ async def execute_via_execution_stack(
                         error_info = result["error"]
                         logger.error(f"Execution error: {error_info}")
                         error_output = [f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"]
+                        if raw_outputs is not None:
+                            raw_outputs.append({
+                                "output_type": "error",
+                                "ename": error_info.get("ename", "Unknown"),
+                                "evalue": error_info.get("evalue", ""),
+                                "traceback": error_info.get("traceback", []),
+                            })
                         await HookRegistry.get_instance().fire(
                             HookEvent.AFTER_EXECUTE,
                             code=code, kernel_id=kernel_id, metadata=metadata,
@@ -535,6 +548,8 @@ async def execute_via_execution_stack(
 
                     if outputs:
                         formatted = safe_extract_outputs(outputs)
+                        if raw_outputs is not None:
+                            raw_outputs.extend(outputs)
                         logger.info(f"Execution completed with {len(formatted)} formatted outputs: {formatted}")
                     else:
                         formatted = []

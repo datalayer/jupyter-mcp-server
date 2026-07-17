@@ -9,7 +9,7 @@ import logging
 import time
 import nbformat
 from pathlib import Path
-from typing import Union, List
+from typing import Optional, Union, List
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
@@ -36,14 +36,19 @@ class ExecuteCellTool(BaseTool):
         self,
         notebook_path: str,
         cell_index: int,
-        outputs: List[Union[str, ImageContent]]
+        outputs: List[Union[str, ImageContent]],
+        raw_outputs: Optional[List[dict]] = None
     ):
-        """Write execution outputs back to a notebook cell."""
+        """Write execution outputs back to a notebook cell.
+
+        When raw_outputs is given, the kernel's own nbformat-shaped outputs are
+        persisted, which keeps each output's real output_type. Without them only
+        the formatted strings are available (the timeout path, for example), and
+        the output type can only be guessed from the string form.
+        """
 
         with open(notebook_path, 'r', encoding='utf-8') as f:
             notebook = nbformat.read(f, as_version=4)
-
-        clean_notebook_outputs(notebook)
 
         # Handle negative indices (e.g., -1 for last cell)
         num_cells = len(notebook.cells)
@@ -59,29 +64,38 @@ class ExecuteCellTool(BaseTool):
             logger.warning(f"Cell {cell_index} is not a code cell, cannot write outputs")
             return
 
-        # Convert formatted outputs to nbformat structure
-        cell.outputs = []
-        for output in outputs:
-            if isinstance(output, ImageContent):
-                cell.outputs.append(nbformat.v4.new_output(
-                    output_type='display_data',
-                    data={output.mimeType: output.data},
-                    metadata={}
-                ))
-            elif isinstance(output, str):
-                if output.startswith('[ERROR:') or output.startswith('[TIMEOUT ERROR:') or output.startswith('[PROGRESS:'):
+        if raw_outputs:
+            # The kernel already reported each output's type: keep it.
+            cell.outputs = [nbformat.from_dict(output) for output in raw_outputs]
+        else:
+            # Only the formatted strings are available, so the type has to be
+            # guessed from the string form.
+            cell.outputs = []
+            for output in outputs:
+                if isinstance(output, ImageContent):
                     cell.outputs.append(nbformat.v4.new_output(
-                        output_type='stream',
-                        name='stdout',
-                        text=output
+                        output_type='display_data',
+                        data={output.mimeType: output.data},
+                        metadata={}
                     ))
-                else:
-                    cell.outputs.append(nbformat.v4.new_output(
-                        output_type='execute_result',
-                        data={'text/plain': output},
-                        metadata={},
-                        execution_count=None
-                    ))
+                elif isinstance(output, str):
+                    if output.startswith('[ERROR:') or output.startswith('[TIMEOUT ERROR:') or output.startswith('[PROGRESS:'):
+                        cell.outputs.append(nbformat.v4.new_output(
+                            output_type='stream',
+                            name='stdout',
+                            text=output
+                        ))
+                    else:
+                        cell.outputs.append(nbformat.v4.new_output(
+                            output_type='execute_result',
+                            data={'text/plain': output},
+                            metadata={},
+                            execution_count=None
+                        ))
+
+        # Strip kernel-protocol fields that are not part of the nbformat schema
+        # (the raw outputs above come straight from the kernel).
+        clean_notebook_outputs(notebook)
 
         # Update execution count
         max_count = 0
@@ -89,6 +103,11 @@ class ExecuteCellTool(BaseTool):
             if c.cell_type == 'code' and c.execution_count:
                 max_count = max(max_count, c.execution_count)
         cell.execution_count = max_count + 1
+
+        # An execute_result carries the execution count of the cell that produced it.
+        for output in cell.outputs:
+            if output.get('output_type') == 'execute_result':
+                output['execution_count'] = cell.execution_count
 
         with open(notebook_path, 'w', encoding='utf-8') as f:
             nbformat.write(notebook, f)
@@ -234,15 +253,19 @@ class ExecuteCellTool(BaseTool):
                     return []
 
                 # Execute without RTC metadata
+                raw_outputs: List[dict] = []
                 outputs = await execute_via_execution_stack(
                     serverapp=serverapp,
                     kernel_id=kernel_id,
                     code=code_to_execute,
-                    timeout=timeout_seconds
+                    timeout=timeout_seconds,
+                    raw_outputs=raw_outputs
                 )
 
                 # Write outputs back to file
-                await self._write_outputs_to_cell(notebook_path, cell_index, outputs)
+                await self._write_outputs_to_cell(
+                    notebook_path, cell_index, outputs, raw_outputs=raw_outputs
+                )
 
                 return outputs
 
