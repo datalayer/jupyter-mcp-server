@@ -51,6 +51,33 @@ class ExecuteCodeTool(BaseTool):
             logger=logger
         )
     
+    def _connect_to_kernel(self, kernel_id: str, server_client):
+        """Connect to an existing kernel by ID (MCP_SERVER mode).
+
+        Returns (kernel, None) on success, or (None, error_message) if the id
+        does not name a kernel on the server.
+        """
+        from jupyter_kernel_client import KernelClient
+
+        from jupyter_mcp_server.config import get_config
+
+        if server_client is not None:
+            kernels = server_client.kernels.list_kernels()
+            if not any(kernel.id == kernel_id for kernel in kernels):
+                return None, (
+                    f"[ERROR: Kernel '{kernel_id}' not found in jupyter server, please check "
+                    f"whether the kernel already exists using 'list_kernels' tool.]"
+                )
+
+        config = get_config()
+        kernel = KernelClient(
+            server_url=config.runtime_url,
+            token=config.runtime_token,
+            kernel_id=kernel_id,
+        )
+        kernel.start()
+        return kernel, None
+
     async def _execute_via_notebook_manager(
         self,
         notebook_manager: NotebookManager,
@@ -58,23 +85,69 @@ class ExecuteCodeTool(BaseTool):
         timeout: int,
         ensure_kernel_alive_fn,
         wait_for_kernel_idle_fn,
-        safe_extract_outputs_fn
+        safe_extract_outputs_fn,
+        kernel_id: str = None,
+        server_client=None
     ) -> list[Union[str, ImageContent]]:
-        """Execute code using notebook_manager (MCP_SERVER mode - original logic)."""
+        """Execute code using notebook_manager (MCP_SERVER mode - original logic).
+
+        When kernel_id names a kernel other than the current notebook's, the code
+        runs in that kernel instead. Such a connection is opened for this call only
+        and closed afterwards without shutting the kernel down.
+        """
         # Get current notebook name and kernel
         current_notebook = notebook_manager.get_current_notebook() or "default"
-        kernel = notebook_manager.get_kernel(current_notebook)
+        current_kernel_id = notebook_manager.get_kernel_id(current_notebook)
 
-        if not kernel:
-            # Ensure kernel is alive
-            kernel = ensure_kernel_alive_fn()
+        # A kernel we connect to here is borrowed, not owned: it must be released
+        # in the finally below, and never shut down.
+        borrowed_kernel = None
+        if kernel_id is not None and kernel_id != current_kernel_id:
+            kernel, error = self._connect_to_kernel(kernel_id, server_client)
+            if error is not None:
+                return [error]
+            borrowed_kernel = kernel
+            kid = kernel_id
+        else:
+            kernel = notebook_manager.get_kernel(current_notebook)
 
+            if not kernel:
+                # Ensure kernel is alive
+                kernel = ensure_kernel_alive_fn()
+
+            kid = current_kernel_id or ""
+
+        try:
+            return await self._execute_on_kernel(
+                kernel=kernel,
+                kid=kid,
+                code=code,
+                timeout=timeout,
+                wait_for_kernel_idle_fn=wait_for_kernel_idle_fn,
+                safe_extract_outputs_fn=safe_extract_outputs_fn,
+            )
+        finally:
+            if borrowed_kernel is not None:
+                try:
+                    borrowed_kernel.stop(shutdown_kernel=False)
+                except Exception as stop_err:
+                    logger.warning(f"Failed to release kernel {kid}: {stop_err}")
+
+    async def _execute_on_kernel(
+        self,
+        kernel,
+        kid: str,
+        code: str,
+        timeout: int,
+        wait_for_kernel_idle_fn,
+        safe_extract_outputs_fn
+    ) -> list[Union[str, ImageContent]]:
+        """Run code on an already-resolved kernel (MCP_SERVER mode)."""
         # Wait for kernel to be idle before executing
         await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
 
         logger.info(f"Executing IPython code (MCP_SERVER) with timeout {timeout}s: {code[:100]}...")
 
-        kid = notebook_manager.get_kernel_id(current_notebook) or ""
         hooks = HookRegistry.get_instance()
         hook_ctx = await hooks.fire(
             HookEvent.BEFORE_EXECUTE,
@@ -151,14 +224,14 @@ class ExecuteCodeTool(BaseTool):
         
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: JupyterServerClient (not used)
+            server_client: JupyterServerClient (used to resolve kernel_id in MCP_SERVER mode)
             contents_manager: Contents manager (not used)
             kernel_manager: Kernel manager (for JUPYTER_SERVER mode)
             kernel_spec_manager: Kernel spec manager (not used)
             notebook_manager: Notebook manager (for MCP_SERVER mode)
             code: IPython code to execute (supports magic commands, shell commands with !, and Python code)
             timeout: Execution timeout in seconds (default: 60s)
-            kernel_id: Kernel ID (for JUPYTER_SERVER mode)
+            kernel_id: Kernel to execute in; defaults to the current notebook's kernel
             ensure_kernel_alive_fn: Function to ensure kernel is alive (for MCP_SERVER mode)
             wait_for_kernel_idle_fn: Function to wait for kernel idle state (for MCP_SERVER mode)
             safe_extract_outputs_fn: Function to safely extract outputs
@@ -210,14 +283,16 @@ class ExecuteCodeTool(BaseTool):
             if wait_for_kernel_idle_fn is None:
                 raise ValueError("wait_for_kernel_idle_fn is required for MCP_SERVER mode")
             
-            logger.info("Executing IPython in MCP_SERVER mode")
+            logger.info(f"Executing IPython in MCP_SERVER mode with kernel_id={kernel_id}")
             return await self._execute_via_notebook_manager(
                 notebook_manager=notebook_manager,
                 code=code,
                 timeout=timeout,
                 ensure_kernel_alive_fn=ensure_kernel_alive_fn,
                 wait_for_kernel_idle_fn=wait_for_kernel_idle_fn,
-                safe_extract_outputs_fn=safe_extract_outputs_fn
+                safe_extract_outputs_fn=safe_extract_outputs_fn,
+                kernel_id=kernel_id,
+                server_client=server_client
             )
         
         else:
