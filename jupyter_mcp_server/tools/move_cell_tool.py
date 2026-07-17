@@ -83,12 +83,12 @@ class MoveCellTool(BaseTool):
                 cell_type = nb_dict["cells"][source_index].get("cell_type", "code")
                 return Notebook(**nb_dict), {"cell_type": cell_type, "source": cell_source}
 
-            deleted = nb.delete_cell(source_index)
+            deleted = dict(nb.delete_cell(source_index))
             cell_type = deleted.get("cell_type", "code")
             cell_source = deleted.get("source", "")
             if isinstance(cell_source, list):
                 cell_source = "".join(cell_source)
-            nb.insert_cell(target_index, cell_source, cell_type)
+            nb.insert(target_index, deleted)
             return Notebook(**nb.as_dict()), {"cell_type": cell_type, "source": cell_source}
         else:
             return await self._move_cell_file(notebook_path, source_index, target_index)
@@ -144,12 +144,12 @@ class MoveCellTool(BaseTool):
                 cell_type = nb_dict["cells"][source_index].get("cell_type", "code")
                 return Notebook(**nb_dict), {"cell_type": cell_type, "source": cell_source}
 
-            deleted = notebook.delete_cell(source_index)
+            deleted = dict(notebook.delete_cell(source_index))
             cell_type = deleted.get("cell_type", "code")
             cell_source = deleted.get("source", "")
             if isinstance(cell_source, list):
                 cell_source = "".join(cell_source)
-            notebook.insert_cell(target_index, cell_source, cell_type)
+            notebook.insert(target_index, deleted)
             return Notebook(**notebook.as_dict()), {"cell_type": cell_type, "source": cell_source}
 
     async def execute(
