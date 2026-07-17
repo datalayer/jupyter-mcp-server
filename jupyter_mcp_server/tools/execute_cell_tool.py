@@ -277,6 +277,7 @@ class ExecuteCellTool(BaseTool):
 
                     start_time = time.time()
                     last_output_count = 0
+                    timed_out = False
 
                     # Monitor progress
                     while not execution_task.done():
@@ -285,6 +286,7 @@ class ExecuteCellTool(BaseTool):
                         # Check timeout
                         if elapsed > timeout_seconds:
                             execution_task.cancel()
+                            timed_out = True
                             outputs_log.append(f"[TIMEOUT at {elapsed:.1f}s: Cancelling execution]")
                             try:
                                 kernel.interrupt()
@@ -316,8 +318,10 @@ class ExecuteCellTool(BaseTool):
 
                         await asyncio.sleep(1)
 
-                    # Get final result
-                    if not execution_task.cancelled():
+                    # Get final result. On timeout the task was cancelled above, so
+                    # awaiting it would raise CancelledError, which is a BaseException
+                    # and is not caught below, discarding the timeout log just built.
+                    if not timed_out:
                         try:
                             await execution_task
                             final_outputs = notebook[cell_index].get("outputs", [])
@@ -328,7 +332,9 @@ class ExecuteCellTool(BaseTool):
                                 remaining = final_outputs[last_output_count:]
                                 for output in remaining:
                                     extracted = extract_output(output)
-                                    if extracted.strip():
+                                    if not isinstance(extracted, str):
+                                        outputs_log.append(extracted)
+                                    elif extracted.strip():
                                         outputs_log.append(extracted)
 
                         except Exception as e:
