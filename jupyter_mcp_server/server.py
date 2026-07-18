@@ -776,7 +776,7 @@ async def move_cell(
 @with_hooks("execute_code")
 async def execute_code(
     code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
-    timeout: Annotated[int, Field(description="Execution timeout in seconds",le=3600)] = 30,
+    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 30,
     kernel_id: Annotated[str | None, Field(description="Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.")] = None,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed code")]:
     """Execute code directly in a kernel (not saved to notebook).
@@ -796,6 +796,10 @@ async def execute_code(
     1. Import new modules or perform variable assignments that affect subsequent Notebook execution
     2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
     """
+    config = get_config()
+    # Use config default if timeout is 0, otherwise clamp to max
+    effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+
     if kernel_id is None and server_context.mode == ServerMode.JUPYTER_SERVER:
         current_notebook = notebook_manager.get_current_notebook() or "default"
         kernel_id = notebook_manager.get_kernel_id(current_notebook)
@@ -807,7 +811,7 @@ async def execute_code(
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             code=code,
-            timeout=timeout,
+            timeout=effective_timeout,
             kernel_id=kernel_id,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
             wait_for_kernel_idle_fn=wait_for_kernel_idle,
