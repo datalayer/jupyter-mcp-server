@@ -14,6 +14,7 @@ import asyncio
 from mcp.types import ImageContent
 from jupyter_mcp_server.jupyter_extension.backends.base import Backend
 from jupyter_mcp_server.utils import safe_extract_outputs
+from jupyter_core.utils import ensure_async
 
 if TYPE_CHECKING:
     from jupyter_server.serverapp import ServerApp
@@ -56,11 +57,8 @@ class LocalBackend(Backend):
         Returns:
             Notebook content dictionary
         """
-        model = await asyncio.to_thread(
-            self.contents_manager.get,
-            path,
-            type='notebook',
-            content=True
+        model = await ensure_async(
+            self.contents_manager.get(path, type='notebook', content=True)
         )
         return model['content']
     
@@ -81,12 +79,10 @@ class LocalBackend(Backend):
     async def _list_notebooks_recursive(self, path: str, notebooks: list[str]) -> None:
         """Helper to recursively list notebooks."""
         try:
-            model = await asyncio.to_thread(
-                self.contents_manager.get,
-                path,
-                content=True
+            model = await ensure_async(
+                self.contents_manager.get(path, content=True)
             )
-            
+
             if model['type'] == 'directory':
                 for item in model['content']:
                     item_path = f"{path}/{item['name']}" if path else item['name']
@@ -110,10 +106,8 @@ class LocalBackend(Backend):
             True if exists
         """
         try:
-            await asyncio.to_thread(
-                self.contents_manager.get,
-                path,
-                content=False
+            await ensure_async(
+                self.contents_manager.get(path, content=False)
             )
             return True
         except Exception:
@@ -129,9 +123,8 @@ class LocalBackend(Backend):
         Returns:
             Created notebook content
         """
-        model = await asyncio.to_thread(
-            self.contents_manager.new,
-            path=path
+        model = await ensure_async(
+            self.contents_manager.new(path=path)
         )
         return model['content']
     
@@ -202,13 +195,14 @@ class LocalBackend(Backend):
         content['cells'] = cells
         
         # Save updated notebook
-        await asyncio.to_thread(
-            self.contents_manager.save,
-            {
-                'type': 'notebook',
-                'content': content
-            },
-            path
+        await ensure_async(
+            self.contents_manager.save(
+                {
+                    'type': 'notebook',
+                    'content': content
+                },
+                path
+            )
         )
         
         return len(cells) - 1
@@ -253,13 +247,14 @@ class LocalBackend(Backend):
         content['cells'] = cells
         
         # Save updated notebook
-        await asyncio.to_thread(
-            self.contents_manager.save,
-            {
-                'type': 'notebook',
-                'content': content
-            },
-            path
+        await ensure_async(
+            self.contents_manager.save(
+                {
+                    'type': 'notebook',
+                    'content': content
+                },
+                path
+            )
         )
         
         return cell_index
@@ -279,13 +274,14 @@ class LocalBackend(Backend):
             cells.pop(cell_index)
             content['cells'] = cells
             
-            await asyncio.to_thread(
-                self.contents_manager.save,
-                {
-                    'type': 'notebook',
-                    'content': content
-                },
-                path
+            await ensure_async(
+                self.contents_manager.save(
+                    {
+                        'type': 'notebook',
+                        'content': content
+                    },
+                    path
+                )
             )
     
     async def overwrite_cell(
@@ -324,13 +320,14 @@ class LocalBackend(Backend):
         cell['source'] = new_source
         content['cells'] = cells
         
-        await asyncio.to_thread(
-            self.contents_manager.save,
-            {
-                'type': 'notebook',
-                'content': content
-            },
-            path
+        await ensure_async(
+            self.contents_manager.save(
+                {
+                    'type': 'notebook',
+                    'content': content
+                },
+                path
+            )
         )
         
         return (old_source, new_source_str)
@@ -425,10 +422,11 @@ class LocalBackend(Backend):
         content = await self.get_notebook_content(path)
         if cell_index < len(content['cells']):
             content['cells'][cell_index]['outputs'] = outputs
-            await asyncio.to_thread(
-                self.contents_manager.save,
-                {'type': 'notebook', 'content': content},
-                path
+            await ensure_async(
+                self.contents_manager.save(
+                    {'type': 'notebook', 'content': content},
+                    path
+                )
             )
         
         return safe_extract_outputs(outputs)
