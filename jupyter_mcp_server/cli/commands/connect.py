@@ -77,6 +77,10 @@ def connect_command(
         str | None,
         typer.Option("--mcp-token", envvar="MCP_TOKEN"),
     ] = None,
+    insecure_mcp_noauth: Annotated[
+        bool,
+        typer.Option("--insecure-mcp-noauth", envvar="INSECURE_MCP_NOAUTH"),
+    ] = False,
     document_url: Annotated[
         str | None,
         typer.Option("--document-url", envvar="DOCUMENT_URL"),
@@ -97,8 +101,42 @@ def connect_command(
         str | None,
         typer.Option("--jupyter-token", envvar="JUPYTER_TOKEN"),
     ] = None,
+    allowed_jupyter_mcp_tools: Annotated[
+        str,
+        typer.Option(
+            "--allowed-jupyter-mcp-tools",
+            envvar="ALLOWED_JUPYTER_MCP_TOOLS",
+        ),
+    ] = "notebook_run-all-cells,notebook_get-selected-cell",
+    reconnect_interval: Annotated[
+        int,
+        typer.Option("--reconnect-interval", envvar="RECONNECT_INTERVAL", min=0),
+    ] = 0,
+    execution_timeout: Annotated[
+        int,
+        typer.Option(
+            "--execution-timeout",
+            envvar="JUPYTER_MCP_EXECUTION_TIMEOUT",
+            min=1,
+        ),
+    ] = 120,
+    max_execution_timeout: Annotated[
+        int,
+        typer.Option(
+            "--max-execution-timeout",
+            envvar="JUPYTER_MCP_MAX_EXECUTION_TIMEOUT",
+            min=1,
+        ),
+    ] = 3600,
 ) -> None:
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
+
+    # Kept for CLI surface parity with the legacy Click command.
+    del insecure_mcp_noauth
+    del allowed_jupyter_mcp_tools
+    del reconnect_interval
+    del execution_timeout
+    del max_execution_timeout
 
     (
         resolved_document_url,

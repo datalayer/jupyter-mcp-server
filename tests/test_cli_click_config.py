@@ -9,19 +9,19 @@ Simple test script to verify the configuration system works correctly.
 
 from unittest.mock import MagicMock, patch
 
-import click
 import pytest
-from click.testing import CliRunner
 from pydantic import ValidationError
+from typer.testing import CliRunner
 
-from jupyter_mcp_server.CLI import _common_options
+from jupyter_mcp_server.cli.cli import Provider, app
+from jupyter_mcp_server.cli.commands.connect import connect_command
+from jupyter_mcp_server.cli.commands.stop import stop_command
 from jupyter_mcp_server.config import JupyterMCPConfig, get_config, reset_config, set_config
+from jupyter_mcp_server.utils import mcp_auth_headers
 
 
 def test_mcp_auth_headers_include_bearer_token():
     """Management CLI requests include the MCP bearer token when configured."""
-    from jupyter_mcp_server.CLI import mcp_auth_headers
-
     assert mcp_auth_headers("client-token") == {
         "Authorization": "Bearer client-token",
     }
@@ -29,15 +29,11 @@ def test_mcp_auth_headers_include_bearer_token():
 
 def test_mcp_auth_headers_empty_without_token():
     """Management CLI requests stay unauthenticated in explicit no-auth mode."""
-    from jupyter_mcp_server.CLI import mcp_auth_headers
-
     assert mcp_auth_headers(None) == {}
 
 
 def test_connect_command_sends_mcp_token():
     """The first-party connect command remains compatible with protected routes."""
-    from jupyter_mcp_server.CLI import connect_command
-
     class Response:
         def raise_for_status(self):
             pass
@@ -48,20 +44,19 @@ def test_connect_command_sends_mcp_token():
         seen["headers"] = headers
         return Response()
 
-    with patch("jupyter_mcp_server.CLI.httpx.put", fake_put):
-        connect_command.callback(
+    with patch("jupyter_mcp_server.cli.commands.connect.httpx.put", fake_put):
+        connect_command(
             jupyter_mcp_server_url="http://localhost:4040",
+            provider=Provider.jupyter,
+            jupyterlab=True,
+            open_notebook_in_ui=False,
             runtime_url=None,
             runtime_id="kernel-id",
             runtime_token=None,
             mcp_token="client-token",
-            insecure_mcp_noauth=False,
             document_url=None,
             document_id="notebook.ipynb",
             document_token=None,
-            provider="jupyter",
-            jupyterlab=True,
-            open_notebook_in_ui=False,
             jupyter_url="http://localhost:8888",
             jupyter_token="jupyter-token",
             allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell",
@@ -75,8 +70,6 @@ def test_connect_command_sends_mcp_token():
 
 def test_stop_command_sends_mcp_token():
     """The first-party stop command remains compatible with protected routes."""
-    from jupyter_mcp_server.CLI import stop_command
-
     class Response:
         def raise_for_status(self):
             pass
@@ -87,8 +80,8 @@ def test_stop_command_sends_mcp_token():
         seen["headers"] = headers
         return Response()
 
-    with patch("jupyter_mcp_server.CLI.httpx.delete", fake_delete):
-        stop_command.callback(
+    with patch("jupyter_mcp_server.cli.commands.stop.httpx.delete", fake_delete):
+        stop_command(
             jupyter_mcp_server_url="http://localhost:4040",
             mcp_token="client-token",
         )
@@ -275,14 +268,15 @@ def test_execution_timeout_env_var_is_read():
     """The documented JUPYTER_MCP_EXECUTION_TIMEOUT env var reaches the CLI option."""
     seen = {}
 
-    @click.command()
-    @_common_options
-    def _probe(**kwargs):
+    def fake_do_start(**kwargs):
         seen.update(kwargs)
 
-    result = CliRunner().invoke(
-        _probe, [], env={"JUPYTER_MCP_EXECUTION_TIMEOUT": "300"}
-    )
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
+        result = CliRunner().invoke(
+            app,
+            ["start"],
+            env={"JUPYTER_MCP_EXECUTION_TIMEOUT": "300"},
+        )
 
     assert result.exit_code == 0, result.output
     assert seen["execution_timeout"] == 300
@@ -292,14 +286,15 @@ def test_max_execution_timeout_env_var_is_read():
     """JUPYTER_MCP_MAX_EXECUTION_TIMEOUT reaches the CLI option."""
     seen = {}
 
-    @click.command()
-    @_common_options
-    def _probe(**kwargs):
+    def fake_do_start(**kwargs):
         seen.update(kwargs)
 
-    result = CliRunner().invoke(
-        _probe, [], env={"JUPYTER_MCP_MAX_EXECUTION_TIMEOUT": "7200"}
-    )
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
+        result = CliRunner().invoke(
+            app,
+            ["start"],
+            env={"JUPYTER_MCP_MAX_EXECUTION_TIMEOUT": "7200"},
+        )
 
     assert result.exit_code == 0, result.output
     assert seen["max_execution_timeout"] == 7200
@@ -309,12 +304,11 @@ def test_execution_timeout_defaults_when_env_var_unset():
     """Without the env var, the CLI default matches the config default."""
     seen = {}
 
-    @click.command()
-    @_common_options
-    def _probe(**kwargs):
+    def fake_do_start(**kwargs):
         seen.update(kwargs)
 
-    result = CliRunner().invoke(_probe, [], env={})
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
+        result = CliRunner().invoke(app, ["start"], env={})
 
     assert result.exit_code == 0, result.output
     assert seen["execution_timeout"] == 120
@@ -325,14 +319,15 @@ def test_execution_timeout_zero_is_rejected_at_startup():
     """A timeout of 0 fails at startup rather than expiring every execution."""
     ran = []
 
-    @click.command()
-    @_common_options
-    def _probe(**kwargs):
+    def fake_do_start(**kwargs):
         ran.append(True)
 
-    result = CliRunner().invoke(
-        _probe, [], env={"JUPYTER_MCP_EXECUTION_TIMEOUT": "0"}
-    )
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
+        result = CliRunner().invoke(
+            app,
+            ["start"],
+            env={"JUPYTER_MCP_EXECUTION_TIMEOUT": "0"},
+        )
 
     assert result.exit_code != 0
     assert not ran, "startup continued with a timeout that expires immediately"

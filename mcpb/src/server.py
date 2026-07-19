@@ -15,7 +15,7 @@ the host application from the manifest's user_config:
   - JUPYTER_TOKEN: Authentication token for the Jupyter server
 """
 
-from jupyter_mcp_server.CLI import server
+from jupyter_mcp_server.cli.cli import serve
 
 if __name__ == "__main__":
-    server()
+  serve()

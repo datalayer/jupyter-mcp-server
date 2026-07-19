@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 
 from jupyter_mcp_server.cli.cli import Provider, app, connect_command, stop_command
 from jupyter_mcp_server.config import JupyterMCPConfig, get_config, reset_config, set_config
+from jupyter_mcp_server.utils import mcp_auth_headers
 
 
 class _Response:
@@ -22,8 +23,6 @@ class _Response:
 
 def test_mcp_auth_headers_include_bearer_token():
     """Management CLI requests include the MCP bearer token when configured."""
-    from jupyter_mcp_server.CLI import mcp_auth_headers
-
     assert mcp_auth_headers("client-token") == {
         "Authorization": "Bearer client-token",
     }
@@ -31,8 +30,6 @@ def test_mcp_auth_headers_include_bearer_token():
 
 def test_mcp_auth_headers_empty_without_token():
     """Management CLI requests stay unauthenticated in explicit no-auth mode."""
-    from jupyter_mcp_server.CLI import mcp_auth_headers
-
     assert mcp_auth_headers(None) == {}
 
 

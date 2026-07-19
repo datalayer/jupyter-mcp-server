@@ -9,7 +9,9 @@ from unittest.mock import patch
 import click
 import pytest
 
-from jupyter_mcp_server.CLI import connect_command, do_start, stop_command
+from jupyter_mcp_server.cli.commands.connect import Provider, connect_command
+from jupyter_mcp_server.cli.commands.stop import stop_command
+from jupyter_mcp_server.utils import do_start
 
 
 class _Response:
@@ -27,20 +29,19 @@ def test_click_connect_command_sends_mcp_token():
         seen["content"] = content
         return _Response()
 
-    with patch("jupyter_mcp_server.CLI.httpx.put", fake_put):
-        connect_command.callback(
+    with patch("jupyter_mcp_server.cli.commands.connect.httpx.put", fake_put):
+        connect_command(
             jupyter_mcp_server_url="http://localhost:4040",
+            provider=Provider.jupyter,
+            jupyterlab=True,
+            open_notebook_in_ui=False,
             runtime_url=None,
             runtime_id="kernel-id",
             runtime_token=None,
             mcp_token="client-token",
-            insecure_mcp_noauth=False,
             document_url=None,
             document_id="notebook.ipynb",
             document_token=None,
-            provider="jupyter",
-            jupyterlab=True,
-            open_notebook_in_ui=False,
             jupyter_url="http://localhost:8888",
             jupyter_token="jupyter-token",
             allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell",
@@ -60,8 +61,8 @@ def test_click_stop_command_sends_mcp_token():
         seen["headers"] = headers
         return _Response()
 
-    with patch("jupyter_mcp_server.CLI.httpx.delete", fake_delete):
-        stop_command.callback(
+    with patch("jupyter_mcp_server.cli.commands.stop.httpx.delete", fake_delete):
+        stop_command(
             jupyter_mcp_server_url="http://localhost:4040",
             mcp_token="client-token",
         )
