@@ -79,6 +79,12 @@ class ExecuteCellTool(BaseTool):
                         metadata={}
                     ))
                 elif isinstance(output, str):
+                    if output == '[No output generated]':
+                        # A display-only sentinel for the tool response (see
+                        # execute_via_execution_stack in utils.py): a cell that
+                        # produced nothing must persist no output, not a
+                        # fabricated execute_result.
+                        continue
                     if output.startswith('[ERROR:') or output.startswith('[TIMEOUT ERROR:') or output.startswith('[PROGRESS:'):
                         cell.outputs.append(nbformat.v4.new_output(
                             output_type='stream',

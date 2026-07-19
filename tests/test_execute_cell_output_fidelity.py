@@ -168,3 +168,42 @@ async def test_falls_back_to_formatted_strings_without_raw_outputs(tmp_path):
     assert len(outputs) == 1
     assert outputs[0]["output_type"] == "stream"
     nbformat.validate(notebook)
+
+
+@pytest.mark.asyncio
+async def test_error_string_still_persisted_without_raw_outputs(tmp_path):
+    """An [ERROR: ...] fallback string keeps being written as a stream output."""
+    path = _write_notebook(tmp_path)
+    tool = ExecuteCellTool()
+
+    await tool._write_outputs_to_cell(path, 0, ["[ERROR: RuntimeError: boom]"])
+
+    notebook = _read_notebook(path)
+    outputs = notebook.cells[0].outputs
+    assert len(outputs) == 1
+    assert outputs[0]["output_type"] == "stream"
+    assert outputs[0]["text"] == "[ERROR: RuntimeError: boom]"
+    nbformat.validate(notebook)
+
+
+@pytest.mark.asyncio
+async def test_no_output_sentinel_is_not_persisted(tmp_path):
+    """A cell that produced nothing must persist no output.
+
+    In JUPYTER_SERVER file mode an output-less cell (``x = 1``, an import, a
+    def) makes execute_via_execution_stack return the ``[No output generated]``
+    sentinel with raw_outputs empty. That sentinel is meant only for the tool
+    response, so it must not be written back as a fabricated execute_result.
+    """
+    path = _write_notebook(tmp_path, source="x = 1")
+    tool = ExecuteCellTool()
+
+    await tool._write_outputs_to_cell(
+        path, 0, ["[No output generated]"], raw_outputs=[]
+    )
+
+    cell = _read_notebook(path).cells[0]
+    assert cell.outputs == []
+    # The cell was executed, so it still carries an execution count.
+    assert cell.execution_count == 1
+    nbformat.validate(_read_notebook(path))
