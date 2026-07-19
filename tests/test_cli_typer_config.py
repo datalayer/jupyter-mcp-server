@@ -22,18 +22,18 @@ class _Response:
 
 def test_mcp_auth_headers_include_bearer_token():
     """Management CLI requests include the MCP bearer token when configured."""
-    from jupyter_mcp_server.CLI import _mcp_auth_headers
+    from jupyter_mcp_server.CLI import mcp_auth_headers
 
-    assert _mcp_auth_headers("client-token") == {
+    assert mcp_auth_headers("client-token") == {
         "Authorization": "Bearer client-token",
     }
 
 
 def test_mcp_auth_headers_empty_without_token():
     """Management CLI requests stay unauthenticated in explicit no-auth mode."""
-    from jupyter_mcp_server.CLI import _mcp_auth_headers
+    from jupyter_mcp_server.CLI import mcp_auth_headers
 
-    assert _mcp_auth_headers(None) == {}
+    assert mcp_auth_headers(None) == {}
 
 
 def test_connect_command_sends_mcp_token():
@@ -229,7 +229,7 @@ def test_execution_timeout_env_var_is_read():
     def fake_do_start(**kwargs):
         seen.update(kwargs)
 
-    with patch("jupyter_mcp_server.cli.commands.serve._do_start", fake_do_start):
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
         result = CliRunner().invoke(
             app,
             ["start"],
@@ -247,7 +247,7 @@ def test_max_execution_timeout_env_var_is_read():
     def fake_do_start(**kwargs):
         seen.update(kwargs)
 
-    with patch("jupyter_mcp_server.cli.commands.serve._do_start", fake_do_start):
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
         result = CliRunner().invoke(
             app,
             ["start"],
@@ -265,7 +265,7 @@ def test_execution_timeout_defaults_when_env_var_unset():
     def fake_do_start(**kwargs):
         seen.update(kwargs)
 
-    with patch("jupyter_mcp_server.cli.commands.serve._do_start", fake_do_start):
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
         result = CliRunner().invoke(app, ["start"], env={})
 
     assert result.exit_code == 0, result.output
@@ -280,7 +280,7 @@ def test_execution_timeout_zero_is_rejected_at_startup():
     def fake_do_start(**kwargs):
         ran.append(kwargs)
 
-    with patch("jupyter_mcp_server.cli.commands.serve._do_start", fake_do_start):
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
         result = CliRunner().invoke(
             app,
             ["start"],

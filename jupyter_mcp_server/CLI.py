@@ -14,18 +14,14 @@ from typing import Any
 
 import click
 import httpx
-import uvicorn
 
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.config import get_config, set_config
-from jupyter_mcp_server.server_context import ServerContext
-
-# Import the server instance and helper functions from server layer
-from jupyter_mcp_server.server import (
-    mcp,
-    __start_kernel,
-    __auto_enroll_document,
+from jupyter_mcp_server.utils import (
+    do_start,
+    mcp_auth_headers,
+    resolve_url_and_token_variables,
 )
 
 # Shared options decorator to reduce code duplication
@@ -166,193 +162,6 @@ def _log_click_cli_deprecation() -> None:
     )
 
 
-def _resolve_url_and_token_variables(
-    jupyter_url, jupyter_token,
-    document_url, document_token,
-    runtime_url, runtime_token,
-) -> tuple[str, str | None, str, str | None]:
-    """Resolve URL and token variables based on priority logic.
-
-    Priority order:
-    1. Individual URL/token variables take precedence if set
-    2. JUPYTER_URL/JUPYTER_TOKEN used as fallback if individual variables are None
-    3. Keep original default values if neither individual nor merged variables are set
-
-    Args:
-        jupyter_url: The merged Jupyter URL variable
-        jupyter_token: The merged Jupyter token variable
-        document_url: The individual document URL (takes precedence if set)
-        document_token: The individual document token (takes precedence if set)
-        runtime_url: The individual runtime URL (takes precedence if set)
-        runtime_token: The individual runtime token (takes precedence if set)
-
-    Returns:
-        Tuple of (resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token)
-    """
-
-    # Resolve document_url
-    if document_url is not None:
-        resolved_document_url = document_url
-    elif jupyter_url is not None:
-        resolved_document_url = jupyter_url
-    else:
-        resolved_document_url = "http://localhost:8888"
-
-    # Resolve runtime_url
-    if runtime_url is not None:
-        resolved_runtime_url = runtime_url
-    elif jupyter_url is not None:
-        resolved_runtime_url = jupyter_url
-    else:
-        resolved_runtime_url = "http://localhost:8888"
-
-    # Resolve document_token
-    resolved_document_token = document_token or jupyter_token
-
-    # Resolve runtime_token
-    resolved_runtime_token = runtime_token or jupyter_token
-
-    return resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token
-
-
-def _mcp_auth_headers(mcp_token: str | None) -> dict[str, str]:
-    if not mcp_token:
-        return {}
-    return {"Authorization": f"Bearer {mcp_token}"}
-
-
-def _do_start(
-    transport: str,
-    start_new_runtime: bool,
-    runtime_url: str,
-    runtime_id: str,
-    runtime_token: str,
-    document_url: str,
-    document_id: str,
-    document_token: str,
-    port: int,
-    provider: str,
-    jupyterlab: bool,
-    open_notebook_in_ui: bool,
-    allowed_jupyter_mcp_tools: str,
-    otel_file: str = "",
-    mcp_token: str = None,
-    insecure_mcp_noauth: bool = False,
-    reconnect_interval: int = 0,
-    execution_timeout: int = 120,
-    max_execution_timeout: int = 3600,
-):
-    """Internal function to execute the start logic."""
-
-    # Validate MCP auth configuration early, before any heavy startup work
-    if transport == "streamable-http" and not mcp_token and not insecure_mcp_noauth:
-        raise click.UsageError(
-            "streamable-http transport requires MCP client authentication. "
-            "Set --mcp-token / MCP_TOKEN, or pass --insecure-mcp-noauth to "
-            "explicitly allow unauthenticated access."
-        )
-
-    # Log the received configuration for diagnostics
-    # Note: set_config() will automatically normalize string "None" values
-    logger.info(
-        f"Start command received - runtime_url: {repr(runtime_url)}, "
-        f"document_url: {repr(document_url)}, provider: {provider}, "
-        f"transport: {transport}"
-    )
-
-    # Set configuration using the singleton
-    # String "None" values will be automatically normalized by set_config()
-    config = set_config(
-        transport=transport,
-        provider=provider,
-        runtime_url=runtime_url,
-        start_new_runtime=start_new_runtime,
-        runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        document_url=document_url,
-        document_id=document_id,
-        document_token=document_token,
-        port=port,
-        jupyterlab=jupyterlab,
-        open_notebook_in_ui=open_notebook_in_ui,
-        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
-        reconnect_interval=reconnect_interval,
-        execution_timeout=execution_timeout,
-        max_execution_timeout=max_execution_timeout,
-    )
-
-    # Reset ServerContext to pick up new configuration
-    ServerContext.reset()
-    
-    # Also update the jupyter_extension ServerContext with the jupyterlab flag
-    # This is critical for MCP_SERVER mode to propagate the config properly
-    try:
-        from jupyter_mcp_server.jupyter_extension.context import get_server_context
-        extension_context = get_server_context()
-        extension_context.update(
-            context_type="MCP_SERVER",
-            serverapp=None,
-            document_url=config.document_url,
-            runtime_url=config.runtime_url,
-            jupyterlab=config.jupyterlab
-        )
-        logger.info(f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}")
-    except Exception as e:
-        logger.warning(f"Failed to update jupyter_extension ServerContext: {e}")
-
-    # Determine startup behavior based on configuration
-    if config.document_id:
-        # If document_id is provided, auto-enroll the notebook
-        # Kernel creation depends on start_new_runtime and runtime_id flags
-        try:
-            import asyncio
-            # Run the async enrollment in the event loop
-            asyncio.run(__auto_enroll_document())
-        except Exception as e:
-            logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
-            # Fallback to legacy kernel-only mode if enrollment fails
-            if config.start_new_runtime or config.runtime_id:
-                try:
-                    __start_kernel()
-                except Exception as e2:
-                    logger.error(f"Failed to start kernel on startup: {e2}")
-    elif config.start_new_runtime or config.runtime_id:
-        # If no document_id but start_new_runtime/runtime_id is set, just create kernel
-        # This is for backward compatibility - kernel without managed notebook
-        try:
-            __start_kernel()
-        except Exception as e:
-            logger.error(f"Failed to start kernel on startup: {e}")
-    # else: No startup action - user must manually enroll notebooks or create kernels
-
-    # Auto-register OTel hook handler if configured (CLI arg → env var fallback)
-    from jupyter_mcp_server.otel_hook import maybe_register_otel
-    maybe_register_otel(otel_file or None)
-
-    # Configure token authentication for the MCP endpoint
-    if transport == "streamable-http":
-        if mcp_token:
-            from jupyter_mcp_server.server import RuntimeTokenVerifier
-            mcp._token_verifier = RuntimeTokenVerifier(mcp_token)
-            logger.info("MCP endpoint token authentication enabled (using MCP_TOKEN)")
-        elif insecure_mcp_noauth:
-            logger.warning(
-                "MCP endpoint authentication DISABLED (--insecure-mcp-noauth). "
-                "Any client can connect without credentials. Not recommended for production."
-            )
-        else:
-            assert False, "early validation should have caught missing MCP auth config"
-
-    logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
-
-    if transport == "stdio":
-        mcp.run(transport="stdio")
-    elif transport == "streamable-http":
-        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=port)  # noqa: S104
-    else:
-        raise Exception("Transport should be `stdio` or `streamable-http`.")
-
-
 @click.group(invoke_without_command=True)
 @_common_options
 @click.option(
@@ -423,7 +232,7 @@ def server(
 
     # No subcommand provided - execute the default start behavior
     # Resolve URL and token variables based on priority logic
-    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
@@ -432,7 +241,7 @@ def server(
         runtime_token=runtime_token,
     )
 
-    _do_start(
+    do_start(
         transport=transport,
         start_new_runtime=start_new_runtime,
         runtime_url=resolved_runtime_url,
@@ -486,7 +295,7 @@ def connect_command(
 ):
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
-    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
@@ -541,7 +350,7 @@ def connect_command(
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            **_mcp_auth_headers(mcp_token),
+            **mcp_auth_headers(mcp_token),
         },
         content=document_runtime.model_dump_json(),
     )
@@ -566,7 +375,7 @@ def connect_command(
 def stop_command(jupyter_mcp_server_url: str, mcp_token: str):
     r = httpx.delete(
         f"{jupyter_mcp_server_url}/api/stop",
-        headers=_mcp_auth_headers(mcp_token),
+        headers=mcp_auth_headers(mcp_token),
     )
     r.raise_for_status()
 
@@ -624,9 +433,9 @@ def start_command(
     execution_timeout: int,
     max_execution_timeout: int,
 ):
-    """Start the Jupyter MCP server with a transport."""
+    """Start the Jupyter MCP Server with a transport."""
     # Resolve URL and token variables based on priority logic
-    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = _resolve_url_and_token_variables(
+    resolved_document_url, resolved_document_token, resolved_runtime_url, resolved_runtime_token = resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
@@ -635,7 +444,7 @@ def start_command(
         runtime_token=runtime_token,
     )
 
-    _do_start(
+    do_start(
         transport=transport,
         start_new_runtime=start_new_runtime,
         runtime_url=resolved_runtime_url,

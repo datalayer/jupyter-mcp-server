@@ -9,7 +9,7 @@ from typing import Annotated
 import httpx
 import typer
 
-from jupyter_mcp_server.CLI import _mcp_auth_headers
+from jupyter_mcp_server.utils import mcp_auth_headers
 
 
 def stop_command(
@@ -29,6 +29,6 @@ def stop_command(
     """Stop the Jupyter MCP Server."""
     response = httpx.delete(
         f"{jupyter_mcp_server_url}/api/stop",
-        headers=_mcp_auth_headers(mcp_token),
+        headers=mcp_auth_headers(mcp_token),
     )
     response.raise_for_status()

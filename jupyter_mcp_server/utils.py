@@ -46,6 +46,176 @@ def get_current_notebook_context(notebook_manager=None):
     return notebook_path, kernel_id
 
 
+def resolve_url_and_token_variables(
+    jupyter_url,
+    jupyter_token,
+    document_url,
+    document_token,
+    runtime_url,
+    runtime_token,
+) -> tuple[str, str | None, str, str | None]:
+    """Resolve merged URL/token settings with per-field precedence."""
+
+    if document_url is not None:
+        resolved_document_url = document_url
+    elif jupyter_url is not None:
+        resolved_document_url = jupyter_url
+    else:
+        resolved_document_url = "http://localhost:8888"
+
+    if runtime_url is not None:
+        resolved_runtime_url = runtime_url
+    elif jupyter_url is not None:
+        resolved_runtime_url = jupyter_url
+    else:
+        resolved_runtime_url = "http://localhost:8888"
+
+    resolved_document_token = document_token or jupyter_token
+    resolved_runtime_token = runtime_token or jupyter_token
+
+    return (
+        resolved_document_url,
+        resolved_document_token,
+        resolved_runtime_url,
+        resolved_runtime_token,
+    )
+
+
+def mcp_auth_headers(mcp_token: str | None) -> dict[str, str]:
+    """Build optional bearer auth header for MCP management endpoints."""
+    if not mcp_token:
+        return {}
+    return {"Authorization": f"Bearer {mcp_token}"}
+
+
+def do_start(
+    transport: str,
+    start_new_runtime: bool,
+    runtime_url: str,
+    runtime_id: str,
+    runtime_token: str,
+    document_url: str,
+    document_id: str,
+    document_token: str,
+    port: int,
+    provider: str,
+    jupyterlab: bool,
+    open_notebook_in_ui: bool,
+    allowed_jupyter_mcp_tools: str,
+    otel_file: str = "",
+    mcp_token: str = None,
+    insecure_mcp_noauth: bool = False,
+    reconnect_interval: int = 0,
+    execution_timeout: int = 120,
+    max_execution_timeout: int = 3600,
+):
+    """Shared startup routine used by Click and Typer CLI surfaces."""
+
+    import asyncio
+
+    import click
+    import uvicorn
+
+    from jupyter_mcp_server.config import set_config
+    from jupyter_mcp_server.log import logger
+    from jupyter_mcp_server.server import __auto_enroll_document, __start_kernel, mcp
+    from jupyter_mcp_server.server_context import ServerContext
+
+    if transport == "streamable-http" and not mcp_token and not insecure_mcp_noauth:
+        raise click.UsageError(
+            "streamable-http transport requires MCP client authentication. "
+            "Set --mcp-token / MCP_TOKEN, or pass --insecure-mcp-noauth to "
+            "explicitly allow unauthenticated access."
+        )
+
+    logger.info(
+        f"Start command received - runtime_url: {repr(runtime_url)}, "
+        f"document_url: {repr(document_url)}, provider: {provider}, "
+        f"transport: {transport}"
+    )
+
+    config = set_config(
+        transport=transport,
+        provider=provider,
+        runtime_url=runtime_url,
+        start_new_runtime=start_new_runtime,
+        runtime_id=runtime_id,
+        runtime_token=runtime_token,
+        document_url=document_url,
+        document_id=document_id,
+        document_token=document_token,
+        port=port,
+        jupyterlab=jupyterlab,
+        open_notebook_in_ui=open_notebook_in_ui,
+        allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
+        reconnect_interval=reconnect_interval,
+        execution_timeout=execution_timeout,
+        max_execution_timeout=max_execution_timeout,
+    )
+
+    ServerContext.reset()
+
+    try:
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
+
+        extension_context = get_server_context()
+        extension_context.update(
+            context_type="MCP_SERVER",
+            serverapp=None,
+            document_url=config.document_url,
+            runtime_url=config.runtime_url,
+            jupyterlab=config.jupyterlab,
+        )
+        logger.info(
+            f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update jupyter_extension ServerContext: {e}")
+
+    if config.document_id:
+        try:
+            asyncio.run(__auto_enroll_document())
+        except Exception as e:
+            logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
+            if config.start_new_runtime or config.runtime_id:
+                try:
+                    __start_kernel()
+                except Exception as e2:
+                    logger.error(f"Failed to start kernel on startup: {e2}")
+    elif config.start_new_runtime or config.runtime_id:
+        try:
+            __start_kernel()
+        except Exception as e:
+            logger.error(f"Failed to start kernel on startup: {e}")
+
+    from jupyter_mcp_server.otel_hook import maybe_register_otel
+
+    maybe_register_otel(otel_file or None)
+
+    if transport == "streamable-http":
+        if mcp_token:
+            from jupyter_mcp_server.server import RuntimeTokenVerifier
+
+            mcp._token_verifier = RuntimeTokenVerifier(mcp_token)
+            logger.info("MCP endpoint token authentication enabled (using MCP_TOKEN)")
+        elif insecure_mcp_noauth:
+            logger.warning(
+                "MCP endpoint authentication DISABLED (--insecure-mcp-noauth). "
+                "Any client can connect without credentials. Not recommended for production."
+            )
+        else:
+            assert False, "early validation should have caught missing MCP auth config"
+
+    logger.info(f"Starting Jupyter MCP Server with transport: {transport}")
+
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+    elif transport == "streamable-http":
+        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=port)  # noqa: S104
+    else:
+        raise Exception("Transport should be `stdio` or `streamable-http`.")
+
+
 def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
     """
     Extracts readable output from a Jupyter cell output dictionary.

@@ -9,7 +9,19 @@ from typing import Annotated
 import click
 import typer
 
-from jupyter_mcp_server.CLI import _do_start, _resolve_url_and_token_variables
+from jupyter_mcp_server.utils import do_start, resolve_url_and_token_variables
+
+
+def _parse_bool_option(value: str, option_name: str) -> bool:
+    """Parse legacy bool option values like 'True'/'False' passed explicitly."""
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise typer.BadParameter(
+        f"Invalid value for {option_name}: {value!r}. Expected true/false.",
+    )
 
 
 def _resolve_and_start(
@@ -40,7 +52,7 @@ def _resolve_and_start(
         resolved_document_token,
         resolved_runtime_url,
         resolved_runtime_token,
-    ) = _resolve_url_and_token_variables(
+    ) = resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
@@ -49,7 +61,7 @@ def _resolve_and_start(
         runtime_token=runtime_token,
     )
 
-    _do_start(
+    do_start(
         transport=transport,
         start_new_runtime=start_new_runtime,
         runtime_url=resolved_runtime_url,
@@ -84,14 +96,13 @@ def server_callback(
         ),
     ] = "stdio",
     start_new_runtime: Annotated[
-        bool,
+        str,
         typer.Option(
             "--start-new-runtime",
             envvar="START_NEW_RUNTIME",
-            click_type=click.BOOL,
             help="Start a new runtime or use an existing one.",
         ),
-    ] = True,
+    ] = "True",
     port: Annotated[
         int,
         typer.Option(
@@ -257,7 +268,7 @@ def server_callback(
 
     _resolve_and_start(
         transport=transport,
-        start_new_runtime=start_new_runtime,
+        start_new_runtime=_parse_bool_option(start_new_runtime, "--start-new-runtime"),
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
@@ -291,14 +302,13 @@ def start_command(
         ),
     ] = "stdio",
     start_new_runtime: Annotated[
-        bool,
+        str,
         typer.Option(
             "--start-new-runtime",
             envvar="START_NEW_RUNTIME",
-            click_type=click.BOOL,
             help="Start a new runtime or use an existing one.",
         ),
-    ] = True,
+    ] = "True",
     port: Annotated[
         int,
         typer.Option(
@@ -458,10 +468,10 @@ def start_command(
         ),
     ] = 3600,
 ) -> None:
-    """Start the Jupyter MCP server with a transport."""
+    """Start the Jupyter MCP Server with a transport."""
     _resolve_and_start(
         transport=transport,
-        start_new_runtime=start_new_runtime,
+        start_new_runtime=_parse_bool_option(start_new_runtime, "--start-new-runtime"),
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,

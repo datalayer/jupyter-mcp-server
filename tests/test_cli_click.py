@@ -10,7 +10,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from jupyter_mcp_server.CLI import _do_start, connect_command, server, stop_command
+from jupyter_mcp_server.CLI import do_start, connect_command, server, stop_command
 
 
 class _Response:
@@ -73,7 +73,7 @@ def test_click_stop_command_sends_mcp_token():
 def test_click_start_streamable_http_requires_auth_token():
     """streamable-http cannot start without MCP auth unless explicitly no-auth."""
     with pytest.raises(click.UsageError, match="requires MCP client authentication"):
-        _do_start(
+        do_start(
             transport="streamable-http",
             start_new_runtime=True,
             runtime_url="http://localhost:8888",

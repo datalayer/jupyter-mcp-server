@@ -76,3 +76,25 @@ def test_typer_start_streamable_http_requires_auth_token():
 
     assert result.exit_code != 0
     assert "requires MCP client authentication" in result.output
+
+
+def test_typer_root_accepts_explicit_start_new_runtime_bool_value():
+    """Module-style invocation accepts '--start-new-runtime False' legacy form."""
+    seen = {}
+
+    def fake_do_start(**kwargs):
+        seen.update(kwargs)
+
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
+        result = CliRunner().invoke(
+            app,
+            [
+                "--transport",
+                "stdio",
+                "--start-new-runtime",
+                "False",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert seen["start_new_runtime"] is False

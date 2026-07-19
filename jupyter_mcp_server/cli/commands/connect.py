@@ -10,10 +10,10 @@ from typing import Annotated
 import httpx
 import typer
 
-from jupyter_mcp_server.CLI import _mcp_auth_headers, _resolve_url_and_token_variables
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
+from jupyter_mcp_server.utils import mcp_auth_headers, resolve_url_and_token_variables
 
 
 class Provider(str, Enum):
@@ -105,7 +105,7 @@ def connect_command(
         resolved_document_token,
         resolved_runtime_url,
         resolved_runtime_token,
-    ) = _resolve_url_and_token_variables(
+    ) = resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
@@ -144,7 +144,7 @@ def connect_command(
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json",
-            **_mcp_auth_headers(mcp_token),
+            **mcp_auth_headers(mcp_token),
         },
         content=document_runtime.model_dump_json(),
     )
