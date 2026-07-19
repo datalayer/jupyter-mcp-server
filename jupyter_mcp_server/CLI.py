@@ -3,8 +3,14 @@
 # BSD 3-Clause License
 
 """
-Jupyter MCP Server CLI Layer
+Deprecated Click-based Jupyter MCP Server CLI layer.
+
+This module is kept for backward compatibility while the project migrates to
+the Typer CLI implementation in jupyter_mcp_server.cli.cli.
 """
+
+from collections.abc import Callable
+from typing import Any
 
 import click
 import httpx
@@ -23,7 +29,7 @@ from jupyter_mcp_server.server import (
 )
 
 # Shared options decorator to reduce code duplication
-def _common_options(f):
+def _common_options(f: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator that adds common start options to a command."""
     options = [
         click.option(
@@ -150,6 +156,14 @@ def _common_options(f):
     for option in reversed(options):
         f = option(f)
     return f
+
+
+def _log_click_cli_deprecation() -> None:
+    """Log a deprecation notice for the legacy Click CLI surface."""
+    logger.warning(
+        "jupyter_mcp_server.CLI is deprecated and will be removed in a future "
+        "release. Please migrate to the Typer CLI (jupyter_mcp_server.cli.cli)."
+    )
 
 
 def _resolve_url_and_token_variables(
@@ -401,6 +415,8 @@ def server(
 
     Subcommands (start, connect, stop) are still available for advanced use cases.
     """
+    _log_click_cli_deprecation()
+
     # If a subcommand is invoked, let it handle the execution
     if ctx.invoked_subcommand is not None:
         return

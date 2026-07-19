@@ -7,7 +7,6 @@
 Simple test script to verify the configuration system works correctly.
 """
 
-import os
 from unittest.mock import MagicMock, patch
 
 import click
