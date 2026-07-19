@@ -279,7 +279,15 @@ class NotebookManager:
         if kernel is None or not hasattr(kernel, 'is_alive') or not kernel.is_alive():
             # Create new kernel
             new_kernel = kernel_factory()
-            self.add_notebook(name, new_kernel)
+            if name in self._notebooks:
+                # Swap only the kernel: a restart replaces the kernel, never the
+                # notebook the entry points at. Re-adding via add_notebook without
+                # the original server_url/token/path would reset notebook_info to
+                # the config defaults (see add_notebook) and silently rebind this
+                # notebook to the default document.
+                self._notebooks[name]["kernel"] = new_kernel
+            else:
+                self.add_notebook(name, new_kernel)
             return new_kernel
         return kernel
     
