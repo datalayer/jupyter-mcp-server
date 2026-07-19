@@ -67,7 +67,7 @@ def test_typer_stop_command_sends_mcp_token():
 
 
 def test_typer_start_streamable_http_requires_auth_token():
-    """Typer start keeps the same streamable-http auth guard as Click."""
+    """Typer start refuses streamable-http without MCP auth by default."""
     result = CliRunner().invoke(
         app,
         [
@@ -83,7 +83,7 @@ def test_typer_start_streamable_http_requires_auth_token():
 
 
 def test_typer_root_accepts_explicit_start_new_runtime_bool_value():
-    """Module-style invocation accepts '--start-new-runtime False' legacy form."""
+    """Root callback accepts an explicit '--start-new-runtime False' value."""
     seen = {}
 
     def fake_do_start(**kwargs):

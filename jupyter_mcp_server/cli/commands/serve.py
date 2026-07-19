@@ -4,29 +4,29 @@
 
 """Serve/start command handlers for the Typer CLI."""
 
+from enum import Enum
 from typing import Annotated
 
-import click
 import typer
 
-from jupyter_mcp_server.utils import do_start, resolve_url_and_token_variables
+from jupyter_mcp_server.cli.commands.connect import Provider
+from jupyter_mcp_server.utils import (
+    do_start,
+    parse_bool_option,
+    resolve_url_and_token_variables,
+)
 
 
-def _parse_bool_option(value: str, option_name: str) -> bool:
-    """Parse legacy bool option values like 'True'/'False' passed explicitly."""
-    normalized = value.strip().lower()
-    if normalized in {"1", "true", "yes", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "off"}:
-        return False
-    raise typer.BadParameter(
-        f"Invalid value for {option_name}: {value!r}. Expected true/false.",
-    )
+class Transport(str, Enum):
+    """Supported MCP server transports."""
+
+    stdio = "stdio"
+    streamable_http = "streamable-http"
 
 
 def _resolve_and_start(
     transport: str,
-    start_new_runtime: bool,
+    start_new_runtime: str,
     runtime_url: str | None,
     runtime_id: str | None,
     runtime_token: str | None,
@@ -39,8 +39,8 @@ def _resolve_and_start(
     jupyter_token: str | None,
     port: int,
     provider: str,
-    jupyterlab: bool,
-    open_notebook_in_ui: bool,
+    jupyterlab: str,
+    open_notebook_in_ui: str,
     allowed_jupyter_mcp_tools: str,
     otel_file: str,
     reconnect_interval: int,
@@ -63,7 +63,7 @@ def _resolve_and_start(
 
     do_start(
         transport=transport,
-        start_new_runtime=start_new_runtime,
+        start_new_runtime=parse_bool_option(start_new_runtime, "--start-new-runtime"),
         runtime_url=resolved_runtime_url,
         runtime_id=runtime_id,
         runtime_token=resolved_runtime_token,
@@ -72,8 +72,10 @@ def _resolve_and_start(
         document_token=resolved_document_token,
         port=port,
         provider=provider,
-        jupyterlab=jupyterlab,
-        open_notebook_in_ui=open_notebook_in_ui,
+        jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
+        open_notebook_in_ui=parse_bool_option(
+            open_notebook_in_ui, "--open-notebook-in-ui"
+        ),
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
         mcp_token=mcp_token,
@@ -87,14 +89,13 @@ def _resolve_and_start(
 def server_callback(
     ctx: typer.Context,
     transport: Annotated[
-        str,
+        Transport,
         typer.Option(
             "--transport",
             envvar="TRANSPORT",
-            click_type=click.Choice(["stdio", "streamable-http"]),
             help="The transport to use for the MCP server. Defaults to 'stdio'.",
         ),
-    ] = "stdio",
+    ] = Transport.stdio,
     start_new_runtime: Annotated[
         str,
         typer.Option(
@@ -120,32 +121,29 @@ def server_callback(
         ),
     ] = "",
     provider: Annotated[
-        str,
+        Provider,
         typer.Option(
             "--provider",
             envvar="PROVIDER",
-            click_type=click.Choice(["jupyter", "datalayer"]),
             help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
         ),
-    ] = "jupyter",
+    ] = Provider.jupyter,
     jupyterlab: Annotated[
-        bool,
+        str,
         typer.Option(
             "--jupyterlab",
             envvar="JUPYTERLAB",
-            click_type=click.BOOL,
             help="Enable JupyterLab mode. Defaults to True.",
         ),
-    ] = True,
+    ] = "True",
     open_notebook_in_ui: Annotated[
-        bool,
+        str,
         typer.Option(
             "--open-notebook-in-ui",
             envvar="OPEN_NOTEBOOK_IN_UI",
-            click_type=click.BOOL,
             help="Open the notebook in the JupyterLab UI when using it, which activates its tab. Defaults to False.",
         ),
-    ] = False,
+    ] = "False",
     runtime_url: Annotated[
         str | None,
         typer.Option(
@@ -267,8 +265,8 @@ def server_callback(
         return
 
     _resolve_and_start(
-        transport=transport,
-        start_new_runtime=_parse_bool_option(start_new_runtime, "--start-new-runtime"),
+        transport=transport.value,
+        start_new_runtime=start_new_runtime,
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
@@ -280,7 +278,7 @@ def server_callback(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         port=port,
-        provider=provider,
+        provider=provider.value,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
@@ -293,14 +291,13 @@ def server_callback(
 
 def start_command(
     transport: Annotated[
-        str,
+        Transport,
         typer.Option(
             "--transport",
             envvar="TRANSPORT",
-            click_type=click.Choice(["stdio", "streamable-http"]),
             help="The transport to use for the MCP server. Defaults to 'stdio'.",
         ),
-    ] = "stdio",
+    ] = Transport.stdio,
     start_new_runtime: Annotated[
         str,
         typer.Option(
@@ -326,32 +323,29 @@ def start_command(
         ),
     ] = "",
     provider: Annotated[
-        str,
+        Provider,
         typer.Option(
             "--provider",
             envvar="PROVIDER",
-            click_type=click.Choice(["jupyter", "datalayer"]),
             help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
         ),
-    ] = "jupyter",
+    ] = Provider.jupyter,
     jupyterlab: Annotated[
-        bool,
+        str,
         typer.Option(
             "--jupyterlab",
             envvar="JUPYTERLAB",
-            click_type=click.BOOL,
             help="Enable JupyterLab mode. Defaults to True.",
         ),
-    ] = True,
+    ] = "True",
     open_notebook_in_ui: Annotated[
-        bool,
+        str,
         typer.Option(
             "--open-notebook-in-ui",
             envvar="OPEN_NOTEBOOK_IN_UI",
-            click_type=click.BOOL,
             help="Open the notebook in the JupyterLab UI when using it, which activates its tab. Defaults to False.",
         ),
-    ] = False,
+    ] = "False",
     runtime_url: Annotated[
         str | None,
         typer.Option(
@@ -470,8 +464,8 @@ def start_command(
 ) -> None:
     """Start the Jupyter MCP Server with a transport."""
     _resolve_and_start(
-        transport=transport,
-        start_new_runtime=_parse_bool_option(start_new_runtime, "--start-new-runtime"),
+        transport=transport.value,
+        start_new_runtime=start_new_runtime,
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
@@ -483,7 +477,7 @@ def start_command(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         port=port,
-        provider=provider,
+        provider=provider.value,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,

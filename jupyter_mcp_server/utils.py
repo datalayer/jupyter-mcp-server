@@ -88,6 +88,24 @@ def mcp_auth_headers(mcp_token: str | None) -> dict[str, str]:
     return {"Authorization": f"Bearer {mcp_token}"}
 
 
+_TRUE_VALUES = frozenset({"1", "true", "t", "yes", "y", "on"})
+_FALSE_VALUES = frozenset({"0", "false", "f", "no", "n", "off"})
+
+
+def parse_bool_option(value, option_name: str) -> bool:
+    """Parse a CLI boolean option that accepts explicit True/False values."""
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in _TRUE_VALUES:
+        return True
+    if normalized in _FALSE_VALUES:
+        return False
+    raise ValueError(
+        f"{option_name} expects a boolean value (true/false), got {value!r}."
+    )
+
+
 def do_start(
     transport: str,
     start_new_runtime: bool,
@@ -109,11 +127,10 @@ def do_start(
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
 ):
-    """Shared startup routine used by Click and Typer CLI surfaces."""
+    """Shared startup routine used by Typer CLI surfaces."""
 
     import asyncio
 
-    import click
     import uvicorn
 
     from jupyter_mcp_server.config import set_config
@@ -122,7 +139,7 @@ def do_start(
     from jupyter_mcp_server.server_context import ServerContext
 
     if transport == "streamable-http" and not mcp_token and not insecure_mcp_noauth:
-        raise click.UsageError(
+        raise ValueError(
             "streamable-http transport requires MCP client authentication. "
             "Set --mcp-token / MCP_TOKEN, or pass --insecure-mcp-noauth to "
             "explicitly allow unauthenticated access."

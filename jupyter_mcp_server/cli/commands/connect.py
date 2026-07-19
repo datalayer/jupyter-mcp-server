@@ -13,7 +13,11 @@ import typer
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
-from jupyter_mcp_server.utils import mcp_auth_headers, resolve_url_and_token_variables
+from jupyter_mcp_server.utils import (
+    mcp_auth_headers,
+    parse_bool_option,
+    resolve_url_and_token_variables,
+)
 
 
 class Provider(str, Enum):
@@ -54,13 +58,13 @@ def connect_command(
         typer.Option("--provider", envvar="PROVIDER"),
     ] = Provider.jupyter,
     jupyterlab: Annotated[
-        bool,
+        str,
         typer.Option("--jupyterlab", envvar="JUPYTERLAB"),
-    ] = True,
+    ] = "True",
     open_notebook_in_ui: Annotated[
-        bool,
+        str,
         typer.Option("--open-notebook-in-ui", envvar="OPEN_NOTEBOOK_IN_UI"),
-    ] = False,
+    ] = "False",
     runtime_url: Annotated[
         str | None,
         typer.Option("--runtime-url", envvar="RUNTIME_URL"),
@@ -77,10 +81,6 @@ def connect_command(
         str | None,
         typer.Option("--mcp-token", envvar="MCP_TOKEN"),
     ] = None,
-    insecure_mcp_noauth: Annotated[
-        bool,
-        typer.Option("--insecure-mcp-noauth", envvar="INSECURE_MCP_NOAUTH"),
-    ] = False,
     document_url: Annotated[
         str | None,
         typer.Option("--document-url", envvar="DOCUMENT_URL"),
@@ -101,6 +101,10 @@ def connect_command(
         str | None,
         typer.Option("--jupyter-token", envvar="JUPYTER_TOKEN"),
     ] = None,
+    insecure_mcp_noauth: Annotated[
+        bool,
+        typer.Option("--insecure-mcp-noauth", envvar="INSECURE_MCP_NOAUTH"),
+    ] = False,
     allowed_jupyter_mcp_tools: Annotated[
         str,
         typer.Option(
@@ -131,13 +135,6 @@ def connect_command(
 ) -> None:
     """Command to connect a Jupyter MCP Server to a document and a runtime."""
 
-    # Kept for CLI surface parity with the legacy Click command.
-    del insecure_mcp_noauth
-    del allowed_jupyter_mcp_tools
-    del reconnect_interval
-    del execution_timeout
-    del max_execution_timeout
-
     (
         resolved_document_url,
         resolved_document_token,
@@ -160,8 +157,10 @@ def connect_command(
         document_url=resolved_document_url,
         document_id=document_id,
         document_token=resolved_document_token,
-        jupyterlab=jupyterlab,
-        open_notebook_in_ui=open_notebook_in_ui,
+        jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
+        open_notebook_in_ui=parse_bool_option(
+            open_notebook_in_ui, "--open-notebook-in-ui"
+        ),
     )
 
     _update_extension_server_context(config)

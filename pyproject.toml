@@ -32,7 +32,6 @@ dependencies = [
     "mcp[cli]>=1.10.1",
     "pydantic",
     "uvicorn",
-    "click",
     "typer",
     "fastapi",
     "opentelemetry-api>=1.24.0",
