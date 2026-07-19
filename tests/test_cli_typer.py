@@ -75,7 +75,8 @@ def test_typer_start_streamable_http_requires_auth_token():
     )
 
     assert result.exit_code != 0
-    assert "requires MCP client authentication" in result.output
+    message = result.output or str(result.exception or "")
+    assert "requires MCP client authentication" in message
 
 
 def test_typer_root_accepts_explicit_start_new_runtime_bool_value():

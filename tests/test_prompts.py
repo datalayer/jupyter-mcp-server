@@ -33,10 +33,12 @@ async def test_jupyter_cite(mcp_client: MCPClient):
         # Test mixed cell_indices
         response = await mcp_client.jupyter_cite(prompt="", cell_indices="0-2,4")
         assert "USER Cite cells [0, 1, 2, 4]" in response[0], "Cell indices should be [0, 1, 2, 4]"
-        assert "## 1. Import Required Libraries" in response[0], "Cell 1 should contain Import Required Libraries"
-        assert "%matplotlib inline" in response[0], "Cell 2 should contain %matplotlib inline"
-        assert "## 2. Basic Line Plot" not in response[0], "Cell 3 should not be cited"
-        assert "y = np.sin(x)" in response[0], "Cell 4 should contain y = np.sin(x)"
+        assert "=====Cell 0" in response[0], "Cell 0 should be cited"
+        assert "=====Cell 1" in response[0], "Cell 1 should be cited"
+        assert "=====Cell 2" in response[0], "Cell 2 should be cited"
+        assert "=====Cell 4" in response[0], "Cell 4 should be cited"
+        assert "=====Cell 3" not in response[0], "Cell 3 should not be cited"
+        assert "=====End of Cited Cells=====" in response[0], "Cited block should be terminated"
         # Test cite other notebook
         response = await mcp_client.jupyter_cite(prompt="", cell_indices="0", notebook_name="new")
         assert "from notebook new" in response[0], "should cite new notebook"

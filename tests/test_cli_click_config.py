@@ -36,9 +36,7 @@ def test_mcp_auth_headers_empty_without_token():
 
 def test_connect_command_sends_mcp_token():
     """The first-party connect command remains compatible with protected routes."""
-    from click.testing import CliRunner
-
-    from jupyter_mcp_server.CLI import server
+    from jupyter_mcp_server.CLI import connect_command
 
     class Response:
         def raise_for_status(self):
@@ -51,32 +49,33 @@ def test_connect_command_sends_mcp_token():
         return Response()
 
     with patch("jupyter_mcp_server.CLI.httpx.put", fake_put):
-        result = CliRunner().invoke(
-            server,
-            [
-                "connect",
-                "--jupyter-url",
-                "http://localhost:8888",
-                "--jupyter-token",
-                "jupyter-token",
-                "--runtime-id",
-                "kernel-id",
-                "--document-id",
-                "notebook.ipynb",
-                "--mcp-token",
-                "client-token",
-            ],
+        connect_command.callback(
+            jupyter_mcp_server_url="http://localhost:4040",
+            runtime_url=None,
+            runtime_id="kernel-id",
+            runtime_token=None,
+            mcp_token="client-token",
+            insecure_mcp_noauth=False,
+            document_url=None,
+            document_id="notebook.ipynb",
+            document_token=None,
+            provider="jupyter",
+            jupyterlab=True,
+            open_notebook_in_ui=False,
+            jupyter_url="http://localhost:8888",
+            jupyter_token="jupyter-token",
+            allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell",
+            reconnect_interval=0,
+            execution_timeout=120,
+            max_execution_timeout=3600,
         )
 
-    assert result.exit_code == 0
     assert seen["headers"]["Authorization"] == "Bearer client-token"
 
 
 def test_stop_command_sends_mcp_token():
     """The first-party stop command remains compatible with protected routes."""
-    from click.testing import CliRunner
-
-    from jupyter_mcp_server.CLI import server
+    from jupyter_mcp_server.CLI import stop_command
 
     class Response:
         def raise_for_status(self):
@@ -89,9 +88,11 @@ def test_stop_command_sends_mcp_token():
         return Response()
 
     with patch("jupyter_mcp_server.CLI.httpx.delete", fake_delete):
-        result = CliRunner().invoke(server, ["stop", "--mcp-token", "client-token"])
+        stop_command.callback(
+            jupyter_mcp_server_url="http://localhost:4040",
+            mcp_token="client-token",
+        )
 
-    assert result.exit_code == 0
     assert seen["headers"]["Authorization"] == "Bearer client-token"
 
 

@@ -13,6 +13,7 @@ import json
 import logging
 from typing import Any
 from jupyter_server.base.handlers import JupyterHandler
+from tornado.web import HTTPError
 
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.server_context import ServerContext
@@ -38,6 +39,12 @@ class MCPSSEHandler(JupyterHandler):
 
     # Cache of jupyter_mcp_tools tool names for routing decisions
     _jupyter_tool_names = set()
+
+    async def prepare(self):
+        """Require a valid Jupyter token for all /mcp requests."""
+        await super().prepare()
+        if not self.current_user:
+            raise HTTPError(403, "Authentication required")
 
     def set_default_headers(self):
         """Set headers for SSE responses."""
