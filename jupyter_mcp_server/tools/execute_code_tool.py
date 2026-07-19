@@ -13,6 +13,7 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.utils import extract_kernelspec_from_notebook
 
 logger = logging.getLogger(__name__)
 
@@ -247,12 +248,30 @@ class ExecuteCodeTool(BaseTool):
             if kernel_id is None:
                 # Try to get kernel_id from context
                 from jupyter_mcp_server.utils import get_current_notebook_context
-                _, kernel_id = get_current_notebook_context(notebook_manager)
+                notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
             
             if kernel_id is None:
                 # No kernel available - start a new one on demand
                 logger.info("No kernel_id available, starting new kernel for execute_code")
-                kernel_id = await kernel_manager.start_kernel()
+
+                target_kernel_name = "python3"  # the default one
+                if notebook_path:
+                    extracted = await extract_kernelspec_from_notebook(
+                        mode, notebook_path, contents_manager, server_client
+                    )
+                    if extracted and kernel_spec_manager:
+                        extracted_name, _ = extracted
+                        spec_exists = extracted_name in kernel_spec_manager.find_kernel_specs()
+                        if spec_exists:
+                            target_kernel_name = extracted_name
+                        else:
+                            logger.warning(
+                                f"Extracted kernel spec '{extracted_name}' from notebook metadata is not installed on this server. "
+                                f"Falling back to '{target_kernel_name}'."
+                            )
+
+                #kernel_id = await kernel_manager.start_kernel()
+                kernel_id = await kernel_manager.start_kernel(kernel_name=target_kernel_name)
                 
                 # Store the kernel in notebook_manager if available
                 if notebook_manager is not None:
@@ -277,6 +296,7 @@ class ExecuteCodeTool(BaseTool):
             )
         
         # MCP_SERVER mode: Use notebook_manager (original behavior)
+        # TODO: Implement equivalent support for ServerMode.MCP_SERVER to accept kernel specs ?
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             if ensure_kernel_alive_fn is None:
                 raise ValueError("ensure_kernel_alive_fn is required for MCP_SERVER mode")

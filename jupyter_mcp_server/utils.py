@@ -5,12 +5,14 @@
 import re
 import asyncio
 import time
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Dict
 from mcp.types import ImageContent
 from jupyter_kernel_client import get_mimebundle_text
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_nbmodel_client import NotebookModel
+from jupyter_mcp_server.tools._base import ServerMode
+from jupyter_server_client import JupyterServerClient
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -1285,3 +1287,31 @@ def clean_mcp_response(response_dict):
         cleaned_response["content"] = cleaned_content
     
     return cleaned_response
+
+
+async def extract_kernelspec_from_notebook(
+        mode: ServerMode,
+        notebook_path: str,
+        contents_manager: Optional[Any] = None,
+        server_client: Optional[JupyterServerClient] = None,
+    ) -> Optional[Dict[str, str]]:
+        """Attempt to extract kernel spec info from existing notebook metadata."""
+        try:
+            metadata = {}
+            if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+                model = await contents_manager.get(notebook_path, content=True, type='notebook')
+                content = model.get('content', {})
+                metadata = content.get('metadata', {})
+            elif mode == ServerMode.MCP_SERVER and server_client is not None:
+                nb_content = server_client.contents.get(notebook_path)
+                metadata = nb_content.get('content', {}).get('metadata', {})
+
+            kernel_spec = metadata.get('kernelspec', {})
+            if kernel_spec.get('name'):
+                return {
+                    "name": kernel_spec.get('name'),
+                    "display_name": kernel_spec.get('display_name', "unknown"),
+                }
+            return None
+        except Exception:
+            return None

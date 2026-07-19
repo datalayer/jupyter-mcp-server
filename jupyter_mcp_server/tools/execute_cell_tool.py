@@ -24,7 +24,8 @@ from jupyter_mcp_server.utils import (
     safe_extract_outputs,
     execute_cell_with_forced_sync,
     track_pending_execution,
-    extract_output
+    extract_output,
+    extract_kernelspec_from_notebook
 )
 
 logger = logging.getLogger(__name__)
@@ -178,7 +179,26 @@ class ExecuteCellTool(BaseTool):
             if kernel_id is None:
                 # No kernel available - start a new one on demand
                 logger.info("No kernel_id available, starting new kernel for execute_cell")
-                kernel_id = await kernel_manager.start_kernel()
+
+                # Before starting, we need to determine the correct kernel spec
+                target_kernel_name = "python3"  # the default one
+                if notebook_path:
+                    extracted = await extract_kernelspec_from_notebook(
+                        mode, notebook_path, contents_manager, server_client
+                    )
+                    if extracted and kernel_spec_manager:
+                        extracted_name, _ = extracted
+                        spec_exists = extracted_name in kernel_spec_manager.find_kernel_specs()
+                        if spec_exists:
+                            target_kernel_name = extracted_name
+                        else:
+                            logger.warning(
+                                f"Extracted kernel spec '{extracted_name}' from notebook metadata is not installed on this server. "
+                                f"Falling back to '{target_kernel_name}'."
+                            )
+
+                #kernel_id = await kernel_manager.start_kernel()
+                kernel_id = await kernel_manager.start_kernel(kernel_name=target_kernel_name)
 
                 # Wait a bit for kernel to initialize
                 await asyncio.sleep(1.0)
@@ -277,6 +297,7 @@ class ExecuteCellTool(BaseTool):
                 return outputs
 
         elif mode == ServerMode.MCP_SERVER:
+            # TODO: Implement equivalent support for ServerMode.MCP_SERVER to accept kernel specs ?
             kernel = ensure_kernel_alive_fn()
             await wait_for_kernel_idle(kernel, max_wait_seconds=30)
             current_nb = notebook_manager.get_current_notebook() or "default"
