@@ -8,9 +8,8 @@ from unittest.mock import patch
 
 import click
 import pytest
-from click.testing import CliRunner
 
-from jupyter_mcp_server.CLI import do_start, connect_command, server, stop_command
+from jupyter_mcp_server.CLI import connect_command, do_start, stop_command
 
 
 class _Response:

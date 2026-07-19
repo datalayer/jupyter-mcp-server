@@ -38,6 +38,7 @@ def test_mcp_auth_headers_empty_without_token():
 
 def test_connect_command_sends_mcp_token():
     """The Typer connect command remains compatible with protected routes."""
+    reset_config()
     seen = {}
 
     def fake_put(url, headers=None, content=None):

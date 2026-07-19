@@ -18,6 +18,9 @@ class _Response:
 
 def test_typer_connect_command_sends_mcp_token():
     """The Typer CLI connect command forwards MCP auth to management routes."""
+    from jupyter_mcp_server.config import reset_config
+
+    reset_config()
     seen = {}
 
     def fake_put(url, headers=None, content=None):

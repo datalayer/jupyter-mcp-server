@@ -46,7 +46,7 @@ The built-in OpenTelemetry handler emits spans for every tool call and kernel ex
 #### Via CLI
 
 ```bash
-jupyter-mcp-server start \
+jupyter mcp start \
   --otel-file /tmp/mcp_spans.jsonl \
   --transport stdio \
   --jupyter-url http://localhost:8888 \
@@ -57,7 +57,7 @@ jupyter-mcp-server start \
 
 ```bash
 export JUPYTER_MCP_OTEL_FILE=/tmp/mcp_spans.jsonl
-jupyter-mcp-server start ...
+jupyter mcp start ...
 ```
 
 #### Via Jupyter Extension Traitlet

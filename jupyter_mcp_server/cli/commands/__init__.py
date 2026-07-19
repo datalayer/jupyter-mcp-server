@@ -9,9 +9,9 @@ from jupyter_mcp_server.cli.commands.serve import server_callback, start_command
 from jupyter_mcp_server.cli.commands.stop import stop_command
 
 __all__ = [
-	"Provider",
-	"connect_command",
-	"server_callback",
-	"start_command",
-	"stop_command",
+    "Provider",
+    "connect_command",
+    "server_callback",
+    "start_command",
+    "stop_command",
 ]
