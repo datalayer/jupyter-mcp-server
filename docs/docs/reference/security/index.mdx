@@ -41,7 +41,7 @@ In standalone mode, management routes are protected with additional checks:
 This protection mitigates unauthenticated management access and DNS rebinding risks on adjacent management endpoints.
 
 ```bash
-jupyter-mcp-server start \
+jupyter mcp start \
   --transport streamable-http \
   --jupyter-token JUPYTER_SECRET \
   --mcp-token MCP_CLIENT_SECRET
@@ -50,7 +50,7 @@ jupyter-mcp-server start \
 If you intentionally want to run without MCP client authentication (e.g. local development behind a firewall), you must explicitly opt in:
 
 ```bash
-jupyter-mcp-server start \
+jupyter mcp start \
   --transport streamable-http \
   --jupyter-token JUPYTER_SECRET \
   --insecure-mcp-noauth

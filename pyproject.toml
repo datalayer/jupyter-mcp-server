@@ -32,7 +32,7 @@ dependencies = [
     "mcp[cli]>=1.10.1",
     "pydantic",
     "uvicorn",
-    "click",
+    "typer",
     "fastapi",
     "opentelemetry-api>=1.24.0",
     "opentelemetry-sdk>=1.24.0"
@@ -53,7 +53,8 @@ lint = ["mdformat>0.7", "mdformat-gfm>=0.3.5", "ruff"]
 typing = ["mypy>=0.990"]
 
 [project.scripts]
-jupyter-mcp-server = "jupyter_mcp_server.CLI:server"
+jupyter-mcp = "jupyter_mcp_server.cli.cli:serve"
+jupyter-mcp-server = "jupyter_mcp_server.cli.cli:serve"
 
 [project.license]
 file = "LICENSE"

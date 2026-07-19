@@ -217,7 +217,7 @@ def __ensure_kernel_alive() -> KernelClient:
 
 @mcp.custom_route("/api/connect", ["PUT"])
 async def connect(request: Request):
-    """Connect to a document and a runtime from the Jupyter MCP server."""
+    """Connect to a document and a runtime from the Jupyter MCP Server."""
 
     data = await request.json()
     

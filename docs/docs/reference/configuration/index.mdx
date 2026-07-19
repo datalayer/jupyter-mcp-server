@@ -144,9 +144,9 @@ JUPYTER_TOKEN=dev-token
 For advanced use cases, you can configure the server using command-line flags:
 
 ```bash
-jupyter-mcp-server start --help
+jupyter mcp start --help
 
-Usage: jupyter-mcp-server start [OPTIONS]
+Usage: jupyter mcp start [OPTIONS]
 
 Options:
   --transport [stdio|streamable-http]  Transport type (default: stdio)
@@ -178,9 +178,9 @@ The server also supports additional commands for advanced workflows:
 
 #### Connect Command
 ```bash
-jupyter-mcp-server connect --help
+jupyter mcp connect --help
 
-Usage: jupyter-mcp-server connect [OPTIONS]
+Usage: jupyter mcp connect [OPTIONS]
 
 Connect a Jupyter MCP Server to a document and a runtime.
 
@@ -205,9 +205,9 @@ Options:
 
 #### Stop Command
 ```bash
-jupyter-mcp-server stop --help
+jupyter mcp stop --help
 
-Usage: jupyter-mcp-server stop [OPTIONS]
+Usage: jupyter mcp stop [OPTIONS]
 
 Stop a running Jupyter MCP Server.
 
@@ -219,7 +219,7 @@ Options:
 ### Usage Examples
 
 ```bash
-jupyter-mcp-server start \
+jupyter mcp start \
   --transport streamable-http \
   --jupyter-url http://localhost:8888 \
   --jupyter-token MY_TOKEN \
@@ -233,7 +233,7 @@ jupyter-mcp-server start \
 
 Start server without creating new runtime:
 ```bash
-jupyter-mcp-server start \
+jupyter mcp start \
   --transport streamable-http \
   --runtime-url http://localhost:8888 \
   --runtime-token MY_TOKEN \
@@ -242,7 +242,7 @@ jupyter-mcp-server start \
 
 Then connect via endpoint:
 ```bash
-jupyter-mcp-server connect \
+jupyter mcp connect \
   --provider datalayer \
   --document-url <url> \
   --document-id <document> \

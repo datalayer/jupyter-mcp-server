@@ -30,7 +30,7 @@ Both modes share the same tool implementations, with automatic backend selection
     │   (Standalone)      │          │  (Extension)             │
     │                     │          │                          │
     │   CLI Layer         │          │    Extension Handlers    │
-    │  (CLI.py)           │          │  (handlers.py)           │
+    │  (cli/cli.py)       │          │  (handlers.py)           │
     └──────────┬──────────┘          └──────────┬───────────────┘
                │                                │
                │ Configuration                  │ Configuration
@@ -81,7 +81,7 @@ Both modes share the same tool implementations, with automatic backend selection
 
 ## Core Components
 
-### 1. CLI Layer (`CLI.py`)
+### 1. CLI Layer (`cli/cli.py` and `cli/commands/`)
 
 **Command-Line Interface** - Primary entry point for users and MCP clients:
 
@@ -428,7 +428,7 @@ MCP Client
 ## Tool Registration Flow
 
 ```
-1. CLI startup (CLI.py)
+1. CLI startup (cli/cli.py)
    ↓
 2. Configuration parsing and validation
    ↓
@@ -454,16 +454,12 @@ MCP Client
 ```
 jupyter_mcp_server/
 ├── __init__.py                 # Package initialization
-├── __main__.py                 # Module entry point (imports CLI)
+├── __main__.py                 # Module entry point (imports Typer serve())
 ├── __version__.py              # Version information (0.17.1)
 │
-├── CLI.py                      # 🏠 Command-Line Interface (Primary Entry Point)
-│   ├── Command parsing and validation
-│   ├── Environment variable handling
-│   ├── Transport selection (stdio/streamable-http)
-│   ├── Provider support (jupyter/datalayer)
-│   ├── Auto-enrollment of notebooks
-│   └── Server lifecycle management
+├── cli/                        # 🏠 Typer Command-Line Interface
+│   ├── cli.py                  # Root app + entrypoint composition
+│   └── commands/               # Separated command handlers (serve/connect/stop)
 │
 ├── server.py                   # 🔧 FastMCP Server Layer
 │   ├── MCP protocol implementation

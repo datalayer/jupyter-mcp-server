@@ -8,8 +8,7 @@ Entry point for running jupyter_mcp_server as a module.
 This allows the package to be run with: python -m jupyter_mcp_server
 """
 
-from jupyter_mcp_server.CLI import server
+from jupyter_mcp_server.cli.cli import serve
 
 if __name__ == "__main__":
-    server()
-
+    serve()

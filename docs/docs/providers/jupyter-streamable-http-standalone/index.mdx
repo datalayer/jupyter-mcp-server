@@ -54,7 +54,7 @@ Install and start the server:
 
 ```bash
 pip install jupyter-mcp-server
-jupyter-mcp-server start \
+jupyter mcp start \
   --transport streamable-http \
   --jupyter-url http://localhost:8888 \
   --jupyter-token MY_TOKEN \
@@ -104,7 +104,7 @@ For advanced configuration options, see the [server configuration guide](/refere
 To install Jupyter MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@datalayer/jupyter-mcp-server):
 
 ```bash
-npx -y @smithery/cli install @datalayer/jupyter-mcp-server --client claude
+npx -y @smithery/cli install @datalayer/jupyter mcp --client claude
 ```
 
 -->
