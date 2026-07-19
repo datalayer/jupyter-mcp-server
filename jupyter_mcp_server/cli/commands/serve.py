@@ -1,3 +1,7 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
 """Serve/start command handlers for the Typer CLI."""
 
 from typing import Annotated
