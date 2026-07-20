@@ -24,6 +24,26 @@ class DeleteCellTool(BaseTool):
         else:
             return str(cell_source)
 
+    def _validate_indices(self, cell_indices: list[int], total_cells: int) -> None:
+        """Validate that every index is a valid 0-based cell position.
+
+        Args:
+            cell_indices: Indices of cells to delete (0-based)
+            total_cells: Total number of cells in the notebook
+
+        Raises:
+            ValueError: When any index is negative or >= total_cells. Checking
+                each index (rather than only ``max(cell_indices)``) rejects
+                out-of-range negatives, which would otherwise raise a raw
+                IndexError or silently delete the wrong cell.
+        """
+        for cell_index in cell_indices:
+            if cell_index < 0 or cell_index >= total_cells:
+                raise ValueError(
+                    f"Cell index {cell_index} is out of range. "
+                    f"Notebook has {total_cells} cells."
+                )
+
     async def _delete_cell_ydoc(
         self,
         serverapp: Any,
@@ -42,11 +62,8 @@ class DeleteCellTool(BaseTool):
         """
         nb = await get_notebook_model(serverapp, notebook_path)
         if nb:
-            if max(cell_indices) >= len(nb):
-                raise ValueError(
-                    f"Cell index {max(cell_indices)} is out of range. Notebook has {len(nb)} cells."
-                )
-            
+            self._validate_indices(cell_indices, len(nb))
+
             cells = nb.delete_many_cells(cell_indices)
             return cells
         else:
@@ -72,12 +89,9 @@ class DeleteCellTool(BaseTool):
             notebook = nbformat.read(f, as_version=4)
         
         clean_notebook_outputs(notebook)
-        
-        if max(cell_indices) >= len(notebook.cells):
-            raise ValueError(
-                f"Cell index {max(cell_indices)} is out of range. Notebook has {len(notebook.cells)} cells."
-            )
-        
+
+        self._validate_indices(cell_indices, len(notebook.cells))
+
         deleted_cells = []
         for cell_index in cell_indices:
             cell = notebook.cells[cell_index]
@@ -113,10 +127,7 @@ class DeleteCellTool(BaseTool):
             List of deleted cell information
         """
         async with notebook_manager.get_current_connection() as notebook:
-            if max(cell_indices) >= len(notebook):
-                raise ValueError(
-                    f"Cell index {max(cell_indices)} is out of range. Notebook has {len(notebook)} cells."
-                )
+            self._validate_indices(cell_indices, len(notebook))
 
             cells = notebook.delete_many_cells(cell_indices)
             return cells
