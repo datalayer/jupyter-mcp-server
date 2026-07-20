@@ -26,6 +26,7 @@ from jupyter_mcp_server.tools.overwrite_cell_source_tool import OverwriteCellSou
 from jupyter_mcp_server.tools.edit_cell_source_tool import EditCellSourceTool
 from jupyter_mcp_server.tools.delete_cell_tool import DeleteCellTool
 from jupyter_mcp_server.tools.move_cell_tool import MoveCellTool
+from jupyter_mcp_server.tools.clear_cell_output_tool import ClearCellOutputTool
 
 # Import tool implementations - Cell Execution
 from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
@@ -56,6 +57,7 @@ __all__ = [
     "EditCellSourceTool",
     "DeleteCellTool",
     "MoveCellTool",
+    "ClearCellOutputTool",
     # Cell Execution
     "ExecuteCellTool",
     # Other Tools
