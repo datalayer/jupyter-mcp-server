@@ -297,8 +297,9 @@ class ExecuteCellTool(BaseTool):
                 return outputs
 
         elif mode == ServerMode.MCP_SERVER:
-            # TODO: Implement equivalent support for ServerMode.MCP_SERVER to accept kernel specs ?
+            # Support for ServerMode.MCP_SERVER with kernel specs is implicitly handled in ensure_kernel_alive_fn/create_kernel.
             kernel = ensure_kernel_alive_fn()
+            
             await wait_for_kernel_idle(kernel, max_wait_seconds=30)
             current_nb = notebook_manager.get_current_notebook() or "default"
             kid = notebook_manager.get_kernel_id(current_nb) or ""

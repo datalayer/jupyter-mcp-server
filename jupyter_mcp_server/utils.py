@@ -13,6 +13,7 @@ from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_nbmodel_client import NotebookModel
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_server_client import JupyterServerClient
+from jupyter_core.utils import ensure_async, run_sync
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -467,7 +468,10 @@ def create_kernel(config, logger):
             kernel_id=config.runtime_id,
             client_kwargs=client_kwargs if client_kwargs else None,
         )
-        kernel.start()
+
+        kernel_spec_name = _get_kernel_spec_name(config, logger)
+        kernel.start(name=kernel_spec_name)
+        #kernel.start()
         logger.info("Kernel created and started successfully")
         return kernel
     except Exception as e:
@@ -1299,7 +1303,7 @@ async def extract_kernelspec_from_notebook(
         try:
             metadata = {}
             if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-                model = await contents_manager.get(notebook_path, content=True, type='notebook')
+                model = await ensure_async(contents_manager.get(notebook_path, content=True, type='notebook'))
                 content = model.get('content', {})
                 metadata = content.get('metadata', {})
             elif mode == ServerMode.MCP_SERVER and server_client is not None:
@@ -1308,10 +1312,55 @@ async def extract_kernelspec_from_notebook(
 
             kernel_spec = metadata.get('kernelspec', {})
             if kernel_spec.get('name'):
+                display_name = (
+                    kernel_spec.get('display_name') or 
+                    kernel_spec.get('name') or 
+                    "unknown"
+                )
                 return {
                     "name": kernel_spec.get('name'),
-                    "display_name": kernel_spec.get('display_name', "unknown"),
+                    "display_name": display_name,
                 }
             return None
         except Exception:
             return None
+        
+
+
+def _get_kernel_spec_name(config, logger) -> str:
+    """Determine which kernel spec to use from notebook metadata (config.document_id) if available."""
+
+    default_spec = "python3"
+    
+    if not config.document_id:
+        return default_spec
+    
+    try:
+        from jupyter_mcp_server.server_context import ServerContext
+        server_context = ServerContext.get_instance()
+        server_client = server_context.server_client
+        
+        extracted = run_sync(extract_kernelspec_from_notebook)(
+            ServerMode.MCP_SERVER, config.document_id, None, server_client
+        )
+        
+        if not extracted:
+            return default_spec
+            
+        extracted_name, _ = extracted
+        specs = server_client.kernelspecs.list_kernelspecs()
+        specs_dict = getattr(specs, 'kernelspecs', {}) or {}
+        
+        if extracted_name in specs_dict:
+            logger.info(f"Using kernel spec from notebook: {extracted_name}")
+            return extracted_name
+        
+        logger.warning(
+            f"Extracted kernel spec '{extracted_name}' not installed. "
+            f"Falling back to '{default_spec}'."
+        )
+        return default_spec
+        
+    except Exception as e:
+        logger.warning(f"Failed to extract kernel spec: {e}. Using default.")
+        return default_spec

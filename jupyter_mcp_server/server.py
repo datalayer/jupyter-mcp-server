@@ -28,7 +28,8 @@ from jupyter_mcp_server.utils import (
     start_kernel,
     ensure_kernel_alive,
     wait_for_kernel_idle,
-    safe_notebook_operation
+    safe_notebook_operation,
+    extract_kernelspec_from_notebook
 )
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -201,9 +202,9 @@ async def __auto_enroll_document():
         server_context=server_context,
     )
 
-
 def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
+
     def __create_kernel() -> KernelClient:
         """Create a new kernel instance using current configuration."""
         config = get_config()

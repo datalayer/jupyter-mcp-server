@@ -296,13 +296,13 @@ class ExecuteCodeTool(BaseTool):
             )
         
         # MCP_SERVER mode: Use notebook_manager (original behavior)
-        # TODO: Implement equivalent support for ServerMode.MCP_SERVER to accept kernel specs ?
+        # Support for ServerMode.MCP_SERVER with kernel specs is implicitly handled in ensure_kernel_alive_fn/create_kernel.
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             if ensure_kernel_alive_fn is None:
                 raise ValueError("ensure_kernel_alive_fn is required for MCP_SERVER mode")
             if wait_for_kernel_idle_fn is None:
                 raise ValueError("wait_for_kernel_idle_fn is required for MCP_SERVER mode")
-            
+
             logger.info(f"Executing IPython in MCP_SERVER mode with kernel_id={kernel_id}")
             return await self._execute_via_notebook_manager(
                 notebook_manager=notebook_manager,
