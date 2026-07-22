@@ -52,6 +52,7 @@ from jupyter_mcp_server.tools import (
     EditCellSourceTool,
     DeleteCellTool,
     MoveCellTool,
+    ClearCellOutputTool,
     # Cell Execution
     ExecuteCellTool,
     # Other Tools
@@ -731,6 +732,30 @@ async def delete_cell(
             notebook_manager=notebook_manager,
             cell_indices=cell_indices,
             include_source=include_source,
+        )
+    )
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Clear Cell Output",
+        destructiveHint=True,
+    ),
+)
+@with_hooks("clear_cell_output")
+async def clear_cell_output(
+    cell_index: Annotated[int, Field(description="Index of the code cell to clear (0-based)", ge=0)],
+) -> Annotated[str, Field(description="Success message with the number of outputs removed")]:
+    """Clear the outputs and execution count of a single code cell in the currently
+    activated notebook, without deleting the cell itself."""
+    return await safe_notebook_operation(
+        lambda: ClearCellOutputTool().execute(
+            mode=server_context.mode,
+            server_client=server_context.server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            notebook_manager=notebook_manager,
+            cell_index=cell_index,
         )
     )
 

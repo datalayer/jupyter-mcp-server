@@ -1,6 +1,6 @@
 # Tools
 
-The server currently offers 15 tools organized into 3 categories:
+The server currently offers 16 tools organized into 3 categories:
 
 ## Server Management (3 tools)
 
@@ -105,7 +105,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `limit`(int, optional): Maximum number of items to return (0 means no limit, default: 20)
 - Returns: Notebook content in the requested format with cell details, metadata, and pagination information
 
-## Cell Tools (7 tools)
+## Cell Tools (8 tools)
 
 #### 9. `insert_cell`
 
@@ -183,3 +183,10 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 :::tip
 `execute_code` can now target a specific existing kernel (including raw kernels not attached to a notebook) by passing `kernel_id`.
 :::
+
+#### 16. `clear_cell_output`
+
+- Clear the outputs and execution count of a single code cell in the currently activated notebook, without deleting the cell itself.
+- Input:
+  - `cell_index`(int): Index of the code cell to clear (0-based)
+- Returns: Success message with the number of outputs removed

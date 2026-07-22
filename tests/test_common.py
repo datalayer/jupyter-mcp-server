@@ -41,6 +41,7 @@ JUPYTER_TOOLS = [
     "execute_cell",
     "read_cell",
     "delete_cell",
+    "clear_cell_output",
     "move_cell",
     "execute_code",
     # Server Management Tools

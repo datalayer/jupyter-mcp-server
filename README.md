@@ -111,6 +111,7 @@ For more details on each tool, their parameters, and return values, please refer
 | `insert_cell`              | Insert a new code or markdown cell at a specified position.                      |
 | `delete_cell`              | Delete a cell at a specified index.                                              |
 | `move_cell`                | Move a cell from one position to another within a notebook.                      |
+| `clear_cell_output`        | Clear the outputs and execution count of a single code cell.                     |
 | `overwrite_cell_source`    | Overwrite the source code of an existing cell.                                   |
 | `edit_cell_source`         | Apply surgical find-and-replace edits to a cell's source without full rewrite.   |
 | `execute_cell`             | Execute a cell with timeout, supports multimodal output including images.        |
