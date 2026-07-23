@@ -28,14 +28,12 @@ import contextlib
 
 import pytest
 
-from .test_common import MCPClient, timeout_wrapper
-
-
 ###############################################################################
 # Section A — Unit Tests (no server needed)
 ###############################################################################
-
 from jupyter_mcp_server.tools.move_cell_tool import MoveCellTool
+
+from .test_common import MCPClient, timeout_wrapper
 
 
 class TestMoveCellValidation:
@@ -44,27 +42,33 @@ class TestMoveCellValidation:
     def setup_method(self):
         self.tool = MoveCellTool()
 
-    @pytest.mark.parametrize("source, target, total", [
-        (-1, 0, 5),   # negative source
-        (5, 0, 5),    # source == total_cells
-        (0, -1, 5),   # negative target
-        (0, 5, 5),    # target == total_cells
-        (0, 1, 1),    # single-cell notebook, invalid target
-        (0, 0, 0),    # empty notebook
-    ])
+    @pytest.mark.parametrize(
+        "source, target, total",
+        [
+            (-1, 0, 5),  # negative source
+            (5, 0, 5),  # source == total_cells
+            (0, -1, 5),  # negative target
+            (0, 5, 5),  # target == total_cells
+            (0, 1, 1),  # single-cell notebook, invalid target
+            (0, 0, 0),  # empty notebook
+        ],
+    )
     def test_invalid_indices_raise_error(self, source, target, total):
         """Out-of-range or invalid indices must be rejected."""
         with pytest.raises((ValueError, IndexError)):
             self.tool._validate_move(source_index=source, target_index=target, total_cells=total)
 
-    @pytest.mark.parametrize("source, target, total", [
-        (2, 2, 5),    # same position (no-op)
-        (0, 3, 5),    # forward move
-        (3, 0, 5),    # backward move
-        (4, 0, 5),    # last valid index backward
-        (0, 4, 5),    # first index to last valid position
-        (0, 0, 1),    # single-cell notebook, same index
-    ])
+    @pytest.mark.parametrize(
+        "source, target, total",
+        [
+            (2, 2, 5),  # same position (no-op)
+            (0, 3, 5),  # forward move
+            (3, 0, 5),  # backward move
+            (4, 0, 5),  # last valid index backward
+            (0, 4, 5),  # first index to last valid position
+            (0, 0, 1),  # single-cell notebook, same index
+        ],
+    )
     def test_valid_indices_pass(self, source, target, total):
         """Valid indices should not raise."""
         self.tool._validate_move(source_index=source, target_index=target, total_cells=total)
@@ -76,21 +80,24 @@ class TestMoveCellApply:
     def setup_method(self):
         self.tool = MoveCellTool()
 
-    @pytest.mark.parametrize("source, target, expected", [
-        # forward moves
-        (0, 3, ["B", "C", "D", "A", "E"]),
-        (0, 4, ["B", "C", "D", "E", "A"]),
-        (1, 3, ["A", "C", "D", "B", "E"]),
-        # backward moves
-        (3, 0, ["D", "A", "B", "C", "E"]),
-        (4, 0, ["E", "A", "B", "C", "D"]),
-        (3, 1, ["A", "D", "B", "C", "E"]),
-        # adjacent swaps
-        (1, 2, ["A", "C", "B", "D", "E"]),
-        (2, 1, ["A", "C", "B", "D", "E"]),
-        # no-op
-        (2, 2, ["A", "B", "C", "D", "E"]),
-    ])
+    @pytest.mark.parametrize(
+        "source, target, expected",
+        [
+            # forward moves
+            (0, 3, ["B", "C", "D", "A", "E"]),
+            (0, 4, ["B", "C", "D", "E", "A"]),
+            (1, 3, ["A", "C", "D", "B", "E"]),
+            # backward moves
+            (3, 0, ["D", "A", "B", "C", "E"]),
+            (4, 0, ["E", "A", "B", "C", "D"]),
+            (3, 1, ["A", "D", "B", "C", "E"]),
+            # adjacent swaps
+            (1, 2, ["A", "C", "B", "D", "E"]),
+            (2, 1, ["A", "C", "B", "D", "E"]),
+            # no-op
+            (2, 2, ["A", "B", "C", "D", "E"]),
+        ],
+    )
     def test_reorder(self, source, target, expected):
         """Verify the resulting order after a move."""
         cells = ["A", "B", "C", "D", "E"]
@@ -126,19 +133,36 @@ class TestMoveCellPreservesPayload:
 
         nb = NotebookModel()
         nb._doc = YNotebook()
-        nb._doc.set({
-            "cells": [
-                {"cell_type": "code", "source": "a = 1", "metadata": {},
-                 "outputs": [], "execution_count": None},
-                {"cell_type": "code", "source": "print('hello')",
-                 "metadata": {"tags": ["keep-me"]}, "execution_count": 7,
-                 "outputs": [{"output_type": "stream", "name": "stdout",
-                              "text": "hello\n"}]},
-                {"cell_type": "code", "source": "b = 2", "metadata": {},
-                 "outputs": [], "execution_count": None},
-            ],
-            "metadata": {}, "nbformat": 4, "nbformat_minor": 5,
-        })
+        nb._doc.set(
+            {
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "source": "a = 1",
+                        "metadata": {},
+                        "outputs": [],
+                        "execution_count": None,
+                    },
+                    {
+                        "cell_type": "code",
+                        "source": "print('hello')",
+                        "metadata": {"tags": ["keep-me"]},
+                        "execution_count": 7,
+                        "outputs": [{"output_type": "stream", "name": "stdout", "text": "hello\n"}],
+                    },
+                    {
+                        "cell_type": "code",
+                        "source": "b = 2",
+                        "metadata": {},
+                        "outputs": [],
+                        "execution_count": None,
+                    },
+                ],
+                "metadata": {},
+                "nbformat": 4,
+                "nbformat_minor": 5,
+            }
+        )
         return nb
 
     @pytest.mark.asyncio
@@ -334,8 +358,9 @@ async def test_move_cell_adjacent(mcp_client_parametrized: MCPClient, src, tgt):
 
 @pytest.mark.asyncio
 @timeout_wrapper(60)
-@pytest.mark.parametrize("bad_src, bad_tgt", [(9999, 0), (0, 9999)],
-                         ids=["source_oob", "target_oob"])
+@pytest.mark.parametrize(
+    "bad_src, bad_tgt", [(9999, 0), (0, 9999)], ids=["source_oob", "target_oob"]
+)
 async def test_move_cell_error_out_of_range(mcp_client_parametrized: MCPClient, bad_src, bad_tgt):
     """Out-of-range source or target index should return None (error)."""
     async with mcp_client_parametrized as c:

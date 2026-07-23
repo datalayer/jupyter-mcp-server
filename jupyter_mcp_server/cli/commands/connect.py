@@ -37,9 +37,7 @@ def _update_extension_server_context(config) -> None:
             runtime_url=config.runtime_url,
             jupyterlab=config.jupyterlab,
         )
-        logger.info(
-            f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}"
-        )
+        logger.info(f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}")
     except Exception as error:
         logger.warning(f"Failed to update jupyter_extension ServerContext: {error}")
 
@@ -158,9 +156,7 @@ def connect_command(
         document_id=document_id,
         document_token=resolved_document_token,
         jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
-        open_notebook_in_ui=parse_bool_option(
-            open_notebook_in_ui, "--open-notebook-in-ui"
-        ),
+        open_notebook_in_ui=parse_bool_option(open_notebook_in_ui, "--open-notebook-in-ui"),
     )
 
     _update_extension_server_context(config)

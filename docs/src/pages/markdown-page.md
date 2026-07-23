@@ -4,9 +4,9 @@
   ~ BSD 3-Clause License
 -->
 
----
-title: Markdown page example
----
+______________________________________________________________________
+
+## title: Markdown page example
 
 # Markdown page example
 

@@ -14,10 +14,7 @@ unchanged.
 
 import json
 
-import pytest
-
 from jupyter_mcp_server.utils import extract_output
-
 
 MARKDOWN_OUTPUT = {
     "output_type": "execute_result",

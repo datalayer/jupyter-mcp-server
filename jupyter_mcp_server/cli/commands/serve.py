@@ -48,6 +48,7 @@ def _resolve_and_start(
     max_execution_timeout: int,
     execution_engine: str = "jupyter",
     runtime_proxy_token: str | None = None,
+    runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
 ) -> None:
     (
@@ -76,9 +77,7 @@ def _resolve_and_start(
         port=port,
         provider=provider,
         jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
-        open_notebook_in_ui=parse_bool_option(
-            open_notebook_in_ui, "--open-notebook-in-ui"
-        ),
+        open_notebook_in_ui=parse_bool_option(open_notebook_in_ui, "--open-notebook-in-ui"),
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
         mcp_token=mcp_token,
@@ -88,6 +87,7 @@ def _resolve_and_start(
         max_execution_timeout=max_execution_timeout,
         execution_engine=execution_engine,
         runtime_proxy_token=runtime_proxy_token,
+        runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
     )
 
@@ -289,6 +289,14 @@ def server_callback(
             help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
         ),
     ] = None,
+    runtime_use_browser_bridge: Annotated[
+        bool,
+        typer.Option(
+            "--runtime-use-browser-bridge/--no-runtime-use-browser-bridge",
+            envvar="RUNTIME_USE_BROWSER_BRIDGE",
+            help="For the 'colab' execution engine, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
+        ),
+    ] = False,
 ) -> None:
     """Manages Jupyter MCP Server."""
     if ctx.invoked_subcommand is not None:
@@ -318,6 +326,7 @@ def server_callback(
         max_execution_timeout=max_execution_timeout,
         execution_engine=execution_engine,
         runtime_proxy_token=runtime_proxy_token,
+        runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
     )
 
@@ -518,6 +527,14 @@ def start_command(
             help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
         ),
     ] = None,
+    runtime_use_browser_bridge: Annotated[
+        bool,
+        typer.Option(
+            "--runtime-use-browser-bridge/--no-runtime-use-browser-bridge",
+            envvar="RUNTIME_USE_BROWSER_BRIDGE",
+            help="For the 'colab' execution engine, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
+        ),
+    ] = False,
 ) -> None:
     """Start the Jupyter MCP Server with a transport."""
     _resolve_and_start(
@@ -544,5 +561,6 @@ def start_command(
         max_execution_timeout=max_execution_timeout,
         execution_engine=execution_engine,
         runtime_proxy_token=runtime_proxy_token,
+        runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
     )

@@ -24,12 +24,12 @@ $ pytest tests/test_read_tools_ydoc.py -v
 import nbformat
 import pytest
 
+import jupyter_mcp_server.tools.read_cell_tool as read_cell_tool_module
+import jupyter_mcp_server.tools.read_notebook_tool as read_notebook_tool_module
+from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.read_cell_tool import ReadCellTool
 from jupyter_mcp_server.tools.read_notebook_tool import ReadNotebookTool
-from jupyter_mcp_server.jupyter_extension.context import get_server_context
-import jupyter_mcp_server.tools.read_cell_tool as read_cell_tool_module
-import jupyter_mcp_server.tools.read_notebook_tool as read_notebook_tool_module
 
 
 def _write_notebook(path, sources):
@@ -82,8 +82,8 @@ class _FileContentsManager:
     def __init__(self, root):
         self._root = root
 
-    async def get(self, path, content=True, type='notebook'):
-        with open(str(self._root / path), "r", encoding="utf-8") as f:
+    async def get(self, path, content=True, type="notebook"):
+        with open(str(self._root / path), encoding="utf-8") as f:
             nb = nbformat.read(f, as_version=4)
         return {"content": nb}
 
@@ -91,6 +91,7 @@ class _FileContentsManager:
 def _fake_get_notebook_model(nb_model):
     async def _fake(serverapp, notebook_path):
         return nb_model
+
     return _fake
 
 

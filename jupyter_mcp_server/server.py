@@ -6,7 +6,7 @@
 Jupyter MCP Server Layer
 """
 
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from fastapi import Request
@@ -20,53 +20,53 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
-from jupyter_mcp_server.log import logger
-from jupyter_mcp_server.models import DocumentRuntime
-from jupyter_mcp_server.utils import (
-    safe_extract_outputs, 
-    create_kernel,
-    start_kernel,
-    ensure_kernel_alive,
-    wait_for_kernel_idle,
-    safe_notebook_operation
-)
 from jupyter_mcp_server.config import get_config, set_config
-from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
+from jupyter_mcp_server.log import logger
+from jupyter_mcp_server.models import DocumentRuntime
+from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.tools import (
-    # Tool infrastructure
-    ServerMode,
-    # Notebook Management
-    ListNotebooksTool,
-    UseNotebookTool,
-    RestartNotebookTool,
-    UnuseNotebookTool,
-    # Cell Reading
-    ReadNotebookTool,
-    ReadCellTool,
-    # Cell Writing
-    InsertCellTool,
-    OverwriteCellSourceTool,
-    EditCellSourceTool,
-    DeleteCellTool,
-    MoveCellTool,
     ClearCellOutputTool,
+    ConnectJupyterTool,
+    DeleteCellTool,
+    EditCellSourceTool,
     # Cell Execution
     ExecuteCellTool,
     # Other Tools
     ExecuteCodeTool,
-    ListFilesTool,
-    ListKernelsTool,
-    ConnectJupyterTool,
+    # Cell Writing
+    InsertCellTool,
     # MCP Prompt
     JupyterCitePrompt,
+    ListFilesTool,
+    ListKernelsTool,
+    # Notebook Management
+    ListNotebooksTool,
+    MoveCellTool,
+    OverwriteCellSourceTool,
+    ReadCellTool,
+    # Cell Reading
+    ReadNotebookTool,
+    RestartNotebookTool,
+    # Tool infrastructure
+    ServerMode,
+    UnuseNotebookTool,
+    UseNotebookTool,
 )
-
+from jupyter_mcp_server.utils import (
+    create_kernel,
+    ensure_kernel_alive,
+    safe_extract_outputs,
+    safe_notebook_operation,
+    start_kernel,
+    wait_for_kernel_idle,
+)
 
 ###############################################################################
 # Globals.
+
 
 class RuntimeTokenVerifier:
     """Verify MCP client requests against the configured runtime token."""
@@ -139,8 +139,7 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
                     status_code=401,
                     headers={
                         "WWW-Authenticate": (
-                            'Bearer error="invalid_token", '
-                            'error_description="Invalid token"'
+                            'Bearer error="invalid_token", ' 'error_description="Invalid token"'
                         )
                     },
                 )
@@ -166,8 +165,9 @@ class FastMCPWithCORS(FastMCP):
         )
 
         if self._token_verifier:
-            from starlette.middleware.authentication import AuthenticationMiddleware
             from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend
+            from starlette.middleware.authentication import AuthenticationMiddleware
+
             app.add_middleware(
                 AuthenticationMiddleware,
                 backend=BearerAuthBackend(self._token_verifier),
@@ -183,14 +183,17 @@ class FastMCPWithCORS(FastMCP):
         )
         return app
 
+
 mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
+
 
 def __start_kernel():
     """Start the Jupyter kernel with error handling (for backward compatibility)."""
     config = get_config()
     start_kernel(notebook_manager, config, logger)
+
 
 async def __auto_enroll_document():
     """Wrapper for auto_enroll_document that uses server context."""
@@ -204,10 +207,12 @@ async def __auto_enroll_document():
 
 def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
+
     def __create_kernel() -> KernelClient:
         """Create a new kernel instance using current configuration."""
         config = get_config()
         return create_kernel(config, logger)
+
     current_notebook = notebook_manager.get_current_notebook() or "default"
     return ensure_kernel_alive(notebook_manager, current_notebook, __create_kernel)
 
@@ -221,12 +226,12 @@ async def connect(request: Request):
     """Connect to a document and a runtime from the Jupyter MCP Server."""
 
     data = await request.json()
-    
+
     # Log the received data for diagnostics
     # Note: set_config() will automatically normalize string "None" values
     logger.info(
-        f"Connect endpoint received - runtime_url: {repr(data.get('runtime_url'))}, "
-        f"document_url: {repr(data.get('document_url'))}, "
+        f"Connect endpoint received - runtime_url: {data.get('runtime_url')!r}, "
+        f"document_url: {data.get('document_url')!r}, "
         f"provider: {data.get('provider')}"
     )
 
@@ -249,9 +254,10 @@ async def connect(request: Request):
         document_url=document_runtime.document_url,
         document_id=document_runtime.document_id,
         document_token=document_runtime.document_token,
-        allowed_jupyter_tools=document_runtime.allowed_jupyter_tools or "notebook_run-all-cells,notebook_get-selected-cell"
+        allowed_jupyter_tools=document_runtime.allowed_jupyter_tools
+        or "notebook_run-all-cells,notebook_get-selected-cell",
     )
-    
+
     # Reset ServerContext to pick up new configuration
     ServerContext.reset()
 
@@ -283,7 +289,7 @@ async def health_check(request: Request):
         current_notebook = notebook_manager.get_current_notebook() or "default"
         kernel = notebook_manager.get_kernel(current_notebook)
         if kernel:
-            kernel_status = "alive" if hasattr(kernel, 'is_alive') and kernel.is_alive() else "dead"
+            kernel_status = "alive" if hasattr(kernel, "is_alive") and kernel.is_alive() else "dead"
         else:
             kernel_status = "not_initialized"
     except Exception:
@@ -306,6 +312,7 @@ async def health_check(request: Request):
 ###############################################################################
 # Server Management Tools.
 
+
 @mcp.tool(
     annotations=ToolAnnotations(
         title="List Files",
@@ -314,13 +321,26 @@ async def health_check(request: Request):
 )
 @with_hooks("list_files")
 async def list_files(
-    path: Annotated[str, Field(description="The starting path to list from (empty string means root directory)")] = "",
+    path: Annotated[
+        str, Field(description="The starting path to list from (empty string means root directory)")
+    ] = "",
     # Maximum depth to recurse into subdirectories, Set Max to 3 to avoid infinite recursion.
-    max_depth: Annotated[int, Field(description="Maximum depth to recurse into subdirectories", ge=0, le=3)] = 1,
-    start_index: Annotated[int, Field(description="Starting index for pagination (0-based)", ge=0)] = 0,
-    limit: Annotated[int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)] = 25,
+    max_depth: Annotated[
+        int, Field(description="Maximum depth to recurse into subdirectories", ge=0, le=3)
+    ] = 1,
+    start_index: Annotated[
+        int, Field(description="Starting index for pagination (0-based)", ge=0)
+    ] = 0,
+    limit: Annotated[
+        int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)
+    ] = 25,
     pattern: Annotated[str, Field(description="Glob pattern to filter file paths")] = "",
-) -> Annotated[str, Field(description="Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header.")]:
+) -> Annotated[
+    str,
+    Field(
+        description="Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header."
+    ),
+]:
     """
     List all files and directories recursively in the Jupyter server's file system.
     Used to explore the file system structure of the Jupyter server or to find specific files or directories.
@@ -346,9 +366,16 @@ async def list_files(
     ),
 )
 @with_hooks("list_kernels")
-async def list_kernels() -> Annotated[str, Field(description="Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment")]:
+async def list_kernels() -> (
+    Annotated[
+        str,
+        Field(
+            description="Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment"
+        ),
+    ]
+):
     """List all available kernels in the Jupyter server.
-    
+
     This tool shows all running and available kernel sessions on the Jupyter server,
     including their IDs, names, states, connection information, and kernel specifications.
     Useful for monitoring kernel resources and identifying specific kernels for connection.
@@ -361,6 +388,7 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
             kernel_spec_manager=server_context.kernel_spec_manager,
         )
     )
+
 
 ###############################################################################
 # Multi-Notebook Management Tools.
@@ -375,9 +403,21 @@ async def list_kernels() -> Annotated[str, Field(description="Tab-separated tabl
 @with_hooks("use_notebook")
 async def use_notebook(
     notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
-    notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')")],
-    mode: Annotated[Literal["connect", "create"], Field(description="Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it")] = "connect",
-    kernel_id: Annotated[str, Field(description="Specific kernel ID to use (will create new if skipped)")] = None,
+    notebook_path: Annotated[
+        str,
+        Field(
+            description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')"
+        ),
+    ],
+    mode: Annotated[
+        Literal["connect", "create"],
+        Field(
+            description="Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it"
+        ),
+    ] = "connect",
+    kernel_id: Annotated[
+        str, Field(description="Specific kernel ID to use (will create new if skipped)")
+    ] = None,
 ) -> Annotated[str, Field(description="Success message with notebook information")]:
     """Use a notebook and activate it for following cell operations.
     All cell operations will be performed on the currently activated notebook.
@@ -419,7 +459,9 @@ async def use_notebook(
     ),
 )
 @with_hooks("list_notebooks")
-async def list_notebooks() -> Annotated[str, Field(description="TSV formatted table with notebook information")]:
+async def list_notebooks() -> (
+    Annotated[str, Field(description="TSV formatted table with notebook information")]
+):
     """List all notebooks that have been used via use_notebook tool"""
     return await ListNotebooksTool().execute(
         mode=server_context.mode,
@@ -480,6 +522,7 @@ async def unuse_notebook(
     )
     return result
 
+
 @mcp.tool(
     annotations=ToolAnnotations(
         title="Read Notebook",
@@ -489,16 +532,25 @@ async def unuse_notebook(
 @with_hooks("read_notebook")
 async def read_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to read")],
-    response_format: Annotated[Literal["brief", "detailed"], Field(description="Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source")] = "brief",
-    start_index: Annotated[int, Field(description="Starting index for pagination (0-based)", ge=0)] = 0,
-    limit: Annotated[int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)] = 20
+    response_format: Annotated[
+        Literal["brief", "detailed"],
+        Field(
+            description="Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source"
+        ),
+    ] = "brief",
+    start_index: Annotated[
+        int, Field(description="Starting index for pagination (0-based)", ge=0)
+    ] = 0,
+    limit: Annotated[
+        int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)
+    ] = 20,
 ) -> Annotated[str, Field(description="Notebook content in the requested format")]:
     """Read a notebook and return index, source content, type, execution count of each cell.
-    
+
     Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
     Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.
 
-    It is recommended to use brief format with larger limit to get a overview of the notebook structure, 
+    It is recommended to use brief format with larger limit to get a overview of the notebook structure,
     then use detailed format with exact index and limit to get the detailed information of some specific cells.
     """
     return await safe_notebook_operation(
@@ -514,8 +566,10 @@ async def read_notebook(
         )
     )
 
+
 ###############################################################################
 # Cell Tools.
+
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -525,10 +579,15 @@ async def read_notebook(
 )
 @with_hooks("insert_cell")
 async def insert_cell(
-    cell_index: Annotated[int, Field(description="Target index for insertion (0-based), use -1 to append at end", ge=-1)],
+    cell_index: Annotated[
+        int,
+        Field(description="Target index for insertion (0-based), use -1 to append at end", ge=-1),
+    ],
     cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
     cell_source: Annotated[str, Field(description="Source content for the cell")],
-) -> Annotated[str, Field(description="Success message and the structure of its surrounding cells")]:
+) -> Annotated[
+    str, Field(description="Success message and the structure of its surrounding cells")
+]:
     """Insert a cell to specified position from the currently activated notebook."""
     return await safe_notebook_operation(
         lambda: InsertCellTool().execute(
@@ -542,6 +601,7 @@ async def insert_cell(
             cell_type=cell_type,
         )
     )
+
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -571,6 +631,7 @@ async def overwrite_cell_source(
         )
     )
 
+
 @mcp.tool(
     annotations=ToolAnnotations(
         title="Edit Cell Source",
@@ -581,7 +642,9 @@ async def edit_cell_source(
     cell_index: Annotated[int, Field(description="Index of the cell to edit (0-based)", ge=0)],
     old_string: Annotated[str, Field(description="Exact string to find in cell source")],
     new_string: Annotated[str, Field(description="Replacement string")],
-    replace_all: Annotated[bool, Field(description="Replace all occurrences (default: first only)")] = False,
+    replace_all: Annotated[
+        bool, Field(description="Replace all occurrences (default: first only)")
+    ] = False,
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
     """Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
     Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
@@ -605,6 +668,7 @@ async def edit_cell_source(
         )
     )
 
+
 @mcp.tool(
     annotations=ToolAnnotations(
         title="Execute Cell",
@@ -615,14 +679,27 @@ async def edit_cell_source(
 @with_hooks("execute_cell")
 async def execute_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
-    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 0,
-    stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
-    progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True")] = 5,
-) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
+    timeout: Annotated[
+        int, Field(description="Maximum seconds to wait for execution (0 = use config default)")
+    ] = 0,
+    stream: Annotated[
+        bool,
+        Field(
+            description="Enable streaming progress (including time indicator) updates for long-running cells"
+        ),
+    ] = False,
+    progress_interval: Annotated[
+        int, Field(description="Seconds between progress updates when stream=True")
+    ] = 5,
+) -> Annotated[
+    list[str | ImageContent], Field(description="List of outputs from the executed cell")
+]:
     """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
     config = get_config()
     # Use config default if timeout is 0, otherwise clamp to max
-    effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    effective_timeout = (
+        config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    )
 
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
@@ -635,10 +712,11 @@ async def execute_cell(
             timeout_seconds=effective_timeout,
             stream=stream,
             progress_interval=progress_interval,
-            ensure_kernel_alive_fn=__ensure_kernel_alive
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
         ),
-        max_retries=1
+        max_retries=1,
     )
+
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -649,14 +727,22 @@ async def execute_cell(
 )
 @with_hooks("insert_execute_code_cell")
 async def insert_execute_code_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=-1)],
+    cell_index: Annotated[
+        int, Field(description="Index of the cell to insert and execute (0-based)", ge=-1)
+    ],
     cell_source: Annotated[str, Field(description="Code source for the cell")],
-    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 0,
-) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
+    timeout: Annotated[
+        int, Field(description="Maximum seconds to wait for execution (0 = use config default)")
+    ] = 0,
+) -> Annotated[
+    list[str | ImageContent], Field(description="List of outputs from the executed cell")
+]:
     """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
     It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
     config = get_config()
-    effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    effective_timeout = (
+        config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    )
 
     await safe_notebook_operation(
         lambda: InsertCellTool().execute(
@@ -682,10 +768,11 @@ async def insert_execute_code_cell(
             timeout_seconds=effective_timeout,
             stream=False,
             progress_interval=0,
-            ensure_kernel_alive_fn=__ensure_kernel_alive
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
         ),
-        max_retries=1
+        max_retries=1,
     )
+
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -697,8 +784,15 @@ async def insert_execute_code_cell(
 @with_hooks("read_cell")
 async def read_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
-    include_outputs: Annotated[bool, Field(description="Include outputs in the response (only for code cells)")] = True,
-) -> Annotated[list[str | ImageContent], Field(description="Cell information including index, type, source, and outputs (for code cells)")]:
+    include_outputs: Annotated[
+        bool, Field(description="Include outputs in the response (only for code cells)")
+    ] = True,
+) -> Annotated[
+    list[str | ImageContent],
+    Field(
+        description="Cell information including index, type, source, and outputs (for code cells)"
+    ),
+]:
     """Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)"""
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
@@ -711,6 +805,7 @@ async def read_cell(
         )
     )
 
+
 @mcp.tool(
     annotations=ToolAnnotations(
         title="Delete Cell",
@@ -719,9 +814,18 @@ async def read_cell(
 )
 @with_hooks("delete_cell")
 async def delete_cell(
-    cell_indices: Annotated[list[int], Field(description="List of cell indices to delete (0-based)",min_items=1)],
-    include_source: Annotated[bool, Field(description="Whether to include the source of deleted cells")] = True,
-) -> Annotated[str, Field(description="Success message with list of deleted cells and their source (if include_source=True)")]:
+    cell_indices: Annotated[
+        list[int], Field(description="List of cell indices to delete (0-based)", min_items=1)
+    ],
+    include_source: Annotated[
+        bool, Field(description="Whether to include the source of deleted cells")
+    ] = True,
+) -> Annotated[
+    str,
+    Field(
+        description="Success message with list of deleted cells and their source (if include_source=True)"
+    ),
+]:
     """Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True)."""
     return await safe_notebook_operation(
         lambda: DeleteCellTool().execute(
@@ -744,7 +848,9 @@ async def delete_cell(
 )
 @with_hooks("clear_cell_output")
 async def clear_cell_output(
-    cell_index: Annotated[int, Field(description="Index of the code cell to clear (0-based)", ge=0)],
+    cell_index: Annotated[
+        int, Field(description="Index of the code cell to clear (0-based)", ge=0)
+    ],
 ) -> Annotated[str, Field(description="Success message with the number of outputs removed")]:
     """Clear the outputs and execution count of a single code cell in the currently
     activated notebook, without deleting the cell itself."""
@@ -768,8 +874,12 @@ async def clear_cell_output(
 )
 async def move_cell(
     source_index: Annotated[int, Field(description="Index of the cell to move (0-based)", ge=0)],
-    target_index: Annotated[int, Field(description="Destination index where the cell will end up (0-based)", ge=0)],
-) -> Annotated[str, Field(description="Success message with moved cell info and surrounding context")]:
+    target_index: Annotated[
+        int, Field(description="Destination index where the cell will end up (0-based)", ge=0)
+    ],
+) -> Annotated[
+    str, Field(description="Success message with moved cell info and surrounding context")
+]:
     """Move a cell from source_index to target_index within the currently activated notebook.
 
     The cell is removed from source_index and placed at target_index. Cells in between shift
@@ -800,10 +910,24 @@ async def move_cell(
 )
 @with_hooks("execute_code")
 async def execute_code(
-    code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
-    timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 30,
-    kernel_id: Annotated[str | None, Field(description="Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.")] = None,
-) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed code")]:
+    code: Annotated[
+        str,
+        Field(
+            description="Code to execute (supports magic commands with %, shell commands with !)"
+        ),
+    ],
+    timeout: Annotated[
+        int, Field(description="Maximum seconds to wait for execution (0 = use config default)")
+    ] = 30,
+    kernel_id: Annotated[
+        str | None,
+        Field(
+            description="Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel."
+        ),
+    ] = None,
+) -> Annotated[
+    list[str | ImageContent], Field(description="List of outputs from the executed code")
+]:
     """Execute code directly in a kernel (not saved to notebook).
 
     Targets the current activated notebook's kernel by default. Pass kernel_id
@@ -823,7 +947,9 @@ async def execute_code(
     """
     config = get_config()
     # Use config default if timeout is 0, otherwise clamp to max
-    effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    effective_timeout = (
+        config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    )
 
     if kernel_id is None and server_context.mode == ServerMode.JUPYTER_SERVER:
         current_notebook = notebook_manager.get_current_notebook() or "default"
@@ -842,7 +968,7 @@ async def execute_code(
             wait_for_kernel_idle_fn=wait_for_kernel_idle,
             safe_extract_outputs_fn=safe_extract_outputs,
         ),
-        max_retries=1
+        max_retries=1,
     )
 
 
@@ -854,18 +980,22 @@ async def execute_code(
 )
 @with_hooks("connect_to_jupyter")
 async def connect_to_jupyter(
-    jupyter_url: Annotated[str, Field(description="Jupyter server URL to connect to (e.g., 'http://localhost:8888')")],
-    jupyter_token: Annotated[Optional[str], Field(description="Jupyter server authentication token")] = None,
+    jupyter_url: Annotated[
+        str, Field(description="Jupyter server URL to connect to (e.g., 'http://localhost:8888')")
+    ],
+    jupyter_token: Annotated[
+        str | None, Field(description="Jupyter server authentication token")
+    ] = None,
     provider: Annotated[str, Field(description="Provider type")] = "jupyter",
 ) -> Annotated[str, Field(description="Connection status message")]:
     """Connect to a Jupyter server dynamically with URL and token.
-    
-    This tool allows you to connect to different Jupyter servers without needing to 
+
+    This tool allows you to connect to different Jupyter servers without needing to
     restart the MCP server or modify configuration files. Particularly useful when:
     - Working with multiple Jupyter servers with different ports/tokens
     - Jupyter server token changes dynamically
     - Need to switch between different Jupyter instances
-    
+
     Example usage:
     - "Connect to http://localhost:8888 with token abc123"
     - "Connect to http://localhost:8889 without authentication"
@@ -879,14 +1009,26 @@ async def connect_to_jupyter(
         )
     )
 
+
 ###############################################################################
 # Prompt
+
 
 @mcp.prompt()
 async def jupyter_cite(
     prompt: Annotated[str, Field(description="User prompt for the cited cells")],
-    cell_indices: Annotated[str, Field(description="Cell indices to cite (0-based),supporting flexible range format, e.g., '0,1,2', '0-2' or '0-2,4'")],
-    notebook_name: Annotated[str, Field(description="Name of the notebook to cite cells from, default (empty) to current activated notebook")] = "",
+    cell_indices: Annotated[
+        str,
+        Field(
+            description="Cell indices to cite (0-based),supporting flexible range format, e.g., '0,1,2', '0-2' or '0-2,4'"
+        ),
+    ],
+    notebook_name: Annotated[
+        str,
+        Field(
+            description="Name of the notebook to cite cells from, default (empty) to current activated notebook"
+        ),
+    ] = "",
 ):
     """
     Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.
@@ -903,6 +1045,7 @@ async def jupyter_cite(
         )
     )
 
+
 ###############################################################################
 # Helper Functions for Extension.
 
@@ -910,33 +1053,34 @@ async def jupyter_cite(
 async def get_registered_tools():
     """
     Get list of all registered MCP tools with their metadata.
-    
+
     This function is used by the Jupyter extension to dynamically expose
     the tool registry without hardcoding tool names and parameters.
-    
+
     For JUPYTER_SERVER mode, it queries the jupyter-mcp-tools extension.
     For MCP_SERVER mode, it uses the local FastMCP registry.
-    
+
     Returns:
         list: List of tool dictionaries with name, description, and inputSchema
     """
     context = ServerContext.get_instance()
     mode = context._mode
-    
+
     # For JUPYTER_SERVER mode, expose BOTH FastMCP tools AND jupyter-mcp-tools (when enabled)
     if mode == ServerMode.JUPYTER_SERVER:
         all_tools = []
         jupyter_tool_names = set()
-        
+
         # Check if JupyterLab mode is enabled before loading jupyter-mcp-tools
         if server_context.is_jupyterlab_mode():
             logger.info("JupyterLab mode enabled, loading selected jupyter-mcp-tools")
-            
+
             # Get tools from jupyter-mcp-tools extension with caching
             try:
                 from jupyter_mcp_tools import get_tools
+
                 from jupyter_mcp_server.tool_cache import get_tool_cache
-                
+
                 # Get the base_url and token from server context
                 # In JUPYTER_SERVER mode, we should use the actual serverapp URL, not hardcoded localhost
                 if server_context.serverapp is not None:
@@ -950,9 +1094,9 @@ async def get_registered_tools():
                     base_url = config.runtime_url if config.runtime_url else "http://localhost:8888"
                     token = config.runtime_token
                     logger.info(f"Using config runtime URL: {base_url}")
-                
+
                 logger.info(f"Querying jupyter-mcp-tools at {base_url}")
-                
+
                 # Define specific tools we want to load from jupyter-mcp-tools
                 # (https://github.com/datalayer/jupyter-mcp-tools)
                 # jupyter-mcp-tools exposes JupyterLab commands as MCP tools.
@@ -961,12 +1105,14 @@ async def get_registered_tools():
                 # see docs/docs/reference/tools-additional/index.mdx for documentation.
                 config = get_config()
                 allowed_jupyter_mcp_tools = config.get_allowed_jupyter_mcp_tools()
-                
+
                 # Try querying with caching to avoid expensive repeated calls
                 try:
                     search_query = ",".join(allowed_jupyter_mcp_tools)
-                    logger.info(f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_mcp_tools})")
-                    
+                    logger.info(
+                        f"Searching jupyter-mcp-tools with query: '{search_query}' (allowed_tools: {allowed_jupyter_mcp_tools})"
+                    )
+
                     # Use cached get_tools to avoid expensive repeated calls
                     tool_cache = get_tool_cache()
                     tools_data = await tool_cache.get_tools(
@@ -974,65 +1120,69 @@ async def get_registered_tools():
                         token=token,
                         query=search_query,
                         enabled_only=False,
-                        fetch_func=get_tools  # Pass the actual get_tools function for cache misses
+                        fetch_func=get_tools,  # Pass the actual get_tools function for cache misses
                     )
                     logger.info(f"Query returned {len(tools_data)} tools (from cache or fresh)")
-                    
+
                     # Use the tools directly since query should return only what we want
                     for tool in tools_data:
                         logger.info(f"Found tool: {tool.get('id', '')}")
-                    
+
                 except Exception as e:
                     logger.warning(f"Failed to load jupyter-mcp-tools: {e}")
                     tools_data = []
-                
+
                 logger.info(f"Successfully loaded {len(tools_data)} specific jupyter-mcp-tools")
-                
+
                 logger.info(f"Retrieved {len(tools_data)} tools from jupyter-mcp-tools extension")
-                
+
                 # Convert jupyter-mcp-tools format to MCP format
                 for tool_data in tools_data:
-                    tool_name = tool_data.get('id', '')
+                    tool_name = tool_data.get("id", "")
                     jupyter_tool_names.add(tool_name)
-                    
+
                     # Only include MCP protocol fields (exclude internal fields like commandId)
                     tool_dict = {
                         "name": tool_name,
-                        "description": tool_data.get('caption', tool_data.get('label', '')),
+                        "description": tool_data.get("caption", tool_data.get("label", "")),
                     }
-                    
+
                     # Convert parameters to inputSchema
                     # The parameters field contains the JSON Schema for the tool's arguments
-                    params = tool_data.get('parameters', {})
-                    if params and isinstance(params, dict) and params.get('properties'):
+                    params = tool_data.get("parameters", {})
+                    if params and isinstance(params, dict) and params.get("properties"):
                         # Tool has parameters - use them as inputSchema
                         tool_dict["inputSchema"] = params
-                        tool_dict["parameters"] = list(params['properties'].keys())
-                        logger.debug(f"Tool {tool_dict['name']} has parameters: {tool_dict['parameters']}")
+                        tool_dict["parameters"] = list(params["properties"].keys())
+                        logger.debug(
+                            f"Tool {tool_dict['name']} has parameters: {tool_dict['parameters']}"
+                        )
                     else:
                         # Tool has no parameters - use empty schema
                         tool_dict["parameters"] = []
                         tool_dict["inputSchema"] = {
                             "type": "object",
                             "properties": {},
-                            "description": tool_data.get('usage', '')
+                            "description": tool_data.get("usage", ""),
                         }
-                    
+
                     all_tools.append(tool_dict)
-                
-                logger.info(f"Converted {len(all_tools)} tool(s) from jupyter-mcp-tools with parameter schemas")
-                
+
+                logger.info(
+                    f"Converted {len(all_tools)} tool(s) from jupyter-mcp-tools with parameter schemas"
+                )
+
             except Exception as e:
                 logger.error(f"Error querying jupyter-mcp-tools extension: {e}", exc_info=True)
                 # Continue to add FastMCP tools even if jupyter-mcp-tools fails
         else:
             logger.info("JupyterLab mode disabled, skipping jupyter-mcp-tools integration")
-        
+
         # Second, add FastMCP tools
         try:
             tools_list = await mcp.list_tools()
             logger.info(f"Retrieved {len(tools_list)} tools from FastMCP registry")
-            
+
             for tool in tools_list:
                 logger.info(f"Processing tool: {tool.name}, mode: {mode}")
                 # Skip connect_to_jupyter tool when running as Jupyter extension
@@ -1041,65 +1191,67 @@ async def get_registered_tools():
                 if tool.name == "connect_to_jupyter":
                     logger.info("Skipping connect_to_jupyter tool in JUPYTER_SERVER mode")
                     continue
-                    
+
                 # Add FastMCP tool
                 tool_dict = {
                     "name": tool.name,
                     "description": tool.description,
                 }
-                
+
                 # Extract parameter names from inputSchema
-                if hasattr(tool, 'inputSchema') and tool.inputSchema:
+                if hasattr(tool, "inputSchema") and tool.inputSchema:
                     input_schema = tool.inputSchema
-                    if 'properties' in input_schema:
-                        tool_dict["parameters"] = list(input_schema['properties'].keys())
+                    if "properties" in input_schema:
+                        tool_dict["parameters"] = list(input_schema["properties"].keys())
                     else:
                         tool_dict["parameters"] = []
-                    
+
                     # Include full inputSchema for MCP protocol compatibility
                     tool_dict["inputSchema"] = input_schema
                 else:
                     tool_dict["parameters"] = []
-                
+
                 all_tools.append(tool_dict)
-            
-            logger.info(f"Added {len(all_tools) - len(jupyter_tool_names)} FastMCP tool(s), total: {len(all_tools)}")
-            
+
+            logger.info(
+                f"Added {len(all_tools) - len(jupyter_tool_names)} FastMCP tool(s), total: {len(all_tools)}"
+            )
+
         except Exception as e:
             logger.error(f"Error retrieving FastMCP tools: {e}", exc_info=True)
-        
+
         return all_tools
-    
+
     # For MCP_SERVER mode, use local FastMCP registry
     # Use FastMCP's list_tools method which returns Tool objects
     tools_list = await mcp.list_tools()
-    
+
     tools = []
     for tool in tools_list:
         tool_dict = {
             "name": tool.name,
             "description": tool.description,
         }
-        
+
         # Extract parameter names from inputSchema
-        if hasattr(tool, 'inputSchema') and tool.inputSchema:
+        if hasattr(tool, "inputSchema") and tool.inputSchema:
             input_schema = tool.inputSchema
-            if 'properties' in input_schema:
-                tool_dict["parameters"] = list(input_schema['properties'].keys())
+            if "properties" in input_schema:
+                tool_dict["parameters"] = list(input_schema["properties"].keys())
             else:
                 tool_dict["parameters"] = []
-            
+
             # Include full inputSchema for MCP protocol compatibility
             tool_dict["inputSchema"] = input_schema
         else:
             tool_dict["parameters"] = []
-        
+
         # Include full outputSchema for MCP protocol compatibility
-        if hasattr(tool, 'outputSchema') and tool.outputSchema:
+        if hasattr(tool, "outputSchema") and tool.outputSchema:
             tool_dict["outputSchema"] = tool.outputSchema
         else:
             tool_dict["outputSchema"] = []
-        
+
         tools.append(tool_dict)
-    
+
     return tools

@@ -26,7 +26,6 @@ import pytest_asyncio
 import requests
 from requests.exceptions import ConnectionError
 
-
 JUPYTER_TOKEN = "MY_TOKEN"
 
 
@@ -44,8 +43,13 @@ TEST_JUPYTER_SERVER = os.environ.get("TEST_JUPYTER_SERVER", "true").lower() == "
 
 
 def _start_server(
-    name: str, host: str, port: int, command: list, readiness_endpoint: str,
-    max_retries: int = 5, extra_env: dict | None = None,
+    name: str,
+    host: str,
+    port: int,
+    command: list,
+    readiness_endpoint: str,
+    max_retries: int = 5,
+    extra_env: dict | None = None,
     stderr_file: str | None = None,
 ):
     """A Helper that starts a web server as a python subprocess and wait until it's ready to accept connections
@@ -69,7 +73,7 @@ def _start_server(
     # When stderr_file is set, capture stderr for diagnostics instead.
     stderr_fh = None
     if stderr_file:
-        stderr_fh = open(stderr_file, "w")  # noqa: SIM115
+        stderr_fh = open(stderr_file, "w")
     p_serv = subprocess.Popen(
         command,
         stdout=subprocess.DEVNULL,
@@ -77,14 +81,16 @@ def _start_server(
         env=env,
     )
     _log_prefix = f"{_log_prefix} [{p_serv.pid}]"
-    
+
     while max_retries > 0:
         # Check if process died
         poll_result = p_serv.poll()
         if poll_result is not None:
             logging.error(f"{_log_prefix}: process died with exit code {poll_result}")
-            pytest.fail(f"{name} failed to start (exit code {poll_result}). Check if port {port} is available.")
-        
+            pytest.fail(
+                f"{name} failed to start (exit code {poll_result}). Check if port {port} is available."
+            )
+
         try:
             response = requests.get(url_readiness, timeout=10)
             if response is not None and response.status_code == HTTPStatus.OK:
@@ -92,15 +98,17 @@ def _start_server(
                 yield url
                 break
         except (ConnectionError, requests.exceptions.Timeout):
-            logging.debug(
-                f"{_log_prefix}: waiting to accept connections [{max_retries}]"
-            )
+            logging.debug(f"{_log_prefix}: waiting to accept connections [{max_retries}]")
             time.sleep(2)
             max_retries -= 1
-            
+
     if not max_retries:
-        logging.error(f"{_log_prefix}: fail to start after retries. Check if port {port} is available.")
-        pytest.fail(f"{name} failed to start after max retries. Port {port} may be in use or server crashed.")
+        logging.error(
+            f"{_log_prefix}: fail to start after retries. Check if port {port} is available."
+        )
+        pytest.fail(
+            f"{name} failed to start after max retries. Port {port} may be in use or server crashed."
+        )
     logging.debug(f"{_log_prefix}: stopping ...")
     try:
         p_serv.terminate()
@@ -132,10 +140,10 @@ def _start_server(
 @pytest.fixture(scope="session")
 def jupyter_server():
     """Start the Jupyter server and returns its URL
-    
+
     This is a session-scoped fixture that starts a single Jupyter Lab instance
     for all tests. Both MCP_SERVER and JUPYTER_SERVER mode tests can share this.
-    
+
     Only starts if at least one test mode is enabled.
     """
     if not TEST_MCP_SERVER and not TEST_JUPYTER_SERVER:
@@ -173,13 +181,19 @@ def jupyter_server():
 def _jupyter_extension_command(host, port, otel_file=""):
     """Build the ``jupyter lab`` command with the MCP extension enabled."""
     cmd = [
-        "jupyter", "lab",
-        "--port", str(port),
-        "--IdentityProvider.token", JUPYTER_TOKEN,
-        "--ip", host,
-        "--ServerApp.root_dir", "./dev/content",
+        "jupyter",
+        "lab",
+        "--port",
+        str(port),
+        "--IdentityProvider.token",
+        JUPYTER_TOKEN,
+        "--ip",
+        host,
+        "--ServerApp.root_dir",
+        "./dev/content",
         "--no-browser",
-        "--ServerApp.jpserver_extensions", '{"jupyter_mcp_server": True}',
+        "--ServerApp.jpserver_extensions",
+        '{"jupyter_mcp_server": True}',
     ]
     if otel_file:
         cmd += ["--JupyterMCPServerExtensionApp.otel_file", otel_file]
@@ -189,18 +203,29 @@ def _jupyter_extension_command(host, port, otel_file=""):
 def _mcp_server_command(jupyter_url, port, otel_file=""):
     """Build the standalone MCP server command."""
     cmd = [
-        "python", "-m", "jupyter_mcp_server",
-        "--transport", "streamable-http",
-        "--document-url", jupyter_url,
-        "--document-id", "notebook.ipynb",
-        "--document-token", JUPYTER_TOKEN,
-        "--runtime-url", jupyter_url,
-        "--start-new-runtime", "True",
-        "--runtime-token", JUPYTER_TOKEN,
+        "python",
+        "-m",
+        "jupyter_mcp_server",
+        "--transport",
+        "streamable-http",
+        "--document-url",
+        jupyter_url,
+        "--document-id",
+        "notebook.ipynb",
+        "--document-token",
+        JUPYTER_TOKEN,
+        "--runtime-url",
+        jupyter_url,
+        "--start-new-runtime",
+        "True",
+        "--runtime-token",
+        JUPYTER_TOKEN,
         # Below we use the same token for simplicity in tests.
         # The separation tested in test_mcp_token_rejects_runtime_token()
-        "--mcp-token", JUPYTER_TOKEN, 
-        "--port", str(port),
+        "--mcp-token",
+        JUPYTER_TOKEN,
+        "--port",
+        str(port),
     ]
     if otel_file:
         cmd += ["--otel-file", otel_file]
@@ -297,18 +322,29 @@ def jupyter_mcp_server(request, jupyter_server):
         host=host,
         port=port,
         command=[
-            "python", "-m", "jupyter_mcp_server",
-            "--transport", "streamable-http",
-            "--document-url", jupyter_server,
-            "--document-id", "notebook.ipynb",
-            "--document-token", JUPYTER_TOKEN,
-            "--runtime-url", jupyter_server,
-            "--start-new-runtime", str(start_new_runtime),
-            "--runtime-token", JUPYTER_TOKEN,
+            "python",
+            "-m",
+            "jupyter_mcp_server",
+            "--transport",
+            "streamable-http",
+            "--document-url",
+            jupyter_server,
+            "--document-id",
+            "notebook.ipynb",
+            "--document-token",
+            JUPYTER_TOKEN,
+            "--runtime-url",
+            jupyter_server,
+            "--start-new-runtime",
+            str(start_new_runtime),
+            "--runtime-token",
+            JUPYTER_TOKEN,
             # Below we use the same token for simplicity in tests.
             # The separation tested in test_mcp_token_rejects_runtime_token()
-            "--mcp-token", JUPYTER_TOKEN,
-            "--port", str(port),
+            "--mcp-token",
+            JUPYTER_TOKEN,
+            "--port",
+            str(port),
         ],
         readiness_endpoint="/api/healthz",
     )
@@ -351,6 +387,7 @@ async def mcp_client(jupyter_mcp_server):
         MCPClient: Configured client for MCP protocol communication
     """
     from .test_common import MCPClient
+
     return MCPClient(jupyter_mcp_server, token=JUPYTER_TOKEN)
 
 
@@ -366,6 +403,7 @@ def mcp_client_parametrized(mcp_server_url):
         MCPClient: Configured client for the parametrized server mode
     """
     from .test_common import MCPClient
+
     return MCPClient(mcp_server_url, token=JUPYTER_TOKEN)
 
 
@@ -407,7 +445,8 @@ def jupyter_server_with_extension_otel(otel_spans_file, tmp_path_factory):
 def mcp_server_url_otel(request, otel_spans_file):
     """Parametrized MCP URL – both modes, with OTel enabled."""
     yield from _yield_mcp_url(
-        request, "jupyter_server_with_extension_otel",
+        request,
+        "jupyter_server_with_extension_otel",
         name_suffix=" (OTel)",
         otel_file=otel_spans_file,
     )
@@ -417,4 +456,5 @@ def mcp_server_url_otel(request, otel_spans_file):
 def mcp_client_otel(mcp_server_url_otel):
     """MCPClient talking to an OTel-enabled server (both modes)."""
     from .test_common import MCPClient
+
     return MCPClient(mcp_server_url_otel, token=JUPYTER_TOKEN)

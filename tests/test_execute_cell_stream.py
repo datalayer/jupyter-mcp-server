@@ -123,6 +123,4 @@ async def test_stream_preserves_image_output_on_terminal_drain():
     images = [entry for entry in result if not isinstance(entry, str)]
     assert len(images) == 1
     assert images[0].data == PNG_B64
-    assert not any(
-        isinstance(entry, str) and entry.startswith("[ERROR:") for entry in result
-    )
+    assert not any(isinstance(entry, str) and entry.startswith("[ERROR:") for entry in result)

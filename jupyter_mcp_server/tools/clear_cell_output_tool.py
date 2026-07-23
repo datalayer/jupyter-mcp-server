@@ -5,12 +5,18 @@
 """Clear cell output tool implementation."""
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
 import nbformat
 from jupyter_server_client import JupyterServerClient
-from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model, clean_notebook_outputs
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.utils import (
+    clean_notebook_outputs,
+    get_current_notebook_context,
+    get_notebook_model,
+)
 
 
 class ClearCellOutputTool(BaseTool):
@@ -45,10 +51,7 @@ class ClearCellOutputTool(BaseTool):
         return cleared_count
 
     async def _clear_cell_output_ydoc(
-        self,
-        serverapp: Any,
-        notebook_path: str,
-        cell_index: int
+        self, serverapp: Any, notebook_path: str, cell_index: int
     ) -> int:
         """Clear cell output using YDoc (collaborative editing mode).
 
@@ -67,11 +70,7 @@ class ClearCellOutputTool(BaseTool):
             # YDoc not available, use file operations
             return await self._clear_cell_output_file(notebook_path, cell_index)
 
-    async def _clear_cell_output_file(
-        self,
-        notebook_path: str,
-        cell_index: int
-    ) -> int:
+    async def _clear_cell_output_file(self, notebook_path: str, cell_index: int) -> int:
         """Clear cell output using file operations (non-collaborative mode).
 
         Args:
@@ -84,7 +83,7 @@ class ClearCellOutputTool(BaseTool):
         Raises:
             ValueError: When cell_index is out of range or the cell is not code.
         """
-        with open(notebook_path, "r", encoding="utf-8") as f:
+        with open(notebook_path, encoding="utf-8") as f:
             notebook = nbformat.read(f, as_version=4)
         clean_notebook_outputs(notebook)
 
@@ -107,9 +106,7 @@ class ClearCellOutputTool(BaseTool):
         return cleared_count
 
     async def _clear_cell_output_websocket(
-        self,
-        notebook_manager: NotebookManager,
-        cell_index: int
+        self, notebook_manager: NotebookManager, cell_index: int
     ) -> int:
         """Clear cell output using WebSocket connection (MCP_SERVER mode).
 
@@ -126,15 +123,15 @@ class ClearCellOutputTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: Optional[JupyterServerClient] = None,
-        kernel_client: Optional[Any] = None,
-        contents_manager: Optional[Any] = None,
-        kernel_manager: Optional[Any] = None,
-        kernel_spec_manager: Optional[Any] = None,
-        notebook_manager: Optional[NotebookManager] = None,
+        server_client: JupyterServerClient | None = None,
+        kernel_client: Any | None = None,
+        contents_manager: Any | None = None,
+        kernel_manager: Any | None = None,
+        kernel_spec_manager: Any | None = None,
+        notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
         cell_index: int = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Execute the clear_cell_output tool.
 
@@ -183,7 +180,9 @@ class ClearCellOutputTool(BaseTool):
 
             if serverapp:
                 # Try YDoc approach first
-                cleared_count = await self._clear_cell_output_ydoc(serverapp, notebook_path, cell_index)
+                cleared_count = await self._clear_cell_output_ydoc(
+                    serverapp, notebook_path, cell_index
+                )
             else:
                 # Fall back to file operations
                 cleared_count = await self._clear_cell_output_file(notebook_path, cell_index)

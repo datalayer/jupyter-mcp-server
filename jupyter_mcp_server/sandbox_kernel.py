@@ -24,9 +24,7 @@ shape that :func:`jupyter_mcp_server.utils.safe_extract_outputs` consumes.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
-
-logger = logging.getLogger(__name__)
+from typing import Any
 
 
 def _execution_result_to_reply(result: Any) -> dict[str, Any]:
@@ -96,7 +94,7 @@ def _execution_result_to_reply(result: Any) -> dict[str, Any]:
 class SandboxKernel:
     """Expose a code-sandboxes ``Sandbox`` through the ``KernelClient`` API."""
 
-    def __init__(self, sandbox: Any, logger: Optional[logging.Logger] = None) -> None:
+    def __init__(self, sandbox: Any, logger: logging.Logger | None = None) -> None:
         self._sandbox = sandbox
         self._log = logger or logging.getLogger(__name__)
 
@@ -106,7 +104,7 @@ class SandboxKernel:
         return self._sandbox
 
     @property
-    def id(self) -> Optional[str]:
+    def id(self) -> str | None:
         """The sandbox identifier (analogous to a kernel id)."""
         info = getattr(self._sandbox, "info", None)
         return info.id if info is not None else None
@@ -115,7 +113,7 @@ class SandboxKernel:
         """Start the underlying sandbox."""
         self._sandbox.start()
 
-    def stop(self, shutdown_kernel: Optional[bool] = None, *args: Any, **kwargs: Any) -> None:
+    def stop(self, shutdown_kernel: bool | None = None, *args: Any, **kwargs: Any) -> None:
         """Stop the underlying sandbox.
 
         The ``shutdown_kernel`` argument is accepted for signature compatibility
@@ -143,7 +141,7 @@ class SandboxKernel:
         finally:
             self._sandbox.start()
 
-    def execute(self, code: str, timeout: Optional[float] = None, **kwargs: Any) -> dict[str, Any]:
+    def execute(self, code: str, timeout: float | None = None, **kwargs: Any) -> dict[str, Any]:
         """Execute code and return a Jupyter-style reply dict."""
         result = self._sandbox.run_code(code, timeout=timeout)
         return _execution_result_to_reply(result)

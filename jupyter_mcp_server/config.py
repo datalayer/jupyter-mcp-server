@@ -3,24 +3,33 @@
 # BSD 3-Clause License
 
 import os
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class JupyterMCPConfig(BaseModel):
     """Singleton configuration object for Jupyter MCP Server."""
-    
+
     # Transport configuration
     transport: str = Field(default="stdio", description="The transport to use for the MCP server")
-    
-    # Provider configuration  
-    provider: str = Field(default="jupyter", description="The provider to use for the document and runtime")
-    
+
+    # Provider configuration
+    provider: str = Field(
+        default="jupyter", description="The provider to use for the document and runtime"
+    )
+
     # Runtime configuration
-    runtime_url: str = Field(default="http://localhost:8888", description="The runtime URL to use, or 'local' for direct serverapp access")
-    start_new_runtime: bool = Field(default=False, description="Start a new runtime or use an existing one")
-    runtime_id: Optional[str] = Field(default=None, description="The kernel ID to use")
-    runtime_token: Optional[str] = Field(default=None, description="The runtime token to use for authentication")
+    runtime_url: str = Field(
+        default="http://localhost:8888",
+        description="The runtime URL to use, or 'local' for direct serverapp access",
+    )
+    start_new_runtime: bool = Field(
+        default=False, description="Start a new runtime or use an existing one"
+    )
+    runtime_id: str | None = Field(default=None, description="The kernel ID to use")
+    runtime_token: str | None = Field(
+        default=None, description="The runtime token to use for authentication"
+    )
 
     # Execution engine configuration
     execution_engine: str = Field(
@@ -31,40 +40,71 @@ class JupyterMCPConfig(BaseModel):
             "'datalayer') routes execution through the code-sandboxes package."
         ),
     )
-    runtime_proxy_token: Optional[str] = Field(
+    runtime_proxy_token: str | None = Field(
         default=None,
         description="Proxy token for the Colab execution engine (colab-runtime-proxy-token).",
     )
-    sandbox_environment: Optional[str] = Field(
+    runtime_use_browser_bridge: bool = Field(
+        default=False,
+        description=(
+            "For the 'colab' execution engine, obtain the runtime connection "
+            "details (server_url / kernel_id / proxy_token) from an authenticated "
+            "Colab browser session via jupyter-kernel-client's browser bridge "
+            "instead of requiring them to be provided explicitly."
+        ),
+    )
+    sandbox_environment: str | None = Field(
         default=None,
         description="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
     )
-    
+
     # Document configuration
-    document_url: str = Field(default="http://localhost:8888", description="The document URL to use, or 'local' for direct serverapp access")
-    document_id: Optional[str] = Field(default=None, description="The document id to use. Optional - if omitted, can list and select notebooks interactively")
-    document_token: Optional[str] = Field(default=None, description="The document token to use for authentication")
-    
+    document_url: str = Field(
+        default="http://localhost:8888",
+        description="The document URL to use, or 'local' for direct serverapp access",
+    )
+    document_id: str | None = Field(
+        default=None,
+        description="The document id to use. Optional - if omitted, can list and select notebooks interactively",
+    )
+    document_token: str | None = Field(
+        default=None, description="The document token to use for authentication"
+    )
+
     # Server configuration
     port: int = Field(default=4040, description="The port to use for the Streamable HTTP transport")
     jupyterlab: bool = Field(default=True, description="Enable JupyterLab mode (defaults to True)")
-    open_notebook_in_ui: bool = Field(default=False, description="Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False)")
-    allowed_jupyter_mcp_tools: str = Field(default="notebook_run-all-cells,notebook_get-selected-cell", description="Comma-separated list of jupyter-mcp-tools to enable")
-    reconnect_interval: int = Field(default=0, description="Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect.")
+    open_notebook_in_ui: bool = Field(
+        default=False,
+        description="Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False)",
+    )
+    allowed_jupyter_mcp_tools: str = Field(
+        default="notebook_run-all-cells,notebook_get-selected-cell",
+        description="Comma-separated list of jupyter-mcp-tools to enable",
+    )
+    reconnect_interval: int = Field(
+        default=0,
+        description="Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect.",
+    )
 
     # Execution timeout configuration
-    execution_timeout: int = Field(default=120, gt=0, description="Default timeout in seconds for code execution.")
-    max_execution_timeout: int = Field(default=3600, gt=0, description="Maximum allowed timeout in seconds for code execution.")
-    
+    execution_timeout: int = Field(
+        default=120, gt=0, description="Default timeout in seconds for code execution."
+    )
+    max_execution_timeout: int = Field(
+        default=3600, gt=0, description="Maximum allowed timeout in seconds for code execution."
+    )
+
     class Config:
         """Pydantic configuration."""
+
         validate_assignment = True
         arbitrary_types_allowed = True
-    
+
     def is_local_document(self) -> bool:
         """Check if document URL is set to local."""
         return self.document_url == "local"
-    
+
     def is_local_runtime(self) -> bool:
         """Check if runtime URL is set to local."""
         return self.runtime_url == "local"
@@ -76,39 +116,40 @@ class JupyterMCPConfig(BaseModel):
         code-sandboxes package via a SandboxKernel adapter.
         """
         return (self.execution_engine or "jupyter").lower() != "jupyter"
-    
+
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""
         return self.jupyterlab
-    
+
     def get_allowed_jupyter_mcp_tools(self) -> list[str]:
         """Get allowed jupyter mcp tools as a list."""
         if not self.allowed_jupyter_mcp_tools:
             return []
         return [tool.strip() for tool in self.allowed_jupyter_mcp_tools.split(",") if tool.strip()]
 
+
 def _get_env_bool(env_name: str, default_value: bool = True) -> bool:
     """
     Get boolean value from environment variable, supporting multiple formats.
-    
+
     Args:
         env_name: Environment variable name
         default_value: Default value
-        
+
     Returns:
         bool: Boolean value
     """
     env_value = os.getenv(env_name)
     if env_value is None:
         return default_value
-    
+
     # Supported true value formats
-    true_values = {'true', '1', 'yes', 'on', 'enable', 'enabled'}
-    # Supported false value formats  
-    false_values = {'false', '0', 'no', 'off', 'disable', 'disabled'}
-    
+    true_values = {"true", "1", "yes", "on", "enable", "enabled"}
+    # Supported false value formats
+    false_values = {"false", "0", "no", "off", "disable", "disabled"}
+
     env_value_lower = env_value.lower().strip()
-    
+
     if env_value_lower in true_values:
         return True
     elif env_value_lower in false_values:
@@ -116,11 +157,13 @@ def _get_env_bool(env_name: str, default_value: bool = True) -> bool:
     else:
         return default_value
 
+
 # Singleton instance
-_config_instance: Optional[JupyterMCPConfig] = None
+_config_instance: JupyterMCPConfig | None = None
 # Multimodal Output Configuration
 # Environment variable controls whether to return actual image content or text placeholder
 ALLOW_IMG_OUTPUT: bool = _get_env_bool("ALLOW_IMG_OUTPUT", True)
+
 
 def get_config() -> JupyterMCPConfig:
     """Get the singleton configuration instance."""
@@ -132,15 +175,16 @@ def get_config() -> JupyterMCPConfig:
 
 def set_config(**kwargs) -> JupyterMCPConfig:
     """Set configuration values and return the config instance.
-    
+
     Automatically handles string representations of None by removing them from kwargs,
     allowing defaults to be used instead. This handles cases where environment variables
     or MCP clients pass "None" as a string.
     """
+
     def should_skip(value):
         """Check if value is a string representation of None that should be skipped."""
         return isinstance(value, str) and value.lower() in ("none", "null", "")
-    
+
     # Filter out string "None" values and let defaults be used instead
     # For optional fields (tokens, runtime_id, document_id), convert to actual None
     normalized_kwargs = {}
@@ -154,7 +198,7 @@ def set_config(**kwargs) -> JupyterMCPConfig:
             # Do nothing - skip this key
         else:
             normalized_kwargs[key] = value
-    
+
     global _config_instance
     if _config_instance is None:
         _config_instance = JupyterMCPConfig(**normalized_kwargs)

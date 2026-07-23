@@ -4,14 +4,20 @@
 
 """Move cell tool implementation."""
 
-from typing import Any, Optional
 from pathlib import Path
+from typing import Any
+
 import nbformat
 from jupyter_server_client import JupyterServerClient
-from jupyter_mcp_server.tools._base import BaseTool, ServerMode
-from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model, clean_notebook_outputs
+
 from jupyter_mcp_server.models import Notebook
+from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.utils import (
+    clean_notebook_outputs,
+    get_current_notebook_context,
+    get_notebook_model,
+)
 
 
 class MoveCellTool(BaseTool):
@@ -104,7 +110,7 @@ class MoveCellTool(BaseTool):
         Returns:
             Tuple of (notebook, moved_cell_info)
         """
-        with open(notebook_path, "r", encoding="utf-8") as f:
+        with open(notebook_path, encoding="utf-8") as f:
             notebook = nbformat.read(f, as_version=4)
 
         clean_notebook_outputs(notebook)
@@ -113,7 +119,8 @@ class MoveCellTool(BaseTool):
         moved_cell = notebook.cells[source_index]
         cell_info = {
             "cell_type": moved_cell.cell_type,
-            "source": moved_cell.source if isinstance(moved_cell.source, str)
+            "source": moved_cell.source
+            if isinstance(moved_cell.source, str)
             else "".join(moved_cell.source),
         }
 
@@ -155,12 +162,12 @@ class MoveCellTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: Optional[JupyterServerClient] = None,
-        kernel_client: Optional[Any] = None,
-        contents_manager: Optional[Any] = None,
-        kernel_manager: Optional[Any] = None,
-        kernel_spec_manager: Optional[Any] = None,
-        notebook_manager: Optional[NotebookManager] = None,
+        server_client: JupyterServerClient | None = None,
+        kernel_client: Any | None = None,
+        contents_manager: Any | None = None,
+        kernel_manager: Any | None = None,
+        kernel_spec_manager: Any | None = None,
+        notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
         source_index: int = None,
         target_index: int = None,
@@ -209,5 +216,7 @@ class MoveCellTool(BaseTool):
         ]
         info_list.append(f"Notebook has {len(nb)} cells, showing surrounding cells:")
         start_index = max(0, target_index - 3)
-        info_list.append(nb.format_output(response_format="brief", start_index=start_index, limit=7))
+        info_list.append(
+            nb.format_output(response_format="brief", start_index=start_index, limit=7)
+        )
         return "\n".join(info_list)

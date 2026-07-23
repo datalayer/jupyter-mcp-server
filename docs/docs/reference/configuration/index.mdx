@@ -69,7 +69,7 @@ For deployments requiring granular control over document storage and runtime exe
 | `DOCUMENT_TOKEN` | Authentication for document operations | `storage-access-token` | `None` |
 | `DOCUMENT_ID` | Notebook path/ID | `shared/analysis.ipynb` | `None` |
 
-#### Runtime Execution Variables  
+#### Runtime Execution Variables
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
 | `RUNTIME_URL` | URL for kernel/execution operations | `http://compute-cluster:8888` | `http://localhost:8888` |
@@ -97,6 +97,7 @@ For deployments requiring granular control over document storage and runtime exe
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
 | `EXECUTION_ENGINE` | Code execution engine (see [Execution Engines](#execution-engines)) | `jupyter` / `colab` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
 | `RUNTIME_PROXY_TOKEN` | Proxy token used by the `colab` execution engine (`colab-runtime-proxy-token`) | `ya29...` | `None` |
+| `RUNTIME_USE_BROWSER_BRIDGE` | For the `colab` engine, obtain the runtime connection details from an authenticated Colab browser session via `jupyter-kernel-client`'s browser bridge | `true` / `false` | `false` |
 | `SANDBOX_ENVIRONMENT` | Environment name for cloud sandboxes (Datalayer/Modal) | `python-cpu-env` | `None` |
 
 ## Execution Engines
@@ -110,7 +111,7 @@ backends.
 
 | Engine | Description | Extra install | Key variables |
 |--------|-------------|---------------|---------------|
-| `jupyter` (default) | Jupyter Server via `jupyter-kernel-client` | — | `RUNTIME_URL`, `RUNTIME_TOKEN` |
+| `jupyter` (default) | Jupyter Server via `jupyter-kernel-client` | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `RUNTIME_*` + `DOCUMENT_*`) |
 | `colab` | Google Colab runtime | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |
 | `monty` | In-process secure Python interpreter ([Monty](https://github.com/pydantic/monty)) | `jupyter-mcp-server[monty]` | — |
 | `modal` | [Modal](https://modal.com/docs/guide) cloud sandbox | `jupyter-mcp-server[modal]` | Modal credentials |
@@ -122,7 +123,7 @@ backends.
 
 ```bash
 EXECUTION_ENGINE=colab
-RUNTIME_URL=https://colab.research.google.com/tun/m/...
+RUNTIME_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
 RUNTIME_ID=a1b2c3d4-....
 RUNTIME_PROXY_TOKEN=ya29....
 ```
@@ -167,7 +168,7 @@ RUNTIME_TOKEN=user-server-token
 DOCUMENT_ID=shared/analysis.ipynb
 ```
 
-### Distributed Computing Setup  
+### Distributed Computing Setup
 ```bash
 DOCUMENT_URL=http://file-server:8888
 DOCUMENT_TOKEN=file-access-token
@@ -194,7 +195,7 @@ Usage: jupyter mcp start [OPTIONS]
 
 Options:
   --transport [stdio|streamable-http]  Transport type (default: stdio)
-  --provider [jupyter|datalayer]      Provider type (default: jupyter)  
+  --provider [jupyter|datalayer]      Provider type (default: jupyter)
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
   --runtime-url TEXT                  Runtime URL for kernel operations (default: None)
   --runtime-token TEXT                Runtime authentication token (default: None)

@@ -5,13 +5,19 @@
 """Edit cell source tool implementation — surgical find-and-replace within a cell."""
 
 import difflib
-import nbformat
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
+import nbformat
 from jupyter_server_client import JupyterServerClient
-from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model, clean_notebook_outputs
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.utils import (
+    clean_notebook_outputs,
+    get_current_notebook_context,
+    get_notebook_model,
+)
 
 
 class EditCellSourceTool(BaseTool):
@@ -30,7 +36,7 @@ class EditCellSourceTool(BaseTool):
 
         count = source.count(old_string)
         if count == 0:
-            raise ValueError(f"old_string not found in cell source")
+            raise ValueError("old_string not found in cell source")
         if count > 1 and not replace_all:
             raise ValueError(
                 f"old_string is not unique in cell source ({count} occurrences). "
@@ -52,18 +58,22 @@ class EditCellSourceTool(BaseTool):
         old_lines = old_source.splitlines(keepends=False)
         new_lines = new_source.splitlines(keepends=False)
 
-        diff_lines = list[str](difflib.unified_diff(
-            old_lines,
-            new_lines,
-            lineterm='',
-            n=3,
-        ))
+        diff_lines = list[str](
+            difflib.unified_diff(
+                old_lines,
+                new_lines,
+                lineterm="",
+                n=3,
+            )
+        )
 
         if len(diff_lines) > 3:
-            return '\n'.join(diff_lines)
+            return "\n".join(diff_lines)
         return "no changes detected"
 
-    def _edit_source(self, old_source: str, old_string: str, new_string: str, replace_all: bool) -> tuple[str, str]:
+    def _edit_source(
+        self, old_source: str, old_string: str, new_string: str, replace_all: bool
+    ) -> tuple[str, str]:
         """Validate, apply the edit, and return (new_source, diff).
 
         Raises ValueError on validation failure.
@@ -76,8 +86,13 @@ class EditCellSourceTool(BaseTool):
     # ----- mode-specific writers -----
 
     async def _edit_cell_ydoc(
-        self, serverapp: Any, notebook_path: str,
-        cell_index: int, old_string: str, new_string: str, replace_all: bool,
+        self,
+        serverapp: Any,
+        notebook_path: str,
+        cell_index: int,
+        old_string: str,
+        new_string: str,
+        replace_all: bool,
     ) -> str:
         nb = await get_notebook_model(serverapp, notebook_path)
 
@@ -98,14 +113,22 @@ class EditCellSourceTool(BaseTool):
             return diff
         else:
             return await self._edit_cell_file(
-                notebook_path, cell_index, old_string, new_string, replace_all,
+                notebook_path,
+                cell_index,
+                old_string,
+                new_string,
+                replace_all,
             )
 
     async def _edit_cell_file(
-        self, notebook_path: str, cell_index: int,
-        old_string: str, new_string: str, replace_all: bool,
+        self,
+        notebook_path: str,
+        cell_index: int,
+        old_string: str,
+        new_string: str,
+        replace_all: bool,
     ) -> str:
-        with open(notebook_path, "r", encoding="utf-8") as f:
+        with open(notebook_path, encoding="utf-8") as f:
             notebook = nbformat.read(f, as_version=4)
         clean_notebook_outputs(notebook)
 
@@ -124,8 +147,12 @@ class EditCellSourceTool(BaseTool):
         return diff
 
     async def _edit_cell_websocket(
-        self, notebook_manager: NotebookManager, cell_index: int,
-        old_string: str, new_string: str, replace_all: bool,
+        self,
+        notebook_manager: NotebookManager,
+        cell_index: int,
+        old_string: str,
+        new_string: str,
+        replace_all: bool,
     ) -> str:
         async with notebook_manager.get_current_connection() as notebook:
             if cell_index >= len(notebook):
@@ -146,12 +173,12 @@ class EditCellSourceTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: Optional[JupyterServerClient] = None,
-        kernel_client: Optional[Any] = None,
-        contents_manager: Optional[Any] = None,
-        kernel_manager: Optional[Any] = None,
-        kernel_spec_manager: Optional[Any] = None,
-        notebook_manager: Optional[NotebookManager] = None,
+        server_client: JupyterServerClient | None = None,
+        kernel_client: Any | None = None,
+        contents_manager: Any | None = None,
+        kernel_manager: Any | None = None,
+        kernel_spec_manager: Any | None = None,
+        notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
         cell_index: int = None,
         old_string: str = None,
@@ -178,19 +205,29 @@ class EditCellSourceTool(BaseTool):
 
             if serverapp:
                 diff = await self._edit_cell_ydoc(
-                    serverapp, notebook_path, cell_index,
-                    old_string, new_string, replace_all,
+                    serverapp,
+                    notebook_path,
+                    cell_index,
+                    old_string,
+                    new_string,
+                    replace_all,
                 )
             else:
                 diff = await self._edit_cell_file(
-                    notebook_path, cell_index,
-                    old_string, new_string, replace_all,
+                    notebook_path,
+                    cell_index,
+                    old_string,
+                    new_string,
+                    replace_all,
                 )
 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             diff = await self._edit_cell_websocket(
-                notebook_manager, cell_index,
-                old_string, new_string, replace_all,
+                notebook_manager,
+                cell_index,
+                old_string,
+                new_string,
+                replace_all,
             )
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

@@ -18,4 +18,4 @@ the host application from the manifest's user_config:
 from jupyter_mcp_server.cli.cli import serve
 
 if __name__ == "__main__":
-  serve()
+    serve()

@@ -25,18 +25,14 @@ $ pytest tests/test_edit_cell_source.py -v
 ```
 """
 
-import logging
-
 import pytest
-
-from .test_common import MCPClient, timeout_wrapper
-
 
 ###############################################################################
 # Section A — Unit Tests (no server needed)
 ###############################################################################
-
 from jupyter_mcp_server.tools.edit_cell_source_tool import EditCellSourceTool
+
+from .test_common import MCPClient, timeout_wrapper
 
 
 class TestEditCellSourceValidation:
@@ -318,7 +314,9 @@ async def test_edit_cell_source_error_old_string_not_found(mcp_client_parametriz
     async with mcp_client_parametrized:
         await mcp_client_parametrized.insert_cell(1, "code", "x = 1")
 
-        result = await mcp_client_parametrized.edit_cell_source(1, "nonexistent_string", "replacement")
+        result = await mcp_client_parametrized.edit_cell_source(
+            1, "nonexistent_string", "replacement"
+        )
         assert result is None
 
         await mcp_client_parametrized.delete_cell([1])
@@ -339,7 +337,9 @@ async def test_edit_cell_source_error_ambiguous_match(mcp_client_parametrized: M
 
 @pytest.mark.asyncio
 @timeout_wrapper(60)
-async def test_edit_cell_source_preserves_cell_type_and_metadata(mcp_client_parametrized: MCPClient):
+async def test_edit_cell_source_preserves_cell_type_and_metadata(
+    mcp_client_parametrized: MCPClient,
+):
     """Editing a cell should not change its type."""
     async with mcp_client_parametrized:
         await mcp_client_parametrized.insert_cell(1, "markdown", "# Hello World")
@@ -380,7 +380,9 @@ async def test_edit_cell_source_after_insert_workflow(mcp_client_parametrized: M
     async with mcp_client_parametrized:
         await mcp_client_parametrized.insert_cell(1, "code", "placeholder = True")
 
-        result = await mcp_client_parametrized.edit_cell_source(1, "placeholder = True", "real_code = 42")
+        result = await mcp_client_parametrized.edit_cell_source(
+            1, "placeholder = True", "real_code = 42"
+        )
         assert result is not None
 
         cell_info = await mcp_client_parametrized.read_cell(1)
@@ -398,7 +400,9 @@ async def test_edit_cell_source_noop_same_old_and_new(mcp_client_parametrized: M
         source = "unchanged = True"
         await mcp_client_parametrized.insert_cell(1, "code", source)
 
-        result = await mcp_client_parametrized.edit_cell_source(1, "unchanged = True", "unchanged = True")
+        result = await mcp_client_parametrized.edit_cell_source(
+            1, "unchanged = True", "unchanged = True"
+        )
         assert result is not None
 
         cell_info = await mcp_client_parametrized.read_cell(1)

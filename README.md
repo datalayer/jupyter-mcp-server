@@ -364,7 +364,7 @@ pip install "jupyter-mcp-server[colab]"
 ```json
 "env": {
   "EXECUTION_ENGINE": "colab",
-  "RUNTIME_URL": "https://colab.research.google.com/tun/m/...",
+  "RUNTIME_URL": "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev",
   "RUNTIME_ID": "a1b2c3d4-....",
   "RUNTIME_PROXY_TOKEN": "ya29...."
 }
@@ -372,6 +372,12 @@ pip install "jupyter-mcp-server[colab]"
 
 > The proxy token (`colab-runtime-proxy-token`) is short-lived; refresh it when it
 > expires.
+
+Alternatively, set `RUNTIME_USE_BROWSER_BRIDGE=true` (or pass
+`--runtime-use-browser-bridge`) to obtain `RUNTIME_URL` / `RUNTIME_ID` /
+`RUNTIME_PROXY_TOKEN` from an authenticated Colab browser session via
+`jupyter-kernel-client`'s browser bridge, instead of supplying them manually.
+Install the bridge extra with `pip install 'jupyter-kernel-client[bridge]'`.
 
 ### 5. Monty
 

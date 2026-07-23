@@ -20,7 +20,7 @@ from .test_common import MCPClient, timeout_wrapper
 def _read_spans(path: str) -> list[dict]:
     """Parse all JSONL spans from *path*, tolerating an empty file."""
     try:
-        text = open(path).read().strip()  # noqa: SIM115
+        text = open(path).read().strip()
     except FileNotFoundError:
         logging.warning(f"Spans file does not exist: {path}")
         return []
@@ -102,9 +102,9 @@ async def test_lifecycle_spans_emitted(mcp_client_otel: MCPClient, otel_spans_fi
     lifecycle_spans = [s for s in spans if s["name"] == "kernel_lifecycle"]
     logging.info(f"Lifecycle spans: {[s['attributes'] for s in lifecycle_spans]}")
 
-    assert len(lifecycle_spans) >= 1, (
-        f"Expected at least 1 lifecycle span, got {len(lifecycle_spans)}"
-    )
+    assert (
+        len(lifecycle_spans) >= 1
+    ), f"Expected at least 1 lifecycle span, got {len(lifecycle_spans)}"
     event_types = {s["attributes"]["event_type"] for s in lifecycle_spans}
     assert "started" in event_types, f"Expected 'started' lifecycle event, got {event_types}"
 

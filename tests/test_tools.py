@@ -25,13 +25,13 @@ from http import HTTPStatus
 import pytest
 import requests
 
-from .test_common import MCPClient, JUPYTER_TOOLS, timeout_wrapper
 from .conftest import JUPYTER_TOKEN, TEST_MCP_SERVER
-
+from .test_common import JUPYTER_TOOLS, MCPClient, timeout_wrapper
 
 ###############################################################################
 # Health Tests
 ###############################################################################
+
 
 def test_jupyter_health(jupyter_server):
     """Test the Jupyter server health"""
@@ -69,25 +69,23 @@ async def test_mcp_tool_list(mcp_client_parametrized: MCPClient, request):
         tools = await mcp_client_parametrized.list_tools()
     tools_name = [tool.name for tool in tools.tools]
     logging.debug(f"tools_name: {tools_name}")
-    
+
     # In JUPYTER_SERVER mode (jupyter_extension), connect_to_jupyter is filtered out
     # In MCP_SERVER mode (mcp_server), all tools are available
     expected_tools = JUPYTER_TOOLS.copy()
-    
+
     # Get the current test parameter to determine the mode
     current_param = None
     for param in request.node.callspec.params.values():
         if param in ["mcp_server", "jupyter_extension"]:
             current_param = param
             break
-    
+
     if current_param == "jupyter_extension":
         # Remove connect_to_jupyter for jupyter_extension mode
-        expected_tools = [tool for tool in JUPYTER_TOOLS if tool != 'connect_to_jupyter']
-    
-    assert len(tools_name) == len(expected_tools) and sorted(tools_name) == sorted(
-        expected_tools
-    )
+        expected_tools = [tool for tool in JUPYTER_TOOLS if tool != "connect_to_jupyter"]
+
+    assert len(tools_name) == len(expected_tools) and sorted(tools_name) == sorted(expected_tools)
 
 
 @pytest.mark.asyncio
@@ -102,6 +100,7 @@ async def test_mcp_client_connects_with_token(mcp_client_parametrized: MCPClient
 def _post_mcp_init(url, token=None):
     """POST an MCP initialize request, optionally with a Bearer token."""
     import httpx
+
     headers = {
         "Accept": "application/json, text/event-stream",
         "Content-Type": "application/json",
@@ -118,8 +117,10 @@ def _post_mcp_init(url, token=None):
 def test_mcp_client_rejected_without_token(mcp_server_url):
     """MCP client without a token should be rejected by both server modes."""
     r = _post_mcp_init(mcp_server_url)
-    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED), \
-        f"Server accepted unauthenticated request (status {r.status_code})"
+    assert r.status_code in (
+        HTTPStatus.FORBIDDEN,
+        HTTPStatus.UNAUTHORIZED,
+    ), f"Server accepted unauthenticated request (status {r.status_code})"
 
 
 ###############################################################################
@@ -132,16 +133,27 @@ MCP_TOKEN = "MY_MCP_TOKEN"
 def _mcp_server_command_with_mcp_token(jupyter_url, port):
     """Build standalone MCP server command with both --mcp-token and --runtime-token."""
     return [
-        "python", "-m", "jupyter_mcp_server",
-        "--transport", "streamable-http",
-        "--document-url", jupyter_url,
-        "--document-id", "notebook.ipynb",
-        "--document-token", JUPYTER_TOKEN,
-        "--runtime-url", jupyter_url,
-        "--start-new-runtime", "True",
-        "--runtime-token", JUPYTER_TOKEN,
-        "--mcp-token", MCP_TOKEN,
-        "--port", str(port),
+        "python",
+        "-m",
+        "jupyter_mcp_server",
+        "--transport",
+        "streamable-http",
+        "--document-url",
+        jupyter_url,
+        "--document-id",
+        "notebook.ipynb",
+        "--document-token",
+        JUPYTER_TOKEN,
+        "--runtime-url",
+        jupyter_url,
+        "--start-new-runtime",
+        "True",
+        "--runtime-token",
+        JUPYTER_TOKEN,
+        "--mcp-token",
+        MCP_TOKEN,
+        "--port",
+        str(port),
     ]
 
 
@@ -149,6 +161,7 @@ def _mcp_server_command_with_mcp_token(jupyter_url, port):
 def mcp_server_with_mcp_token(jupyter_server):
     """Standalone MCP server with --mcp-token set (separate from --runtime-token)."""
     from .conftest import _find_free_port, _start_server
+
     host = "localhost"
     port = _find_free_port()
     yield from _start_server(
@@ -259,16 +272,26 @@ def test_management_routes_allow_local_non_browser_request(mcp_server_with_mcp_t
 def _mcp_server_command_insecure_noauth(jupyter_url, port):
     """Build standalone MCP server command with --insecure-mcp-noauth (no --mcp-token)."""
     return [
-        "python", "-m", "jupyter_mcp_server",
-        "--transport", "streamable-http",
-        "--document-url", jupyter_url,
-        "--document-id", "notebook.ipynb",
-        "--document-token", JUPYTER_TOKEN,
-        "--runtime-url", jupyter_url,
-        "--start-new-runtime", "True",
-        "--runtime-token", JUPYTER_TOKEN,
+        "python",
+        "-m",
+        "jupyter_mcp_server",
+        "--transport",
+        "streamable-http",
+        "--document-url",
+        jupyter_url,
+        "--document-id",
+        "notebook.ipynb",
+        "--document-token",
+        JUPYTER_TOKEN,
+        "--runtime-url",
+        jupyter_url,
+        "--start-new-runtime",
+        "True",
+        "--runtime-token",
+        JUPYTER_TOKEN,
         "--insecure-mcp-noauth",
-        "--port", str(port),
+        "--port",
+        str(port),
     ]
 
 
@@ -276,6 +299,7 @@ def _mcp_server_command_insecure_noauth(jupyter_url, port):
 def mcp_server_insecure_noauth(jupyter_server):
     """Standalone MCP server with --insecure-mcp-noauth (no --mcp-token)."""
     from .conftest import _find_free_port, _start_server
+
     host = "localhost"
     port = _find_free_port()
     yield from _start_server(
@@ -298,18 +322,30 @@ def test_insecure_noauth_allows_anonymous(mcp_server_insecure_noauth):
 def test_server_refuses_start_without_auth(jupyter_server):
     """Without --mcp-token or --insecure-mcp-noauth, the server should fail to start."""
     import subprocess
+
     from .conftest import _find_free_port
+
     port = _find_free_port()
     cmd = [
-        "python", "-m", "jupyter_mcp_server",
-        "--transport", "streamable-http",
-        "--document-url", jupyter_server,
-        "--document-id", "notebook.ipynb",
-        "--document-token", JUPYTER_TOKEN,
-        "--runtime-url", jupyter_server,
-        "--start-new-runtime", "True",
-        "--runtime-token", JUPYTER_TOKEN,
-        "--port", str(port),
+        "python",
+        "-m",
+        "jupyter_mcp_server",
+        "--transport",
+        "streamable-http",
+        "--document-url",
+        jupyter_server,
+        "--document-id",
+        "notebook.ipynb",
+        "--document-token",
+        JUPYTER_TOKEN,
+        "--runtime-url",
+        jupyter_server,
+        "--start-new-runtime",
+        "True",
+        "--runtime-token",
+        JUPYTER_TOKEN,
+        "--port",
+        str(port),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
     assert result.returncode != 0, "Server should refuse to start without MCP auth config"
@@ -331,9 +367,11 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         # reading and checking the content of the created cell
         cell_info = await client.read_cell(index)
         logging.debug(f"cell_info: {cell_info}")
-        assert isinstance(cell_info['result'], list), "Read cell result should be a list"
-        assert f"=====Cell {index} | type: {expected_type}" in cell_info['result'][0], "Cell metadata should be included"
-        assert content in cell_info['result'][1], "Cell source should be included"
+        assert isinstance(cell_info["result"], list), "Read cell result should be a list"
+        assert (
+            f"=====Cell {index} | type: {expected_type}" in cell_info["result"][0]
+        ), "Cell metadata should be included"
+        assert content in cell_info["result"][1], "Cell source should be included"
         # delete created cell
         result = await client.delete_cell([index])
         assert result is not None, "delete_cell result should not be None"
@@ -353,12 +391,12 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
         code_content = "1 + 1"
         code_result = await mcp_client_parametrized.insert_execute_code_cell(1, code_content)
         expected_result = eval(code_content)
-        assert int(code_result['result'][0]) == expected_result
+        assert int(code_result["result"][0]) == expected_result
 
         # Testing appending code cell to bottom of notebook
         code_result = await mcp_client_parametrized.insert_execute_code_cell(-1, code_content)
         expected_result = eval(code_content)
-        assert int(code_result['result'][0]) == expected_result
+        assert int(code_result["result"][0]) == expected_result
 
         # Test overwrite_cell_source
         new_code_content = f"({code_content}) * 2"
@@ -372,12 +410,12 @@ async def test_cell_manipulation(mcp_client_parametrized: MCPClient):
 
         await check_and_delete_cell(mcp_client_parametrized, 1, "code", new_code_content)
 
+
 @pytest.mark.asyncio
 @timeout_wrapper(60)
 async def test_multimodal_output(mcp_client_parametrized: MCPClient):
     """Test multimodal output functionality with image generation in both modes"""
     async with mcp_client_parametrized:
-        
         # Test image generation code using PIL (lightweight)
         image_code = """
 from PIL import Image, ImageDraw
@@ -405,11 +443,13 @@ display(IPythonImage(buffer.getvalue()))
 """
         # Execute the image generation code
         result = await mcp_client_parametrized.insert_execute_code_cell(1, image_code)
-        
-        # Check that result is 
-        assert isinstance(result['result'], list), "Result should be a list"
-        assert isinstance(result['result'][0], dict)
-        assert result['result'][0]['mimeType'] == "image/png", "Result should be a list of ImageContent"
+
+        # Check that result is
+        assert isinstance(result["result"], list), "Result should be a list"
+        assert isinstance(result["result"][0], dict)
+        assert (
+            result["result"][0]["mimeType"] == "image/png"
+        ), "Result should be a list of ImageContent"
         await mcp_client_parametrized.delete_cell([1])
 
 
@@ -417,11 +457,13 @@ display(IPythonImage(buffer.getvalue()))
 # Multi-Notebook Management Tests
 ###############################################################################
 
+
 @pytest.mark.asyncio
 @timeout_wrapper(90)
 async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
     """Test cell operations across multiple notebooks in both modes"""
     import uuid
+
     tag = uuid.uuid4().hex[:8]
     marker_a = f"# This is notebook A [{tag}]"
     marker_b = f"# This is notebook B [{tag}]\nA hidden content"
@@ -454,7 +496,9 @@ async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
 
         # Switch to notebook B and verify
         await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
-        cell_list_b = await mcp_client_parametrized.read_notebook("notebook_b", response_format="detailed", limit=100)
+        cell_list_b = await mcp_client_parametrized.read_notebook(
+            "notebook_b", response_format="detailed", limit=100
+        )
         assert marker_b in cell_list_b
 
         notebook_list = await mcp_client_parametrized.list_notebooks()
@@ -477,21 +521,23 @@ async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
         assert "Notebook 'notebook_b' unused successfully" in result
 
 
-@pytest.mark.asyncio 
+@pytest.mark.asyncio
 @timeout_wrapper(60)
 async def test_notebooks_error_cases(mcp_client_parametrized: MCPClient):
     """Test error handling for notebook management in both modes"""
     async with mcp_client_parametrized:
         # Test connecting to non-existent notebook (with required notebook_path parameter)
-        error_result = await mcp_client_parametrized.use_notebook("nonexistent", "nonexistent.ipynb")
+        error_result = await mcp_client_parametrized.use_notebook(
+            "nonexistent", "nonexistent.ipynb"
+        )
         logging.debug(f"Nonexistent notebook result: {error_result}")
         assert "not found" in error_result
-        
+
         # Test operations on non-used notebook
         restart_error = await mcp_client_parametrized.restart_notebook("nonexistent_notebook")
         assert "not connected" in restart_error
-        
-        disconnect_error = await mcp_client_parametrized.unuse_notebook("nonexistent_notebook") 
+
+        disconnect_error = await mcp_client_parametrized.unuse_notebook("nonexistent_notebook")
         assert "not connected" in disconnect_error
 
 
@@ -547,6 +593,7 @@ async def test_execute_code(mcp_client_parametrized: MCPClient):
         result = await mcp_client_parametrized.execute_code("import time\ntime.sleep(5)", timeout=2)
         assert "TIMEOUT ERROR" in result["result"][0]
 
+
 @pytest.mark.asyncio
 async def test_list_kernels(mcp_client_parametrized: MCPClient):
     """Test list_kernels functionality in both MCP_SERVER and JUPYTER_SERVER modes"""
@@ -555,12 +602,16 @@ async def test_list_kernels(mcp_client_parametrized: MCPClient):
         kernel_list = await mcp_client_parametrized.list_kernels()
         logging.debug(f"Kernel list: {kernel_list}")
         # Check for either TSV header or "No kernels found" message
-        assert "ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment" in kernel_list
+        assert (
+            "ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment"
+            in kernel_list
+        )
 
 
 ###############################################################################
 # Allowed Tools Configuration Tests
 ###############################################################################
+
 
 @pytest.mark.asyncio
 async def test_allowed_jupyter_mcp_tools_integration(mcp_client_parametrized: MCPClient):
@@ -569,13 +620,13 @@ async def test_allowed_jupyter_mcp_tools_integration(mcp_client_parametrized: MC
         # Get the list of tools from the server
         tools = await mcp_client_parametrized.list_tools()
         tool_names = [tool.name for tool in tools.tools]
-        
+
         logging.info(f"Available tools: {tool_names}")
-        
+
         # Check that default jupyter-mcp-tools are present
         # These should be available by default
         jupyter_tools = [name for name in tool_names if name.startswith("notebook_")]
-        
+
         # The actual availability depends on whether jupyter-mcp-tools is installed
         # and whether we're running in JupyterLab mode, so we check conditionally
         if any(tool.startswith("notebook_") for tool in tool_names):
@@ -589,7 +640,7 @@ async def test_allowed_jupyter_mcp_tools_integration(mcp_client_parametrized: MC
 def test_config_allowed_tools_parsing():
     """Test the configuration parsing for allowed tools."""
     from jupyter_mcp_server.config import JupyterMCPConfig
-    
+
     # Test various input formats
     test_cases = [
         ("tool1,tool2,tool3", ["tool1", "tool2", "tool3"]),
@@ -598,28 +649,30 @@ def test_config_allowed_tools_parsing():
         ("tool1,,tool2,", ["tool1", "tool2"]),
         ("notebook_*,console_create", ["notebook_*", "console_create"]),
     ]
-    
+
     for input_str, expected in test_cases:
         config = JupyterMCPConfig(allowed_jupyter_mcp_tools=input_str)
         result = config.get_allowed_jupyter_mcp_tools()
-        assert result == expected, f"Failed for input '{input_str}': expected {expected}, got {result}"
+        assert (
+            result == expected
+        ), f"Failed for input '{input_str}': expected {expected}, got {result}"
         logging.info(f"✅ Parsed '{input_str}' -> {result}")
-    
+
     logging.info("✅ All configuration parsing tests passed")
 
 
 def test_config_environment_variable():
     """Test that CLI-style configuration works (environment variables work through CLI)."""
-    from jupyter_mcp_server.config import set_config, reset_config
-    
+    from jupyter_mcp_server.config import reset_config, set_config
+
     # Test configuration via set_config (simulates how CLI handles environment variables)
     reset_config()
     config = set_config(allowed_jupyter_mcp_tools="env_tool1,env_tool2")
     tools = config.get_allowed_jupyter_mcp_tools()
-    
+
     assert tools == ["env_tool1", "env_tool2"]
     logging.info(f"✅ CLI-style configuration test passed: {tools}")
-    
+
     # Cleanup
     reset_config()
 
@@ -627,43 +680,43 @@ def test_config_environment_variable():
 def test_config_defaults():
     """Test that default configuration works correctly."""
     from jupyter_mcp_server.config import JupyterMCPConfig, reset_config
-    
+
     reset_config()
     config = JupyterMCPConfig()
     default_tools = config.get_allowed_jupyter_mcp_tools()
-    
+
     assert "notebook_run-all-cells" in default_tools
     assert "notebook_get-selected-cell" in default_tools
     assert len(default_tools) == 2
-    
+
     logging.info(f"✅ Default configuration test passed: {default_tools}")
 
 
 def test_server_tool_registration():
     """Test that get_registered_tools includes the correct tools based on configuration."""
+    from jupyter_mcp_server.config import reset_config, set_config
     from jupyter_mcp_server.server import get_registered_tools
-    from jupyter_mcp_server.config import set_config, reset_config
-    
+
     # Test with custom configuration
     reset_config()
     set_config(allowed_jupyter_mcp_tools="notebook_run-all-cells")
-    
+
     try:
         # Get registered tools (this may fail if jupyter-mcp-tools is not available)
         tools = get_registered_tools(token="test_token", url="http://localhost:8888")
         tool_names = [tool["name"] for tool in tools]
-        
+
         logging.info(f"Registered tools: {tool_names}")
-        
+
         # Check that FastMCP tools are always present
         fastmcp_tools = [name for name in tool_names if not name.startswith("notebook_")]
         assert len(fastmcp_tools) > 0, "FastMCP tools should always be present"
-        
+
         logging.info("✅ Server tool registration test completed")
-        
+
     except Exception as e:
         # This is expected if jupyter-mcp-tools is not available or we're not in JupyterLab mode
         logging.info(f"Server tool registration test skipped due to: {e}")
-    
+
     finally:
         reset_config()

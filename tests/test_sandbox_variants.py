@@ -56,7 +56,25 @@ def test_build_sandbox_colab_forwards_runtime_connection():
             server_url="https://colab-host.example",
             kernel_id="kernel-id",
             proxy_token="proxy-token",
+            use_browser_bridge=False,
         )
+
+
+def test_build_sandbox_colab_enables_browser_bridge():
+    """Colab engine forwards the browser-bridge flag to code-sandboxes."""
+    config = JupyterMCPConfig(
+        execution_engine="colab",
+        runtime_use_browser_bridge=True,
+    )
+
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        _build_sandbox(config, MagicMock())
+
+        _, kwargs = mock_create.call_args
+        assert kwargs["variant"] == "colab"
+        assert kwargs["use_browser_bridge"] is True
 
 
 def test_build_sandbox_datalayer_forwards_token_and_run_url():
@@ -86,10 +104,32 @@ def test_create_kernel_uses_sandbox_kernel_for_sandbox_engines():
     fake_sandbox = MagicMock()
     fake_kernel = MagicMock()
 
-    with patch("jupyter_mcp_server.utils._build_sandbox", return_value=fake_sandbox), patch(
-        "jupyter_mcp_server.sandbox_kernel.SandboxKernel", return_value=fake_kernel
+    with (
+        patch("jupyter_mcp_server.utils._build_sandbox", return_value=fake_sandbox),
+        patch("jupyter_mcp_server.sandbox_kernel.SandboxKernel", return_value=fake_kernel),
     ):
         kernel = create_kernel(config, MagicMock())
 
     assert kernel is fake_kernel
+    fake_kernel.start.assert_called_once_with()
+
+
+def test_create_kernel_sandbox_path_builds_and_starts_kernel():
+    """create_kernel uses Sandbox.create via _build_sandbox and starts SandboxKernel."""
+    config = JupyterMCPConfig(execution_engine="datalayer", runtime_url="https://run.example")
+    fake_logger = MagicMock()
+    fake_sandbox = MagicMock()
+    fake_kernel = MagicMock()
+
+    with (
+        patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create,
+        patch(
+            "jupyter_mcp_server.sandbox_kernel.SandboxKernel", return_value=fake_kernel
+        ) as mock_wrapper,
+    ):
+        kernel = create_kernel(config, fake_logger)
+
+    assert kernel is fake_kernel
+    mock_create.assert_called_once()
+    mock_wrapper.assert_called_once_with(fake_sandbox, logger=fake_logger)
     fake_kernel.start.assert_called_once_with()

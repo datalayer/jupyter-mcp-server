@@ -38,7 +38,7 @@ def _write_notebook(path, cell_specs):
 
 
 def _read_notebook(path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return nbformat.read(f, as_version=4)
 
 
@@ -84,10 +84,13 @@ class TestClearCellOutputFile:
         path = str(tmp_path / "nb.ipynb")
         out0 = nbformat.v4.new_output(output_type="stream", name="stdout", text="a\n")
         out1 = nbformat.v4.new_output(output_type="stream", name="stdout", text="b\n")
-        _write_notebook(path, [
-            ("code", "print('a')", [out0], 1),
-            ("code", "print('b')", [out1], 2),
-        ])
+        _write_notebook(
+            path,
+            [
+                ("code", "print('a')", [out0], 1),
+                ("code", "print('b')", [out1], 2),
+            ],
+        )
 
         cleared_count = await self.tool._clear_cell_output_file(path, 1)
 
@@ -154,14 +157,16 @@ class TestClearCellOutputNotebookModel:
         self.tool = ClearCellOutputTool()
 
     def test_clears_outputs_and_execution_count(self):
-        nb = _FakeNotebookModel([
-            {
-                "cell_type": "code",
-                "source": "print(1)",
-                "outputs": [{"output_type": "stream"}],
-                "execution_count": 2,
-            },
-        ])
+        nb = _FakeNotebookModel(
+            [
+                {
+                    "cell_type": "code",
+                    "source": "print(1)",
+                    "outputs": [{"output_type": "stream"}],
+                    "execution_count": 2,
+                },
+            ]
+        )
 
         cleared_count = self.tool._clear_notebook_model_cell(nb, 0)
 
@@ -178,9 +183,11 @@ class TestClearCellOutputNotebookModel:
             self.tool._clear_notebook_model_cell(nb, 0)
 
     def test_out_of_range_index_raises(self):
-        nb = _FakeNotebookModel([
-            {"cell_type": "code", "source": "1", "outputs": [], "execution_count": None},
-        ])
+        nb = _FakeNotebookModel(
+            [
+                {"cell_type": "code", "source": "1", "outputs": [], "execution_count": None},
+            ]
+        )
 
         with pytest.raises(ValueError, match="out of range"):
             self.tool._clear_notebook_model_cell(nb, 5)

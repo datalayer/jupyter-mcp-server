@@ -6,13 +6,12 @@
 
 import asyncio
 import logging
-from typing import Union
 
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
-from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
 logger = logging.getLogger(__name__)
 
@@ -23,24 +22,19 @@ class ExecuteCodeTool(BaseTool):
     Defaults to the current active notebook's kernel; pass kernel_id to target
     a specific kernel, including raw kernels with no notebook attached.
     """
-    
+
     async def _execute_via_kernel_manager(
-        self,
-        kernel_manager,
-        kernel_id: str,
-        code: str,
-        timeout: int,
-        safe_extract_outputs_fn
-    ) -> list[Union[str, ImageContent]]:
+        self, kernel_manager, kernel_id: str, code: str, timeout: int, safe_extract_outputs_fn
+    ) -> list[str | ImageContent]:
         """Execute code using kernel_manager (JUPYTER_SERVER mode).
-        
+
         Uses execute_code_local which handles ZMQ message collection properly.
         """
         from jupyter_mcp_server.utils import execute_code_local
-        
+
         # Get serverapp from kernel_manager
         serverapp = kernel_manager.parent
-        
+
         # Use centralized execute_code_local function
         return await execute_code_local(
             serverapp=serverapp,
@@ -48,9 +42,9 @@ class ExecuteCodeTool(BaseTool):
             code=code,
             kernel_id=kernel_id,
             timeout=timeout,
-            logger=logger
+            logger=logger,
         )
-    
+
     def _connect_to_kernel(self, kernel_id: str, server_client):
         """Connect to an existing kernel by ID (MCP_SERVER mode).
 
@@ -87,8 +81,8 @@ class ExecuteCodeTool(BaseTool):
         wait_for_kernel_idle_fn,
         safe_extract_outputs_fn,
         kernel_id: str = None,
-        server_client=None
-    ) -> list[Union[str, ImageContent]]:
+        server_client=None,
+    ) -> list[str | ImageContent]:
         """Execute code using notebook_manager (MCP_SERVER mode - original logic).
 
         When kernel_id names a kernel other than the current notebook's, the code
@@ -140,8 +134,8 @@ class ExecuteCodeTool(BaseTool):
         code: str,
         timeout: int,
         wait_for_kernel_idle_fn,
-        safe_extract_outputs_fn
-    ) -> list[Union[str, ImageContent]]:
+        safe_extract_outputs_fn,
+    ) -> list[str | ImageContent]:
         """Run code on an already-resolved kernel (MCP_SERVER mode)."""
         # Wait for kernel to be idle before executing
         await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
@@ -151,14 +145,14 @@ class ExecuteCodeTool(BaseTool):
         hooks = HookRegistry.get_instance()
         hook_ctx = await hooks.fire(
             HookEvent.BEFORE_EXECUTE,
-            code=code, kernel_id=kid, metadata={},
+            code=code,
+            kernel_id=kid,
+            metadata={},
         )
 
         try:
             # Execute code directly with kernel
-            execution_task = asyncio.create_task(
-                asyncio.to_thread(kernel.execute, code)
-            )
+            execution_task = asyncio.create_task(asyncio.to_thread(kernel.execute, code))
 
             # Wait for execution with timeout
             try:
@@ -166,31 +160,41 @@ class ExecuteCodeTool(BaseTool):
             except asyncio.TimeoutError as e:
                 execution_task.cancel()
                 try:
-                    if kernel and hasattr(kernel, 'interrupt'):
+                    if kernel and hasattr(kernel, "interrupt"):
                         kernel.interrupt()
                         logger.info("Sent interrupt signal to kernel due to timeout")
                 except Exception as interrupt_err:
                     logger.error(f"Failed to interrupt kernel: {interrupt_err}")
 
-                result = [f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"]
+                result = [
+                    f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"
+                ]
                 await hooks.fire(
                     HookEvent.AFTER_EXECUTE,
-                    code=code, kernel_id=kid, metadata={},
-                    outputs=result, error=e, context=hook_ctx,
+                    code=code,
+                    kernel_id=kid,
+                    metadata={},
+                    outputs=result,
+                    error=e,
+                    context=hook_ctx,
                 )
                 return result
 
             # Process and extract outputs
             if outputs:
-                result = safe_extract_outputs_fn(outputs['outputs'])
+                result = safe_extract_outputs_fn(outputs["outputs"])
                 logger.info(f"IPython execution completed successfully with {len(result)} outputs")
             else:
                 result = ["[No output generated]"]
 
             await hooks.fire(
                 HookEvent.AFTER_EXECUTE,
-                code=code, kernel_id=kid, metadata={},
-                outputs=result, error=None, context=hook_ctx,
+                code=code,
+                kernel_id=kid,
+                metadata={},
+                outputs=result,
+                error=None,
+                context=hook_ctx,
             )
             return result
 
@@ -198,11 +202,15 @@ class ExecuteCodeTool(BaseTool):
             logger.error(f"Error executing IPython code: {e}")
             await hooks.fire(
                 HookEvent.AFTER_EXECUTE,
-                code=code, kernel_id=kid, metadata={},
-                outputs=[], error=e, context=hook_ctx,
+                code=code,
+                kernel_id=kid,
+                metadata={},
+                outputs=[],
+                error=e,
+                context=hook_ctx,
             )
-            return [f"[ERROR: {str(e)}]"]
-    
+            return [f"[ERROR: {e!s}]"]
+
     async def execute(
         self,
         mode: ServerMode,
@@ -218,10 +226,10 @@ class ExecuteCodeTool(BaseTool):
         ensure_kernel_alive_fn=None,
         wait_for_kernel_idle_fn=None,
         safe_extract_outputs_fn=None,
-        **kwargs
-    ) -> list[Union[str, ImageContent]]:
+        **kwargs,
+    ) -> list[str | ImageContent]:
         """Execute IPython code directly in the kernel.
-        
+
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
             server_client: JupyterServerClient (used to resolve kernel_id in MCP_SERVER mode)
@@ -235,25 +243,26 @@ class ExecuteCodeTool(BaseTool):
             ensure_kernel_alive_fn: Function to ensure kernel is alive (for MCP_SERVER mode)
             wait_for_kernel_idle_fn: Function to wait for kernel idle state (for MCP_SERVER mode)
             safe_extract_outputs_fn: Function to safely extract outputs
-            
+
         Returns:
             List of outputs from the executed code
         """
         if safe_extract_outputs_fn is None:
             raise ValueError("safe_extract_outputs_fn is required")
-        
+
         # JUPYTER_SERVER mode: Use kernel_manager directly
         if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
             if kernel_id is None:
                 # Try to get kernel_id from context
                 from jupyter_mcp_server.utils import get_current_notebook_context
+
                 _, kernel_id = get_current_notebook_context(notebook_manager)
-            
+
             if kernel_id is None:
                 # No kernel available - start a new one on demand
                 logger.info("No kernel_id available, starting new kernel for execute_code")
                 kernel_id = await kernel_manager.start_kernel()
-                
+
                 # Store the kernel in notebook_manager if available
                 if notebook_manager is not None:
                     default_notebook = "default"
@@ -263,26 +272,26 @@ class ExecuteCodeTool(BaseTool):
                         kernel_info,
                         server_url="local",
                         token=None,
-                        path="notebook.ipynb"  # Placeholder path
+                        path="notebook.ipynb",  # Placeholder path
                     )
                     notebook_manager.set_current_notebook(default_notebook)
-            
+
             logger.info(f"Executing IPython in JUPYTER_SERVER mode with kernel_id={kernel_id}")
             return await self._execute_via_kernel_manager(
                 kernel_manager=kernel_manager,
                 kernel_id=kernel_id,
                 code=code,
                 timeout=timeout,
-                safe_extract_outputs_fn=safe_extract_outputs_fn
+                safe_extract_outputs_fn=safe_extract_outputs_fn,
             )
-        
+
         # MCP_SERVER mode: Use notebook_manager (original behavior)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             if ensure_kernel_alive_fn is None:
                 raise ValueError("ensure_kernel_alive_fn is required for MCP_SERVER mode")
             if wait_for_kernel_idle_fn is None:
                 raise ValueError("wait_for_kernel_idle_fn is required for MCP_SERVER mode")
-            
+
             logger.info(f"Executing IPython in MCP_SERVER mode with kernel_id={kernel_id}")
             return await self._execute_via_notebook_manager(
                 notebook_manager=notebook_manager,
@@ -292,9 +301,8 @@ class ExecuteCodeTool(BaseTool):
                 wait_for_kernel_idle_fn=wait_for_kernel_idle_fn,
                 safe_extract_outputs_fn=safe_extract_outputs_fn,
                 kernel_id=kernel_id,
-                server_client=server_client
+                server_client=server_client,
             )
-        
-        else:
-            return [f"[ERROR: Invalid mode or missing required managers]"]
 
+        else:
+            return ["[ERROR: Invalid mode or missing required managers]"]

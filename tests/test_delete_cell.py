@@ -35,7 +35,7 @@ def _write_notebook(path, n_cells):
 
 
 def _read_sources(path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         nb = nbformat.read(f, as_version=4)
     return [c.source for c in nb.cells]
 
@@ -51,25 +51,31 @@ class TestDeleteCellValidation:
     def setup_method(self):
         self.tool = DeleteCellTool()
 
-    @pytest.mark.parametrize("indices, total", [
-        ([-1], 5),        # in-range negative — 0-based tool must not accept it
-        ([-100], 5),      # out-of-range negative
-        ([0, -1], 5),     # mixed: max()==0 slips past an upper-bound-only check
-        ([5], 5),         # index == total_cells
-        ([999], 5),       # far out of range
-        ([0, 5], 5),      # one valid, one out of range
-    ])
+    @pytest.mark.parametrize(
+        "indices, total",
+        [
+            ([-1], 5),  # in-range negative — 0-based tool must not accept it
+            ([-100], 5),  # out-of-range negative
+            ([0, -1], 5),  # mixed: max()==0 slips past an upper-bound-only check
+            ([5], 5),  # index == total_cells
+            ([999], 5),  # far out of range
+            ([0, 5], 5),  # one valid, one out of range
+        ],
+    )
     def test_invalid_indices_raise_error(self, indices, total):
         """Out-of-range indices (negative or too large) must be rejected."""
         with pytest.raises((ValueError, IndexError)):
             self.tool._validate_indices(indices, total)
 
-    @pytest.mark.parametrize("indices, total", [
-        ([0], 5),
-        ([4], 5),
-        ([0, 2, 4], 5),
-        ([0], 1),
-    ])
+    @pytest.mark.parametrize(
+        "indices, total",
+        [
+            ([0], 5),
+            ([4], 5),
+            ([0, 2, 4], 5),
+            ([0], 1),
+        ],
+    )
     def test_valid_indices_pass(self, indices, total):
         """In-range 0-based indices should not raise."""
         self.tool._validate_indices(indices, total)

@@ -11,7 +11,7 @@
 The Jupyter MCP Server supports **dual-mode operation**:
 
 1. **MCP_SERVER Mode** (Standalone) - Connects to remote Jupyter servers via HTTP/WebSocket
-2. **JUPYTER_SERVER Mode** (Extension) - Runs embedded in Jupyter Server with direct API access
+1. **JUPYTER_SERVER Mode** (Extension) - Runs embedded in Jupyter Server with direct API access
 
 Both modes share the same tool implementations, with automatic backend selection based on configuration.
 
@@ -86,6 +86,7 @@ Both modes share the same tool implementations, with automatic backend selection
 **Command-Line Interface** - Primary entry point for users and MCP clients:
 
 **Key Features**:
+
 - **Configuration Management**: Handles all startup configuration via command-line options and environment variables
 - **Transport Selection**: Supports both `stdio` (for direct MCP client integration) and `streamable-http` (for HTTP-based clients)
 - **Auto-Enrollment**: Automatically connects to specified notebooks on startup
@@ -93,6 +94,7 @@ Both modes share the same tool implementations, with automatic backend selection
 - **URL Resolution**: Intelligent URL and token resolution with fallback mechanisms
 
 **Integration**:
+
 - Calls `server.py` functions to initialize the MCP server
 - Passes configuration to `ServerContext` for mode detection
 - Handles kernel startup and notebook enrollment lifecycle
@@ -102,12 +104,14 @@ Both modes share the same tool implementations, with automatic backend selection
 **Backend Abstraction** - Unified interface for notebook and kernel operations:
 
 **LocalBackend** - Complete implementation using local Jupyter Server APIs:
+
 - Uses `serverapp.contents_manager` for file operations
 - Uses `serverapp.kernel_manager` for kernel operations
 - Direct Python API calls with minimal overhead
 - Supports both file-based and YDoc collaborative editing
 
 **RemoteBackend** - Placeholder implementation for HTTP/WebSocket access:
+
 - Designed for `jupyter_server_client`, `jupyter_kernel_client`, `jupyter_nbmodel_client`
 - Maintains 100% backward compatibility with existing MCP_SERVER mode
 - Currently marked as "Not Implemented" - to be refactored from server.py
@@ -117,16 +121,19 @@ Both modes share the same tool implementations, with automatic backend selection
 **Multiple Context Managers**:
 
 **MCP Server Context** (`server_context.py::ServerContext`):
+
 - Singleton managing server mode for standalone MCP_SERVER mode
 - Provides HTTP clients for remote Jupyter server access
 - Mode detection based on configuration
 
 **Extension Context** (`jupyter_extension/context.py::ServerContext`):
+
 - Singleton managing server mode for JUPYTER_SERVER extension mode
 - Provides direct access to serverapp managers (contents_manager, kernel_manager)
 - Handles configuration from Jupyter extension traits
 
 **Mode Detection**:
+
 - **JUPYTER_SERVER**: When running as extension, serverapp available
 - **MCP_SERVER**: When running standalone, connects via HTTP
 
@@ -157,6 +164,7 @@ async def list_files(path: str = "", max_depth: int = 1, ...) -> str:
 ```
 
 **Key Responsibilities**:
+
 - **Tool Registration**: All 14 MCP tools are registered as FastMCP decorators
 - **Mode Detection**: Automatically detects and initializes appropriate server mode
 - **Error Handling**: Provides `safe_notebook_operation()` wrapper with retry logic
@@ -164,6 +172,7 @@ async def list_files(path: str = "", max_depth: int = 1, ...) -> str:
 - **Protocol Bridge**: Translates between MCP protocol and internal tool implementations
 
 **Transport Support**:
+
 - **stdio**: Direct communication with MCP clients via standard input/output
 - **streamable-http**: HTTP-based communication with SSE (Server-Sent Events) support
 - **CORS Middleware**: Enables cross-origin requests for web-based MCP clients
@@ -197,17 +206,20 @@ class InsertExecuteCodeCellTool(BaseTool): # Combined insert+execute
 ```
 
 **Implementation Architecture**:
+
 - **BaseTool Abstract Class**: Defines `execute()` method signature with dual-mode support
 - **ServerMode Enum**: Distinguishes between `MCP_SERVER` and `JUPYTER_SERVER` modes
 - **Dual-Mode Logic**: Each tool implements both local and remote execution paths
 - **Backend Integration**: Tools automatically select appropriate backend based on mode
 
 **Tool Categories**:
+
 1. **Server Management**: File system and kernel introspection
-2. **Multi-Notebook Management**: Notebook lifecycle and connection management
-3. **Cell Operations**: Fine-grained cell manipulation and execution
+1. **Multi-Notebook Management**: Notebook lifecycle and connection management
+1. **Cell Operations**: Fine-grained cell manipulation and execution
 
 **Dynamic Tool Registry** (`get_registered_tools()`):
+
 - Queries FastMCP's `list_tools()` to get all registered tools
 - Returns tool metadata (name, description, parameters, inputSchema)
 - Used by Jupyter extension to expose tools without hardcoding
@@ -216,38 +228,41 @@ class InsertExecuteCodeCellTool(BaseTool): # Combined insert+execute
 ### 6. Jupyter Extension Layer (`jupyter_extension/`)
 
 **Extension App** (`extension.py::JupyterMCPServerExtensionApp`):
+
 ```python
 class JupyterMCPServerExtensionApp(ExtensionApp):
     name = "jupyter_mcp_server"
-    
+
     # Configuration traits
     document_url = Unicode("local", config=True)
     runtime_url = Unicode("local", config=True)
     document_id = Unicode("notebook.ipynb", config=True)
-    
+
     def initialize_settings(self):
         # Store config in Tornado settings
         # Initialize ServerContext with JUPYTER_SERVER mode
 ```
 
 **Handlers** (`handlers.py`):
+
 - `MCPHealthHandler`: GET /mcp/healthz
 - `MCPToolsListHandler`: GET /mcp/tools/list (uses `get_registered_tools()`)
 - `MCPToolsCallHandler`: POST /mcp/tools/call
 - `MCPSSEHandler`: SSE endpoint for MCP protocol
 
 **Extension Context** (`context.py::ServerContext`):
+
 ```python
 class ServerContext:
     _serverapp: Optional[Any] = None
     _context_type: str = "unknown"
-    
+
     def update(self, context_type: str, serverapp: Any):
         """Called by extension to register serverapp."""
-    
+
     def is_local_document(self) -> bool:
         """Check if document operations use local access."""
-    
+
     def get_contents_manager(self):
         """Get local contents_manager from serverapp."""
 ```
@@ -257,11 +272,13 @@ class ServerContext:
 **Purpose**: Manages notebook connections and kernel lifecycle.
 
 **Key Features**:
+
 - Tracks managed notebooks with kernel associations
 - Supports both local (JUPYTER_SERVER) and remote (MCP_SERVER) modes
 - Provides `NotebookConnection` context manager for Y.js document access
 
 **Local vs Remote**:
+
 - **Local mode**: Notebooks tracked with `is_local=True`, no WebSocket connections
 - **Remote mode**: Establishes WebSocket connections via `NbModelClient`
 
@@ -269,7 +286,7 @@ class ServerContext:
 class NotebookManager:
     def add_notebook(self, name, kernel, server_url="local", ...):
         """Add notebook with mode detection (local vs remote)."""
-    
+
     def get_current_connection(self):
         """Get WebSocket connection (MCP_SERVER mode only)."""
 ```
@@ -288,18 +305,21 @@ class HookEvent(str, Enum):
 ```
 
 **Key Components**:
+
 - **HookRegistry**: Singleton that manages handler registration and event dispatch
 - **HookHandler Protocol**: Interface for custom handlers with `propagate_errors` flag
 - **`@with_hooks` Decorator**: Applied to all tool functions in `server.py` to fire `BEFORE_TOOL_CALL` / `AFTER_TOOL_CALL` events
 - **Context Correlation**: Before/after event pairs share a context dict for handler state
 
 **Built-in OTel Handler** (`otel_hook.py`):
+
 - Emits OpenTelemetry spans for tool calls, code execution, and kernel lifecycle
 - Uses `FileSpanExporter` to write spans as JSONL
 - Activated via `--otel-file` CLI arg, `JUPYTER_MCP_OTEL_FILE` env var, or Jupyter traitlet
 - Non-propagating (`propagate_errors = False`) — never disrupts tool execution
 
 **Integration Points**:
+
 - `server.py`: All tools decorated with `@with_hooks`; kernel lifecycle events fired on use/restart/unuse
 - `execute_cell_tool.py`, `execute_code_tool.py`: Fire `BEFORE_EXECUTE` / `AFTER_EXECUTE` around kernel execution
 - `utils.py`: Fires execution hooks in shared utility functions
@@ -309,6 +329,7 @@ class HookEvent(str, Enum):
 ### MCP_SERVER Mode (Standalone)
 
 **Start Command**:
+
 ```bash
 jupyter-mcp-server start \
   --transport streamable-http \
@@ -320,6 +341,7 @@ jupyter-mcp-server start \
 ```
 
 **Behavior**:
+
 - ServerContext initialized with `mode=ServerMode.MCP_SERVER`
 - Tools use HTTP clients for remote Jupyter server access
 - Notebook connections use `NbModelClient` for WebSocket (Y.js documents)
@@ -328,6 +350,7 @@ jupyter-mcp-server start \
 ### JUPYTER_SERVER Mode (Extension)
 
 **Start Command**:
+
 ```bash
 jupyter server \
   --JupyterMCPServerExtensionApp.document_url=local \
@@ -336,6 +359,7 @@ jupyter server \
 ```
 
 **Configuration File** (`jupyter_server_config.py`):
+
 ```python
 c.ServerApp.jpserver_extensions = {"jupyter_mcp_server": True}
 c.JupyterMCPServerExtensionApp.document_url = "local"
@@ -343,6 +367,7 @@ c.JupyterMCPServerExtensionApp.runtime_url = "local"
 ```
 
 **Backend Selection**:
+
 - **LocalBackend**: Used when `document_url="local"` or `runtime_url="local"`
   - Direct access to `serverapp.contents_manager`, `serverapp.kernel_manager`
   - No network overhead, maximum performance
@@ -352,6 +377,7 @@ c.JupyterMCPServerExtensionApp.runtime_url = "local"
   - Placeholder implementation (to be completed)
 
 **Behavior**:
+
 - Extension auto-enabled (via `jupyter-config/` file)
 - ServerContext updated with `mode=ServerMode.JUPYTER_SERVER`
 - Tools automatically select LocalBackend for optimal performance
@@ -556,7 +582,7 @@ jupyter_mcp_server/
 - [FastMCP Documentation](https://github.com/jlowin/fastmcp)
 - [Y.js Collaborative Editing](https://github.com/yjs/yjs)
 
----
+______________________________________________________________________
 
 **Version**: 0.2.0
 **Last Updated**: October 2025

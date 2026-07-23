@@ -5,10 +5,12 @@
 """Restart notebook tool implementation."""
 
 import logging
-from typing import Any, Optional
+from typing import Any
+
 from jupyter_server_client import JupyterServerClient
-from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
 logger = logging.getLogger(__name__)
 
@@ -53,36 +55,36 @@ class RestartNotebookTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: Optional[JupyterServerClient] = None,
-        kernel_client: Optional[Any] = None,
-        contents_manager: Optional[Any] = None,
-        kernel_manager: Optional[Any] = None,
-        kernel_spec_manager: Optional[Any] = None,
-        notebook_manager: Optional[NotebookManager] = None,
+        server_client: JupyterServerClient | None = None,
+        kernel_client: Any | None = None,
+        contents_manager: Any | None = None,
+        kernel_manager: Any | None = None,
+        kernel_spec_manager: Any | None = None,
+        notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
         notebook_name: str = None,
-        **kwargs
+        **kwargs,
     ) -> str:
         """Execute the restart_notebook tool.
-        
+
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
             kernel_manager: Kernel manager for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             notebook_name: Notebook identifier to restart
             **kwargs: Additional parameters
-            
+
         Returns:
             Success message
         """
         if notebook_name not in notebook_manager:
             return f"Notebook '{notebook_name}' is not connected. All currently connected notebooks: {list(notebook_manager.list_all_notebooks().keys())}"
-        
+
         if mode == ServerMode.JUPYTER_SERVER:
             # JUPYTER_SERVER mode: Use kernel_manager to restart the kernel
             if kernel_manager is None:
                 return f"Failed to restart notebook '{notebook_name}': kernel_manager is required in JUPYTER_SERVER mode."
-            
+
             # Get kernel ID from notebook_manager
             kernel_id = notebook_manager.get_kernel_id(notebook_name)
             if not kernel_id:
@@ -96,10 +98,14 @@ class RestartNotebookTool(BaseTool):
                     f"Kernel {kernel_id} for notebook '{notebook_name}' no longer exists; "
                     f"provisioning a fresh kernel."
                 )
-                return await self._reprovision_kernel(kernel_manager, notebook_manager, notebook_name)
+                return await self._reprovision_kernel(
+                    kernel_manager, notebook_manager, notebook_name
+                )
 
             try:
-                logger.info(f"Restarting kernel {kernel_id} for notebook '{notebook_name}' in JUPYTER_SERVER mode")
+                logger.info(
+                    f"Restarting kernel {kernel_id} for notebook '{notebook_name}' in JUPYTER_SERVER mode"
+                )
                 await kernel_manager.restart_kernel(kernel_id)
                 return f"Notebook '{notebook_name}' kernel restarted successfully. Memory state and imported packages have been cleared."
             except Exception as e:
@@ -110,14 +116,16 @@ class RestartNotebookTool(BaseTool):
                         f"Kernel {kernel_id} for notebook '{notebook_name}' disappeared during "
                         f"restart; provisioning a fresh kernel."
                     )
-                    return await self._reprovision_kernel(kernel_manager, notebook_manager, notebook_name)
+                    return await self._reprovision_kernel(
+                        kernel_manager, notebook_manager, notebook_name
+                    )
                 logger.error(f"Failed to restart kernel {kernel_id}: {e}")
                 return f"Failed to restart notebook '{notebook_name}': {e}"
-        
+
         elif mode == ServerMode.MCP_SERVER:
             # MCP_SERVER mode: Use notebook_manager's restart_notebook method
             success = notebook_manager.restart_notebook(notebook_name)
-            
+
             if success:
                 return f"Notebook '{notebook_name}' kernel restarted successfully. Memory state and imported packages have been cleared."
             else:

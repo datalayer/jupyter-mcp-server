@@ -7,7 +7,7 @@
 import logging
 from enum import Enum
 from functools import wraps
-from typing import Any, ClassVar, Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +71,7 @@ class HookRegistry:
             except Exception:
                 if h.propagate_errors:
                     raise
-                logger.debug(
-                    "Hook handler %s failed on %s", h, event, exc_info=True
-                )
+                logger.debug("Hook handler %s failed on %s", h, event, exc_info=True)
         return ctx
 
 
