@@ -28,7 +28,8 @@ from jupyter_mcp_server.utils import (
     start_kernel,
     ensure_kernel_alive,
     wait_for_kernel_idle,
-    safe_notebook_operation
+    safe_notebook_operation,
+    extract_kernelspec_from_notebook
 )
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -201,9 +202,9 @@ async def __auto_enroll_document():
         server_context=server_context,
     )
 
-
 def __ensure_kernel_alive() -> KernelClient:
     """Ensure kernel is running, restart if needed."""
+
     def __create_kernel() -> KernelClient:
         """Create a new kernel instance using current configuration."""
         config = get_config()
@@ -378,6 +379,7 @@ async def use_notebook(
     notebook_path: Annotated[str, Field(description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')")],
     mode: Annotated[Literal["connect", "create"], Field(description="Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it")] = "connect",
     kernel_id: Annotated[str, Field(description="Specific kernel ID to use (will create new if skipped)")] = None,
+    kernel_spec_name: Annotated[Optional[str], Field(description="Kernel spec name to use when starting a new kernel (e.g. 'python3', 'ir', 'bash'). Defaults to 'python3' if not specified.")] = "python3",
 ) -> Annotated[str, Field(description="Success message with notebook information")]:
     """Use a notebook and activate it for following cell operations.
     All cell operations will be performed on the currently activated notebook.
@@ -393,6 +395,7 @@ async def use_notebook(
             notebook_path=notebook_path,
             use_mode=mode,
             kernel_id=kernel_id,
+            kernel_spec_name=kernel_spec_name,
             ensure_kernel_alive_fn=__ensure_kernel_alive,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,

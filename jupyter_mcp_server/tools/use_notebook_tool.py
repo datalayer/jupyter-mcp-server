@@ -13,6 +13,7 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import Notebook
 from jupyter_core.utils import ensure_async
+from jupyter_mcp_server.utils import extract_kernelspec_from_notebook
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +21,17 @@ logger = logging.getLogger(__name__)
 class UseNotebookTool(BaseTool):
     """Tool to use (connect to or create) a notebook file."""
     
-    async def _start_kernel_local(self, kernel_manager: Any, path: Optional[str] = None):
+    async def _start_kernel_local(
+            self, 
+            kernel_manager: Any, 
+            path: Optional[str] = None,
+            kernel_spec_name: Optional[str] = "python3",
+    ):
         # Start a new kernel using local API
-        kernel_id = await kernel_manager.start_kernel()
+        if kernel_spec_name:
+            kernel_id = await kernel_manager.start_kernel(kernel_name=kernel_spec_name)
+        else:
+            kernel_id = await kernel_manager.start_kernel()
         logger.info(f"Started kernel '{kernel_id}', waiting for it to be ready...")
         
         # CRITICAL: Wait for the kernel to actually start and be ready
@@ -126,6 +135,7 @@ class UseNotebookTool(BaseTool):
         notebook_path: str = None,
         use_mode: Literal["connect", "create"] = "connect",
         kernel_id: Optional[str] = None,
+        kernel_spec_name: Optional[str] = "python3",
         runtime_url: Optional[str] = None,
         runtime_token: Optional[str] = None,
         **kwargs
@@ -143,6 +153,7 @@ class UseNotebookTool(BaseTool):
             notebook_path: Path to the notebook file (optional, if not provided switches to existing notebook)
             use_mode: "connect" or "create"
             kernel_id: Optional specific kernel ID
+            kernel_spec_name: Fallback/desired kernel spec name
             runtime_url: Runtime URL for HTTP mode
             runtime_token: Runtime token for HTTP mode
             **kwargs: Additional parameters
@@ -189,6 +200,37 @@ class UseNotebookTool(BaseTool):
                     return f"The path '{notebook_path}' is not the correct path for notebook '{notebook_name}'. Do you mean connect to '{notebook_manager.get_notebook_path(notebook_name)}'?"
         # add new notebook to notebook_manager
         else:
+            # Determine target kernel_name based on priorities:
+            # Priority 1: If kernel_id is supplied, kernel_spec_name isn't strictly needed to start a new kernel.
+            # Priority 2: Extract from notebook metadata if in connect mode and notebook exists.
+            # Priority 3: Use caller's kernel_spec_name or fallback to 'python3'.
+            target_kernel_name = kernel_spec_name or "python3"
+            target_display_name = 'unknown'
+
+            if not kernel_id and use_mode == "connect":
+                extracted = await extract_kernelspec_from_notebook(
+                    mode, notebook_path, contents_manager, server_client
+                )
+                if extracted:
+                    extracted_name = extracted['name']
+                    extracted_display_name = extracted['display_name']
+                    # Optional: Verify spec exists in system if spec manager / client available
+                    spec_exists = False
+                    if mode == ServerMode.JUPYTER_SERVER and kernel_spec_manager:
+                        spec_exists = extracted_name in kernel_spec_manager.find_kernel_specs()
+                    if mode == ServerMode.MCP_SERVER and server_client:
+                        kernels_specs = server_client.kernelspecs.list_kernelspecs()
+                        specs_dict = getattr(kernels_specs, 'kernelspecs', {}) or {}
+                        spec_exists = extracted_name in specs_dict
+                    
+                    if spec_exists:
+                        target_kernel_name, target_display_name = extracted_name, extracted_display_name
+                    else:
+                        logger.warning(
+                            f"Extracted kernel spec '{extracted_name}' from notebook metadata is not installed on this server. "
+                            f"Falling back to '{target_kernel_name}'."
+                        )
+
             # Create notebook if needed
             # This runs before the kernel and the Jupyter session below, which are
             # both pointed at notebook_path and so need the file to exist already.
@@ -201,7 +243,12 @@ class UseNotebookTool(BaseTool):
                             "New Notebook Created by Jupyter MCP Server",
                         ]
                     }],
-                    "metadata": {},
+                    "metadata": {
+                        "kernelspec": {
+                            "name": target_kernel_name,
+                            "display_name": target_display_name
+                        }
+                    },
                     "nbformat": 4,
                     "nbformat_minor": 4
                 }
@@ -224,7 +271,7 @@ class UseNotebookTool(BaseTool):
                     kernel_id=kernel_id
                 )
                 # FIXED: Ensure kernel is started with the same path as the notebook
-                kernel.start(path=notebook_path)
+                kernel.start(path=notebook_path, name=target_kernel_name)
 
                 info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
@@ -235,7 +282,11 @@ class UseNotebookTool(BaseTool):
                         return f"Kernel '{kernel_id}' not found in local kernel manager."
                     kernel = {"id": kernel_id}
                 else:
-                    kernel = await self._start_kernel_local(kernel_manager, path=notebook_path)
+                    kernel = await self._start_kernel_local(
+                        kernel_manager, 
+                        path=notebook_path,
+                        kernel_spec_name=target_kernel_name
+                    )
                     kernel_id = kernel['id']
 
                 info_list.append(f"[INFO] Connected to kernel '{kernel_id}'.")

@@ -554,8 +554,9 @@ async def test_list_kernels(mcp_client_parametrized: MCPClient):
         # Call list_kernels
         kernel_list = await mcp_client_parametrized.list_kernels()
         logging.debug(f"Kernel list: {kernel_list}")
-        # Check for either TSV header or "No kernels found" message
-        assert "ID\tName\tDisplay_Name\tLanguage\tState\tConnections\tLast_Activity\tEnvironment" in kernel_list
+        # Verify output contains both kernel specs and active kernels sections
+        assert "=== Available Kernel Specs" in kernel_list
+        assert "=== Active Running Kernels" in kernel_list
 
 
 ###############################################################################

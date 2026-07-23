@@ -22,18 +22,21 @@ The server currently offers 16 tools organized into 3 categories:
 
 #### 2. `list_kernels`
 
-- List all available kernels in the Jupyter server.
-- This tool shows all running and available kernel sessions on the Jupyter server, including their IDs, names, states, connection information, and kernel specifications. Useful for monitoring kernel resources and identifying specific kernels for connection.
+- List all available kernel specs and active running kernels in the Jupyter server.
+- This tool lists both available kernel specs (templates for creating new kernels) and currently active running kernels on the Jupyter server, formatted into two separate TSV sections. Useful for checking available kernel specs and monitoring active kernel resources.
 - Input: None
-- Returns: Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment
-  - **ID**: Unique kernel identifier
-  - **Name**: Kernel name/type (e.g., "python3", "ir", etc.)
-  - **Display_Name**: Human-readable kernel name from kernel spec
-  - **Language**: Programming language supported by the kernel
-  - **State**: Current execution state ("idle", "busy", "unknown")
-  - **Connections**: Number of active connections to this kernel
-  - **Last_Activity**: Timestamp of last kernel activity in YYYY-MM-DD HH:MM:SS format
-  - **Environment**: Environment variables defined in the kernel spec (truncated if long)
+- Returns: Two tab-separated tables formatted as follows:
+  - **Section 1: Available Kernel Specs**
+    - **Name (kernel_name)**: Kernel spec name/identifier
+    - **Display_Name**: Human-readable kernel name
+    - **Language**: Programming language supported by the kernel
+    - **Environment**: Environment variables defined in the kernel spec (truncated if long)
+  - **Section 2: Active Running Kernels**
+    - **ID (kernel_id)**: Unique active kernel identifier
+    - **Spec_Name**: Kernel spec name used by the active kernel
+    - **State**: Current execution state ("idle", "busy", "unknown")
+    - **Connections**: Number of active connections to this kernel
+    - **Last_Activity**: Timestamp of last kernel activity in YYYY-MM-DD HH:MM:SS format
 
 #### 3. `connect_to_jupyter`
 
@@ -61,6 +64,7 @@ The server currently offers 16 tools organized into 3 categories:
   - `notebook_path`(string): Path to the notebook file, relative to the Jupyter server root (e.g. "notebook.ipynb")
   - `mode`(string): Notebook operation mode: "connect" to connect to existing and activate it, "create" to create new and activate it (default: "connect")
   - `kernel_id`(string, optional): Specific kernel ID to use (will create new if skipped)
+  - `kernel_spec_name`(string, optional): Kernel spec name to use when starting a new kernel (default: "python3")
 - Returns: Success message with notebook information including activation status, kernel details, and notebook overview
 
 :::tip

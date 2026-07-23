@@ -40,7 +40,7 @@ class RecordingKernelManager:
     def __init__(self, events):
         self.events = events
 
-    async def start_kernel(self):
+    async def start_kernel(self, kernel_name=None):
         self.events.append("start_kernel")
         return "kernel-1"
 
