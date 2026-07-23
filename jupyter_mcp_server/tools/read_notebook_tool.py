@@ -4,11 +4,13 @@
 
 """List cells tool implementation."""
 
+from pathlib import Path
 from typing import Any, Optional, Literal
 from jupyter_server_client import JupyterServerClient
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.models import Notebook
+from jupyter_mcp_server.utils import get_notebook_model
 from jupyter_core.utils import ensure_async
 
 
@@ -46,13 +48,27 @@ class ReadNotebookTool(BaseTool):
             return f"Notebook '{notebook_name}' is not connected. All currently connected notebooks: {list(notebook_manager.list_all_notebooks().keys())}"
         
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-            # Local mode: read notebook directly from file system
+            # Local mode: try the live YDoc first (collaborative session), same
+            # as every cell-mutation tool, so a read right after our own write
+            # sees it instead of the on-disk copy the autosave hasn't flushed yet.
             notebook_path = notebook_manager.get_notebook_path(notebook_name)
-            
-            model = await ensure_async(contents_manager.get(notebook_path, content=True, type='notebook'))
-            if 'content' not in model:
-                raise ValueError(f"Could not read notebook content from {notebook_path}")
-            notebook = Notebook(**model['content'])
+
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+
+            context = get_server_context()
+            serverapp = context.serverapp
+            ydoc_path = notebook_path
+            if serverapp and not Path(ydoc_path).is_absolute():
+                ydoc_path = str(Path(serverapp.root_dir) / ydoc_path)
+
+            nb_model = await get_notebook_model(serverapp, ydoc_path) if serverapp else None
+            if nb_model:
+                notebook = Notebook(**nb_model.as_dict())
+            else:
+                model = await ensure_async(contents_manager.get(notebook_path, content=True, type='notebook'))
+                if 'content' not in model:
+                    raise ValueError(f"Could not read notebook content from {notebook_path}")
+                notebook = Notebook(**model['content'])
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document
             async with notebook_manager.get_notebook_connection(notebook_name) as notebook_content:
