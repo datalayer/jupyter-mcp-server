@@ -5,9 +5,9 @@
 import re
 import asyncio
 import time
-import json
 from typing import Any, Optional, Union
 from mcp.types import ImageContent
+from jupyter_kernel_client import get_mimebundle_text
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_nbmodel_client import NotebookModel
@@ -286,35 +286,24 @@ def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
                 return "[Image Output (PNG) - Image display disabled]"
             
 
-        # For IPython.display.* objects the kernel emits a bundle whose
-        # text/plain is only the bare object repr (e.g.
-        # "<IPython.core.display.Markdown object>") while the real content
-        # lives in a richer text key. Prefer that richer text over the repr;
-        # text/plain stays the representation for ordinary results.
-        for key in ("text/markdown", "text/latex"):
-            if key in data:
-                rich_text = data[key]
-                if hasattr(rich_text, 'source'):
-                    rich_text = str(rich_text.source)
-                return strip_ansi_codes(str(rich_text))
+        # Pick the richest readable text from the bundle. For IPython.display.*
+        # objects the kernel emits a bundle whose text/plain is only the bare
+        # object repr (e.g. "<IPython.core.display.Markdown object>") while the
+        # real content lives in a richer key; get_mimebundle_text prefers
+        # text/markdown, text/latex, application/json (pretty-printed) over an
+        # object-repr text/plain, and falls back to text/plain otherwise. It
+        # lives in jupyter-kernel-client so every consumer of the client shares
+        # the same selection. Unwrap CRDT YText values to their source first,
+        # matching how the other branches here read bundle values.
+        text_bundle = {
+            mime: str(value.source) if hasattr(value, "source") else value
+            for mime, value in data.items()
+        }
+        rich_text = get_mimebundle_text(text_bundle)
+        if rich_text is not None:
+            return strip_ansi_codes(rich_text)
 
-        if "application/json" in data:
-            payload = data["application/json"]
-            if hasattr(payload, 'source'):
-                payload = str(payload.source)
-            if isinstance(payload, str):
-                return strip_ansi_codes(payload)
-            try:
-                return json.dumps(payload, indent=2, ensure_ascii=False)
-            except (TypeError, ValueError):
-                return strip_ansi_codes(str(payload))
-
-        if "text/plain" in data:
-            plain_text = data["text/plain"]
-            if hasattr(plain_text, 'source'):
-                plain_text = str(plain_text.source)
-            return strip_ansi_codes(str(plain_text))
-        elif "text/html" in data:
+        if "text/html" in data:
             return "[HTML Output]"
         else:
             return f"[{output_type} Data: keys={list(data.keys())}]"
