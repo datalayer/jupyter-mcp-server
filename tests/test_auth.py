@@ -4,6 +4,8 @@
 
 """Tests for password-based authentication support."""
 
+import asyncio
+import time
 import uuid
 from unittest.mock import patch, MagicMock
 
@@ -702,6 +704,24 @@ class TestNotebookConnectionAuth:
 # ---------------------------------------------------------------------------
 
 
+async def _read_cell_until(mcp_client, cell_index, expected_substring, timeout=30.0, interval=0.5):
+    """Read a cell repeatedly until ``expected_substring`` appears, or timeout.
+
+    In MCP_SERVER mode both execute and read go through the collaboration YDoc,
+    which is eventually consistent: a kernel's outputs are applied to the shared
+    document slightly *after* insert_execute_code_cell returns. A single read can
+    therefore race ahead of the sync and see the cell with no output yet
+    ("execution count: N/A"). Poll the read-back so the round-trip assertion is
+    robust to that lag under load, while still failing if the output never syncs.
+    """
+    deadline = time.monotonic() + timeout
+    cell = await mcp_client.read_cell(cell_index=cell_index)
+    while expected_substring not in str(cell) and time.monotonic() < deadline:
+        await asyncio.sleep(interval)
+        cell = await mcp_client.read_cell(cell_index=cell_index)
+    return cell
+
+
 class TestPasswordAuthE2E:
     """E2E tests that spin up a real Jupyter server with password auth
     and verify the full MCP flow works end-to-end.
@@ -786,7 +806,7 @@ class TestPasswordAuthE2E:
                 await mcp_client_password.insert_execute_code_cell(
                     0, f"{factor_a} * {factor_b}"
                 )
-                cell = await mcp_client_password.read_cell(cell_index=0)
+                cell = await _read_cell_until(mcp_client_password, 0, expected_product)
                 assert expected_product in str(cell), (
                     f"expected product {expected_product} not found in cell: {cell}"
                 )
@@ -819,7 +839,7 @@ class TestPasswordAuthE2E:
             await mcp_client_password.insert_execute_code_cell(0, f"{factor_a} * {factor_b}")
 
             # ...and read it back to confirm the round-trip produced the right output.
-            cell = await mcp_client_password.read_cell(cell_index=0)
+            cell = await _read_cell_until(mcp_client_password, 0, expected_product)
             assert cell is not None
             assert expected_product in str(cell), (
                 f"expected product {expected_product} not found in cell: {cell}"
