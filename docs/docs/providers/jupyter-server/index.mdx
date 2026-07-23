@@ -1,2 +1,58 @@
 # Jupyter Server Provider
 
+The **Jupyter Server** provider is the default. Code executes through
+`jupyter-kernel-client` against a local or remote Jupyter Server
+(`EXECUTION_ENGINE=jupyter`), giving you a full Jupyter kernel with process
+isolation, persistent state, and rich outputs (images, plots, HTML).
+
+:::tip
+
+This engine is backed by the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
+`jupyter` variant. For the engine-level parameter reference (including how to
+obtain a server token), see the
+[Jupyter sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#jupyter)
+in the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+```bash
+pip install jupyter-mcp-server
+```
+
+Start a Jupyter Server (or JupyterLab):
+
+```bash
+jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
+```
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JUPYTER_URL` | Jupyter Server URL (used for both document and runtime) | `http://localhost:8888` |
+| `JUPYTER_TOKEN` | Jupyter Server authentication token | `None` |
+| `DOCUMENT_ID` | Default notebook path (optional) | `None` |
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "JUPYTER_URL": "http://localhost:8888",
+        "JUPYTER_TOKEN": "MY_TOKEN"
+      }
+    }
+  }
+}
+```
+
+For advanced deployments that separate notebook storage from kernel execution,
+use `DOCUMENT_URL` / `DOCUMENT_TOKEN` and `RUNTIME_URL` / `RUNTIME_TOKEN`
+individually. See the [Configuration reference](/reference/configuration) for the
+full list of variables.

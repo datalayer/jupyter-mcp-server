@@ -59,6 +59,7 @@
 - [Key Features](#-key-features)
 - [MCP Overview](#-mcp-overview)
 - [Getting Started](#-getting-started)
+- [Execution Engines](#-execution-engines)
 - [Best Practices](#-best-practices)
 - [Contributing](#-contributing)
 - [Resources](#-resources)
@@ -285,6 +286,132 @@ Then, configure your client:
 > 1. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
+
+## 🧩 Execution Engines
+
+By default, code executes through `jupyter-kernel-client` against a Jupyter
+Server (`EXECUTION_ENGINE=jupyter`). Setting `EXECUTION_ENGINE` to any other value
+routes execution through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
+package via a `SandboxKernel` adapter, so the same notebook tools can run code on
+additional backends.
+
+| Engine | `EXECUTION_ENGINE` | Extra install | Key variables |
+| ------ | ------------------ | ------------- | ------------- |
+| Jupyter Server (default) | `jupyter` | — | `JUPYTER_URL`, `JUPYTER_TOKEN` |
+| JupyterHub | `jupyter` | — | `RUNTIME_URL`, `RUNTIME_TOKEN` |
+| Google Colab | `colab` | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |
+| Monty | `monty` | `jupyter-mcp-server[monty]` | — |
+| Modal | `modal` | `jupyter-mcp-server[modal]` | Modal credentials |
+| Datalayer | `datalayer` | `jupyter-mcp-server[datalayer]` | `RUNTIME_URL`, `RUNTIME_TOKEN`, `SANDBOX_ENVIRONMENT` |
+
+### 1. Jupyter Server
+
+The default engine. Point the server at a running Jupyter Server:
+
+```bash
+pip install jupyter-mcp-server
+```
+
+```json
+"env": {
+  "JUPYTER_URL": "http://localhost:8888",
+  "JUPYTER_TOKEN": "MY_TOKEN"
+}
+```
+
+### 2. JupyterHub
+
+JupyterHub uses the same `jupyter` engine, targeting a user's single-user server.
+Authenticate with a JupyterHub API token that has the `access:servers` scope:
+
+```json
+"env": {
+  "RUNTIME_URL": "https://your-jupyterhub.domain/user/<username>",
+  "RUNTIME_TOKEN": "your-jupyterhub-api-token",
+  "DOCUMENT_URL": "https://your-jupyterhub.domain/user/<username>",
+  "DOCUMENT_TOKEN": "your-jupyterhub-api-token"
+}
+```
+
+See the [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/providers/jupyterhub-streamable-http/) for full details.
+
+### 3. Google Colab
+
+Execute against a Google Colab runtime. Install the extra and provide the values
+from Colab's runtime assignment API:
+
+```bash
+pip install "jupyter-mcp-server[colab]"
+```
+
+```json
+"env": {
+  "EXECUTION_ENGINE": "colab",
+  "RUNTIME_URL": "https://colab.research.google.com/tun/m/...",
+  "RUNTIME_ID": "a1b2c3d4-....",
+  "RUNTIME_PROXY_TOKEN": "ya29...."
+}
+```
+
+> The proxy token (`colab-runtime-proxy-token`) is short-lived; refresh it when it
+> expires.
+
+### 4. Monty
+
+Execute in [Monty](https://github.com/pydantic/monty), a secure in-process Python
+interpreter — ideal for short, safe LLM snippets. No credentials required.
+
+```bash
+pip install "jupyter-mcp-server[monty]"
+```
+
+```json
+"env": {
+  "EXECUTION_ENGINE": "monty"
+}
+```
+
+> Monty supports only a subset of Python; third-party libraries and rich display
+> outputs are not available.
+
+### 5. Modal
+
+Execute in a [Modal](https://modal.com/docs/guide) cloud sandbox. Install the
+extra and configure Modal credentials:
+
+```bash
+pip install "jupyter-mcp-server[modal]"
+modal token new   # or set MODAL_TOKEN_ID / MODAL_TOKEN_SECRET
+```
+
+```json
+"env": {
+  "EXECUTION_ENGINE": "modal",
+  "MODAL_TOKEN_ID": "ak-...",
+  "MODAL_TOKEN_SECRET": "as-..."
+}
+```
+
+### 6. Datalayer
+
+Execute on the [Datalayer](https://datalayer.ai) cloud runtime with GPU support
+and persistence:
+
+```bash
+pip install "jupyter-mcp-server[datalayer]"
+```
+
+```json
+"env": {
+  "EXECUTION_ENGINE": "datalayer",
+  "RUNTIME_URL": "https://prod1.datalayer.run",
+  "RUNTIME_TOKEN": "your-datalayer-token",
+  "SANDBOX_ENVIRONMENT": "python-cpu-env"
+}
+```
+
+> You can also select the engine on the command line with
+> `--execution-engine`, `--runtime-proxy-token`, and `--sandbox-environment`.
 
 ## ✅ Best Practices
 

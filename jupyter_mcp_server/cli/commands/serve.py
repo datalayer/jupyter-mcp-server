@@ -46,6 +46,9 @@ def _resolve_and_start(
     reconnect_interval: int,
     execution_timeout: int,
     max_execution_timeout: int,
+    execution_engine: str = "jupyter",
+    runtime_proxy_token: str | None = None,
+    sandbox_environment: str | None = None,
 ) -> None:
     (
         resolved_document_url,
@@ -83,6 +86,9 @@ def _resolve_and_start(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
+        execution_engine=execution_engine,
+        runtime_proxy_token=runtime_proxy_token,
+        sandbox_environment=sandbox_environment,
     )
 
 
@@ -259,6 +265,30 @@ def server_callback(
             help="Maximum timeout in seconds a tool call may request for code execution. Defaults to 3600.",
         ),
     ] = 3600,
+    execution_engine: Annotated[
+        str,
+        typer.Option(
+            "--execution-engine",
+            envvar="EXECUTION_ENGINE",
+            help="Code execution engine. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+        ),
+    ] = "jupyter",
+    runtime_proxy_token: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-proxy-token",
+            envvar="RUNTIME_PROXY_TOKEN",
+            help="Proxy token used by the 'colab' execution engine (colab-runtime-proxy-token).",
+        ),
+    ] = None,
+    sandbox_environment: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-environment",
+            envvar="SANDBOX_ENVIRONMENT",
+            help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
+        ),
+    ] = None,
 ) -> None:
     """Manages Jupyter MCP Server."""
     if ctx.invoked_subcommand is not None:
@@ -286,6 +316,9 @@ def server_callback(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
+        execution_engine=execution_engine,
+        runtime_proxy_token=runtime_proxy_token,
+        sandbox_environment=sandbox_environment,
     )
 
 
@@ -461,6 +494,30 @@ def start_command(
             help="Maximum timeout in seconds a tool call may request for code execution. Defaults to 3600.",
         ),
     ] = 3600,
+    execution_engine: Annotated[
+        str,
+        typer.Option(
+            "--execution-engine",
+            envvar="EXECUTION_ENGINE",
+            help="Code execution engine. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+        ),
+    ] = "jupyter",
+    runtime_proxy_token: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-proxy-token",
+            envvar="RUNTIME_PROXY_TOKEN",
+            help="Proxy token used by the 'colab' execution engine (colab-runtime-proxy-token).",
+        ),
+    ] = None,
+    sandbox_environment: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-environment",
+            envvar="SANDBOX_ENVIRONMENT",
+            help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
+        ),
+    ] = None,
 ) -> None:
     """Start the Jupyter MCP Server with a transport."""
     _resolve_and_start(
@@ -485,4 +542,7 @@ def start_command(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
+        execution_engine=execution_engine,
+        runtime_proxy_token=runtime_proxy_token,
+        sandbox_environment=sandbox_environment,
     )

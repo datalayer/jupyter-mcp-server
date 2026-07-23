@@ -126,6 +126,9 @@ def do_start(
     reconnect_interval: int = 0,
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
+    execution_engine: str = "jupyter",
+    runtime_proxy_token: str = None,
+    sandbox_environment: str = None,
 ):
     """Shared startup routine used by Typer CLI surfaces."""
 
@@ -168,6 +171,9 @@ def do_start(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
+        execution_engine=execution_engine,
+        runtime_proxy_token=runtime_proxy_token,
+        sandbox_environment=sandbox_environment,
     )
 
     ServerContext.reset()
@@ -450,8 +456,75 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
+def _build_sandbox(config, logger):
+    """Build a code-sandboxes Sandbox for the configured execution engine.
+
+    Args:
+        config: The JupyterMCPConfig instance.
+        logger: Logger for diagnostics.
+
+    Returns:
+        A started-capable ``code_sandboxes.Sandbox`` instance (not yet started).
+    """
+    from code_sandboxes import Sandbox
+
+    engine = (config.execution_engine or "jupyter").lower()
+    timeout = float(getattr(config, "execution_timeout", 30) or 30)
+
+    if engine == "colab":
+        return Sandbox.create(
+            variant="colab",
+            timeout=timeout,
+            server_url=config.runtime_url,
+            kernel_id=config.runtime_id,
+            proxy_token=config.runtime_proxy_token,
+        )
+    if engine == "jupyter_sandbox":
+        return Sandbox.create(
+            variant="jupyter",
+            timeout=timeout,
+            server_url=config.runtime_url,
+            token=config.runtime_token,
+        )
+    if engine in ("monty", "modal", "eval", "docker", "datalayer"):
+        create_kwargs = {"variant": engine, "timeout": timeout}
+        if config.sandbox_environment:
+            create_kwargs["environment"] = config.sandbox_environment
+        return Sandbox.create(**create_kwargs)
+
+    raise ValueError(f"Unsupported execution engine: {config.execution_engine}")
+
+
 def create_kernel(config, logger):
-    """Create a new kernel instance using current configuration."""
+    """Create a new kernel instance using current configuration.
+
+    When ``config.execution_engine`` is 'jupyter' (the default) a
+    ``jupyter_kernel_client.KernelClient`` is created. For any other engine, a
+    :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` backed by the
+    code-sandboxes package is returned instead. Both expose the same interface
+    to the rest of the server.
+    """
+    if getattr(config, "uses_sandbox_engine", None) and config.uses_sandbox_engine():
+        from jupyter_mcp_server.sandbox_kernel import SandboxKernel
+
+        kernel = None
+        try:
+            sandbox = _build_sandbox(config, logger)
+            kernel = SandboxKernel(sandbox, logger=logger)
+            kernel.start()
+            logger.info(
+                "Sandbox kernel created and started (engine=%s)", config.execution_engine
+            )
+            return kernel
+        except Exception as e:
+            logger.error(f"Failed to create sandbox kernel: {e}")
+            if kernel is not None:
+                try:
+                    kernel.stop()
+                except Exception as cleanup_error:
+                    logger.debug(f"Error during sandbox cleanup: {cleanup_error}")
+            raise
+
     from jupyter_kernel_client import KernelClient
     kernel = None
     try:

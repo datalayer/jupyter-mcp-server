@@ -21,6 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
+    "code_sandboxes[colab,monty,modal]>=0.0.15",
     "jupyter-kernel-client>=0.12.0",
     "jupyter-mcp-tools>=0.1.6",
     "jupyter-nbmodel-client>=0.14.6",
@@ -40,6 +41,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+sandboxes = ["code-sandboxes"]
+colab = ["code-sandboxes[colab]"]
+monty = ["code-sandboxes[monty]"]
+modal = ["code-sandboxes[modal]"]
+datalayer = ["code-sandboxes[datalayer]"]
+all-sandboxes = ["code-sandboxes[all]"]
 test = [
     "ipykernel",
     "jupyter_server>=1.6,<3",

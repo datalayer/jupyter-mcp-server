@@ -1,0 +1,75 @@
+# Modal Provider
+
+The Jupyter MCP Server can execute code in a [Modal](https://modal.com/docs/guide)
+cloud sandbox, providing fully isolated, on-demand containers with configurable
+images and secrets. Execution is routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `modal` engine.
+
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[Modal sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#modal) in
+the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the Modal extra and authenticate with Modal:
+
+```bash
+pip install "jupyter-mcp-server[modal]"
+modal token new
+```
+
+Alternatively, provide credentials through environment variables:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `MODAL_TOKEN_ID` | Modal token id |
+| `MODAL_TOKEN_SECRET` | Modal token secret |
+
+## Configuration
+
+Select the Modal engine with `EXECUTION_ENGINE=modal`:
+
+```bash
+EXECUTION_ENGINE=modal
+MODAL_TOKEN_ID=ak-...
+MODAL_TOKEN_SECRET=as-...
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --execution-engine modal \
+  --port 4040
+```
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "EXECUTION_ENGINE": "modal",
+        "MODAL_TOKEN_ID": "ak-...",
+        "MODAL_TOKEN_SECRET": "as-..."
+      }
+    }
+  }
+}
+```
+
+:::note
+
+Each execution runs in a fresh `python -c` process, so kernel state does not
+persist across separate tool calls. Combine statements into a single cell when you
+need shared state.
+
+:::

@@ -95,6 +95,50 @@ For deployments requiring granular control over document storage and runtime exe
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
 | `OPEN_NOTEBOOK_IN_UI` | Open the notebook in the JupyterLab UI on `use_notebook`, activating its tab | `true` / `false` | `false` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
+| `EXECUTION_ENGINE` | Code execution engine (see [Execution Engines](#execution-engines)) | `jupyter` / `colab` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
+| `RUNTIME_PROXY_TOKEN` | Proxy token used by the `colab` execution engine (`colab-runtime-proxy-token`) | `ya29...` | `None` |
+| `SANDBOX_ENVIRONMENT` | Environment name for cloud sandboxes (Datalayer/Modal) | `python-cpu-env` | `None` |
+
+## Execution Engines
+
+By default the server executes code through `jupyter-kernel-client` against a
+Jupyter Server (`EXECUTION_ENGINE=jupyter`). Setting `EXECUTION_ENGINE` to any
+other value routes execution through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) package via a
+`SandboxKernel` adapter, so the same notebook tools can run code on additional
+backends.
+
+| Engine | Description | Extra install | Key variables |
+|--------|-------------|---------------|---------------|
+| `jupyter` (default) | Jupyter Server via `jupyter-kernel-client` | — | `RUNTIME_URL`, `RUNTIME_TOKEN` |
+| `colab` | Google Colab runtime | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |
+| `monty` | In-process secure Python interpreter ([Monty](https://github.com/pydantic/monty)) | `jupyter-mcp-server[monty]` | — |
+| `modal` | [Modal](https://modal.com/docs/guide) cloud sandbox | `jupyter-mcp-server[modal]` | Modal credentials |
+| `docker` | Local Docker container running Jupyter | `jupyter-mcp-server[sandboxes]` | — |
+| `eval` | In-process `exec()` (development only) | `jupyter-mcp-server[sandboxes]` | — |
+| `datalayer` | Datalayer cloud runtime | `jupyter-mcp-server[sandboxes]` | `RUNTIME_URL`, `RUNTIME_TOKEN`, `SANDBOX_ENVIRONMENT` |
+
+### Example: Google Colab engine
+
+```bash
+EXECUTION_ENGINE=colab
+RUNTIME_URL=https://colab.research.google.com/tun/m/...
+RUNTIME_ID=a1b2c3d4-....
+RUNTIME_PROXY_TOKEN=ya29....
+```
+
+### Example: Monty engine
+
+```bash
+EXECUTION_ENGINE=monty
+```
+
+### Example: Modal engine
+
+```bash
+EXECUTION_ENGINE=modal
+# Modal credentials via `modal token new` or MODAL_TOKEN_ID / MODAL_TOKEN_SECRET
+```
 
 ### Configuration Priority
 
@@ -169,6 +213,9 @@ Options:
   --max-execution-timeout INTEGER RANGE
                                       Maximum timeout in seconds a tool call may request (default: 3600)
   --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
+  --execution-engine TEXT             Code execution engine: jupyter (default), colab, monty, modal, docker, eval, datalayer
+  --runtime-proxy-token TEXT          Proxy token for the colab execution engine (default: None)
+  --sandbox-environment TEXT          Environment name for cloud sandboxes (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```
 

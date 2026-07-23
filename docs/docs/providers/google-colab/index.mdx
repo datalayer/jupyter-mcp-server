@@ -1,7 +1,94 @@
 # Google Colab Provider
 
-:::warning
+The Jupyter MCP Server can execute code against a **Google Colab** runtime. Colab
+exposes a Jupyter-compatible kernel behind an authenticating proxy, so the server
+connects to it through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
+`colab` execution engine (backed by `jupyter-kernel-client`'s `ColabKernelClient`).
 
-🚧 This page is under construction.
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[Colab sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#colab) in
+the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the Colab extra:
+
+```bash
+pip install "jupyter-mcp-server[colab]"
+```
+
+## Connection parameters
+
+You obtain the following values from Colab's runtime assignment API:
+
+| Parameter | Environment variable | Description |
+|-----------|----------------------|-------------|
+| Server URL | `RUNTIME_URL` | The Colab tunnel URL for the runtime |
+| Kernel ID | `RUNTIME_ID` | The assigned kernel identifier |
+| Proxy token | `RUNTIME_PROXY_TOKEN` | The `colab-runtime-proxy-token` value |
+
+### How to obtain these values
+
+The three values are the pieces of the WebSocket URL that Colab's own frontend
+uses to reach your assigned runtime:
+
+```
+wss://<host>/api/kernels/<kernel_id>/channels?session_id=<...>&colab-runtime-proxy-token=<proxy_token>&colab-client-agent=web
+```
+
+Read them from your browser's developer tools:
+
+1. Open your notebook on [colab.research.google.com](https://colab.research.google.com)
+   and connect to a runtime (*Runtime → Connect*, or run any cell).
+2. Open DevTools (`F12`) → **Network** tab, select the **WS** filter (or type
+   `kernels`), then run a cell to trigger kernel traffic.
+3. Click the `.../api/kernels/<kernel_id>/channels?...` request and read off:
+   - **`RUNTIME_URL`** — scheme + host *before* `/api/kernels` (change `wss://` to
+     `https://`). Colab assigns a per-session host such as
+     `https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev`; there is usually **no**
+     `/tun/m/...` path segment.
+   - **`RUNTIME_ID`** — the UUID after `/api/kernels/`.
+   - **`RUNTIME_PROXY_TOKEN`** — the `colab-runtime-proxy-token` query parameter
+     (same value as the `X-Colab-Runtime-Proxy-Token` header). Ignore the
+     `session_id` and `colab-client-agent` parameters.
+
+The programmatic assignment API is the internal endpoint Colab's frontend calls
+(authenticated with your Google session) and is not an officially published public
+API, so the DevTools method above is the practical way to obtain the values.
+
+## Configuration
+
+Select the Colab engine with `EXECUTION_ENGINE=colab`:
+
+```bash
+EXECUTION_ENGINE=colab
+RUNTIME_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
+RUNTIME_ID=c9bba548-3995-4f26-8e1a-7b8fbb10c578
+RUNTIME_PROXY_TOKEN=eyJhbGci....
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --execution-engine colab \
+  --runtime-url "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev" \
+  --runtime-id "c9bba548-3995-4f26-8e1a-7b8fbb10c578" \
+  --runtime-proxy-token "eyJhbGci...." \
+  --port 4040
+```
+
+Once connected, all notebook and cell execution tools run against the Colab
+runtime transparently.
+
+:::note
+
+The proxy token is short-lived. Refresh it from the Colab runtime assignment API
+when it expires.
 
 :::

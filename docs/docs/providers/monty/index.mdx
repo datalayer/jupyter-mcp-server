@@ -1,0 +1,72 @@
+# Monty Provider
+
+The Jupyter MCP Server can execute code in [Monty](https://github.com/pydantic/monty),
+a minimal, secure Python interpreter written in Rust (`pydantic-monty`). Monty runs
+a restricted subset of Python **in-process** with microsecond startup and no access
+to the host filesystem, environment, or network unless explicitly granted.
+
+This makes it ideal for running short, LLM-generated snippets where a full
+container or kernel would be overkill. Execution is routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `monty` engine.
+
+:::tip
+
+For the full, engine-level configuration reference, see the
+[Monty sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#monty) in
+the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the Monty extra:
+
+```bash
+pip install "jupyter-mcp-server[monty]"
+```
+
+No credentials or external services are required — Monty runs entirely in-process.
+
+## Configuration
+
+Select the Monty engine with `EXECUTION_ENGINE=monty`:
+
+```bash
+EXECUTION_ENGINE=monty
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --execution-engine monty \
+  --port 4040
+```
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "EXECUTION_ENGINE": "monty"
+      }
+    }
+  }
+}
+```
+
+Session state (variables, imports, definitions) persists across cell executions,
+just like a regular kernel.
+
+:::note
+
+Monty supports only a subset of Python. Third-party libraries (such as `numpy` or
+`pandas`) and rich display outputs (images, plots) are not available. For those,
+use the `jupyter`, `datalayer`, `colab`, or `modal` engines.
+
+:::

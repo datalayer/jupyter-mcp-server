@@ -21,6 +21,24 @@ class JupyterMCPConfig(BaseModel):
     start_new_runtime: bool = Field(default=False, description="Start a new runtime or use an existing one")
     runtime_id: Optional[str] = Field(default=None, description="The kernel ID to use")
     runtime_token: Optional[str] = Field(default=None, description="The runtime token to use for authentication")
+
+    # Execution engine configuration
+    execution_engine: str = Field(
+        default="jupyter",
+        description=(
+            "Code execution engine. 'jupyter' (default) uses jupyter-kernel-client "
+            "directly. Any other value ('colab', 'monty', 'modal', 'docker', 'eval', "
+            "'datalayer') routes execution through the code-sandboxes package."
+        ),
+    )
+    runtime_proxy_token: Optional[str] = Field(
+        default=None,
+        description="Proxy token for the Colab execution engine (colab-runtime-proxy-token).",
+    )
+    sandbox_environment: Optional[str] = Field(
+        default=None,
+        description="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
+    )
     
     # Document configuration
     document_url: str = Field(default="http://localhost:8888", description="The document URL to use, or 'local' for direct serverapp access")
@@ -50,6 +68,14 @@ class JupyterMCPConfig(BaseModel):
     def is_local_runtime(self) -> bool:
         """Check if runtime URL is set to local."""
         return self.runtime_url == "local"
+
+    def uses_sandbox_engine(self) -> bool:
+        """Check if execution should be routed through code-sandboxes.
+
+        Any execution engine other than the default 'jupyter' is served by the
+        code-sandboxes package via a SandboxKernel adapter.
+        """
+        return (self.execution_engine or "jupyter").lower() != "jupyter"
     
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""

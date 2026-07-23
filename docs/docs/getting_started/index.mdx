@@ -4,7 +4,7 @@ To use Jupyter MCP Server, you first need to decide which setup fits your needs:
 
 - **MCP Server Location** - It can be running as a [**Standalone MCP Server**](/transports/streamable-http) or inside the Jupyter Server [**as a Jupyter Server Extension**](/transports/streamable-http-extension) - The last one has for advantage to avoid running 2 separate servers (Jupyter server + MCP server) but only supports Streamable HTTP transport.
 - **MCP Transport** - It supports both [**STDIO Transport**](/transports/stdio) and **Streamable HTTP Transport**
-- **Jupyter Provider** - It can connect to a **local or remote Jupyter server**, to [**JupyterHub**](/providers/jupyterhub), to [**Datalayer**](/providers/datalayer) or to [**Google Colab**](/providers/google-colab) hosted Notebooks.
+- **Jupyter Provider** - It can connect to [**Jupyter Server**](/providers/jupyter-server) (local or remote), to [**JupyterHub**](/providers/jupyterhub), to [**Datalayer**](/providers/datalayer), or to [**Google Colab**](/providers/google-colab) hosted Notebooks.
 
 This guide will help you set up a Jupyter MCP Server to connect your preferred MCP client to a JupyterLab instance.
 
@@ -45,9 +45,11 @@ If you choose Streamable HTTP transport, you can also choose to run the MCP serv
 
 ## Provider Options
 
-### Local/Remote Jupyter Server
+### Jupyter Server (Local/Remote)
 
 Connect to any standard JupyterLab or Jupyter Notebook server.
+
+👉 [Jupyter Server Provider Documentation](/providers/jupyter-server)
 
 👉 Choose your transport:
 - [STDIO Transport](/transports/stdio)
