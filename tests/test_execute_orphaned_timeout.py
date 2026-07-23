@@ -93,12 +93,13 @@ async def _run_stream(cell, execute_impl, timeout_seconds, kernel):
 # The monitoring loops in execute_cell_tool.py and execute_cell_with_forced_sync
 # poll in whole-second (`await asyncio.sleep(1)`) increments, so a timed-out
 # call can easily burn a real second or more of wall clock before the tool
-# returns control to us. The background execute_impl below must sleep long
-# enough to still be running after that overhead on a slow/loaded CI runner,
-# or the orphaned task looks finished by the time we make our first
+# returns control to us. After timeout we also briefly settle (about 1s) so
+# notebook outputs can catch up. The background execute_impl below must sleep
+# long enough to still be running after that overhead on a slow/loaded CI
+# runner, or the orphaned task looks finished by the time we make our first
 # assertion (observed on a macOS runner: elapsed 2e-5s against a 0.3s sleep,
 # https://github.com/datalayer/jupyter-mcp-server/actions/runs/30021842755).
-_ORPHANED_TASK_SLEEP = 2.0
+_ORPHANED_TASK_SLEEP = 3.0
 
 
 @pytest.mark.asyncio

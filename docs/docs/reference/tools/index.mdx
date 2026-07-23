@@ -130,9 +130,9 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 - Execute a cell from the currently activated notebook with timeout and return it's outputs
 - Input:
   - `cell_index`(int): Index of the cell to execute (0-based)
-  - `timeout`(int, optional): Maximum seconds to wait for execution (0 = use config default, default: 0). Configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var (default: 120s, max: 3600s)
+  - `timeout`(int, optional): Maximum seconds to wait for execution (0 = use config default, default: 0). Configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var (default: 120s, max: 3600s via `JUPYTER_MCP_MAX_EXECUTION_TIMEOUT`)
   - `stream`(bool, optional): Enable streaming progress updates for long-running cells (default: false)
-  - `progress_interval`(int, optional): Seconds between progress updates when stream=true (default: 5)
+  - `progress_interval`(int, optional): Seconds between MCP progress keepalive updates (and optional stream log lines). Default: 5. Progress is emitted even when `stream=false` so MCP clients do not idle-timeout during long cells.
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Supports streaming mode with progress updates for long-running cells.
 
 #### 12. `insert_execute_code_cell`
@@ -143,6 +143,8 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `cell_index`(int): Index of the cell to insert and execute (0-based)
   - `cell_source`(string): Code source for the cell
   - `timeout`(int, optional): Maximum seconds to wait for execution (0 = use config default, default: 0). Configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var (default: 120s, max: 3600s)
+  - `stream`(bool, optional): Enable streaming progress updates for long-running cells (default: false)
+  - `progress_interval`(int, optional): Seconds between MCP progress keepalive updates (default: 5)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Returns both insertion confirmation and execution results.
 
 #### 13. `read_cell`
@@ -176,8 +178,9 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
 - Input:
   - `code`(string): Code to execute (supports magic commands with %, shell commands with !)
-  - `timeout`(int, optional): Execution timeout in seconds (default: 30, max: 3600)
+  - `timeout`(int, optional): Execution timeout in seconds (default: 30, 0 = use config default, max via `JUPYTER_MCP_MAX_EXECUTION_TIMEOUT`)
   - `kernel_id`(string, optional): Target an existing kernel by ID. If omitted, the current notebook kernel is used.
+  - `progress_interval`(int, optional): Seconds between MCP progress keepalive updates during long-running execution (default: 5)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed code including text, HTML, images, and shell command results. Supports magic commands and shell commands with ! prefix.
 
 :::tip

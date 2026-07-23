@@ -24,6 +24,8 @@ from jupyter_mcp_server.utils import (
     safe_extract_outputs,
     execute_cell_with_forced_sync,
     track_pending_execution,
+    settle_timed_out_execution,
+    emit_execution_progress,
     extract_output
 )
 
@@ -136,6 +138,7 @@ class ExecuteCellTool(BaseTool):
         stream: bool = False,
         progress_interval: int = 5,
         ensure_kernel_alive_fn=None,
+        progress_callback=None,
         **kwargs
     ) -> List[Union[str, ImageContent]]:
         """Execute a cell with configurable timeout and optional streaming progress updates.
@@ -148,8 +151,9 @@ class ExecuteCellTool(BaseTool):
             cell_index: Index of the cell to execute (0-based)
             timeout_seconds: Maximum seconds to wait for execution
             stream: Enable streaming progress updates for long-running cells
-            progress_interval: Seconds between progress updates when stream=True
+            progress_interval: Seconds between progress updates (MCP keepalive + stream log)
             ensure_kernel_alive_fn: Function to ensure kernel is alive (MCP_SERVER)
+            progress_callback: Optional async callback for MCP progress/keepalive
 
         Returns:
             List of outputs from the executed cell
@@ -236,7 +240,9 @@ class ExecuteCellTool(BaseTool):
                     code=code_to_execute,
                     document_id=document_id,
                     cell_id=cell_id,
-                    timeout=timeout_seconds
+                    timeout=timeout_seconds,
+                    progress_callback=progress_callback,
+                    progress_interval=progress_interval,
                 )
 
                 return outputs
@@ -266,7 +272,9 @@ class ExecuteCellTool(BaseTool):
                     kernel_id=kernel_id,
                     code=code_to_execute,
                     timeout=timeout_seconds,
-                    raw_outputs=raw_outputs
+                    raw_outputs=raw_outputs,
+                    progress_callback=progress_callback,
+                    progress_interval=progress_interval,
                 )
 
                 # Write outputs back to file
@@ -306,24 +314,31 @@ class ExecuteCellTool(BaseTool):
                     )
                     track_pending_execution(kernel, execution_task)
 
-                    start_time = time.time()
+                    # perf_counter: high-res and monotonic. time.time() on Windows
+                    # (esp. older CPython) can return the same value twice, so
+                    # elapsed stays 0 and ``elapsed > 0`` misses an immediate
+                    # timeout; the 1s poll then lets a short cell finish as
+                    # COMPLETED instead of TIMEOUT (CI: windows-latest, 3.10).
+                    start_time = time.perf_counter()
                     last_output_count = 0
+                    last_progress_emit = 0.0
                     timed_out = False
 
                     # Monitor progress
                     while not execution_task.done():
-                        elapsed = time.time() - start_time
+                        elapsed = time.perf_counter() - start_time
 
-                        # Check timeout
-                        if elapsed > timeout_seconds:
-                            execution_task.cancel()
+                        # >= so timeout_seconds=0 means immediate timeout even
+                        # when elapsed is still 0.0 on a coarse clock tick.
+                        if elapsed >= timeout_seconds:
                             timed_out = True
-                            outputs_log.append(f"[TIMEOUT at {elapsed:.1f}s: Cancelling execution]")
+                            outputs_log.append(f"[TIMEOUT at {elapsed:.1f}s: Interrupting execution]")
                             try:
                                 kernel.interrupt()
                                 outputs_log.append("[Sent interrupt signal to kernel]")
                             except Exception:
                                 pass
+                            # Do not cancel execution_task: see settle_timed_out_execution.
                             break
 
                         # Check for new outputs
@@ -343,20 +358,53 @@ class ExecuteCellTool(BaseTool):
                         except Exception as e:
                             outputs_log.append(f"[{elapsed:.1f}s] Error checking outputs: {e}")
 
-                        # Progress update
-                        if int(elapsed) % progress_interval == 0 and elapsed > 0:
-                            outputs_log.append(f"[PROGRESS: {elapsed:.1f}s elapsed, {last_output_count} outputs so far]")
+                        # Progress update (tool log + MCP keepalive). Use wall-clock
+                        # gating so we emit once per interval, not on every poll
+                        # where int(elapsed) % interval happens to be 0.
+                        if (
+                            progress_interval > 0
+                            and elapsed > 0
+                            and (elapsed - last_progress_emit) >= progress_interval
+                        ):
+                            last_progress_emit = elapsed
+                            outputs_log.append(
+                                f"[PROGRESS: {elapsed:.1f}s elapsed, {last_output_count} outputs so far]"
+                            )
+                            await emit_execution_progress(
+                                progress_callback,
+                                elapsed=elapsed,
+                                timeout_seconds=timeout_seconds,
+                                output_count=last_output_count,
+                            )
 
-                        await asyncio.sleep(1)
+                        # Do not sleep past the remaining timeout budget (short
+                        # timeouts used to wait a full second before re-check).
+                        remaining = timeout_seconds - elapsed
+                        await asyncio.sleep(min(1.0, max(remaining, 0.0)))
 
                     # Get final result. On timeout the task was cancelled above, so
                     # awaiting it would raise CancelledError, which is a BaseException
                     # and is not caught below, discarding the timeout log just built.
-                    if not timed_out:
+                    if timed_out:
+                        await settle_timed_out_execution(execution_task)
+                        try:
+                            final_outputs = notebook[cell_index].get("outputs", [])
+                            if len(final_outputs) > last_output_count:
+                                remaining = final_outputs[last_output_count:]
+                                for output in remaining:
+                                    extracted = extract_output(output)
+                                    if not isinstance(extracted, str):
+                                        outputs_log.append(extracted)
+                                    elif extracted.strip():
+                                        outputs_log.append(extracted)
+                                last_output_count = len(final_outputs)
+                        except Exception as e:
+                            outputs_log.append(f"[ERROR reading post-timeout outputs: {e}]")
+                    else:
                         try:
                             await execution_task
                             final_outputs = notebook[cell_index].get("outputs", [])
-                            outputs_log.append(f"[COMPLETED in {time.time() - start_time:.1f}s]")
+                            outputs_log.append(f"[COMPLETED in {time.perf_counter() - start_time:.1f}s]")
 
                             # Add any final outputs not captured during monitoring
                             if len(final_outputs) > last_output_count:
@@ -385,7 +433,14 @@ class ExecuteCellTool(BaseTool):
 
                     try:
                         # Use the forced sync function
-                        await execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds)
+                        await execute_cell_with_forced_sync(
+                            notebook,
+                            cell_index,
+                            kernel,
+                            timeout_seconds,
+                            progress_callback=progress_callback,
+                            progress_interval=progress_interval,
+                        )
 
                         # Get final outputs
                         outputs = notebook[cell_index].get("outputs", [])
@@ -401,6 +456,10 @@ class ExecuteCellTool(BaseTool):
 
                     except asyncio.TimeoutError as e:
                         logger.error(f"Cell {cell_index} execution timed out: {e}")
+                        # Interrupt already attempted inside execute_cell_with_forced_sync;
+                        # settle so the notebook snapshot matches post-timeout writes.
+                        pending = getattr(kernel, "_mcp_pending_execution", None)
+                        await settle_timed_out_execution(pending)
                         try:
                             if kernel and hasattr(kernel, 'interrupt'):
                                 kernel.interrupt()
