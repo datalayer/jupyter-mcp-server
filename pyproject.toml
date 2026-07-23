@@ -21,7 +21,6 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-<<<<<<< HEAD
     "code-sandboxes>=0.0.16",
     "jupyter-kernel-client>=0.12.0",
     "jupyter-mcp-tools>=0.1.6",
