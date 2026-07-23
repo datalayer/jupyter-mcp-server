@@ -1,12 +1,78 @@
-# Jupyter as a Standalone MCP Server with Streamable HTTP Transport
+# Streamable HTTP Transport
 
 The following diagram illustrates how **Jupyter MCP Server** connects to a **Jupyter server** or **Datalayer** and communicates with an MCP client.
 
-<img
-    src="https://images.datalayer.io/products/jupyter-mcp-server/diagram.png"
-    alt="Jupyter MCP Diagram"
-    style={{ width: "700px", marginBottom: "2rem" }}
-/>
+```mermaid
+flowchart TB
+  mcp[Jupyter MCP Server]
+  client(["MCP Client\n(Claude, VS-Code, ...)"])
+
+  j[Datalayer]:::host
+  jup[Jupyter]:::host
+  hub[JupyterHub]:::host
+  eg[Jupyter Enterprise Gateway]:::host
+
+  jd((D))
+  jr{R}
+  hd((D))
+  hr{R}
+  ed((D))
+  er{R}
+  dd((D))
+  dr{R}
+
+  jupTop1[Jupyter]
+  jupTop2[Jupyter]
+  dTop1((D))
+  rTop1{R}
+  dTop2((D))
+  rTop2{R}
+
+  or1([OR])
+  or2([OR])
+  or3([OR])
+
+  jd --- jup
+  jr --- jup
+  hd --- hub
+  hr --- hub
+  ed --- eg
+  er --- eg
+  dd --- j
+  dr --- j
+
+  dTop1 --- jupTop1
+  rTop1 --- jupTop1
+  dTop2 --- jupTop2
+  rTop2 --- jupTop2
+
+  hub --> jupTop1
+  eg --> jupTop2
+
+  jup <-- RTC --> mcp
+  hub <-- RTC --> mcp
+  eg <-- RTC --> mcp
+  j <-- RTC --> mcp
+
+  mcp <-- "STDIO or Streamable HTTP Transport" --> client
+
+  jup --- or1
+  or1 --- hub
+  hub --- or2
+  or2 --- eg
+  eg --- or3
+  or3 --- j
+
+  classDef host fill:#fff,stroke:#888,stroke-width:1px;
+  classDef orLabel fill:transparent,stroke:transparent,color:#333;
+  class or1,or2,or3 orLabel;
+```
+
+Legend:
+
+- D: Document (= Notebook)
+- R: Runtime (= Kernel)
+- Jupyter Server or JupyterLab, Jupyter Notebook: host
 
 ## 1. Start JupyterLab
 

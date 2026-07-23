@@ -1,14 +1,38 @@
-# Jupyter Server Extension with Streamable HTTP Transport
+# Streamable HTTP Transport with Jupyter Server Extension
 
 The following diagram illustrates how **Jupyter MCP Server** runs as an extension inside a **Jupyter server** and communicates with an MCP client.
 In this configuration, you don't need to run a separate MCP server. It will start automatically when you start your Jupyter server.
 Note that only **Streamable HTTP** transport is supported in this configuration.
 
-<img
-    src="https://images.datalayer.io/products/jupyter-mcp-server/diagram-jupyter-extension.png"
-    alt="Jupyter MCP Diagram Jupyter Extension"
-    style={{ width: "700px", marginBottom: "2rem" }}
-/>
+```mermaid
+flowchart TB
+  subgraph transportTargets["Jupyter deployment targets"]
+    direction TB
+    subgraph top[ ]
+      direction LR
+      direct["Jupyter Server or JupyterLab\nJupyter MCP Server as Jupyter Server Extension"]
+      or1([OR])
+      hub["JupyterHub"]
+      or2([OR])
+      eg["Jupyter Enterprise Gateway"]
+    end
+  end
+
+  client(["MCP Client\n(Claude, VS-Code, ...)"])
+
+  transportTargets <-- Streamable HTTP Transport --> client
+
+  classDef orLabel fill:transparent,stroke:transparent,color:#333;
+  classDef topBorder fill:transparent,stroke:transparent;
+  class or1,or2 orLabel;
+  class top topBorder;
+```
+
+Legend:
+
+- D: Document aka Notebook
+- R: Runtime aka Kernel
+- Jupyter Server or JupyterLab or Jupyter Notebook: host containing the Jupyter MCP Server extension
 
 ## 1. Start JupyterLab and the MCP Server
 
