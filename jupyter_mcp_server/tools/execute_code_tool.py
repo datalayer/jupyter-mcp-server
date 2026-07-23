@@ -60,6 +60,7 @@ class ExecuteCodeTool(BaseTool):
         from jupyter_kernel_client import KernelClient
 
         from jupyter_mcp_server.config import get_config
+        from jupyter_mcp_server.server_context import ServerContext
 
         if server_client is not None:
             kernels = server_client.kernels.list_kernels()
@@ -70,11 +71,20 @@ class ExecuteCodeTool(BaseTool):
                 )
 
         config = get_config()
-        kernel = KernelClient(
-            server_url=config.runtime_url,
-            token=config.runtime_token,
-            kernel_id=kernel_id,
-        )
+        # Password auth carries credentials via cookie/XSRF headers; when present,
+        # drop the token so it can't override them (mirrors create_kernel and
+        # use_notebook). Without this, a borrowed cross-kernel connection under
+        # password auth would be unauthenticated, since runtime_token is typically
+        # None in that mode.
+        auth_headers = ServerContext.get_instance().runtime_auth_headers
+        kernel_kwargs = {
+            "server_url": config.runtime_url,
+            "token": None if auth_headers else config.runtime_token,
+            "kernel_id": kernel_id,
+        }
+        if auth_headers:
+            kernel_kwargs["headers"] = auth_headers
+        kernel = KernelClient(**kernel_kwargs)
         kernel.start()
         return kernel, None
 
