@@ -601,6 +601,26 @@ def ensure_kernel_alive(notebook_manager, current_notebook, create_kernel_fn):
     return notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn)
 
 
+def track_pending_execution(kernel, task):
+    """Remember a background execute_cell task on the kernel so is_kernel_busy
+    can see it, and forget it once the task actually finishes.
+
+    asyncio.Task.cancel() on a task wrapping asyncio.to_thread() cannot stop the
+    underlying OS thread: the thread keeps running notebook.execute_cell() (and
+    mutating the shared notebook/kernel state) until it returns on its own,
+    regardless of the cancellation request. Recording the task here lets a
+    later call see that a previous execution is still in flight instead of
+    assuming the kernel is free the moment a timeout is raised.
+    """
+    kernel._mcp_pending_execution = task
+
+    def _clear(finished_task, kernel=kernel):
+        if getattr(kernel, "_mcp_pending_execution", None) is finished_task:
+            kernel._mcp_pending_execution = None
+
+    task.add_done_callback(_clear)
+
+
 async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds=300):
     """Execute cell with forced real-time synchronization."""
     from jupyter_mcp_server.log import logger
@@ -611,6 +631,7 @@ async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_se
     execution_future = asyncio.create_task(
         asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
     )
+    track_pending_execution(kernel, execution_future)
 
     last_output_count = 0
 
@@ -667,14 +688,16 @@ async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_se
 
 
 def is_kernel_busy(kernel):
-    """Check if kernel is currently executing something."""
-    try:
-        # This is a simple check - you might need to adapt based on your kernel client
-        if hasattr(kernel, "_client") and hasattr(kernel._client, "is_alive"):
-            return kernel._client.is_alive()
-        return False
-    except Exception:
-        return False
+    """Check if kernel is currently executing something.
+
+    Reflects the task recorded by track_pending_execution, not
+    kernel._client.is_alive(): KernelClient (jupyter_kernel_client) has no
+    _client attribute, so that check always fell through to `return False`
+    and a timed-out execution's orphaned background thread was never seen
+    as "busy" by wait_for_kernel_idle.
+    """
+    task = getattr(kernel, "_mcp_pending_execution", None)
+    return task is not None and not task.done()
 
 
 async def wait_for_kernel_idle(kernel, max_wait_seconds=60):

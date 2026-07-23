@@ -23,6 +23,7 @@ from jupyter_mcp_server.utils import (
     get_jupyter_ydoc,
     safe_extract_outputs,
     wait_for_kernel_idle,
+    track_pending_execution,
 )
 
 logger = logging.getLogger(__name__)
@@ -322,6 +323,7 @@ class ExecuteCellTool(BaseTool):
                     execution_task = asyncio.create_task(
                         asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
                     )
+                    track_pending_execution(kernel, execution_task)
 
                     start_time = time.time()
                     last_output_count = 0
