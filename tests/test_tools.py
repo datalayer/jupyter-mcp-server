@@ -77,11 +77,11 @@ async def test_mcp_tool_list(mcp_client_parametrized: MCPClient, request):
     # Get the current test parameter to determine the mode
     current_param = None
     for param in request.node.callspec.params.values():
-        if param in ["mcp_server", "jupyter_extension"]:
+        if param in ["mcp_server", "jupyter_extension", "jupyter_extension_no_collab"]:
             current_param = param
             break
     
-    if current_param == "jupyter_extension":
+    if current_param in ["jupyter_extension", "jupyter_extension_no_collab"]:
         # Remove connect_to_jupyter for jupyter_extension mode
         expected_tools = [tool for tool in JUPYTER_TOOLS if tool != 'connect_to_jupyter']
     
