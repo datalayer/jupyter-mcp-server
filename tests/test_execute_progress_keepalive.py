@@ -142,12 +142,18 @@ async def test_forced_sync_path_emits_progress_callback_during_long_cell():
 async def test_timeout_settle_includes_late_notebook_output_in_stream_result():
     """After timeout, settle briefly so outputs that land in the notebook are
     included in the tool response instead of appearing only as stray notebook
-    writes after the client already timed out."""
+    writes after the client already timed out.
+
+    timeout_seconds=0 must fire on the first monitor poll even when elapsed is
+    still 0.0 (Windows time.time() coarse ticks used to miss ``elapsed > 0``,
+    sleep a full second, and let a short background cell finish as COMPLETED).
+    """
     cell = {"source": "time.sleep(60)", "outputs": []}
     kernel = FakeKernel()
 
     def execute_impl():
         # Land an output shortly after the tool hits timeout_seconds=0.
+        # Must finish within TIMEOUT_OUTPUT_SETTLE_SECONDS (~1s).
         time.sleep(0.3)
         cell["outputs"] = [
             {"output_type": "stream", "name": "stdout", "text": "late-output\n"}
@@ -169,6 +175,45 @@ async def test_timeout_settle_includes_late_notebook_output_in_stream_result():
         isinstance(entry, str) and "late-output" in entry for entry in result
     ), f"expected settled notebook output in tool result, got {result!r}"
     assert cell["outputs"], "notebook cell should still hold the late output"
+
+
+@pytest.mark.asyncio
+async def test_immediate_timeout_with_frozen_perf_counter(monkeypatch):
+    """Regression: timeout_seconds=0 must interrupt even if the elapsed clock
+    never advances (same value returned twice), which is how Windows coarse
+    time.time() made the settle test flake on CI (3.10)."""
+    cell = {"source": "time.sleep(60)", "outputs": []}
+    kernel = FakeKernel()
+    frozen = {"t": 1000.0}
+
+    def frozen_perf_counter():
+        return frozen["t"]
+
+    monkeypatch.setattr(time, "perf_counter", frozen_perf_counter)
+
+    def execute_impl():
+        time.sleep(0.3)
+        cell["outputs"] = [
+            {"output_type": "stream", "name": "stdout", "text": "late-output\n"}
+        ]
+
+    manager = FakeNotebookManager(FakeNotebook(cell, execute_impl))
+    result = await ExecuteCellTool().execute(
+        mode=ServerMode.MCP_SERVER,
+        notebook_manager=manager,
+        cell_index=0,
+        timeout_seconds=0,
+        stream=True,
+        progress_interval=1,
+        ensure_kernel_alive_fn=lambda: kernel,
+    )
+
+    assert any("[TIMEOUT at" in entry for entry in result if isinstance(entry, str)), (
+        f"expected TIMEOUT with frozen clock, got {result!r}"
+    )
+    assert any(
+        isinstance(entry, str) and "late-output" in entry for entry in result
+    ), f"expected settled notebook output in tool result, got {result!r}"
 
 
 @pytest.mark.asyncio

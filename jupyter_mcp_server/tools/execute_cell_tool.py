@@ -314,17 +314,23 @@ class ExecuteCellTool(BaseTool):
                     )
                     track_pending_execution(kernel, execution_task)
 
-                    start_time = time.time()
+                    # perf_counter: high-res and monotonic. time.time() on Windows
+                    # (esp. older CPython) can return the same value twice, so
+                    # elapsed stays 0 and ``elapsed > 0`` misses an immediate
+                    # timeout; the 1s poll then lets a short cell finish as
+                    # COMPLETED instead of TIMEOUT (CI: windows-latest, 3.10).
+                    start_time = time.perf_counter()
                     last_output_count = 0
                     last_progress_emit = 0.0
                     timed_out = False
 
                     # Monitor progress
                     while not execution_task.done():
-                        elapsed = time.time() - start_time
+                        elapsed = time.perf_counter() - start_time
 
-                        # Check timeout
-                        if elapsed > timeout_seconds:
+                        # >= so timeout_seconds=0 means immediate timeout even
+                        # when elapsed is still 0.0 on a coarse clock tick.
+                        if elapsed >= timeout_seconds:
                             timed_out = True
                             outputs_log.append(f"[TIMEOUT at {elapsed:.1f}s: Interrupting execution]")
                             try:
@@ -371,7 +377,10 @@ class ExecuteCellTool(BaseTool):
                                 output_count=last_output_count,
                             )
 
-                        await asyncio.sleep(1)
+                        # Do not sleep past the remaining timeout budget (short
+                        # timeouts used to wait a full second before re-check).
+                        remaining = timeout_seconds - elapsed
+                        await asyncio.sleep(min(1.0, max(remaining, 0.0)))
 
                     # Get final result. On timeout the task was cancelled above, so
                     # awaiting it would raise CancelledError, which is a BaseException
@@ -395,7 +404,7 @@ class ExecuteCellTool(BaseTool):
                         try:
                             await execution_task
                             final_outputs = notebook[cell_index].get("outputs", [])
-                            outputs_log.append(f"[COMPLETED in {time.time() - start_time:.1f}s]")
+                            outputs_log.append(f"[COMPLETED in {time.perf_counter() - start_time:.1f}s]")
 
                             # Add any final outputs not captured during monitoring
                             if len(final_outputs) > last_output_count:

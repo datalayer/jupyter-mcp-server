@@ -586,7 +586,8 @@ async def execute_cell_with_forced_sync(
     """Execute cell with forced real-time synchronization."""
     from jupyter_mcp_server.log import logger
 
-    start_time = time.time()
+    # High-res monotonic clock: see execute_cell_tool streaming monitor.
+    start_time = time.perf_counter()
 
     # Start execution
     execution_future = asyncio.create_task(
@@ -598,9 +599,9 @@ async def execute_cell_with_forced_sync(
     last_progress_emit = 0.0
 
     while not execution_future.done():
-        elapsed = time.time() - start_time
+        elapsed = time.perf_counter() - start_time
 
-        if elapsed > timeout_seconds:
+        if elapsed >= timeout_seconds:
             try:
                 if hasattr(kernel, 'interrupt'):
                     kernel.interrupt()
@@ -655,7 +656,8 @@ async def execute_cell_with_forced_sync(
                 output_count=last_output_count,
             )
 
-        await asyncio.sleep(1)  # Check every second
+        remaining = timeout_seconds - elapsed
+        await asyncio.sleep(min(1.0, max(remaining, 0.0)))
 
     # Get final result
     try:
