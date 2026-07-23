@@ -4,11 +4,12 @@
 
 """Tests for code-sandboxes variant routing in the sandboxes extension."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from jupyter_mcp_server.config import JupyterMCPConfig
+from jupyter_mcp_server.tools._base import ServerMode
 
 from jupyter_mcp_sandboxes.extension import SandboxesExtension
 from jupyter_mcp_sandboxes.kernel import build_sandbox
@@ -168,3 +169,63 @@ def test_extension_create_kernel_builds_and_starts_kernel():
     mock_create.assert_called_once()
     mock_wrapper.assert_called_once_with(fake_sandbox, logger=fake_logger)
     fake_kernel.start.assert_called_once_with()
+
+
+class _FakeMCP:
+    def __init__(self):
+        self.tools = {}
+
+    def tool(self, **_kwargs):
+        def _decorator(func):
+            self.tools[func.__name__] = func
+            return func
+
+        return _decorator
+
+
+@pytest.mark.asyncio
+async def test_launch_sandbox_defaults_to_configured_non_jupyter_variant():
+    extension = SandboxesExtension()
+    mcp = _FakeMCP()
+    fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
+
+    with (
+        patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
+        patch(
+            "jupyter_mcp_sandboxes.extension.get_config",
+            return_value=JupyterMCPConfig(sandbox_variant="monty"),
+        ),
+        patch(
+            "jupyter_mcp_sandboxes.extension.LaunchSandboxTool.execute",
+            new_callable=AsyncMock,
+            return_value={"message": "ok", "sandbox": {}},
+        ) as mock_execute,
+    ):
+        extension.register_tools(mcp)
+        await mcp.tools["launch_sandbox"](sandbox_name="my_sandbox")
+
+    assert mock_execute.await_args.kwargs["variant"] == "monty"
+
+
+@pytest.mark.asyncio
+async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
+    extension = SandboxesExtension()
+    mcp = _FakeMCP()
+    fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
+
+    with (
+        patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
+        patch(
+            "jupyter_mcp_sandboxes.extension.get_config",
+            return_value=JupyterMCPConfig(sandbox_variant="jupyter"),
+        ),
+        patch(
+            "jupyter_mcp_sandboxes.extension.LaunchSandboxTool.execute",
+            new_callable=AsyncMock,
+            return_value={"message": "ok", "sandbox": {}},
+        ) as mock_execute,
+    ):
+        extension.register_tools(mcp)
+        await mcp.tools["launch_sandbox"](sandbox_name="my_sandbox")
+
+    assert mock_execute.await_args.kwargs["variant"] == "eval"

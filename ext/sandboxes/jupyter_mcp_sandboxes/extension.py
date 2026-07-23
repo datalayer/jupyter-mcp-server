@@ -16,6 +16,7 @@ import logging
 from typing import Annotated, Any, Literal, Optional
 
 from datalayer_reactor import PluginCompatibility, PluginManifest
+from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks
 from jupyter_mcp_server.server_context import ServerContext
@@ -119,9 +120,14 @@ class SandboxesExtension(JupyterMCPExtension):
                 str, Field(description="Unique sandbox identifier used by list/use/terminate tools")
             ],
             variant: Annotated[
-                Literal["eval", "docker", "jupyter", "datalayer", "colab", "monty", "modal"],
-                Field(description="Sandbox variant to launch"),
-            ] = "eval",
+                Literal["eval", "docker", "jupyter", "datalayer", "colab", "monty", "modal"] | None,
+                Field(
+                    description=(
+                        "Sandbox variant to launch. If omitted, defaults to configured "
+                        "SANDBOX_VARIANT when it is non-jupyter; otherwise falls back to eval."
+                    )
+                ),
+            ] = None,
             timeout: Annotated[
                 int, Field(description="Default execution timeout in seconds for this sandbox", ge=1)
             ] = 60,
@@ -158,12 +164,17 @@ class SandboxesExtension(JupyterMCPExtension):
             (as an alternative to notebook-bound kernel execution). Works in both
             MCP_SERVER and JUPYTER_SERVER modes.
             """
+            configured_variant = get_config().sandbox_variant
+            resolved_variant = variant or (
+                configured_variant if configured_variant != "jupyter" else "eval"
+            )
+
             return await safe_notebook_operation(
                 lambda: LaunchSandboxTool().execute(
                     mode=server_context.mode,
                     sandbox_runtime_manager=manager,
                     sandbox_name=sandbox_name,
-                    variant=variant,
+                    variant=resolved_variant,
                     timeout=timeout,
                     environment=environment,
                     gpu=gpu,
