@@ -19,8 +19,10 @@ import os
 import socket
 import subprocess
 import time
+import uuid
 from http import HTTPStatus
 
+import nbformat
 import pytest
 import pytest_asyncio
 import requests
@@ -418,3 +420,158 @@ def mcp_client_otel(mcp_server_url_otel):
     """MCPClient talking to an OTel-enabled server (both modes)."""
     from .test_common import MCPClient
     return MCPClient(mcp_server_url_otel, token=JUPYTER_TOKEN)
+
+
+###############################################################################
+# Password-auth fixtures (e2e tests for password-based authentication)
+###############################################################################
+
+JUPYTER_PASSWORD = "test-password-e2e"
+
+
+@pytest.fixture(scope="session")
+def jupyter_password_root_dir(tmp_path_factory):
+    """Isolated root directory for the password-auth Jupyter server.
+
+    Tests write their own scratch notebooks here instead of into the repo's
+    ``./dev/content`` (which holds notebooks that ship with the repo).
+    """
+    return tmp_path_factory.mktemp("jupyter_password_content")
+
+
+@pytest.fixture(scope="session")
+def jupyter_server_password(jupyter_password_root_dir):
+    """Start a Jupyter server with both a password and a token configured.
+
+    The password is set via ``jupyter server password`` hashing. A token is also
+    configured on purpose: token and password are independent mechanisms, so this
+    verifies the MCP server authenticates via password (the only credential it is
+    given) even when the server still accepts a token — the real-world scenario,
+    and it avoids leaving the server with no authentication at all.
+    """
+    if not TEST_MCP_SERVER:
+        pytest.skip("TEST_MCP_SERVER is disabled — password e2e tests only run in MCP_SERVER mode")
+
+    from jupyter_server.auth import passwd
+    password_hash = passwd(JUPYTER_PASSWORD)
+
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="JupyterLab (password)",
+        host=host,
+        port=port,
+        command=[
+            "jupyter", "lab",
+            "--port", str(port),
+            "--IdentityProvider.token", JUPYTER_TOKEN,
+            "--ServerApp.password", password_hash,
+            "--ip", host,
+            "--ServerApp.root_dir", str(jupyter_password_root_dir),
+            "--no-browser",
+        ],
+        readiness_endpoint="/login",
+        max_retries=10,
+    )
+
+
+@pytest.fixture(scope="function")
+def password_notebook(jupyter_password_root_dir):
+    """Create a uniquely-named empty notebook in the password server's root dir.
+
+    Yields the notebook filename (relative to the server root). A unique name per
+    test avoids cross-test collisions on a shared hardcoded notebook path.
+    """
+    notebook_name = f"password_test_{uuid.uuid4().hex[:8]}.ipynb"
+    notebook_path = jupyter_password_root_dir / notebook_name
+    nbformat.write(nbformat.v4.new_notebook(), str(notebook_path))
+    yield notebook_name
+    notebook_path.unlink(missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def jupyter_mcp_server_password(jupyter_server_password, password_notebook):
+    """Start a standalone MCP server that authenticates to Jupyter via password."""
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="Jupyter MCP (password)",
+        host=host,
+        port=port,
+        command=[
+            "python", "-m", "jupyter_mcp_server",
+            "--transport", "streamable-http",
+            "--document-url", jupyter_server_password,
+            "--document-id", password_notebook,
+            "--runtime-url", jupyter_server_password,
+            "--start-new-runtime", "True",
+            "--jupyter-password", JUPYTER_PASSWORD,
+            "--insecure-mcp-noauth",
+            "--port", str(port),
+        ],
+        readiness_endpoint="/api/healthz",
+    )
+
+
+@pytest.fixture(scope="function")
+def mcp_client_password(jupyter_mcp_server_password):
+    """MCPClient connected to the password-auth MCP server (no Bearer token needed)."""
+    from .test_common import MCPClient
+    return MCPClient(jupyter_mcp_server_password, token=None)
+
+
+###############################################################################
+# Short-cookie fixtures (session-expiry / re-login tests)
+###############################################################################
+
+_COOKIE_TTL_SECONDS = 2
+
+
+@pytest.fixture(scope="session")
+def jupyter_short_cookie_root_dir(tmp_path_factory):
+    """Isolated root directory for the short-cookie Jupyter server."""
+    return tmp_path_factory.mktemp("jupyter_short_cookie_content")
+
+
+@pytest.fixture(scope="session")
+def jupyter_server_short_cookie(jupyter_short_cookie_root_dir, tmp_path_factory):
+    """Jupyter server whose session cookie expires after a few seconds.
+
+    Writes a ``jupyter_server_config.py`` that sets
+    ``IdentityProvider.cookie_options = {"expires_days": N}`` where N is a
+    tiny fraction of a day, then passes ``JUPYTER_CONFIG_DIR`` so Jupyter
+    picks it up.  Used to exercise the re-login path without waiting 30 days.
+    """
+    if not TEST_MCP_SERVER:
+        pytest.skip("TEST_MCP_SERVER is disabled")
+
+    config_dir = tmp_path_factory.mktemp("jupyter_short_cookie_config")
+
+    expires_days = _COOKIE_TTL_SECONDS / (24 * 60 * 60)
+    config_py = config_dir / "jupyter_server_config.py"
+    config_py.write_text(
+        f"c.IdentityProvider.cookie_options = {{'expires_days': {expires_days}}}\n"
+    )
+
+    from jupyter_server.auth import passwd
+    password_hash = passwd(JUPYTER_PASSWORD)
+
+    host = "localhost"
+    port = _find_free_port()
+    yield from _start_server(
+        name="JupyterLab (short-cookie)",
+        host=host,
+        port=port,
+        command=[
+            "jupyter", "lab",
+            "--port", str(port),
+            "--IdentityProvider.token", JUPYTER_TOKEN,
+            "--ServerApp.password", password_hash,
+            "--ip", host,
+            "--ServerApp.root_dir", str(jupyter_short_cookie_root_dir),
+            "--no-browser",
+        ],
+        readiness_endpoint="/login",
+        max_retries=10,
+        extra_env={"JUPYTER_CONFIG_DIR": str(config_dir)},
+    )
