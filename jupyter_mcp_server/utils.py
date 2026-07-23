@@ -1347,7 +1347,7 @@ def _get_kernel_spec_name(config, logger) -> str:
         if not extracted:
             return default_spec
             
-        extracted_name, _ = extracted
+        extracted_name = extracted['name']
         specs = server_client.kernelspecs.list_kernelspecs()
         specs_dict = getattr(specs, 'kernelspecs', {}) or {}
         

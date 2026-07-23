@@ -260,7 +260,7 @@ class ExecuteCodeTool(BaseTool):
                         mode, notebook_path, contents_manager, server_client
                     )
                     if extracted and kernel_spec_manager:
-                        extracted_name, _ = extracted
+                        extracted_name = extracted['name']
                         spec_exists = extracted_name in kernel_spec_manager.find_kernel_specs()
                         if spec_exists:
                             target_kernel_name = extracted_name

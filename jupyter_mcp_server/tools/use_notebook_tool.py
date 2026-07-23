@@ -212,7 +212,8 @@ class UseNotebookTool(BaseTool):
                     mode, notebook_path, contents_manager, server_client
                 )
                 if extracted:
-                    extracted_name, extracted_display_name = extracted
+                    extracted_name = extracted['name']
+                    extracted_display_name = extracted['display_name']
                     # Optional: Verify spec exists in system if spec manager / client available
                     spec_exists = False
                     if mode == ServerMode.JUPYTER_SERVER and kernel_spec_manager:
