@@ -15,7 +15,11 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
-from jupyter_mcp_server.utils import track_pending_execution
+from jupyter_mcp_server.utils import (
+    emit_execution_progress,
+    settle_timed_out_execution,
+    track_pending_execution,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +101,8 @@ class ExecuteCodeTool(BaseTool):
         safe_extract_outputs_fn,
         kernel_id: str = None,
         server_client=None,
+        progress_callback=None,
+        progress_interval: int = 5,
     ) -> list[str | ImageContent]:
         """Execute code using notebook_manager (MCP_SERVER mode - original logic).
 
@@ -141,6 +147,8 @@ class ExecuteCodeTool(BaseTool):
                 timeout=timeout,
                 wait_for_kernel_idle_fn=wait_for_kernel_idle_fn,
                 safe_extract_outputs_fn=safe_extract_outputs_fn,
+                progress_callback=progress_callback,
+                progress_interval=progress_interval,
             )
         finally:
             if borrowed_sandbox is not None:
@@ -157,6 +165,8 @@ class ExecuteCodeTool(BaseTool):
         timeout: int,
         wait_for_kernel_idle_fn,
         safe_extract_outputs_fn,
+        progress_callback=None,
+        progress_interval: int = 5,
     ) -> list[str | ImageContent]:
         """Run code on an already-resolved sandbox client (MCP_SERVER mode)."""
         # Wait for kernel to be idle before executing
@@ -173,44 +183,54 @@ class ExecuteCodeTool(BaseTool):
         )
 
         try:
-            # Execute code directly with kernel
             execution_task = asyncio.create_task(asyncio.to_thread(sandbox_client.execute, code))
             track_pending_execution(sandbox_client, execution_task)
 
-            # asyncio.wait_for() would also work for the happy path, but on
-            # timeout it cancels the task and then awaits it until asyncio
-            # settles it as done -- which happens immediately even though
-            # the underlying OS thread (started via to_thread) keeps running
-            # kernel.execute() in the background, since the wrapping Future
-            # can be marked cancelled without the thread actually stopping.
-            # That makes execution_task.done() report True right away,
-            # defeating track_pending_execution above. asyncio.wait() does
-            # not auto-cancel, so leaving the task un-awaited past cancel()
-            # below keeps it accurately pending until the real thread returns.
-            _, pending = await asyncio.wait({execution_task}, timeout=timeout)
+            start_time = asyncio.get_event_loop().time()
+            last_progress_emit = 0.0
 
-            if execution_task in pending:
-                execution_task.cancel()
-                try:
-                    if sandbox_client and hasattr(sandbox_client, "interrupt"):
-                        sandbox_client.interrupt()
-                        logger.info("Sent interrupt signal to kernel due to timeout")
-                except Exception as interrupt_err:
-                    logger.error(f"Failed to interrupt kernel: {interrupt_err}")
+            # Wait for execution with timeout, emitting MCP keepalive progress
+            # so clients do not idle-timeout on long-running cells.
+            while not execution_task.done():
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed > timeout:
+                    try:
+                        if sandbox_client and hasattr(sandbox_client, "interrupt"):
+                            sandbox_client.interrupt()
+                            logger.info("Sent interrupt signal to kernel due to timeout")
+                    except Exception as interrupt_err:
+                        logger.error(f"Failed to interrupt kernel: {interrupt_err}")
+                    # Do not cancel execution_task: see settle_timed_out_execution.
+                    await settle_timed_out_execution(execution_task)
+                    result = [
+                        f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"
+                    ]
+                    await hooks.fire(
+                        HookEvent.AFTER_EXECUTE,
+                        code=code,
+                        kernel_id=kid,
+                        metadata={},
+                        outputs=result,
+                        error=asyncio.TimeoutError(),
+                        context=hook_ctx,
+                    )
+                    return result
 
-                result = [
-                    f"[TIMEOUT ERROR: IPython execution exceeded {timeout} seconds and was interrupted]"
-                ]
-                await hooks.fire(
-                    HookEvent.AFTER_EXECUTE,
-                    code=code,
-                    kernel_id=kid,
-                    metadata={},
-                    outputs=result,
-                    error=asyncio.TimeoutError(),
-                    context=hook_ctx,
+                if (
+                    progress_interval > 0
+                    and elapsed > 0
+                    and (elapsed - last_progress_emit) >= progress_interval
+                ):
+                    last_progress_emit = elapsed
+                    await emit_execution_progress(
+                        progress_callback,
+                        elapsed=elapsed,
+                        timeout_seconds=timeout,
+                    )
+
+                await asyncio.sleep(
+                    min(1.0, max(0.05, progress_interval / 5 if progress_interval else 1.0))
                 )
-                return result
 
             outputs = execution_task.result()
 
@@ -260,6 +280,8 @@ class ExecuteCodeTool(BaseTool):
         ensure_kernel_alive_fn=None,
         wait_for_kernel_idle_fn=None,
         safe_extract_outputs_fn=None,
+        progress_callback=None,
+        progress_interval: int = 5,
         **kwargs,
     ) -> list[str | ImageContent]:
         """Execute IPython code directly in the kernel.
@@ -277,6 +299,8 @@ class ExecuteCodeTool(BaseTool):
             ensure_kernel_alive_fn: Function to ensure kernel is alive (for MCP_SERVER mode)
             wait_for_kernel_idle_fn: Function to wait for kernel idle state (for MCP_SERVER mode)
             safe_extract_outputs_fn: Function to safely extract outputs
+            progress_callback: Optional async callback for MCP progress/keepalive
+            progress_interval: Seconds between progress callback invocations
 
         Returns:
             List of outputs from the executed code
@@ -336,6 +360,8 @@ class ExecuteCodeTool(BaseTool):
                 safe_extract_outputs_fn=safe_extract_outputs_fn,
                 kernel_id=kernel_id,
                 server_client=server_client,
+                progress_callback=progress_callback,
+                progress_interval=progress_interval,
             )
 
         else:
