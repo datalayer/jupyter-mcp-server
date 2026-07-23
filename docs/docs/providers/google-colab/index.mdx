@@ -66,7 +66,6 @@ Select the Colab engine with `SANDBOX_VARIANT=colab`:
 
 ```bash
 SANDBOX_VARIANT=colab
-ENABLE_SANDBOXES=true
 RUNTIME_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
 RUNTIME_ID=c9bba548-3995-4f26-8e1a-7b8fbb10c578
 RUNTIME_PROXY_TOKEN=eyJhbGci....
@@ -77,7 +76,6 @@ Or via the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --enable-sandboxes \
   --sandbox-variant colab \
   --runtime-url "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev" \
   --runtime-id "c9bba548-3995-4f26-8e1a-7b8fbb10c578" \
@@ -113,7 +111,6 @@ Enable it with the `RUNTIME_USE_BROWSER_BRIDGE` environment variable:
 
 ```bash
 SANDBOX_VARIANT=colab
-ENABLE_SANDBOXES=true
 RUNTIME_USE_BROWSER_BRIDGE=true
 ```
 
@@ -122,7 +119,6 @@ Or on the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --enable-sandboxes \
   --sandbox-variant colab \
   --runtime-use-browser-bridge \
   --port 4040

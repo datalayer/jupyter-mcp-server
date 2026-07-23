@@ -33,7 +33,6 @@ Select the Monty engine with `SANDBOX_VARIANT=monty`:
 
 ```bash
 SANDBOX_VARIANT=monty
-ENABLE_SANDBOXES=true
 ```
 
 Or via the command line:
@@ -41,7 +40,6 @@ Or via the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --enable-sandboxes \
   --sandbox-variant monty \
   --port 4040
 ```
@@ -55,8 +53,7 @@ MCP client configuration:
       "command": "uvx",
       "args": ["jupyter-mcp-server@latest"],
       "env": {
-        "SANDBOX_VARIANT": "monty",
-        "ENABLE_SANDBOXES": "true"
+        "SANDBOX_VARIANT": "monty"
       }
     }
   }

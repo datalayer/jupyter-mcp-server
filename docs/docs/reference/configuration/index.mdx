@@ -96,7 +96,6 @@ For deployments requiring granular control over document storage and runtime exe
 | `OPEN_NOTEBOOK_IN_UI` | Open the notebook in the JupyterLab UI on `use_notebook`, activating its tab | `true` / `false` | `false` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
 | `SANDBOX_VARIANT` | Code sandbox variant (see [Sandbox Variants](#sandbox-variants)) | `jupyter` / `colab` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
-| `ENABLE_SANDBOXES` | Enable sandbox lifecycle tools and sandbox-backed execution routes | `true` / `false` | `false` |
 | `RUNTIME_PROXY_TOKEN` | Proxy token used by the `colab` sandbox variant (`colab-runtime-proxy-token`) | `ya29...` | `None` |
 | `RUNTIME_USE_BROWSER_BRIDGE` | For the `colab` engine, obtain the runtime connection details from an authenticated Colab browser session via `jupyter-kernel-client`'s browser bridge | `true` / `false` | `false` |
 | `SANDBOX_ENVIRONMENT` | Environment name for cloud sandboxes (Datalayer/Modal) | `python-cpu-env` | `None` |
@@ -110,9 +109,10 @@ other value routes execution through the
 `SandboxKernel` adapter, so the same notebook tools can run code on additional
 backends.
 
-Sandbox functionality is opt-in. To expose sandbox lifecycle tools and use any
-non-`jupyter` sandbox variant, set `ENABLE_SANDBOXES=true` (or start with
-`--enable-sandboxes`).
+Sandbox functionality is provided by the optional
+[`jupyter_mcp_sandboxes`](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/sandboxes)
+extension. Install it (`pip install jupyter_mcp_sandboxes`) to expose the sandbox
+lifecycle tools and use any non-`jupyter` sandbox variant.
 
 | Variant | Description | Extra install | Key variables |
 |--------|-------------|---------------|---------------|
@@ -128,7 +128,6 @@ non-`jupyter` sandbox variant, set `ENABLE_SANDBOXES=true` (or start with
 
 ```bash
 SANDBOX_VARIANT=colab
-ENABLE_SANDBOXES=true
 RUNTIME_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
 RUNTIME_ID=a1b2c3d4-....
 RUNTIME_PROXY_TOKEN=ya29....
@@ -138,14 +137,12 @@ RUNTIME_PROXY_TOKEN=ya29....
 
 ```bash
 SANDBOX_VARIANT=monty
-ENABLE_SANDBOXES=true
 ```
 
 ### Example: Modal engine
 
 ```bash
 SANDBOX_VARIANT=modal
-ENABLE_SANDBOXES=true
 # Modal credentials via `modal token new` or MODAL_TOKEN_ID / MODAL_TOKEN_SECRET
 ```
 
@@ -223,8 +220,6 @@ Options:
                                       Maximum timeout in seconds a tool call may request (default: 3600)
   --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
   --sandbox-variant TEXT             Code sandbox variant: jupyter (default), colab, monty, modal, docker, eval, datalayer
-  --enable-sandboxes / --disable-sandboxes
-                                      Enable sandbox lifecycle tools and sandbox-backed execution routes (default: disabled)
   --runtime-proxy-token TEXT          Proxy token for the colab sandbox variant (default: None)
   --sandbox-environment TEXT          Environment name for cloud sandboxes (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)

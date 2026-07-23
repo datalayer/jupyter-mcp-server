@@ -40,14 +40,6 @@ class JupyterMCPConfig(BaseModel):
             "'datalayer') routes execution through the code-sandboxes package."
         ),
     )
-    enable_sandboxes: bool = Field(
-        default=False,
-        description=(
-            "Enable sandbox lifecycle tools and sandbox-backed execution routes. "
-            "Must be set to true to expose launch/list/use/terminate sandbox tools "
-            "or to use a non-'jupyter' sandbox variant."
-        ),
-    )
     runtime_proxy_token: str | None = Field(
         default=None,
         description="Proxy token for the Colab sandbox variant (colab-runtime-proxy-token).",
@@ -131,10 +123,6 @@ class JupyterMCPConfig(BaseModel):
         code-sandboxes package via a SandboxKernel adapter.
         """
         return (self.sandbox_variant or "jupyter").lower() != "jupyter"
-
-    def sandboxes_enabled(self) -> bool:
-        """Check if sandbox features are enabled."""
-        return bool(self.enable_sandboxes)
 
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""

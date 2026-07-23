@@ -90,10 +90,10 @@ For more details on each tool, their parameters, and return values, please refer
 | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                          |
 | `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                                    |
-| `launch_sandbox`     | Launch a sandbox runtime (eval/docker/jupyter/datalayer/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                      |
-| `list_sandboxes`     | List launched sandbox runtimes and their state (active flag, variant, status, and selected runtime options). Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                                                                                                                               |
-| `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                                                                                                     |
-| `terminate_sandbox`  | Stop and unregister a launched sandbox runtime. Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                                                                                                                                                                                              |
+| `launch_sandbox`     | Launch a sandbox runtime (eval/docker/jupyter/datalayer/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
+| `list_sandboxes`     | List launched sandbox runtimes and their state (active flag, variant, status, and selected runtime options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                               |
+| `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                     |
+| `terminate_sandbox`  | Stop and unregister a launched sandbox runtime. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                              |
 | `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.* [Read more](https://jupyter-mcp-server.datalayer.tech/reference/tools/#7-connect_to_jupyter) |
 
 #### Multi-Notebook Management Tools
@@ -298,10 +298,10 @@ routes execution through the [code-sandboxes](https://github.com/datalayer/code-
 package via a `SandboxKernel` adapter, so the same notebook tools can run code on
 additional backends.
 
-Sandbox features are opt-in. To expose sandbox lifecycle tools (`launch_sandbox`,
-`list_sandboxes`, `use_sandbox`, `terminate_sandbox`) or run any non-`jupyter`
-sandbox variant, start the server with `--enable-sandboxes` (or set
-`ENABLE_SANDBOXES=true`).
+Sandbox features are provided by the optional `jupyter_mcp_sandboxes` extension.
+To expose sandbox lifecycle tools (`launch_sandbox`, `list_sandboxes`,
+`use_sandbox`, `terminate_sandbox`) or run any non-`jupyter` sandbox variant,
+install it with `pip install jupyter_mcp_sandboxes`.
 
 | Engine                   | `SANDBOX_VARIANT` | Extra install                   | Key variables                                         |
 | ------------------------ | ------------------ | ------------------------------- | ----------------------------------------------------- |

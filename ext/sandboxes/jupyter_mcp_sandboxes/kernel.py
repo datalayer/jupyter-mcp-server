@@ -91,6 +91,53 @@ def _execution_result_to_reply(result: Any) -> dict[str, Any]:
     }
 
 
+def build_sandbox(config, logger):
+    """Build a code-sandboxes Sandbox for the configured sandbox variant.
+
+    Args:
+        config: The JupyterMCPConfig instance.
+        logger: Logger for diagnostics.
+
+    Returns:
+        A started-capable ``code_sandboxes.Sandbox`` instance (not yet started).
+    """
+    from code_sandboxes import Sandbox
+
+    engine = (config.sandbox_variant or "jupyter").lower()
+    timeout = float(getattr(config, "execution_timeout", 30) or 30)
+
+    if engine == "colab":
+        return Sandbox.create(
+            variant="colab",
+            timeout=timeout,
+            server_url=config.runtime_url,
+            kernel_id=config.runtime_id,
+            proxy_token=config.runtime_proxy_token,
+            use_browser_bridge=getattr(config, "runtime_use_browser_bridge", False),
+        )
+    if engine == "jupyter_sandbox":
+        return Sandbox.create(
+            variant="jupyter",
+            timeout=timeout,
+            server_url=config.runtime_url,
+            token=config.runtime_token,
+        )
+    if engine in ("monty", "modal", "eval", "docker", "datalayer"):
+        create_kwargs = {"variant": engine, "timeout": timeout}
+        if engine in ("modal", "datalayer") and getattr(config, "sandbox_gpu", None):
+            create_kwargs["gpu"] = config.sandbox_gpu
+        if engine == "datalayer":
+            if config.runtime_token:
+                create_kwargs["token"] = config.runtime_token
+            if config.runtime_url:
+                create_kwargs["run_url"] = config.runtime_url
+        if config.sandbox_environment:
+            create_kwargs["environment"] = config.sandbox_environment
+        return Sandbox.create(**create_kwargs)
+
+    raise ValueError(f"Unsupported sandbox variant: {config.sandbox_variant}")
+
+
 class SandboxKernel:
     """Expose a code-sandboxes ``Sandbox`` through the ``KernelClient`` API."""
 

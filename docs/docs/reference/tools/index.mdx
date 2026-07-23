@@ -1,6 +1,6 @@
 # Tools
 
-The server offers 18 tools by default, plus 4 sandbox tools when sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+The server offers 18 tools by default, plus 4 sandbox tools when the optional [`jupyter_mcp_sandboxes`](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/sandboxes) extension is installed.
 
 ## Server and Runtime Management (3 + 4 optional tools)
 
@@ -37,8 +37,8 @@ The server offers 18 tools by default, plus 4 sandbox tools when sandbox feature
 
 #### 3. `launch_sandbox`
 
-:::note Feature flag required
-This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
 :::
 
 - Launch a sandbox runtime that can be used as an alternative execution backend to Jupyter kernels.
@@ -59,8 +59,8 @@ This tool is hidden unless sandbox features are enabled with `--enable-sandboxes
 
 #### 4. `list_sandboxes`
 
-:::note Feature flag required
-This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
 :::
 
 - List all launched sandbox runtimes and their status.
@@ -69,8 +69,8 @@ This tool is hidden unless sandbox features are enabled with `--enable-sandboxes
 
 #### 5. `use_sandbox`
 
-:::note Feature flag required
-This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
 :::
 
 - Select which launched sandbox `execute_code` should use.
@@ -80,8 +80,8 @@ This tool is hidden unless sandbox features are enabled with `--enable-sandboxes
 
 #### 6. `terminate_sandbox`
 
-:::note Feature flag required
-This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
 :::
 
 - Terminate and unregister a launched sandbox runtime.
@@ -259,8 +259,8 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 `execute_code` can target a specific existing kernel (including raw kernels not attached to a notebook) by passing `kernel_id`, or can be routed through an active sandbox selected with `use_sandbox`.
 :::
 
-:::note Feature flag required for sandbox routing
-Sandbox routing in `execute_code` only applies when sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::note Extension required for sandbox routing
+Sandbox routing in `execute_code` only applies when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`) and a sandbox is active.
 :::
 
 #### 22. `clear_cell_output`

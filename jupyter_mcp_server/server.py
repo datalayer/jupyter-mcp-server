@@ -22,11 +22,11 @@ from starlette.responses import JSONResponse
 
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
+from jupyter_mcp_server.extensions import get_extension_manager
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentRuntime
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.sandbox_manager import SandboxRuntimeManager
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.tools import (
     ClearCellOutputTool,
@@ -39,12 +39,10 @@ from jupyter_mcp_server.tools import (
     ExecuteCodeTool,
     # Cell Writing
     InsertCellTool,
-    LaunchSandboxTool,
     # MCP Prompt
     JupyterCitePrompt,
     ListFilesTool,
     ListKernelsTool,
-    ListSandboxesTool,
     # Notebook Management
     ListNotebooksTool,
     MoveCellTool,
@@ -55,9 +53,7 @@ from jupyter_mcp_server.tools import (
     RestartNotebookTool,
     # Tool infrastructure
     ServerMode,
-    TerminateSandboxTool,
     UnuseNotebookTool,
-    UseSandboxTool,
     UseNotebookTool,
 )
 from jupyter_mcp_server.utils import (
@@ -88,21 +84,6 @@ class RuntimeTokenVerifier:
 MANAGEMENT_ROUTE_PATHS = {"/api/connect", "/api/stop", "/api/healthz"}
 AUTHENTICATED_MANAGEMENT_ROUTE_PATHS = {"/api/connect", "/api/stop"}
 LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
-SANDBOX_TOOL_NAMES = {
-    "launch_sandbox",
-    "list_sandboxes",
-    "use_sandbox",
-    "terminate_sandbox",
-}
-
-
-def _require_sandboxes_enabled(action: str) -> None:
-    config = get_config()
-    if not config.sandboxes_enabled():
-        raise RuntimeError(
-            f"{action} is disabled. Restart with --enable-sandboxes "
-            "(or set ENABLE_SANDBOXES=true)."
-        )
 
 
 def _is_local_hostname(hostname: str | None) -> bool:
@@ -168,13 +149,6 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
 
 
 class FastMCPWithCORS(FastMCP):
-    async def list_tools(self) -> list[Any]:
-        """List tools, filtering sandbox tools unless the feature flag is enabled."""
-        tools = await super().list_tools()
-        if get_config().sandboxes_enabled():
-            return tools
-        return [tool for tool in tools if tool.name not in SANDBOX_TOOL_NAMES]
-
     def streamable_http_app(self) -> Starlette:
         """Return StreamableHTTP server app with CORS and auth middleware.
 
@@ -213,8 +187,8 @@ class FastMCPWithCORS(FastMCP):
 
 mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
 notebook_manager = NotebookManager()
-sandbox_runtime_manager = SandboxRuntimeManager()
 server_context = ServerContext.get_instance()
+extension_manager = get_extension_manager()
 
 
 def __start_kernel():
@@ -303,7 +277,7 @@ async def stop(request: Request):
         current_notebook = notebook_manager.get_current_notebook() or "default"
         if current_notebook in notebook_manager:
             notebook_manager.remove_notebook(current_notebook)
-        sandbox_runtime_manager.terminate_all()
+        extension_manager.stop()
         return JSONResponse({"success": True})
     except Exception as e:
         logger.error(f"Error stopping notebook: {e}")
@@ -415,148 +389,6 @@ async def list_kernels() -> (
             server_client=server_context.server_client,
             kernel_manager=server_context.kernel_manager,
             kernel_spec_manager=server_context.kernel_spec_manager,
-        )
-    )
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Launch Sandbox",
-        destructiveHint=True,
-    ),
-)
-@with_hooks("launch_sandbox")
-async def launch_sandbox(
-    sandbox_name: Annotated[
-        str, Field(description="Unique sandbox identifier used by list/use/terminate tools")
-    ],
-    variant: Annotated[
-        Literal["eval", "docker", "jupyter", "datalayer", "colab", "monty", "modal"],
-        Field(description="Sandbox variant to launch"),
-    ] = "eval",
-    timeout: Annotated[
-        int, Field(description="Default execution timeout in seconds for this sandbox", ge=1)
-    ] = 60,
-    environment: Annotated[
-        str | None,
-        Field(description="Optional sandbox environment name (common for datalayer/modal variants)"),
-    ] = None,
-    gpu: Annotated[
-        str | None,
-        Field(
-            description="Optional GPU flavor for supported variants (for example modal/datalayer: T4, A10G, A100, H100)."
-        ),
-    ] = None,
-    server_url: Annotated[str | None, Field(description="Colab runtime URL when using colab variant")] = None,
-    kernel_id: Annotated[str | None, Field(description="Colab kernel ID when using colab variant")] = None,
-    proxy_token: Annotated[
-        str | None,
-        Field(description="Colab runtime proxy token when using colab variant"),
-    ] = None,
-    use_browser_bridge: Annotated[
-        bool,
-        Field(description="For colab variant, derive runtime details from an authenticated browser session"),
-    ] = False,
-    token: Annotated[str | None, Field(description="Datalayer API token override")]=None,
-    run_url: Annotated[str | None, Field(description="Datalayer run URL override")]=None,
-    python_version: Annotated[
-        str | None,
-        Field(description="Modal Python version override (e.g. 3.12). Only used for modal variant."),
-    ] = None,
-) -> Annotated[dict, Field(description="Launch status and sandbox metadata")]:
-    """Launch a code-sandboxes runtime that can be used instead of Jupyter kernels.
-
-    After launch, call use_sandbox to make execute_code run on this sandbox
-    (as an alternative to notebook-bound kernel execution). Works in both
-    MCP_SERVER and JUPYTER_SERVER modes.
-    """
-    _require_sandboxes_enabled("launch_sandbox")
-    return await safe_notebook_operation(
-        lambda: LaunchSandboxTool().execute(
-            mode=server_context.mode,
-            sandbox_runtime_manager=sandbox_runtime_manager,
-            sandbox_name=sandbox_name,
-            variant=variant,
-            timeout=timeout,
-            environment=environment,
-            gpu=gpu,
-            server_url=server_url,
-            kernel_id=kernel_id,
-            proxy_token=proxy_token,
-            use_browser_bridge=use_browser_bridge,
-            token=token,
-            run_url=run_url,
-            python_version=python_version,
-        )
-    )
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="List Sandboxes",
-        readOnlyHint=True,
-    ),
-)
-@with_hooks("list_sandboxes")
-async def list_sandboxes() -> Annotated[
-    list[dict],
-    Field(description="All launched sandboxes with name, variant, status, and active flag"),
-]:
-    """List launched sandbox runtimes that can be used as alternatives to kernels."""
-    _require_sandboxes_enabled("list_sandboxes")
-    return await safe_notebook_operation(
-        lambda: ListSandboxesTool().execute(
-            mode=server_context.mode,
-            sandbox_runtime_manager=sandbox_runtime_manager,
-        )
-    )
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Use Sandbox",
-        destructiveHint=True,
-    ),
-)
-@with_hooks("use_sandbox")
-async def use_sandbox(
-    sandbox_name: Annotated[
-        str | None,
-        Field(
-            description=(
-                "Sandbox name to activate for execute_code. Pass null/empty to disable sandbox routing and return to Jupyter kernels."
-            )
-        ),
-    ] = None,
-) -> Annotated[str, Field(description="Sandbox routing status")]:
-    """Select which launched sandbox execute_code should use instead of kernels."""
-    _require_sandboxes_enabled("use_sandbox")
-    return await safe_notebook_operation(
-        lambda: UseSandboxTool().execute(
-            mode=server_context.mode,
-            sandbox_runtime_manager=sandbox_runtime_manager,
-            sandbox_name=sandbox_name,
-        )
-    )
-
-
-@mcp.tool(
-    annotations=ToolAnnotations(
-        title="Terminate Sandbox",
-        destructiveHint=True,
-    ),
-)
-@with_hooks("terminate_sandbox")
-async def terminate_sandbox(
-    sandbox_name: Annotated[str, Field(description="Sandbox name to terminate and unregister")],
-) -> Annotated[str, Field(description="Termination status message")]:
-    """Terminate a launched sandbox runtime."""
-    _require_sandboxes_enabled("terminate_sandbox")
-    return await safe_notebook_operation(
-        lambda: TerminateSandboxTool().execute(
-            mode=server_context.mode,
-            sandbox_runtime_manager=sandbox_runtime_manager,
-            sandbox_name=sandbox_name,
         )
     )
 
@@ -1126,20 +958,9 @@ async def execute_code(
         config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
     )
 
-    active_sandbox_name = sandbox_runtime_manager.get_active_name()
-    if active_sandbox_name:
-        _require_sandboxes_enabled("Sandbox-routed execute_code")
-
-        async def _execute_in_active_sandbox() -> list[str | ImageContent]:
-            return sandbox_runtime_manager.execute_on_active(
-                code=code,
-                timeout=effective_timeout,
-            )
-
-        return await safe_notebook_operation(
-            _execute_in_active_sandbox,
-            max_retries=1,
-        )
+    intercepted = await extension_manager.intercept_execute_code(code, effective_timeout)
+    if intercepted is not None:
+        return intercepted
 
     if kernel_id is None and server_context.mode == ServerMode.JUPYTER_SERVER:
         current_notebook = notebook_manager.get_current_notebook() or "default"
@@ -1445,3 +1266,13 @@ async def get_registered_tools():
         tools.append(tool_dict)
 
     return tools
+
+
+###############################################################################
+# Extension registration.
+
+# Discover installed extensions (for example jupyter_mcp_sandboxes) and let
+# them contribute their MCP tools to the server. Extensions are resolved via
+# the "jupyter_mcp_server.extensions" entry-point group and coordinated through
+# the datalayer_reactor plugin platform.
+extension_manager.register_tools(mcp)

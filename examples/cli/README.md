@@ -77,8 +77,8 @@ This will:
 1. Launch the pydantic-ai interactive CLI
 
 If you choose `none` (or press Enter), code execution uses standard Jupyter kernels.
-If you choose a concrete sandbox backend, the Makefile starts the server with
-`--enable-sandboxes` automatically.
+If you choose a concrete sandbox backend, make sure the `jupyter_mcp_sandboxes`
+extension is installed (`pip install jupyter_mcp_sandboxes`).
 
 Press `Ctrl+C` to stop the CLI and both background servers.
 

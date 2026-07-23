@@ -47,7 +47,6 @@ def _resolve_and_start(
     execution_timeout: int,
     max_execution_timeout: int,
     sandbox_variant: str = "jupyter",
-    enable_sandboxes: bool = False,
     runtime_proxy_token: str | None = None,
     runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
@@ -88,7 +87,6 @@ def _resolve_and_start(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
@@ -277,14 +275,6 @@ def server_callback(
             help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
-    enable_sandboxes: Annotated[
-        bool,
-        typer.Option(
-            "--enable-sandboxes/--disable-sandboxes",
-            envvar="ENABLE_SANDBOXES",
-            help="Enable sandbox lifecycle tools and sandbox-backed execution routes.",
-        ),
-    ] = False,
     runtime_proxy_token: Annotated[
         str | None,
         typer.Option(
@@ -345,7 +335,6 @@ def server_callback(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
@@ -533,14 +522,6 @@ def start_command(
             help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
-    enable_sandboxes: Annotated[
-        bool,
-        typer.Option(
-            "--enable-sandboxes/--disable-sandboxes",
-            envvar="ENABLE_SANDBOXES",
-            help="Enable sandbox lifecycle tools and sandbox-backed execution routes.",
-        ),
-    ] = False,
     runtime_proxy_token: Annotated[
         str | None,
         typer.Option(
@@ -598,7 +579,6 @@ def start_command(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,

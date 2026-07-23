@@ -54,7 +54,6 @@ start:
 	@set -euo pipefail; \
 	VARIANT=""; \
 	VARIANT_LABEL=""; \
-	SANDBOX_FLAG=""; \
 	JUPYTER_PID=""; \
 	MCP_PID=""; \
 	cleanup() { \
@@ -83,15 +82,12 @@ start:
 	if [[ "$$VARIANT" == "none" ]]; then \
 		ENGINE="jupyter"; \
 		VARIANT_LABEL="none (Jupyter kernels)"; \
-		SANDBOX_FLAG=""; \
 	elif [[ "$$VARIANT" == "jupyterhub" ]]; then \
 		ENGINE="jupyter"; \
 		VARIANT_LABEL="jupyterhub (Jupyter kernels)"; \
-		SANDBOX_FLAG="--enable-sandboxes"; \
 	else \
 		ENGINE="$$VARIANT"; \
 		VARIANT_LABEL="$$VARIANT"; \
-		SANDBOX_FLAG="--enable-sandboxes"; \
 	fi; \
 	check_variant_requirements() { \
 		case "$$VARIANT" in \
@@ -145,7 +141,6 @@ start:
 	jupyter-mcp-server start \
 		--transport streamable-http \
 		--sandbox-variant "$$ENGINE" \
-		$$SANDBOX_FLAG \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \
@@ -172,7 +167,6 @@ start-noauth:
 	@set -euo pipefail; \
 	VARIANT=""; \
 	VARIANT_LABEL=""; \
-	SANDBOX_FLAG=""; \
 	JUPYTER_PID=""; \
 	MCP_PID=""; \
 	cleanup() { \
@@ -201,15 +195,12 @@ start-noauth:
 	if [[ "$$VARIANT" == "none" ]]; then \
 		ENGINE="jupyter"; \
 		VARIANT_LABEL="none (Jupyter kernels)"; \
-		SANDBOX_FLAG=""; \
 	elif [[ "$$VARIANT" == "jupyterhub" ]]; then \
 		ENGINE="jupyter"; \
 		VARIANT_LABEL="jupyterhub (Jupyter kernels)"; \
-		SANDBOX_FLAG="--enable-sandboxes"; \
 	else \
 		ENGINE="$$VARIANT"; \
 		VARIANT_LABEL="$$VARIANT"; \
-		SANDBOX_FLAG="--enable-sandboxes"; \
 	fi; \
 	check_variant_requirements() { \
 		case "$$VARIANT" in \
@@ -263,7 +254,6 @@ start-noauth:
 	jupyter-mcp-server start \
 		--transport streamable-http \
 		--sandbox-variant "$$ENGINE" \
-		$$SANDBOX_FLAG \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \

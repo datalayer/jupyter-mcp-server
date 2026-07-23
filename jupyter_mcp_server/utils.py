@@ -127,7 +127,6 @@ def do_start(
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
     sandbox_variant: str = "jupyter",
-    enable_sandboxes: bool = False,
     runtime_proxy_token: str | None = None,
     runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
@@ -175,18 +174,11 @@ def do_start(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )
-
-    if config.uses_sandbox_variant() and not config.sandboxes_enabled():
-        raise ValueError(
-            "Sandbox variant requested but sandbox features are disabled. "
-            "Start with --enable-sandboxes (or ENABLE_SANDBOXES=true)."
-        )
 
     ServerContext.reset()
 
@@ -467,88 +459,20 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def _build_sandbox(config, logger):
-    """Build a code-sandboxes Sandbox for the configured sandbox variant.
-
-    Args:
-        config: The JupyterMCPConfig instance.
-        logger: Logger for diagnostics.
-
-    Returns:
-        A started-capable ``code_sandboxes.Sandbox`` instance (not yet started).
-    """
-    from code_sandboxes import Sandbox
-
-    engine = (config.sandbox_variant or "jupyter").lower()
-    timeout = float(getattr(config, "execution_timeout", 30) or 30)
-
-    if engine == "colab":
-        return Sandbox.create(
-            variant="colab",
-            timeout=timeout,
-            server_url=config.runtime_url,
-            kernel_id=config.runtime_id,
-            proxy_token=config.runtime_proxy_token,
-            use_browser_bridge=getattr(config, "runtime_use_browser_bridge", False),
-        )
-    if engine == "jupyter_sandbox":
-        return Sandbox.create(
-            variant="jupyter",
-            timeout=timeout,
-            server_url=config.runtime_url,
-            token=config.runtime_token,
-        )
-    if engine in ("monty", "modal", "eval", "docker", "datalayer"):
-        create_kwargs = {"variant": engine, "timeout": timeout}
-        if engine in ("modal", "datalayer") and getattr(config, "sandbox_gpu", None):
-            create_kwargs["gpu"] = config.sandbox_gpu
-        if engine == "datalayer":
-            if config.runtime_token:
-                create_kwargs["token"] = config.runtime_token
-            if config.runtime_url:
-                create_kwargs["run_url"] = config.runtime_url
-        if config.sandbox_environment:
-            create_kwargs["environment"] = config.sandbox_environment
-        return Sandbox.create(**create_kwargs)
-
-    raise ValueError(f"Unsupported sandbox variant: {config.sandbox_variant}")
-
-
 def create_kernel(config, logger):
     """Create a new kernel instance using current configuration.
 
     When ``config.sandbox_variant`` is 'jupyter' (the default) a
-    ``jupyter_kernel_client.KernelClient`` is created. For any other engine, a
-    :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` backed by the
-    code-sandboxes package is returned instead. Both expose the same interface
-    to the rest of the server.
+    ``jupyter_kernel_client.KernelClient`` is created. Installed extensions
+    (for example ``jupyter_mcp_sandboxes``) may provide an alternative kernel —
+    such as a sandbox-backed kernel — for non-'jupyter' variants. Both expose
+    the same interface to the rest of the server.
     """
-    if getattr(config, "uses_sandbox_variant", None) and config.uses_sandbox_variant():
-        if not getattr(config, "sandboxes_enabled", lambda: False)():
-            raise RuntimeError(
-                "Sandbox variant requested but sandbox features are disabled. "
-                "Start with --enable-sandboxes (or ENABLE_SANDBOXES=true)."
-            )
-        from jupyter_mcp_server.sandbox_kernel import SandboxKernel
+    from jupyter_mcp_server.extensions import get_extension_manager
 
-        kernel = None
-        try:
-            sandbox = _build_sandbox(config, logger)
-            kernel = SandboxKernel(sandbox, logger=logger)
-            kernel.start()
-            logger.info("Sandbox kernel created and started (variant=%s)", config.sandbox_variant)
-            return kernel
-        except Exception:
-            logger.exception(
-                "Failed to create sandbox kernel (variant=%s)",
-                config.sandbox_variant,
-            )
-            if kernel is not None:
-                try:
-                    kernel.stop()
-                except Exception:
-                    logger.debug("Error during sandbox cleanup", exc_info=True)
-            raise
+    extension_kernel = get_extension_manager().create_kernel(config, logger)
+    if extension_kernel is not None:
+        return extension_kernel
 
     from jupyter_kernel_client import KernelClient
 

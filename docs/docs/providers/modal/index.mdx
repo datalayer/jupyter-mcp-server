@@ -61,7 +61,6 @@ Select the Modal engine with `SANDBOX_VARIANT=modal`:
 
 ```bash
 SANDBOX_VARIANT=modal
-ENABLE_SANDBOXES=true
 MODAL_TOKEN_ID=ak-...
 MODAL_TOKEN_SECRET=as-...
 ```
@@ -71,7 +70,6 @@ Or via the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --enable-sandboxes \
   --sandbox-variant modal \
   --port 4040
 ```
@@ -86,7 +84,6 @@ MCP client configuration:
       "args": ["jupyter-mcp-server@latest"],
       "env": {
         "SANDBOX_VARIANT": "modal",
-        "ENABLE_SANDBOXES": "true",
         "MODAL_TOKEN_ID": "ak-...",
         "MODAL_TOKEN_SECRET": "as-..."
       }

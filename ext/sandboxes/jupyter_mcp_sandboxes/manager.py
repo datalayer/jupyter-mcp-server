@@ -13,8 +13,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from jupyter_mcp_server.sandbox_kernel import _execution_result_to_reply
 from jupyter_mcp_server.utils import safe_extract_outputs
+
+from jupyter_mcp_sandboxes.kernel import _execution_result_to_reply
 
 
 class SandboxRuntimeManager:

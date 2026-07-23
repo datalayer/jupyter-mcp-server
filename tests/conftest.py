@@ -194,7 +194,6 @@ def _jupyter_extension_command(host, port, otel_file=""):
         "--no-browser",
         "--ServerApp.jpserver_extensions",
         '{"jupyter_mcp_server": True}',
-        "--JupyterMCPServerExtensionApp.enable_sandboxes=True",
     ]
     if otel_file:
         cmd += ["--JupyterMCPServerExtensionApp.otel_file", otel_file]
@@ -221,7 +220,6 @@ def _mcp_server_command(jupyter_url, port, otel_file=""):
         "True",
         "--runtime-token",
         JUPYTER_TOKEN,
-        "--enable-sandboxes",
         # Below we use the same token for simplicity in tests.
         # The separation tested in test_mcp_token_rejects_runtime_token()
         "--mcp-token",
@@ -341,7 +339,6 @@ def jupyter_mcp_server(request, jupyter_server):
             str(start_new_runtime),
             "--runtime-token",
             JUPYTER_TOKEN,
-            "--enable-sandboxes",
             # Below we use the same token for simplicity in tests.
             # The separation tested in test_mcp_token_rejects_runtime_token()
             "--mcp-token",
