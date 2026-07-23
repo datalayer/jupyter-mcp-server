@@ -47,9 +47,11 @@ def _resolve_and_start(
     execution_timeout: int,
     max_execution_timeout: int,
     execution_engine: str = "jupyter",
+    enable_sandboxes: bool = False,
     runtime_proxy_token: str | None = None,
     runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
+    sandbox_gpu: str | None = None,
 ) -> None:
     (
         resolved_document_url,
@@ -86,9 +88,11 @@ def _resolve_and_start(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         execution_engine=execution_engine,
+        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
+        sandbox_gpu=sandbox_gpu,
     )
 
 
@@ -273,6 +277,14 @@ def server_callback(
             help="Code execution engine. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
+    enable_sandboxes: Annotated[
+        bool,
+        typer.Option(
+            "--enable-sandboxes/--disable-sandboxes",
+            envvar="ENABLE_SANDBOXES",
+            help="Enable sandbox lifecycle tools and sandbox-backed execution routes.",
+        ),
+    ] = False,
     runtime_proxy_token: Annotated[
         str | None,
         typer.Option(
@@ -287,6 +299,14 @@ def server_callback(
             "--sandbox-environment",
             envvar="SANDBOX_ENVIRONMENT",
             help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
+        ),
+    ] = None,
+    sandbox_gpu: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-gpu",
+            envvar="SANDBOX_GPU",
+            help="GPU flavor for sandbox engines that support it (e.g. Modal/Datalayer: T4, A10G, A100, H100).",
         ),
     ] = None,
     runtime_use_browser_bridge: Annotated[
@@ -325,9 +345,11 @@ def server_callback(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         execution_engine=execution_engine,
+        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
+        sandbox_gpu=sandbox_gpu,
     )
 
 
@@ -511,6 +533,14 @@ def start_command(
             help="Code execution engine. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
+    enable_sandboxes: Annotated[
+        bool,
+        typer.Option(
+            "--enable-sandboxes/--disable-sandboxes",
+            envvar="ENABLE_SANDBOXES",
+            help="Enable sandbox lifecycle tools and sandbox-backed execution routes.",
+        ),
+    ] = False,
     runtime_proxy_token: Annotated[
         str | None,
         typer.Option(
@@ -525,6 +555,14 @@ def start_command(
             "--sandbox-environment",
             envvar="SANDBOX_ENVIRONMENT",
             help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
+        ),
+    ] = None,
+    sandbox_gpu: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-gpu",
+            envvar="SANDBOX_GPU",
+            help="GPU flavor for sandbox engines that support it (e.g. Modal/Datalayer: T4, A10G, A100, H100).",
         ),
     ] = None,
     runtime_use_browser_bridge: Annotated[
@@ -560,7 +598,9 @@ def start_command(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         execution_engine=execution_engine,
+        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
+        sandbox_gpu=sandbox_gpu,
     )

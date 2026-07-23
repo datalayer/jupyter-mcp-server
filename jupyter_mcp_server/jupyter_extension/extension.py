@@ -91,6 +91,11 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config=True,
         help="Comma-separated list of jupyter-mcp-tools to enable",
     )
+    enable_sandboxes = Bool(
+        False,
+        config=True,
+        help="Enable sandbox lifecycle tools and sandbox-backed execution routes.",
+    )
 
     otel_file = Unicode(
         "",
@@ -122,6 +127,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         logger.info(f"  Start New Runtime: {self.start_new_runtime}")
         logger.info(f"  JupyterLab Mode: {self.jupyterlab}")
         logger.info(f"  Open Notebook in UI: {self.open_notebook_in_ui}")
+        logger.info(f"  Enable Sandboxes: {self.enable_sandboxes}")
         if self.runtime_id:
             logger.info(f"  Runtime ID: {self.runtime_id}")
 
@@ -150,6 +156,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config.jupyterlab = self.jupyterlab
         config.open_notebook_in_ui = self.open_notebook_in_ui
         config.allowed_jupyter_mcp_tools = self.allowed_jupyter_mcp_tools
+        config.enable_sandboxes = self.enable_sandboxes
 
         # Store configuration in settings for handlers
         self.settings.update(
@@ -165,6 +172,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
                 "mcp_jupyterlab": self.jupyterlab,
                 "mcp_open_notebook_in_ui": self.open_notebook_in_ui,
                 "mcp_allowed_jupyter_mcp_tools": self.allowed_jupyter_mcp_tools,
+                "mcp_enable_sandboxes": self.enable_sandboxes,
                 "mcp_serverapp": self.serverapp,
             }
         )

@@ -84,13 +84,17 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows.
 For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
 
-#### Server Management Tools
+#### Server and Runtime Management Tools
 
 | Name                 | Description                                                                                                                                                                                                                                                                                              |
 | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                          |
 | `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                                    |
-| `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.* [Read more](https://jupyter-mcp-server.datalayer.tech/reference/tools/#3-connect_to_jupyter) |
+| `launch_sandbox`     | Launch a sandbox runtime (eval/docker/jupyter/datalayer/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                      |
+| `list_sandboxes`     | List launched sandbox runtimes and their state (active flag, variant, status, and selected runtime options). Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                                                                                                                               |
+| `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                                                                                                     |
+| `terminate_sandbox`  | Stop and unregister a launched sandbox runtime. Requires `--enable-sandboxes` / `ENABLE_SANDBOXES=true`.                                                                                                                                                                                              |
+| `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.* [Read more](https://jupyter-mcp-server.datalayer.tech/reference/tools/#7-connect_to_jupyter) |
 
 #### Multi-Notebook Management Tools
 
@@ -115,7 +119,7 @@ For more details on each tool, their parameters, and return values, please refer
 | `edit_cell_source`         | Apply surgical find-and-replace edits to a cell's source without full rewrite.   |
 | `execute_cell`             | Execute a cell with timeout, supports multimodal output including images.        |
 | `insert_execute_code_cell` | Insert a new code cell and execute it in one step.                               |
-| `execute_code`             | Execute code directly in the kernel, supports magic commands and shell commands. |
+| `execute_code`             | Execute code directly in the active backend (kernel by default, or active sandbox if selected), supports magic commands and shell commands. |
 
 #### JupyterLab Integration
 
@@ -293,6 +297,11 @@ Server (`EXECUTION_ENGINE=jupyter`). Setting `EXECUTION_ENGINE` to any other val
 routes execution through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
 package via a `SandboxKernel` adapter, so the same notebook tools can run code on
 additional backends.
+
+Sandbox features are opt-in. To expose sandbox lifecycle tools (`launch_sandbox`,
+`list_sandboxes`, `use_sandbox`, `terminate_sandbox`) or run any non-`jupyter`
+execution engine, start the server with `--enable-sandboxes` (or set
+`ENABLE_SANDBOXES=true`).
 
 | Engine                   | `EXECUTION_ENGINE` | Extra install                   | Key variables                                         |
 | ------------------------ | ------------------ | ------------------------------- | ----------------------------------------------------- |

@@ -98,6 +98,23 @@ def test_build_sandbox_datalayer_forwards_token_and_run_url():
         assert kwargs["environment"] == "ai-agents-env"
 
 
+    def test_build_sandbox_modal_forwards_gpu_flavor():
+        """Modal engine forwards SANDBOX_GPU to code-sandboxes."""
+        config = JupyterMCPConfig(
+            execution_engine="modal",
+            sandbox_gpu="A100",
+        )
+
+        with patch("code_sandboxes.Sandbox.create") as mock_create:
+            mock_create.return_value = MagicMock()
+
+            _build_sandbox(config, MagicMock())
+
+            kwargs = mock_create.call_args.kwargs
+            assert kwargs["variant"] == "modal"
+            assert kwargs["gpu"] == "A100"
+
+
 def test_create_kernel_uses_sandbox_kernel_for_sandbox_engines():
     """Non-jupyter execution engines must use SandboxKernel wrapper."""
     config = JupyterMCPConfig(execution_engine="datalayer", runtime_url="http://localhost:8888")

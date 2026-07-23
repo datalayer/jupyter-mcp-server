@@ -127,9 +127,11 @@ def do_start(
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
     execution_engine: str = "jupyter",
+    enable_sandboxes: bool = False,
     runtime_proxy_token: str | None = None,
     runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
+    sandbox_gpu: str | None = None,
 ):
     """Shared startup routine used by Typer CLI surfaces."""
 
@@ -173,10 +175,18 @@ def do_start(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         execution_engine=execution_engine,
+        enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
+        sandbox_gpu=sandbox_gpu,
     )
+
+    if config.uses_sandbox_engine() and not config.sandboxes_enabled():
+        raise ValueError(
+            "Sandbox execution engine requested but sandbox features are disabled. "
+            "Start with --enable-sandboxes (or ENABLE_SANDBOXES=true)."
+        )
 
     ServerContext.reset()
 
@@ -490,6 +500,8 @@ def _build_sandbox(config, logger):
         )
     if engine in ("monty", "modal", "eval", "docker", "datalayer"):
         create_kwargs = {"variant": engine, "timeout": timeout}
+        if engine in ("modal", "datalayer") and getattr(config, "sandbox_gpu", None):
+            create_kwargs["gpu"] = config.sandbox_gpu
         if engine == "datalayer":
             if config.runtime_token:
                 create_kwargs["token"] = config.runtime_token
@@ -512,6 +524,11 @@ def create_kernel(config, logger):
     to the rest of the server.
     """
     if getattr(config, "uses_sandbox_engine", None) and config.uses_sandbox_engine():
+        if not getattr(config, "sandboxes_enabled", lambda: False)():
+            raise RuntimeError(
+                "Sandbox execution engine requested but sandbox features are disabled. "
+                "Start with --enable-sandboxes (or ENABLE_SANDBOXES=true)."
+            )
         from jupyter_mcp_server.sandbox_kernel import SandboxKernel
 
         kernel = None

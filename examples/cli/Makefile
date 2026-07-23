@@ -53,6 +53,8 @@ install:
 start:
 	@set -euo pipefail; \
 	VARIANT=""; \
+	VARIANT_LABEL=""; \
+	SANDBOX_FLAG=""; \
 	JUPYTER_PID=""; \
 	MCP_PID=""; \
 	cleanup() { \
@@ -66,25 +68,35 @@ start:
 	if [[ -z "$$VARIANT" ]]; then \
 		if [[ -t 0 ]]; then \
 			echo ""; \
-			echo "Choose sandbox variant:"; \
-			echo "  jupyter (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
-			read -r -p "Variant [jupyter]: " VARIANT; \
+			echo "Choose optional sandbox variant:"; \
+			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
+			read -r -p "Variant [none]: " VARIANT; \
 		else \
-			VARIANT="jupyter"; \
+			VARIANT="none"; \
 		fi; \
 	fi; \
-	VARIANT="$${VARIANT:-jupyter}"; \
+	VARIANT="$${VARIANT:-none}"; \
 	case "$$VARIANT" in \
-		jupyter|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
-	if [[ "$$VARIANT" == "jupyterhub" ]]; then \
+	if [[ "$$VARIANT" == "none" ]]; then \
 		ENGINE="jupyter"; \
+		VARIANT_LABEL="none (Jupyter kernels)"; \
+		SANDBOX_FLAG=""; \
+	elif [[ "$$VARIANT" == "jupyterhub" ]]; then \
+		ENGINE="jupyter"; \
+		VARIANT_LABEL="jupyterhub (Jupyter kernels)"; \
+		SANDBOX_FLAG="--enable-sandboxes"; \
 	else \
 		ENGINE="$$VARIANT"; \
+		VARIANT_LABEL="$$VARIANT"; \
+		SANDBOX_FLAG="--enable-sandboxes"; \
 	fi; \
 	check_variant_requirements() { \
 		case "$$VARIANT" in \
+			none) \
+				;; \
 			colab) \
 				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ]]; then \
 					echo "Colab requires RUNTIME_URL, RUNTIME_ID, and RUNTIME_PROXY_TOKEN."; \
@@ -117,7 +129,7 @@ start:
 			esac; \
 	}; \
 	check_variant_requirements; \
-	echo "Using sandbox variant: $$VARIANT (execution engine: $$ENGINE)"; \
+	echo "Using sandbox variant: $$VARIANT_LABEL (execution engine: $$ENGINE)"; \
 	echo "Starting JupyterLab at $(JUPYTER_URL)/lab ..."; \
 	jupyter lab \
 		--port $(JUPYTER_PORT) \
@@ -133,6 +145,7 @@ start:
 	jupyter-mcp-server start \
 		--transport streamable-http \
 		--execution-engine "$$ENGINE" \
+		$$SANDBOX_FLAG \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \
@@ -146,7 +159,7 @@ start:
 	echo ""; \
 	echo "JupyterLab: $(JUPYTER_URL)/lab?token=$(JUPYTER_TOKEN)"; \
 	echo "MCP endpoint: $(MCP_URL)"; \
-	echo "Sandbox variant: $$VARIANT"; \
+	echo "Sandbox variant: $$VARIANT_LABEL"; \
 	echo "Running pydantic-ai CLI with model: $(MODEL)"; \
 	echo ""; \
 	$(BEDROCK_ENV) \
@@ -158,6 +171,8 @@ start:
 start-noauth:
 	@set -euo pipefail; \
 	VARIANT=""; \
+	VARIANT_LABEL=""; \
+	SANDBOX_FLAG=""; \
 	JUPYTER_PID=""; \
 	MCP_PID=""; \
 	cleanup() { \
@@ -171,25 +186,35 @@ start-noauth:
 	if [[ -z "$$VARIANT" ]]; then \
 		if [[ -t 0 ]]; then \
 			echo ""; \
-			echo "Choose sandbox variant:"; \
-			echo "  jupyter (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
-			read -r -p "Variant [jupyter]: " VARIANT; \
+			echo "Choose optional sandbox variant:"; \
+			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
+			read -r -p "Variant [none]: " VARIANT; \
 		else \
-			VARIANT="jupyter"; \
+			VARIANT="none"; \
 		fi; \
 	fi; \
-	VARIANT="$${VARIANT:-jupyter}"; \
+	VARIANT="$${VARIANT:-none}"; \
 	case "$$VARIANT" in \
-		jupyter|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
-	if [[ "$$VARIANT" == "jupyterhub" ]]; then \
+	if [[ "$$VARIANT" == "none" ]]; then \
 		ENGINE="jupyter"; \
+		VARIANT_LABEL="none (Jupyter kernels)"; \
+		SANDBOX_FLAG=""; \
+	elif [[ "$$VARIANT" == "jupyterhub" ]]; then \
+		ENGINE="jupyter"; \
+		VARIANT_LABEL="jupyterhub (Jupyter kernels)"; \
+		SANDBOX_FLAG="--enable-sandboxes"; \
 	else \
 		ENGINE="$$VARIANT"; \
+		VARIANT_LABEL="$$VARIANT"; \
+		SANDBOX_FLAG="--enable-sandboxes"; \
 	fi; \
 	check_variant_requirements() { \
 		case "$$VARIANT" in \
+			none) \
+				;; \
 			colab) \
 				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ]]; then \
 					echo "Colab requires RUNTIME_URL, RUNTIME_ID, and RUNTIME_PROXY_TOKEN."; \
@@ -222,7 +247,7 @@ start-noauth:
 			esac; \
 	}; \
 	check_variant_requirements; \
-	echo "Using sandbox variant: $$VARIANT (execution engine: $$ENGINE)"; \
+	echo "Using sandbox variant: $$VARIANT_LABEL (execution engine: $$ENGINE)"; \
 	echo "Starting JupyterLab at $(JUPYTER_URL)/lab ..."; \
 	jupyter lab \
 		--port $(JUPYTER_PORT) \
@@ -238,6 +263,7 @@ start-noauth:
 	jupyter-mcp-server start \
 		--transport streamable-http \
 		--execution-engine "$$ENGINE" \
+		$$SANDBOX_FLAG \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \
@@ -252,7 +278,7 @@ start-noauth:
 	echo "WARNING: MCP endpoint auth is disabled (local dev only)."; \
 	echo "JupyterLab: $(JUPYTER_URL)/lab?token=$(JUPYTER_TOKEN)"; \
 	echo "MCP endpoint: $(MCP_URL)"; \
-	echo "Sandbox variant: $$VARIANT"; \
+	echo "Sandbox variant: $$VARIANT_LABEL"; \
 	echo "Running pydantic-ai CLI with model: $(MODEL)"; \
 	echo ""; \
 	$(BEDROCK_ENV) \

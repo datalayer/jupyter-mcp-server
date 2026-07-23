@@ -69,12 +69,14 @@ make start-noauth-agent
 
 This will:
 
-1. Ask which sandbox variant to use (`jupyter`, `jupyterhub`, `datalayer`, `colab`, `monty`, `modal`, `eval`, `docker`)
+1. Ask for an optional sandbox variant (`none`, `jupyterhub`, `datalayer`, `colab`, `monty`, `modal`, `eval`, `docker`)
 1. Start JupyterLab with token auth
 1. Wait until JupyterLab is ready
 1. Start Jupyter MCP Server with Streamable HTTP transport
 1. Wait for MCP health endpoint
 1. Launch the pydantic-ai interactive CLI
+
+If you choose `none` (or press Enter), code execution uses standard Jupyter kernels.
 
 Press `Ctrl+C` to stop the CLI and both background servers.
 
@@ -92,6 +94,12 @@ make start
 ```
 
 To skip the interactive prompt (useful for scripts/CI), set `SANDBOX_VARIANT`:
+
+```bash
+SANDBOX_VARIANT=none make start
+```
+
+Use a concrete sandbox backend when needed:
 
 ```bash
 SANDBOX_VARIANT=monty make start
@@ -118,7 +126,7 @@ Supported variables:
 - `JUPYTER_TOKEN` (default: `MY_TOKEN`)
 - `MCP_TOKEN` (default: `MY_MCP_TOKEN`)
 - `DOCUMENT_ID` (default: `notebook.ipynb`)
-- `SANDBOX_VARIANT` (optional; when unset, `make start` prompts and defaults to `jupyter`)
+- `SANDBOX_VARIANT` (optional; when unset, `make start` prompts and defaults to `none` = Jupyter kernels)
 - `RUNTIME_URL`, `RUNTIME_TOKEN`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` (required for some variants)
 - `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` (required for Modal unless `~/.modal.toml` exists)
 

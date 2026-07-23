@@ -45,6 +45,10 @@ JUPYTER_TOOLS = [
     # Server Management Tools
     "list_files",
     "list_kernels",
+    "launch_sandbox",
+    "list_sandboxes",
+    "terminate_sandbox",
+    "use_sandbox",
     "connect_to_jupyter",
 ]
 
@@ -411,6 +415,69 @@ class MCPClient:
         """List all available kernels"""
         result = await self._session.call_tool("list_kernels")  # type: ignore
         return self._extract_text_content(result)
+
+    @requires_session
+    async def launch_sandbox(
+        self,
+        sandbox_name: str,
+        variant: str = "eval",
+        timeout: int = 60,
+        environment: str | None = None,
+        gpu: str | None = None,
+        server_url: str | None = None,
+        kernel_id: str | None = None,
+        proxy_token: str | None = None,
+        use_browser_bridge: bool = False,
+        token: str | None = None,
+        run_url: str | None = None,
+        python_version: str | None = None,
+    ):
+        """Launch a sandbox runtime through MCP."""
+        arguments = {
+            "sandbox_name": sandbox_name,
+            "variant": variant,
+            "timeout": timeout,
+        }
+        if environment is not None:
+            arguments["environment"] = environment
+        if gpu is not None:
+            arguments["gpu"] = gpu
+        if server_url is not None:
+            arguments["server_url"] = server_url
+        if kernel_id is not None:
+            arguments["kernel_id"] = kernel_id
+        if proxy_token is not None:
+            arguments["proxy_token"] = proxy_token
+        if use_browser_bridge:
+            arguments["use_browser_bridge"] = True
+        if token is not None:
+            arguments["token"] = token
+        if run_url is not None:
+            arguments["run_url"] = run_url
+        if python_version is not None:
+            arguments["python_version"] = python_version
+
+        result = await self._call_tool_safe("launch_sandbox", arguments)
+        return self._get_structured_content_safe(result) if result else None
+
+    @requires_session
+    async def list_sandboxes(self):
+        """List launched sandboxes through MCP."""
+        result = await self._call_tool_safe("list_sandboxes")
+        return self._get_structured_content_safe(result) if result else None
+
+    @requires_session
+    async def use_sandbox(self, sandbox_name: str | None = None):
+        """Activate a sandbox for execute_code, or clear routing when None."""
+        arguments = {} if sandbox_name is None else {"sandbox_name": sandbox_name}
+        result = await self._call_tool_safe("use_sandbox", arguments)
+        return self._extract_text_content(result) if result else None
+
+    @requires_session
+    async def terminate_sandbox(self, sandbox_name: str):
+        """Terminate a launched sandbox through MCP."""
+        result = await self._call_tool_safe("terminate_sandbox", {"sandbox_name": sandbox_name})
+        return self._extract_text_content(result) if result else None
 
     @requires_session
     async def move_cell(self, source_index: int, target_index: int):

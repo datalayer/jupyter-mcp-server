@@ -20,6 +20,8 @@ $ pytest tests/test_server.py -v
 """
 
 import logging
+import json
+import uuid
 from http import HTTPStatus
 
 import pytest
@@ -592,6 +594,73 @@ async def test_execute_code(mcp_client_parametrized: MCPClient):
         # Test with very short timeout on a potentially long-running command
         result = await mcp_client_parametrized.execute_code("import time\ntime.sleep(5)", timeout=2)
         assert "TIMEOUT ERROR" in result["result"][0]
+
+
+@pytest.mark.asyncio
+@timeout_wrapper(60)
+async def test_sandbox_lifecycle_and_execute_code_routing(mcp_client_parametrized: MCPClient):
+    """Launch/use/execute/terminate sandbox flow and verify execute_code routing."""
+    sandbox_name = f"eval-e2e-{uuid.uuid4().hex[:8]}"
+
+    async with mcp_client_parametrized:
+        # Seed a kernel variable before sandbox routing is enabled.
+        kernel_seed = await mcp_client_parametrized.execute_code(
+            "kernel_only_var = 42\nprint('KERNEL_SEEDED')"
+        )
+        assert kernel_seed is not None
+
+        try:
+            launch_result = await mcp_client_parametrized.launch_sandbox(
+                sandbox_name=sandbox_name,
+                variant="eval",
+                timeout=30,
+            )
+            assert launch_result is not None
+
+            launch_payload = launch_result.get("result", launch_result)
+            if isinstance(launch_payload, list):
+                launch_payload = launch_payload[0]
+            assert isinstance(launch_payload, dict)
+            assert launch_payload["sandbox"]["name"] == sandbox_name
+            assert launch_payload["sandbox"]["variant"] == "eval"
+
+            list_result = await mcp_client_parametrized.list_sandboxes()
+            assert list_result is not None
+            list_payload = list_result.get("result", list_result)
+            if isinstance(list_payload, dict) and "sandboxes" in list_payload:
+                list_payload = list_payload["sandboxes"]
+            elif isinstance(list_payload, dict) and "name" in list_payload:
+                list_payload = [list_payload]
+            if isinstance(list_payload, str):
+                list_payload = json.loads(list_payload)
+            sandbox_names = [item["name"] for item in list_payload if isinstance(item, dict)]
+            assert sandbox_name in sandbox_names
+
+            use_result = await mcp_client_parametrized.use_sandbox(sandbox_name)
+            assert use_result is not None
+            assert "now active" in use_result.lower()
+
+            sandbox_exec = await mcp_client_parametrized.execute_code(
+                "sandbox_only_var = 'sandbox-route-ok'\nprint(sandbox_only_var)"
+            )
+            assert sandbox_exec is not None
+            sandbox_output = "\n".join(str(item) for item in sandbox_exec["result"])
+            assert "sandbox-route-ok" in sandbox_output
+
+            clear_result = await mcp_client_parametrized.use_sandbox(None)
+            assert clear_result is not None
+            assert "routing disabled" in clear_result.lower()
+
+            kernel_vars = await mcp_client_parametrized.execute_code("%who")
+            assert kernel_vars is not None
+            kernel_output = "\n".join(str(item) for item in kernel_vars["result"])
+            assert "kernel_only_var" in kernel_output
+            assert "sandbox_only_var" not in kernel_output
+        finally:
+            await mcp_client_parametrized.use_sandbox(None)
+            terminate_result = await mcp_client_parametrized.terminate_sandbox(sandbox_name)
+            if terminate_result:
+                assert "terminated" in terminate_result.lower() or "not found" in terminate_result.lower()
 
 
 @pytest.mark.asyncio
