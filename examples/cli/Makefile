@@ -17,6 +17,7 @@ DOCUMENT_ID ?= notebook.ipynb
 MODEL ?= bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0
 ROOT_DIR ?= ../../dev/content
 SANDBOX_VARIANT ?=
+PYTHON ?= python
 
 BEDROCK_ENV = \
 	AWS_ACCESS_KEY_ID=$${DATALAYER_BEDROCK_AWS_ACCESS_KEY_ID:-$${AWS_ACCESS_KEY_ID}} \
@@ -63,18 +64,30 @@ start:
 		if [[ -n "$$JUPYTER_PID" ]]; then kill "$$JUPYTER_PID" 2>/dev/null || true; fi; \
 	}; \
 	trap cleanup EXIT INT TERM; \
+	echo "A Jupyter server will be launched for this example."; \
+	HAS_SANDBOX_EXT="false"; \
+	if $(PYTHON) -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('jupyter_mcp_sandboxes') else 1)" >/dev/null 2>&1; then \
+		HAS_SANDBOX_EXT="true"; \
+	fi; \
 	VARIANT="$${SANDBOX_VARIANT:-}"; \
 	if [[ -z "$$VARIANT" ]]; then \
-		if [[ -t 0 ]]; then \
+		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			echo "Choose optional sandbox variant:"; \
 			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
+			if [[ "$$HAS_SANDBOX_EXT" != "true" ]]; then \
+				echo "jupyter_mcp_sandboxes is not installed. Using default variant: none."; \
+			fi; \
 		fi; \
 	fi; \
 	VARIANT="$${VARIANT:-none}"; \
+	if [[ "$$HAS_SANDBOX_EXT" != "true" && "$$VARIANT" != "none" ]]; then \
+		echo "jupyter_mcp_sandboxes is not installed. Forcing SANDBOX_VARIANT=none."; \
+		VARIANT="none"; \
+	fi; \
 	case "$$VARIANT" in \
 		none|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
@@ -176,18 +189,30 @@ start-noauth:
 		if [[ -n "$$JUPYTER_PID" ]]; then kill "$$JUPYTER_PID" 2>/dev/null || true; fi; \
 	}; \
 	trap cleanup EXIT INT TERM; \
+	echo "A Jupyter server will be launched for this example."; \
+	HAS_SANDBOX_EXT="false"; \
+	if $(PYTHON) -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('jupyter_mcp_sandboxes') else 1)" >/dev/null 2>&1; then \
+		HAS_SANDBOX_EXT="true"; \
+	fi; \
 	VARIANT="$${SANDBOX_VARIANT:-}"; \
 	if [[ -z "$$VARIANT" ]]; then \
-		if [[ -t 0 ]]; then \
+		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			echo "Choose optional sandbox variant:"; \
 			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
+			if [[ "$$HAS_SANDBOX_EXT" != "true" ]]; then \
+				echo "jupyter_mcp_sandboxes is not installed. Using default variant: none."; \
+			fi; \
 		fi; \
 	fi; \
 	VARIANT="$${VARIANT:-none}"; \
+	if [[ "$$HAS_SANDBOX_EXT" != "true" && "$$VARIANT" != "none" ]]; then \
+		echo "jupyter_mcp_sandboxes is not installed. Forcing SANDBOX_VARIANT=none."; \
+		VARIANT="none"; \
+	fi; \
 	case "$$VARIANT" in \
 		none|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
