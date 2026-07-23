@@ -13,6 +13,7 @@ from fastapi import Request
 from jupyter_kernel_client import KernelClient
 from mcp.server import FastMCP
 from mcp.server.auth.provider import AccessToken
+from mcp.server.fastmcp import Context
 from mcp.types import ImageContent, ToolAnnotations
 from pydantic import Field
 from starlette.applications import Starlette
@@ -210,6 +211,43 @@ def __ensure_kernel_alive() -> KernelClient:
         return create_kernel(config, logger)
     current_notebook = notebook_manager.get_current_notebook() or "default"
     return ensure_kernel_alive(notebook_manager, current_notebook, __create_kernel)
+
+
+def __make_execution_progress_callback(ctx: Context | None):
+    """Build an MCP progress/log keepalive callback for long-running executions.
+
+    Many MCP clients idle-timeout tool calls after a few minutes when the server
+    is silent. ``report_progress`` and ``info`` keep protocol traffic flowing so
+    a long cell (with ``--execution-timeout`` / tool ``timeout`` raised) can
+    finish without the client abandoning the call while notebook outputs still
+    land afterwards (issue #298).
+    """
+
+    async def progress_callback(
+        *,
+        elapsed: float,
+        timeout_seconds: float,
+        output_count: int = 0,
+        message: str | None = None,
+    ):
+        if ctx is None:
+            return
+        msg = message or (
+            f"Execution in progress: {elapsed:.0f}s / {timeout_seconds}s"
+            + (f", {output_count} outputs" if output_count else "")
+        )
+        try:
+            total = float(timeout_seconds) if timeout_seconds else None
+            progress_value = min(elapsed, float(timeout_seconds)) if timeout_seconds else elapsed
+            await ctx.report_progress(progress=progress_value, total=total, message=msg)
+        except Exception:
+            pass
+        try:
+            await ctx.info(msg)
+        except Exception:
+            pass
+
+    return progress_callback
 
 
 ###############################################################################
@@ -617,12 +655,14 @@ async def execute_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
     timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 0,
     stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
-    progress_interval: Annotated[int, Field(description="Seconds between progress updates when stream=True")] = 5,
+    progress_interval: Annotated[int, Field(description="Seconds between progress updates (MCP keepalive + optional stream log)")] = 5,
+    ctx: Context | None = None,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
     config = get_config()
     # Use config default if timeout is 0, otherwise clamp to max
     effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    progress_callback = __make_execution_progress_callback(ctx)
 
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
@@ -635,7 +675,8 @@ async def execute_cell(
             timeout_seconds=effective_timeout,
             stream=stream,
             progress_interval=progress_interval,
-            ensure_kernel_alive_fn=__ensure_kernel_alive
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            progress_callback=progress_callback,
         ),
         max_retries=1
     )
@@ -652,11 +693,15 @@ async def insert_execute_code_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to insert and execute (0-based)", ge=-1)],
     cell_source: Annotated[str, Field(description="Code source for the cell")],
     timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 0,
+    stream: Annotated[bool, Field(description="Enable streaming progress (including time indicator) updates for long-running cells")] = False,
+    progress_interval: Annotated[int, Field(description="Seconds between progress updates (MCP keepalive + optional stream log)")] = 5,
+    ctx: Context | None = None,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed cell")]:
     """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
     It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
     config = get_config()
     effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    progress_callback = __make_execution_progress_callback(ctx)
 
     await safe_notebook_operation(
         lambda: InsertCellTool().execute(
@@ -680,9 +725,10 @@ async def insert_execute_code_cell(
             notebook_manager=notebook_manager,
             cell_index=cell_index,
             timeout_seconds=effective_timeout,
-            stream=False,
-            progress_interval=0,
-            ensure_kernel_alive_fn=__ensure_kernel_alive
+            stream=stream,
+            progress_interval=progress_interval,
+            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            progress_callback=progress_callback,
         ),
         max_retries=1
     )
@@ -803,6 +849,8 @@ async def execute_code(
     code: Annotated[str, Field(description="Code to execute (supports magic commands with %, shell commands with !)")],
     timeout: Annotated[int, Field(description="Maximum seconds to wait for execution (0 = use config default)")] = 30,
     kernel_id: Annotated[str | None, Field(description="Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.")] = None,
+    progress_interval: Annotated[int, Field(description="Seconds between MCP progress keepalive updates during long-running execution")] = 5,
+    ctx: Context | None = None,
 ) -> Annotated[list[str | ImageContent], Field(description="List of outputs from the executed code")]:
     """Execute code directly in a kernel (not saved to notebook).
 
@@ -824,6 +872,7 @@ async def execute_code(
     config = get_config()
     # Use config default if timeout is 0, otherwise clamp to max
     effective_timeout = config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
+    progress_callback = __make_execution_progress_callback(ctx)
 
     if kernel_id is None and server_context.mode == ServerMode.JUPYTER_SERVER:
         current_notebook = notebook_manager.get_current_notebook() or "default"
@@ -841,6 +890,8 @@ async def execute_code(
             ensure_kernel_alive_fn=__ensure_kernel_alive,
             wait_for_kernel_idle_fn=wait_for_kernel_idle,
             safe_extract_outputs_fn=safe_extract_outputs,
+            progress_callback=progress_callback,
+            progress_interval=progress_interval,
         ),
         max_retries=1
     )

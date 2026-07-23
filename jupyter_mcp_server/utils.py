@@ -522,7 +522,67 @@ def track_pending_execution(kernel, task):
     task.add_done_callback(_clear)
 
 
-async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds = 300):
+# After a timeout + interrupt, the background to_thread work can still mutate
+# notebook outputs for a short window. Wait briefly before snapshotting so the
+# tool response matches what lands in the notebook (issue #298).
+TIMEOUT_OUTPUT_SETTLE_SECONDS = 1.0
+
+
+async def settle_timed_out_execution(
+    execution_task,
+    settle_seconds: float = TIMEOUT_OUTPUT_SETTLE_SECONDS,
+):
+    """Briefly await a still-running background execution before reading outputs.
+
+    Callers should interrupt the kernel first and must not cancel the asyncio
+    Task beforehand: cancelling a Task wrapping ``asyncio.to_thread`` marks the
+    Task done without stopping the OS thread, which clears
+    ``track_pending_execution`` and makes this settle a no-op.
+
+    Uses ``asyncio.shield`` so a settle timeout does not cancel the underlying
+    Task either (``wait_for`` would otherwise cancel it and clear the busy flag).
+    """
+    if execution_task is None or execution_task.done():
+        return
+    try:
+        await asyncio.wait_for(asyncio.shield(execution_task), timeout=settle_seconds)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        pass
+    except Exception:
+        pass
+
+
+async def emit_execution_progress(
+    progress_callback,
+    *,
+    elapsed: float,
+    timeout_seconds: float,
+    output_count: int = 0,
+    message: str | None = None,
+):
+    """Invoke an optional progress callback; never let callback errors abort execution."""
+    if progress_callback is None:
+        return
+    try:
+        await progress_callback(
+            elapsed=elapsed,
+            timeout_seconds=timeout_seconds,
+            output_count=output_count,
+            message=message,
+        )
+    except Exception as e:
+        from jupyter_mcp_server.log import logger
+        logger.debug(f"Execution progress callback failed: {e}")
+
+
+async def execute_cell_with_forced_sync(
+    notebook,
+    cell_index,
+    kernel,
+    timeout_seconds=300,
+    progress_callback=None,
+    progress_interval: int = 5,
+):
     """Execute cell with forced real-time synchronization."""
     from jupyter_mcp_server.log import logger
 
@@ -535,54 +595,74 @@ async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_se
     track_pending_execution(kernel, execution_future)
 
     last_output_count = 0
-    
+    last_progress_emit = 0.0
+
     while not execution_future.done():
         elapsed = time.time() - start_time
-        
+
         if elapsed > timeout_seconds:
-            execution_future.cancel()
             try:
                 if hasattr(kernel, 'interrupt'):
                     kernel.interrupt()
             except Exception:
                 pass
+            # Do not cancel the asyncio Task: cancel completes the wrapper
+            # without stopping the OS thread, which clears
+            # track_pending_execution early and skips real notebook settles.
+            # Interrupt the kernel, briefly wait for the thread, then raise.
+            await settle_timed_out_execution(execution_future)
             raise asyncio.TimeoutError(f"Cell execution timed out after {timeout_seconds} seconds")
-        
+
         # Check for new outputs and try to trigger sync
         try:
             ydoc = notebook._doc
             current_outputs = ydoc._ycells[cell_index].get("outputs", [])
-            
+
             if len(current_outputs) > last_output_count:
                 last_output_count = len(current_outputs)
                 logger.info(f"Cell {cell_index} progress: {len(current_outputs)} outputs after {elapsed:.1f}s")
-                
+
                 # Try different sync methods
                 try:
                     # Method 1: Force Y-doc update
                     if hasattr(ydoc, 'observe') and hasattr(ydoc, 'unobserve'):
                         # Trigger observers by making a tiny change
                         pass
-                        
+
                     # Method 2: Force websocket message
                     if hasattr(notebook, '_websocket') and notebook._websocket:
                         # The websocket should automatically sync on changes
                         pass
-                        
+
                 except Exception as sync_error:
                     logger.debug(f"Sync method failed: {sync_error}")
-                    
+
         except Exception as e:
             logger.debug(f"Output check failed: {e}")
-        
+
+        # MCP clients often idle-timeout around a few minutes with no protocol
+        # traffic. Emit keepalive progress even when stream=False.
+        if (
+            progress_interval > 0
+            and elapsed > 0
+            and (elapsed - last_progress_emit) >= progress_interval
+        ):
+            last_progress_emit = elapsed
+            await emit_execution_progress(
+                progress_callback,
+                elapsed=elapsed,
+                timeout_seconds=timeout_seconds,
+                output_count=last_output_count,
+            )
+
         await asyncio.sleep(1)  # Check every second
-    
+
     # Get final result
     try:
         await execution_future
     except asyncio.CancelledError:
         pass
-    
+
     return None
 
 
@@ -651,7 +731,9 @@ async def execute_via_execution_stack(
     timeout: int = 300,
     poll_interval: float = 0.1,
     logger = None,
-    raw_outputs: Optional[list] = None
+    raw_outputs: Optional[list] = None,
+    progress_callback=None,
+    progress_interval: int = 5,
 ) -> list[Union[str, ImageContent]]:
     """Execute code using ExecutionStack (JUPYTER_SERVER mode with jupyter-server-nbmodel).
 
@@ -673,6 +755,8 @@ async def execute_via_execution_stack(
             outputs to disk can keep each output's real ``output_type`` instead
             of re-deriving it from the formatted strings. The formatted return
             value is unaffected.
+        progress_callback: Optional async callback for MCP progress/keepalive
+        progress_interval: Seconds between progress callback invocations
 
     Returns:
         List of formatted outputs (strings or ImageContent)
@@ -719,6 +803,7 @@ async def execute_via_execution_stack(
         # The try/except ensures we cancel the kernel execution on any
         # abnormal exit.
         start_time = asyncio.get_event_loop().time()
+        last_progress_emit = 0.0
         try:
             while True:
                 elapsed = asyncio.get_event_loop().time() - start_time
@@ -782,6 +867,18 @@ async def execute_via_execution_stack(
                         outputs=formatted, error=None, context=hook_ctx,
                     )
                     return formatted if formatted else ["[No output generated]"]
+
+                if (
+                    progress_interval > 0
+                    and elapsed > 0
+                    and (elapsed - last_progress_emit) >= progress_interval
+                ):
+                    last_progress_emit = elapsed
+                    await emit_execution_progress(
+                        progress_callback,
+                        elapsed=elapsed,
+                        timeout_seconds=timeout,
+                    )
 
                 # Still pending, wait before next poll
                 await asyncio.sleep(poll_interval)
