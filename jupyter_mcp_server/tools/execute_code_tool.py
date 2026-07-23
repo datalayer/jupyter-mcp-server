@@ -191,9 +191,10 @@ class ExecuteCodeTool(BaseTool):
 
             # Wait for execution with timeout, emitting MCP keepalive progress
             # so clients do not idle-timeout on long-running cells.
+            # Use >= so timeout=0 is an immediate timeout even if elapsed is 0.
             while not execution_task.done():
                 elapsed = asyncio.get_event_loop().time() - start_time
-                if elapsed > timeout:
+                if elapsed >= timeout:
                     try:
                         if sandbox_client and hasattr(sandbox_client, "interrupt"):
                             sandbox_client.interrupt()
@@ -228,9 +229,9 @@ class ExecuteCodeTool(BaseTool):
                         timeout_seconds=timeout,
                     )
 
-                await asyncio.sleep(
-                    min(1.0, max(0.05, progress_interval / 5 if progress_interval else 1.0))
-                )
+                remaining = timeout - elapsed
+                poll = min(1.0, max(0.05, progress_interval / 5 if progress_interval else 1.0))
+                await asyncio.sleep(min(poll, max(remaining, 0.0)))
 
             outputs = execution_task.result()
 
