@@ -73,7 +73,7 @@ start:
 	if [[ -z "$$VARIANT" ]]; then \
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
-			echo "Choose optional sandbox variant:"; \
+			echo "Choose optional additional sandbox variant:"; \
 			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
@@ -198,7 +198,7 @@ start-noauth:
 	if [[ -z "$$VARIANT" ]]; then \
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
-			echo "Choose optional sandbox variant:"; \
+			echo "Choose optional additional sandbox variant:"; \
 			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
