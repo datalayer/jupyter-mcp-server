@@ -286,6 +286,29 @@ def extract_output(output: Union[dict, Any]) -> Union[str, ImageContent]:
                 return "[Image Output (PNG) - Image display disabled]"
             
 
+        # For IPython.display.* objects the kernel emits a bundle whose
+        # text/plain is only the bare object repr (e.g.
+        # "<IPython.core.display.Markdown object>") while the real content
+        # lives in a richer text key. Prefer that richer text over the repr;
+        # text/plain stays the representation for ordinary results.
+        for key in ("text/markdown", "text/latex"):
+            if key in data:
+                rich_text = data[key]
+                if hasattr(rich_text, 'source'):
+                    rich_text = str(rich_text.source)
+                return strip_ansi_codes(str(rich_text))
+
+        if "application/json" in data:
+            payload = data["application/json"]
+            if hasattr(payload, 'source'):
+                payload = str(payload.source)
+            if isinstance(payload, str):
+                return strip_ansi_codes(payload)
+            try:
+                return json.dumps(payload, indent=2, ensure_ascii=False)
+            except (TypeError, ValueError):
+                return strip_ansi_codes(str(payload))
+
         if "text/plain" in data:
             plain_text = data["text/plain"]
             if hasattr(plain_text, 'source'):
