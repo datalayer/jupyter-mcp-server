@@ -13,8 +13,8 @@
 This example demonstrates a local end-to-end setup with:
 
 1. JupyterLab on `http://127.0.0.1:8888`
-2. Jupyter MCP Server (Streamable HTTP) on `http://127.0.0.1:4040/mcp`
-3. A pydantic-ai interactive CLI connected to the Jupyter MCP Server
+1. Jupyter MCP Server (Streamable HTTP) on `http://127.0.0.1:4040/mcp`
+1. A pydantic-ai interactive CLI connected to the Jupyter MCP Server
 
 The `start` target launches everything in one command.
 
@@ -69,11 +69,12 @@ make start-noauth-agent
 
 This will:
 
+1. Ask which sandbox variant to use (`jupyter`, `jupyterhub`, `datalayer`, `colab`, `monty`, `modal`, `eval`, `docker`)
 1. Start JupyterLab with token auth
-2. Wait until JupyterLab is ready
-3. Start Jupyter MCP Server with Streamable HTTP transport
-4. Wait for MCP health endpoint
-5. Launch the pydantic-ai interactive CLI
+1. Wait until JupyterLab is ready
+1. Start Jupyter MCP Server with Streamable HTTP transport
+1. Wait for MCP health endpoint
+1. Launch the pydantic-ai interactive CLI
 
 Press `Ctrl+C` to stop the CLI and both background servers.
 
@@ -90,6 +91,25 @@ MODEL=bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0 \
 make start
 ```
 
+To skip the interactive prompt (useful for scripts/CI), set `SANDBOX_VARIANT`:
+
+```bash
+SANDBOX_VARIANT=monty make start
+```
+
+Variant-specific required environment variables:
+
+- `jupyter` / `eval` / `docker` / `monty`: no extra variables required.
+- `jupyterhub`: requires `RUNTIME_URL` and `RUNTIME_TOKEN`.
+- `datalayer`: requires `RUNTIME_URL` and `RUNTIME_TOKEN`.
+- `colab`: requires `RUNTIME_URL`, `RUNTIME_ID`, and `RUNTIME_PROXY_TOKEN`.
+- `modal`: requires either (`MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET`) or a local
+  Modal login in `~/.modal.toml` (for example after `modal token new`).
+
+The `make start` and `make start-noauth` targets validate these requirements
+before launching the MCP server and print a clear error with an example command
+if anything is missing.
+
 Supported variables:
 
 - `MODEL` (default: `bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0`)
@@ -98,6 +118,9 @@ Supported variables:
 - `JUPYTER_TOKEN` (default: `MY_TOKEN`)
 - `MCP_TOKEN` (default: `MY_MCP_TOKEN`)
 - `DOCUMENT_ID` (default: `notebook.ipynb`)
+- `SANDBOX_VARIANT` (optional; when unset, `make start` prompts and defaults to `jupyter`)
+- `RUNTIME_URL`, `RUNTIME_TOKEN`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` (required for some variants)
+- `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` (required for Modal unless `~/.modal.toml` exists)
 
 The CLI targets export Bedrock credentials from these environment variables:
 

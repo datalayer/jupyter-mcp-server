@@ -488,6 +488,11 @@ def _build_sandbox(config, logger):
         )
     if engine in ("monty", "modal", "eval", "docker", "datalayer"):
         create_kwargs = {"variant": engine, "timeout": timeout}
+        if engine == "datalayer":
+            if config.runtime_token:
+                create_kwargs["token"] = config.runtime_token
+            if config.runtime_url:
+                create_kwargs["run_url"] = config.runtime_url
         if config.sandbox_environment:
             create_kwargs["environment"] = config.sandbox_environment
         return Sandbox.create(**create_kwargs)

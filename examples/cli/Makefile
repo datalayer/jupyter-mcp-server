@@ -16,11 +16,12 @@ MCP_TOKEN ?= MY_MCP_TOKEN
 DOCUMENT_ID ?= notebook.ipynb
 MODEL ?= bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0
 ROOT_DIR ?= ../../dev/content
+SANDBOX_VARIANT ?=
 
 BEDROCK_ENV = \
-	AWS_ACCESS_KEY_ID=$${DATALAYER_BEDROCK_AWS_ACCESS_KEY_ID} \
-	AWS_SECRET_ACCESS_KEY=$${DATALAYER_BEDROCK_AWS_SECRET_ACCESS_KEY} \
-	AWS_DEFAULT_REGION=$${DATALAYER_BEDROCK_AWS_DEFAULT_REGION}
+	AWS_ACCESS_KEY_ID=$${DATALAYER_BEDROCK_AWS_ACCESS_KEY_ID:-$${AWS_ACCESS_KEY_ID}} \
+	AWS_SECRET_ACCESS_KEY=$${DATALAYER_BEDROCK_AWS_SECRET_ACCESS_KEY:-$${AWS_SECRET_ACCESS_KEY}} \
+	AWS_DEFAULT_REGION=$${DATALAYER_BEDROCK_AWS_DEFAULT_REGION:-$${AWS_DEFAULT_REGION}}
 
 JUPYTER_URL := http://127.0.0.1:$(JUPYTER_PORT)
 MCP_URL := http://127.0.0.1:$(MCP_PORT)/mcp
@@ -43,6 +44,7 @@ help:
 	@echo "  JUPYTER_TOKEN=$(JUPYTER_TOKEN)"
 	@echo "  MCP_TOKEN=$(MCP_TOKEN)"
 	@echo "  DOCUMENT_ID=$(DOCUMENT_ID)"
+	@echo "  SANDBOX_VARIANT=$(SANDBOX_VARIANT)"
 
 install:
 	pip install -e ../..
@@ -50,6 +52,7 @@ install:
 
 start:
 	@set -euo pipefail; \
+	VARIANT=""; \
 	JUPYTER_PID=""; \
 	MCP_PID=""; \
 	cleanup() { \
@@ -59,6 +62,62 @@ start:
 		if [[ -n "$$JUPYTER_PID" ]]; then kill "$$JUPYTER_PID" 2>/dev/null || true; fi; \
 	}; \
 	trap cleanup EXIT INT TERM; \
+	VARIANT="$${SANDBOX_VARIANT:-}"; \
+	if [[ -z "$$VARIANT" ]]; then \
+		if [[ -t 0 ]]; then \
+			echo ""; \
+			echo "Choose sandbox variant:"; \
+			echo "  jupyter (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
+			read -r -p "Variant [jupyter]: " VARIANT; \
+		else \
+			VARIANT="jupyter"; \
+		fi; \
+	fi; \
+	VARIANT="$${VARIANT:-jupyter}"; \
+	case "$$VARIANT" in \
+		jupyter|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
+		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
+	esac; \
+	if [[ "$$VARIANT" == "jupyterhub" ]]; then \
+		ENGINE="jupyter"; \
+	else \
+		ENGINE="$$VARIANT"; \
+	fi; \
+	check_variant_requirements() { \
+		case "$$VARIANT" in \
+			colab) \
+				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ]]; then \
+					echo "Colab requires RUNTIME_URL, RUNTIME_ID, and RUNTIME_PROXY_TOKEN."; \
+					echo "Example: SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start"; \
+					exit 1; \
+				fi; \
+				;; \
+			datalayer) \
+				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
+					echo "Datalayer requires RUNTIME_URL and RUNTIME_TOKEN."; \
+					echo "Example: SANDBOX_VARIANT=datalayer RUNTIME_URL=https://prod1.datalayer.run RUNTIME_TOKEN=... make start"; \
+					exit 1; \
+				fi; \
+				;; \
+			jupyterhub) \
+				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
+					echo "JupyterHub requires RUNTIME_URL and RUNTIME_TOKEN (single-user server URL + API token)."; \
+					echo "Example: SANDBOX_VARIANT=jupyterhub RUNTIME_URL=https://hub/user/<name> RUNTIME_TOKEN=... make start"; \
+					exit 1; \
+				fi; \
+				;; \
+			modal) \
+				if [[ -z "$${MODAL_TOKEN_ID:-}" || -z "$${MODAL_TOKEN_SECRET:-}" ]]; then \
+					if [[ ! -f "$${HOME}/.modal.toml" ]]; then \
+						echo "Modal auth not found. Set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET or run: modal token new"; \
+						exit 1; \
+					fi; \
+				fi; \
+				;; \
+			esac; \
+	}; \
+	check_variant_requirements; \
+	echo "Using sandbox variant: $$VARIANT (execution engine: $$ENGINE)"; \
 	echo "Starting JupyterLab at $(JUPYTER_URL)/lab ..."; \
 	jupyter lab \
 		--port $(JUPYTER_PORT) \
@@ -73,6 +132,7 @@ start:
 	echo "Starting Jupyter MCP Server at $(MCP_URL) ..."; \
 	jupyter-mcp-server start \
 		--transport streamable-http \
+		--execution-engine "$$ENGINE" \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \
@@ -86,6 +146,7 @@ start:
 	echo ""; \
 	echo "JupyterLab: $(JUPYTER_URL)/lab?token=$(JUPYTER_TOKEN)"; \
 	echo "MCP endpoint: $(MCP_URL)"; \
+	echo "Sandbox variant: $$VARIANT"; \
 	echo "Running pydantic-ai CLI with model: $(MODEL)"; \
 	echo ""; \
 	$(BEDROCK_ENV) \
@@ -96,6 +157,7 @@ start:
 
 start-noauth:
 	@set -euo pipefail; \
+	VARIANT=""; \
 	JUPYTER_PID=""; \
 	MCP_PID=""; \
 	cleanup() { \
@@ -105,6 +167,62 @@ start-noauth:
 		if [[ -n "$$JUPYTER_PID" ]]; then kill "$$JUPYTER_PID" 2>/dev/null || true; fi; \
 	}; \
 	trap cleanup EXIT INT TERM; \
+	VARIANT="$${SANDBOX_VARIANT:-}"; \
+	if [[ -z "$$VARIANT" ]]; then \
+		if [[ -t 0 ]]; then \
+			echo ""; \
+			echo "Choose sandbox variant:"; \
+			echo "  jupyter (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
+			read -r -p "Variant [jupyter]: " VARIANT; \
+		else \
+			VARIANT="jupyter"; \
+		fi; \
+	fi; \
+	VARIANT="$${VARIANT:-jupyter}"; \
+	case "$$VARIANT" in \
+		jupyter|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
+		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
+	esac; \
+	if [[ "$$VARIANT" == "jupyterhub" ]]; then \
+		ENGINE="jupyter"; \
+	else \
+		ENGINE="$$VARIANT"; \
+	fi; \
+	check_variant_requirements() { \
+		case "$$VARIANT" in \
+			colab) \
+				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ]]; then \
+					echo "Colab requires RUNTIME_URL, RUNTIME_ID, and RUNTIME_PROXY_TOKEN."; \
+					echo "Example: SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start-noauth"; \
+					exit 1; \
+				fi; \
+				;; \
+			datalayer) \
+				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
+					echo "Datalayer requires RUNTIME_URL and RUNTIME_TOKEN."; \
+					echo "Example: SANDBOX_VARIANT=datalayer RUNTIME_URL=https://prod1.datalayer.run RUNTIME_TOKEN=... make start-noauth"; \
+					exit 1; \
+				fi; \
+				;; \
+			jupyterhub) \
+				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
+					echo "JupyterHub requires RUNTIME_URL and RUNTIME_TOKEN (single-user server URL + API token)."; \
+					echo "Example: SANDBOX_VARIANT=jupyterhub RUNTIME_URL=https://hub/user/<name> RUNTIME_TOKEN=... make start-noauth"; \
+					exit 1; \
+				fi; \
+				;; \
+			modal) \
+				if [[ -z "$${MODAL_TOKEN_ID:-}" || -z "$${MODAL_TOKEN_SECRET:-}" ]]; then \
+					if [[ ! -f "$${HOME}/.modal.toml" ]]; then \
+						echo "Modal auth not found. Set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET or run: modal token new"; \
+						exit 1; \
+					fi; \
+				fi; \
+				;; \
+			esac; \
+	}; \
+	check_variant_requirements; \
+	echo "Using sandbox variant: $$VARIANT (execution engine: $$ENGINE)"; \
 	echo "Starting JupyterLab at $(JUPYTER_URL)/lab ..."; \
 	jupyter lab \
 		--port $(JUPYTER_PORT) \
@@ -119,6 +237,7 @@ start-noauth:
 	echo "Starting Jupyter MCP Server at $(MCP_URL) without MCP auth..."; \
 	jupyter-mcp-server start \
 		--transport streamable-http \
+		--execution-engine "$$ENGINE" \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \
@@ -133,6 +252,7 @@ start-noauth:
 	echo "WARNING: MCP endpoint auth is disabled (local dev only)."; \
 	echo "JupyterLab: $(JUPYTER_URL)/lab?token=$(JUPYTER_TOKEN)"; \
 	echo "MCP endpoint: $(MCP_URL)"; \
+	echo "Sandbox variant: $$VARIANT"; \
 	echo "Running pydantic-ai CLI with model: $(MODEL)"; \
 	echo ""; \
 	$(BEDROCK_ENV) \
