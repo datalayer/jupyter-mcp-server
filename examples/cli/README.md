@@ -77,6 +77,8 @@ This will:
 1. Launch the pydantic-ai interactive CLI
 
 If you choose `none` (or press Enter), code execution uses standard Jupyter kernels.
+If you choose a concrete sandbox backend, the Makefile starts the server with
+`--enable-sandboxes` automatically.
 
 Press `Ctrl+C` to stop the CLI and both background servers.
 

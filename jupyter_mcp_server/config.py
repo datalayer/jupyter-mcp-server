@@ -31,11 +31,11 @@ class JupyterMCPConfig(BaseModel):
         default=None, description="The runtime token to use for authentication"
     )
 
-    # Execution engine configuration
-    execution_engine: str = Field(
+    # Sandbox variant configuration
+    sandbox_variant: str = Field(
         default="jupyter",
         description=(
-            "Code execution engine. 'jupyter' (default) uses jupyter-kernel-client "
+            "Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client "
             "directly. Any other value ('colab', 'monty', 'modal', 'docker', 'eval', "
             "'datalayer') routes execution through the code-sandboxes package."
         ),
@@ -45,17 +45,17 @@ class JupyterMCPConfig(BaseModel):
         description=(
             "Enable sandbox lifecycle tools and sandbox-backed execution routes. "
             "Must be set to true to expose launch/list/use/terminate sandbox tools "
-            "or to use a non-'jupyter' execution engine."
+            "or to use a non-'jupyter' sandbox variant."
         ),
     )
     runtime_proxy_token: str | None = Field(
         default=None,
-        description="Proxy token for the Colab execution engine (colab-runtime-proxy-token).",
+        description="Proxy token for the Colab sandbox variant (colab-runtime-proxy-token).",
     )
     runtime_use_browser_bridge: bool = Field(
         default=False,
         description=(
-            "For the 'colab' execution engine, obtain the runtime connection "
+            "For the 'colab' sandbox variant, obtain the runtime connection "
             "details (server_url / kernel_id / proxy_token) from an authenticated "
             "Colab browser session via jupyter-kernel-client's browser bridge "
             "instead of requiring them to be provided explicitly."
@@ -124,13 +124,13 @@ class JupyterMCPConfig(BaseModel):
         """Check if runtime URL is set to local."""
         return self.runtime_url == "local"
 
-    def uses_sandbox_engine(self) -> bool:
+    def uses_sandbox_variant(self) -> bool:
         """Check if execution should be routed through code-sandboxes.
 
-        Any execution engine other than the default 'jupyter' is served by the
+        Any sandbox variant other than the default 'jupyter' is served by the
         code-sandboxes package via a SandboxKernel adapter.
         """
-        return (self.execution_engine or "jupyter").lower() != "jupyter"
+        return (self.sandbox_variant or "jupyter").lower() != "jupyter"
 
     def sandboxes_enabled(self) -> bool:
         """Check if sandbox features are enabled."""

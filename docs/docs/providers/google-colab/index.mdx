@@ -3,7 +3,7 @@
 The Jupyter MCP Server can execute code against a **Google Colab** runtime. Colab
 exposes a Jupyter-compatible kernel behind an authenticating proxy, so the server
 connects to it through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
-`colab` execution engine (backed by `jupyter-kernel-client`'s `ColabKernelClient`).
+`colab` sandbox variant (backed by `jupyter-kernel-client`'s `ColabKernelClient`).
 
 :::tip
 
@@ -62,10 +62,11 @@ API, so the DevTools method above is the practical way to obtain the values.
 
 ## Configuration
 
-Select the Colab engine with `EXECUTION_ENGINE=colab`:
+Select the Colab engine with `SANDBOX_VARIANT=colab`:
 
 ```bash
-EXECUTION_ENGINE=colab
+SANDBOX_VARIANT=colab
+ENABLE_SANDBOXES=true
 RUNTIME_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
 RUNTIME_ID=c9bba548-3995-4f26-8e1a-7b8fbb10c578
 RUNTIME_PROXY_TOKEN=eyJhbGci....
@@ -76,7 +77,8 @@ Or via the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --execution-engine colab \
+  --enable-sandboxes \
+  --sandbox-variant colab \
   --runtime-url "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev" \
   --runtime-id "c9bba548-3995-4f26-8e1a-7b8fbb10c578" \
   --runtime-proxy-token "eyJhbGci...." \
@@ -110,7 +112,8 @@ pip install "jupyter-kernel-client[bridge]"
 Enable it with the `RUNTIME_USE_BROWSER_BRIDGE` environment variable:
 
 ```bash
-EXECUTION_ENGINE=colab
+SANDBOX_VARIANT=colab
+ENABLE_SANDBOXES=true
 RUNTIME_USE_BROWSER_BRIDGE=true
 ```
 
@@ -119,7 +122,8 @@ Or on the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --execution-engine colab \
+  --enable-sandboxes \
+  --sandbox-variant colab \
   --runtime-use-browser-bridge \
   --port 4040
 ```

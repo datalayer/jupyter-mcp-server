@@ -46,7 +46,7 @@ def _resolve_and_start(
     reconnect_interval: int,
     execution_timeout: int,
     max_execution_timeout: int,
-    execution_engine: str = "jupyter",
+    sandbox_variant: str = "jupyter",
     enable_sandboxes: bool = False,
     runtime_proxy_token: str | None = None,
     runtime_use_browser_bridge: bool = False,
@@ -87,7 +87,7 @@ def _resolve_and_start(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
-        execution_engine=execution_engine,
+        sandbox_variant=sandbox_variant,
         enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
@@ -269,12 +269,12 @@ def server_callback(
             help="Maximum timeout in seconds a tool call may request for code execution. Defaults to 3600.",
         ),
     ] = 3600,
-    execution_engine: Annotated[
+    sandbox_variant: Annotated[
         str,
         typer.Option(
-            "--execution-engine",
-            envvar="EXECUTION_ENGINE",
-            help="Code execution engine. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            "--sandbox-variant",
+            envvar="SANDBOX_VARIANT",
+            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     enable_sandboxes: Annotated[
@@ -290,7 +290,7 @@ def server_callback(
         typer.Option(
             "--runtime-proxy-token",
             envvar="RUNTIME_PROXY_TOKEN",
-            help="Proxy token used by the 'colab' execution engine (colab-runtime-proxy-token).",
+            help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -314,7 +314,7 @@ def server_callback(
         typer.Option(
             "--runtime-use-browser-bridge/--no-runtime-use-browser-bridge",
             envvar="RUNTIME_USE_BROWSER_BRIDGE",
-            help="For the 'colab' execution engine, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
+            help="For the 'colab' sandbox variant, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
         ),
     ] = False,
 ) -> None:
@@ -344,7 +344,7 @@ def server_callback(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
-        execution_engine=execution_engine,
+        sandbox_variant=sandbox_variant,
         enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
@@ -525,12 +525,12 @@ def start_command(
             help="Maximum timeout in seconds a tool call may request for code execution. Defaults to 3600.",
         ),
     ] = 3600,
-    execution_engine: Annotated[
+    sandbox_variant: Annotated[
         str,
         typer.Option(
-            "--execution-engine",
-            envvar="EXECUTION_ENGINE",
-            help="Code execution engine. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            "--sandbox-variant",
+            envvar="SANDBOX_VARIANT",
+            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     enable_sandboxes: Annotated[
@@ -546,7 +546,7 @@ def start_command(
         typer.Option(
             "--runtime-proxy-token",
             envvar="RUNTIME_PROXY_TOKEN",
-            help="Proxy token used by the 'colab' execution engine (colab-runtime-proxy-token).",
+            help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -570,7 +570,7 @@ def start_command(
         typer.Option(
             "--runtime-use-browser-bridge/--no-runtime-use-browser-bridge",
             envvar="RUNTIME_USE_BROWSER_BRIDGE",
-            help="For the 'colab' execution engine, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
+            help="For the 'colab' sandbox variant, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
         ),
     ] = False,
 ) -> None:
@@ -597,7 +597,7 @@ def start_command(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
-        execution_engine=execution_engine,
+        sandbox_variant=sandbox_variant,
         enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,

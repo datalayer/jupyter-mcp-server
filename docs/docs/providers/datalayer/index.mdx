@@ -35,10 +35,11 @@ pip install "jupyter-mcp-server[datalayer]"
 
 ## Configuration
 
-Select the Datalayer engine with `EXECUTION_ENGINE=datalayer`:
+Select the Datalayer engine with `SANDBOX_VARIANT=datalayer`:
 
 ```bash
-EXECUTION_ENGINE=datalayer
+SANDBOX_VARIANT=datalayer
+ENABLE_SANDBOXES=true
 DATALAYER_API_KEY=your-datalayer-token
 ```
 
@@ -51,7 +52,7 @@ MCP client configuration:
       "command": "uvx",
       "args": ["jupyter-mcp-server@latest"],
       "env": {
-        "EXECUTION_ENGINE": "datalayer",
+        "SANDBOX_VARIANT": "datalayer",
         "DATALAYER_API_KEY": "your-datalayer-token"
       }
     }

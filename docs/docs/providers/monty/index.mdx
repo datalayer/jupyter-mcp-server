@@ -29,10 +29,11 @@ No credentials or external services are required — Monty runs entirely in-proc
 
 ## Configuration
 
-Select the Monty engine with `EXECUTION_ENGINE=monty`:
+Select the Monty engine with `SANDBOX_VARIANT=monty`:
 
 ```bash
-EXECUTION_ENGINE=monty
+SANDBOX_VARIANT=monty
+ENABLE_SANDBOXES=true
 ```
 
 Or via the command line:
@@ -40,7 +41,8 @@ Or via the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --execution-engine monty \
+  --enable-sandboxes \
+  --sandbox-variant monty \
   --port 4040
 ```
 
@@ -53,7 +55,8 @@ MCP client configuration:
       "command": "uvx",
       "args": ["jupyter-mcp-server@latest"],
       "env": {
-        "EXECUTION_ENGINE": "monty"
+        "SANDBOX_VARIANT": "monty",
+        "ENABLE_SANDBOXES": "true"
       }
     }
   }

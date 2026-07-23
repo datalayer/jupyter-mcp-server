@@ -129,7 +129,7 @@ start:
 			esac; \
 	}; \
 	check_variant_requirements; \
-	echo "Using sandbox variant: $$VARIANT_LABEL (execution engine: $$ENGINE)"; \
+	echo "Using sandbox variant: $$VARIANT_LABEL (sandbox variant: $$ENGINE)"; \
 	echo "Starting JupyterLab at $(JUPYTER_URL)/lab ..."; \
 	jupyter lab \
 		--port $(JUPYTER_PORT) \
@@ -144,7 +144,7 @@ start:
 	echo "Starting Jupyter MCP Server at $(MCP_URL) ..."; \
 	jupyter-mcp-server start \
 		--transport streamable-http \
-		--execution-engine "$$ENGINE" \
+		--sandbox-variant "$$ENGINE" \
 		$$SANDBOX_FLAG \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \
@@ -247,7 +247,7 @@ start-noauth:
 			esac; \
 	}; \
 	check_variant_requirements; \
-	echo "Using sandbox variant: $$VARIANT_LABEL (execution engine: $$ENGINE)"; \
+	echo "Using sandbox variant: $$VARIANT_LABEL (sandbox variant: $$ENGINE)"; \
 	echo "Starting JupyterLab at $(JUPYTER_URL)/lab ..."; \
 	jupyter lab \
 		--port $(JUPYTER_PORT) \
@@ -262,7 +262,7 @@ start-noauth:
 	echo "Starting Jupyter MCP Server at $(MCP_URL) without MCP auth..."; \
 	jupyter-mcp-server start \
 		--transport streamable-http \
-		--execution-engine "$$ENGINE" \
+		--sandbox-variant "$$ENGINE" \
 		$$SANDBOX_FLAG \
 		--jupyter-url $(JUPYTER_URL) \
 		--jupyter-token $(JUPYTER_TOKEN) \

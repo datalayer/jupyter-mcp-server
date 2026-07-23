@@ -1,8 +1,8 @@
 # Tools
 
-The server currently offers 22 tools organized into 3 categories:
+The server offers 18 tools by default, plus 4 sandbox tools when sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
 
-## Server and Runtime Management (7 tools)
+## Server and Runtime Management (3 + 4 optional tools)
 
 #### 1. `list_files`
 
@@ -37,6 +37,10 @@ The server currently offers 22 tools organized into 3 categories:
 
 #### 3. `launch_sandbox`
 
+:::note Feature flag required
+This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::
+
 - Launch a sandbox runtime that can be used as an alternative execution backend to Jupyter kernels.
 - Input:
   - `sandbox_name`(string): Unique sandbox identifier
@@ -55,11 +59,19 @@ The server currently offers 22 tools organized into 3 categories:
 
 #### 4. `list_sandboxes`
 
+:::note Feature flag required
+This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::
+
 - List all launched sandbox runtimes and their status.
 - Input: None
 - Returns: List of sandbox entries including name, variant, status, active flag, and selected config such as environment and GPU.
 
 #### 5. `use_sandbox`
+
+:::note Feature flag required
+This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::
 
 - Select which launched sandbox `execute_code` should use.
 - Input:
@@ -67,6 +79,10 @@ The server currently offers 22 tools organized into 3 categories:
 - Returns: Routing status message.
 
 #### 6. `terminate_sandbox`
+
+:::note Feature flag required
+This tool is hidden unless sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
+:::
 
 - Terminate and unregister a launched sandbox runtime.
 - Input:
@@ -223,7 +239,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 
 - Execute code directly in the current execution backend (not saved to notebook).
 - By default this is the current notebook kernel.
-- If `use_sandbox` has selected an active sandbox, execution is routed to that sandbox instead.
+- If `use_sandbox` has selected an active sandbox (sandbox features enabled), execution is routed to that sandbox instead.
 - Recommended to use in following cases:
   1. Execute Jupyter magic commands (e.g., %timeit, %pip install xxx)
   2. Performance profiling and debugging
@@ -241,6 +257,10 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 
 :::tip
 `execute_code` can target a specific existing kernel (including raw kernels not attached to a notebook) by passing `kernel_id`, or can be routed through an active sandbox selected with `use_sandbox`.
+:::
+
+:::note Feature flag required for sandbox routing
+Sandbox routing in `execute_code` only applies when sandbox features are enabled with `--enable-sandboxes` (or `ENABLE_SANDBOXES=true`).
 :::
 
 #### 22. `clear_cell_output`

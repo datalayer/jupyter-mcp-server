@@ -126,7 +126,7 @@ def do_start(
     reconnect_interval: int = 0,
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
-    execution_engine: str = "jupyter",
+    sandbox_variant: str = "jupyter",
     enable_sandboxes: bool = False,
     runtime_proxy_token: str | None = None,
     runtime_use_browser_bridge: bool = False,
@@ -174,7 +174,7 @@ def do_start(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
-        execution_engine=execution_engine,
+        sandbox_variant=sandbox_variant,
         enable_sandboxes=enable_sandboxes,
         runtime_proxy_token=runtime_proxy_token,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
@@ -182,9 +182,9 @@ def do_start(
         sandbox_gpu=sandbox_gpu,
     )
 
-    if config.uses_sandbox_engine() and not config.sandboxes_enabled():
+    if config.uses_sandbox_variant() and not config.sandboxes_enabled():
         raise ValueError(
-            "Sandbox execution engine requested but sandbox features are disabled. "
+            "Sandbox variant requested but sandbox features are disabled. "
             "Start with --enable-sandboxes (or ENABLE_SANDBOXES=true)."
         )
 
@@ -468,7 +468,7 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 
 
 def _build_sandbox(config, logger):
-    """Build a code-sandboxes Sandbox for the configured execution engine.
+    """Build a code-sandboxes Sandbox for the configured sandbox variant.
 
     Args:
         config: The JupyterMCPConfig instance.
@@ -479,7 +479,7 @@ def _build_sandbox(config, logger):
     """
     from code_sandboxes import Sandbox
 
-    engine = (config.execution_engine or "jupyter").lower()
+    engine = (config.sandbox_variant or "jupyter").lower()
     timeout = float(getattr(config, "execution_timeout", 30) or 30)
 
     if engine == "colab":
@@ -511,22 +511,22 @@ def _build_sandbox(config, logger):
             create_kwargs["environment"] = config.sandbox_environment
         return Sandbox.create(**create_kwargs)
 
-    raise ValueError(f"Unsupported execution engine: {config.execution_engine}")
+    raise ValueError(f"Unsupported sandbox variant: {config.sandbox_variant}")
 
 
 def create_kernel(config, logger):
     """Create a new kernel instance using current configuration.
 
-    When ``config.execution_engine`` is 'jupyter' (the default) a
+    When ``config.sandbox_variant`` is 'jupyter' (the default) a
     ``jupyter_kernel_client.KernelClient`` is created. For any other engine, a
     :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` backed by the
     code-sandboxes package is returned instead. Both expose the same interface
     to the rest of the server.
     """
-    if getattr(config, "uses_sandbox_engine", None) and config.uses_sandbox_engine():
+    if getattr(config, "uses_sandbox_variant", None) and config.uses_sandbox_variant():
         if not getattr(config, "sandboxes_enabled", lambda: False)():
             raise RuntimeError(
-                "Sandbox execution engine requested but sandbox features are disabled. "
+                "Sandbox variant requested but sandbox features are disabled. "
                 "Start with --enable-sandboxes (or ENABLE_SANDBOXES=true)."
             )
         from jupyter_mcp_server.sandbox_kernel import SandboxKernel
@@ -536,12 +536,12 @@ def create_kernel(config, logger):
             sandbox = _build_sandbox(config, logger)
             kernel = SandboxKernel(sandbox, logger=logger)
             kernel.start()
-            logger.info("Sandbox kernel created and started (engine=%s)", config.execution_engine)
+            logger.info("Sandbox kernel created and started (variant=%s)", config.sandbox_variant)
             return kernel
         except Exception:
             logger.exception(
-                "Failed to create sandbox kernel (engine=%s)",
-                config.execution_engine,
+                "Failed to create sandbox kernel (variant=%s)",
+                config.sandbox_variant,
             )
             if kernel is not None:
                 try:

@@ -95,21 +95,26 @@ For deployments requiring granular control over document storage and runtime exe
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
 | `OPEN_NOTEBOOK_IN_UI` | Open the notebook in the JupyterLab UI on `use_notebook`, activating its tab | `true` / `false` | `false` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
-| `EXECUTION_ENGINE` | Code execution engine (see [Execution Engines](#execution-engines)) | `jupyter` / `colab` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
-| `RUNTIME_PROXY_TOKEN` | Proxy token used by the `colab` execution engine (`colab-runtime-proxy-token`) | `ya29...` | `None` |
+| `SANDBOX_VARIANT` | Code sandbox variant (see [Sandbox Variants](#sandbox-variants)) | `jupyter` / `colab` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
+| `ENABLE_SANDBOXES` | Enable sandbox lifecycle tools and sandbox-backed execution routes | `true` / `false` | `false` |
+| `RUNTIME_PROXY_TOKEN` | Proxy token used by the `colab` sandbox variant (`colab-runtime-proxy-token`) | `ya29...` | `None` |
 | `RUNTIME_USE_BROWSER_BRIDGE` | For the `colab` engine, obtain the runtime connection details from an authenticated Colab browser session via `jupyter-kernel-client`'s browser bridge | `true` / `false` | `false` |
 | `SANDBOX_ENVIRONMENT` | Environment name for cloud sandboxes (Datalayer/Modal) | `python-cpu-env` | `None` |
 
-## Execution Engines
+## Sandbox Variants
 
 By default the server executes code through `jupyter-kernel-client` against a
-Jupyter Server (`EXECUTION_ENGINE=jupyter`). Setting `EXECUTION_ENGINE` to any
+Jupyter Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any
 other value routes execution through the
 [code-sandboxes](https://github.com/datalayer/code-sandboxes) package via a
 `SandboxKernel` adapter, so the same notebook tools can run code on additional
 backends.
 
-| Engine | Description | Extra install | Key variables |
+Sandbox functionality is opt-in. To expose sandbox lifecycle tools and use any
+non-`jupyter` sandbox variant, set `ENABLE_SANDBOXES=true` (or start with
+`--enable-sandboxes`).
+
+| Variant | Description | Extra install | Key variables |
 |--------|-------------|---------------|---------------|
 | `jupyter` (default) | Jupyter Server via `jupyter-kernel-client` | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `RUNTIME_*` + `DOCUMENT_*`) |
 | `colab` | Google Colab runtime | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |
@@ -122,7 +127,8 @@ backends.
 ### Example: Google Colab engine
 
 ```bash
-EXECUTION_ENGINE=colab
+SANDBOX_VARIANT=colab
+ENABLE_SANDBOXES=true
 RUNTIME_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
 RUNTIME_ID=a1b2c3d4-....
 RUNTIME_PROXY_TOKEN=ya29....
@@ -131,13 +137,15 @@ RUNTIME_PROXY_TOKEN=ya29....
 ### Example: Monty engine
 
 ```bash
-EXECUTION_ENGINE=monty
+SANDBOX_VARIANT=monty
+ENABLE_SANDBOXES=true
 ```
 
 ### Example: Modal engine
 
 ```bash
-EXECUTION_ENGINE=modal
+SANDBOX_VARIANT=modal
+ENABLE_SANDBOXES=true
 # Modal credentials via `modal token new` or MODAL_TOKEN_ID / MODAL_TOKEN_SECRET
 ```
 
@@ -214,8 +222,10 @@ Options:
   --max-execution-timeout INTEGER RANGE
                                       Maximum timeout in seconds a tool call may request (default: 3600)
   --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
-  --execution-engine TEXT             Code execution engine: jupyter (default), colab, monty, modal, docker, eval, datalayer
-  --runtime-proxy-token TEXT          Proxy token for the colab execution engine (default: None)
+  --sandbox-variant TEXT             Code sandbox variant: jupyter (default), colab, monty, modal, docker, eval, datalayer
+  --enable-sandboxes / --disable-sandboxes
+                                      Enable sandbox lifecycle tools and sandbox-backed execution routes (default: disabled)
+  --runtime-proxy-token TEXT          Proxy token for the colab sandbox variant (default: None)
   --sandbox-environment TEXT          Environment name for cloud sandboxes (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```

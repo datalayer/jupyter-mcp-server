@@ -59,7 +59,7 @@
 - [Key Features](#-key-features)
 - [MCP Overview](#-mcp-overview)
 - [Getting Started](#-getting-started)
-- [Execution Engines](#-execution-engines)
+- [Sandbox Variants](#-execution-engines)
 - [Best Practices](#-best-practices)
 - [Contributing](#-contributing)
 - [Resources](#-resources)
@@ -290,20 +290,20 @@ Then, configure your client:
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
 
-## 🧩 Execution Engines
+## 🧩 Sandbox Variants
 
 By default, code executes through `jupyter-kernel-client` against a Jupyter
-Server (`EXECUTION_ENGINE=jupyter`). Setting `EXECUTION_ENGINE` to any other value
+Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any other value
 routes execution through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
 package via a `SandboxKernel` adapter, so the same notebook tools can run code on
 additional backends.
 
 Sandbox features are opt-in. To expose sandbox lifecycle tools (`launch_sandbox`,
 `list_sandboxes`, `use_sandbox`, `terminate_sandbox`) or run any non-`jupyter`
-execution engine, start the server with `--enable-sandboxes` (or set
+sandbox variant, start the server with `--enable-sandboxes` (or set
 `ENABLE_SANDBOXES=true`).
 
-| Engine                   | `EXECUTION_ENGINE` | Extra install                   | Key variables                                         |
+| Engine                   | `SANDBOX_VARIANT` | Extra install                   | Key variables                                         |
 | ------------------------ | ------------------ | ------------------------------- | ----------------------------------------------------- |
 | Jupyter Server (default) | `jupyter`          | —                               | `JUPYTER_URL`, `JUPYTER_TOKEN`                        |
 | JupyterHub               | `jupyter`          | —                               | `RUNTIME_URL`, `RUNTIME_TOKEN`                        |
@@ -354,7 +354,7 @@ pip install "jupyter-mcp-server[datalayer]"
 
 ```json
 "env": {
-  "EXECUTION_ENGINE": "datalayer",
+  "SANDBOX_VARIANT": "datalayer",
   "RUNTIME_URL": "https://prod1.datalayer.run",
   "RUNTIME_TOKEN": "your-datalayer-token",
   "SANDBOX_ENVIRONMENT": "python-cpu-env"
@@ -372,7 +372,7 @@ pip install "jupyter-mcp-server[colab]"
 
 ```json
 "env": {
-  "EXECUTION_ENGINE": "colab",
+  "SANDBOX_VARIANT": "colab",
   "RUNTIME_URL": "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev",
   "RUNTIME_ID": "a1b2c3d4-....",
   "RUNTIME_PROXY_TOKEN": "ya29...."
@@ -399,7 +399,7 @@ pip install "jupyter-mcp-server[monty]"
 
 ```json
 "env": {
-  "EXECUTION_ENGINE": "monty"
+  "SANDBOX_VARIANT": "monty"
 }
 ```
 
@@ -424,7 +424,7 @@ variables below.
 
 ```json
 "env": {
-  "EXECUTION_ENGINE": "modal",
+  "SANDBOX_VARIANT": "modal",
   "MODAL_TOKEN_ID": "ak-...",
   "MODAL_TOKEN_SECRET": "as-..."
 }
@@ -457,7 +457,7 @@ PY
 ```
 
 > You can also select the engine on the command line with
-> `--execution-engine`, `--runtime-proxy-token`, and `--sandbox-environment`.
+> `--sandbox-variant`, `--runtime-proxy-token`, and `--sandbox-environment`.
 
 ## 🧪 Testing
 

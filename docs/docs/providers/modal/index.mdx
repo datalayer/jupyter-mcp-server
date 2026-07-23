@@ -57,10 +57,11 @@ PY
 
 ## Configuration
 
-Select the Modal engine with `EXECUTION_ENGINE=modal`:
+Select the Modal engine with `SANDBOX_VARIANT=modal`:
 
 ```bash
-EXECUTION_ENGINE=modal
+SANDBOX_VARIANT=modal
+ENABLE_SANDBOXES=true
 MODAL_TOKEN_ID=ak-...
 MODAL_TOKEN_SECRET=as-...
 ```
@@ -70,7 +71,8 @@ Or via the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --execution-engine modal \
+  --enable-sandboxes \
+  --sandbox-variant modal \
   --port 4040
 ```
 
@@ -83,7 +85,8 @@ MCP client configuration:
       "command": "uvx",
       "args": ["jupyter-mcp-server@latest"],
       "env": {
-        "EXECUTION_ENGINE": "modal",
+        "SANDBOX_VARIANT": "modal",
+        "ENABLE_SANDBOXES": "true",
         "MODAL_TOKEN_ID": "ak-...",
         "MODAL_TOKEN_SECRET": "as-..."
       }

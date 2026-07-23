@@ -24,7 +24,7 @@ from jupyter_mcp_server.utils import _build_sandbox, create_kernel
 )
 def test_build_sandbox_variant_routing(engine, expected_variant):
     """Generic sandbox engines are routed to Sandbox.create(variant=engine)."""
-    config = JupyterMCPConfig(execution_engine=engine, sandbox_environment="ai-agents-env")
+    config = JupyterMCPConfig(sandbox_variant=engine, sandbox_environment="ai-agents-env")
 
     with patch("code_sandboxes.Sandbox.create") as mock_create:
         mock_create.return_value = MagicMock()
@@ -39,7 +39,7 @@ def test_build_sandbox_variant_routing(engine, expected_variant):
 def test_build_sandbox_colab_forwards_runtime_connection():
     """Colab engine forwards runtime URL, kernel id and proxy token."""
     config = JupyterMCPConfig(
-        execution_engine="colab",
+        sandbox_variant="colab",
         runtime_url="https://colab-host.example",
         runtime_id="kernel-id",
         runtime_proxy_token="proxy-token",
@@ -63,7 +63,7 @@ def test_build_sandbox_colab_forwards_runtime_connection():
 def test_build_sandbox_colab_enables_browser_bridge():
     """Colab engine forwards the browser-bridge flag to code-sandboxes."""
     config = JupyterMCPConfig(
-        execution_engine="colab",
+        sandbox_variant="colab",
         runtime_use_browser_bridge=True,
     )
 
@@ -80,7 +80,7 @@ def test_build_sandbox_colab_enables_browser_bridge():
 def test_build_sandbox_datalayer_forwards_token_and_run_url():
     """Datalayer engine forwards runtime auth/settings to code-sandboxes."""
     config = JupyterMCPConfig(
-        execution_engine="datalayer",
+        sandbox_variant="datalayer",
         runtime_url="https://run.example",
         runtime_token="api-token",
         sandbox_environment="ai-agents-env",
@@ -101,7 +101,7 @@ def test_build_sandbox_datalayer_forwards_token_and_run_url():
     def test_build_sandbox_modal_forwards_gpu_flavor():
         """Modal engine forwards SANDBOX_GPU to code-sandboxes."""
         config = JupyterMCPConfig(
-            execution_engine="modal",
+            sandbox_variant="modal",
             sandbox_gpu="A100",
         )
 
@@ -116,8 +116,12 @@ def test_build_sandbox_datalayer_forwards_token_and_run_url():
 
 
 def test_create_kernel_uses_sandbox_kernel_for_sandbox_engines():
-    """Non-jupyter execution engines must use SandboxKernel wrapper."""
-    config = JupyterMCPConfig(execution_engine="datalayer", runtime_url="http://localhost:8888")
+    """Non-jupyter sandbox variants must use SandboxKernel wrapper."""
+    config = JupyterMCPConfig(
+        sandbox_variant="datalayer",
+        runtime_url="http://localhost:8888",
+        enable_sandboxes=True,
+    )
     fake_sandbox = MagicMock()
     fake_kernel = MagicMock()
 
@@ -133,7 +137,11 @@ def test_create_kernel_uses_sandbox_kernel_for_sandbox_engines():
 
 def test_create_kernel_sandbox_path_builds_and_starts_kernel():
     """create_kernel uses Sandbox.create via _build_sandbox and starts SandboxKernel."""
-    config = JupyterMCPConfig(execution_engine="datalayer", runtime_url="https://run.example")
+    config = JupyterMCPConfig(
+        sandbox_variant="datalayer",
+        runtime_url="https://run.example",
+        enable_sandboxes=True,
+    )
     fake_logger = MagicMock()
     fake_sandbox = MagicMock()
     fake_kernel = MagicMock()
