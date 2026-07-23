@@ -90,6 +90,17 @@ async def _run_stream(cell, execute_impl, timeout_seconds, kernel):
     )
 
 
+# The monitoring loops in execute_cell_tool.py and execute_cell_with_forced_sync
+# poll in whole-second (`await asyncio.sleep(1)`) increments, so a timed-out
+# call can easily burn a real second or more of wall clock before the tool
+# returns control to us. The background execute_impl below must sleep long
+# enough to still be running after that overhead on a slow/loaded CI runner,
+# or the orphaned task looks finished by the time we make our first
+# assertion (observed on a macOS runner: elapsed 2e-5s against a 0.3s sleep,
+# https://github.com/datalayer/jupyter-mcp-server/actions/runs/30021842755).
+_ORPHANED_TASK_SLEEP = 2.0
+
+
 @pytest.mark.asyncio
 async def test_streaming_timeout_leaves_kernel_marked_busy_until_thread_finishes():
     """Regression for the timeout path abandoning its background thread with no
@@ -97,13 +108,15 @@ async def test_streaming_timeout_leaves_kernel_marked_busy_until_thread_finishes
     cell = {"source": "time.sleep(60)", "outputs": []}
     kernel = FakeKernel()
 
-    await _run_stream(cell, lambda: time.sleep(0.3), timeout_seconds=0, kernel=kernel)
+    await _run_stream(
+        cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP), timeout_seconds=0, kernel=kernel
+    )
 
     # The tool already returned its [TIMEOUT ...] result, but the fake
     # execute_cell is still asleep in its background thread.
     assert is_kernel_busy(kernel) is True
 
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(_ORPHANED_TASK_SLEEP + 0.5)
 
     assert is_kernel_busy(kernel) is False
 
@@ -116,13 +129,15 @@ async def test_wait_for_kernel_idle_blocks_until_orphaned_stream_task_finishes()
     cell = {"source": "time.sleep(60)", "outputs": []}
     kernel = FakeKernel()
 
-    await _run_stream(cell, lambda: time.sleep(0.3), timeout_seconds=0, kernel=kernel)
+    await _run_stream(
+        cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP), timeout_seconds=0, kernel=kernel
+    )
 
     start = time.time()
-    await wait_for_kernel_idle(kernel, max_wait_seconds=5)
+    await wait_for_kernel_idle(kernel, max_wait_seconds=10)
     elapsed = time.time() - start
 
-    assert elapsed >= 0.3
+    assert elapsed >= 0.5
     assert is_kernel_busy(kernel) is False
 
 
@@ -130,7 +145,7 @@ async def test_wait_for_kernel_idle_blocks_until_orphaned_stream_task_finishes()
 async def test_forced_sync_timeout_leaves_kernel_marked_busy_until_thread_finishes():
     """Same defect, non-streaming path (execute_cell_with_forced_sync)."""
     cell = {"source": "time.sleep(60)", "outputs": []}
-    notebook = FakeNotebook(cell, lambda: time.sleep(0.3))
+    notebook = FakeNotebook(cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP))
     kernel = FakeKernel()
 
     with pytest.raises(asyncio.TimeoutError):
@@ -138,6 +153,6 @@ async def test_forced_sync_timeout_leaves_kernel_marked_busy_until_thread_finish
 
     assert is_kernel_busy(kernel) is True
 
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(_ORPHANED_TASK_SLEEP + 0.5)
 
     assert is_kernel_busy(kernel) is False
