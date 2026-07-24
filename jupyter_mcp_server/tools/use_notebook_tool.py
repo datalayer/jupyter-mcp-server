@@ -128,6 +128,7 @@ class UseNotebookTool(BaseTool):
         kernel_id: Optional[str] = None,
         runtime_url: Optional[str] = None,
         runtime_token: Optional[str] = None,
+        auth_headers: Optional[dict[str, str]] = None,
         **kwargs
     ) -> str:
         """Execute the use_notebook tool.
@@ -209,6 +210,19 @@ class UseNotebookTool(BaseTool):
                     # Use local API to create notebook
                     await ensure_async(contents_manager.new(model={'type': 'notebook', 'content': content, 'format': 'json'}, path=notebook_path))
                 elif mode == ServerMode.MCP_SERVER and server_client is not None:
+                    # Creating a notebook is a state-changing PUT to /api/contents,
+                    # which Jupyter's XSRF protection guards. The injected session
+                    # carries the _xsrf cookie but not the matching X-XSRFToken
+                    # header, and the cookie alone fails the check ("'_xsrf'
+                    # argument missing from POST"). Echo the token from the live
+                    # cookie jar here, fresh at call-time, so a rotated cookie can't
+                    # go stale (see JupyterPasswordAuth.inject_into_session). Token
+                    # auth has no _xsrf cookie and satisfies XSRF via the Bearer
+                    # header, so this is a no-op there.
+                    session = server_client.http_client.session
+                    xsrf_token = session.cookies.get("_xsrf")
+                    if xsrf_token:
+                        session.headers["X-XSRFToken"] = xsrf_token
                     server_client.contents.create_notebook(notebook_path, content=content)
 
             # # Create/connect to kernel based on mode
@@ -220,8 +234,9 @@ class UseNotebookTool(BaseTool):
                         return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."
                 kernel = KernelClient(
                     server_url=runtime_url,
-                    token=runtime_token,
-                    kernel_id=kernel_id
+                    token=None if auth_headers else runtime_token,
+                    kernel_id=kernel_id,
+                    headers=auth_headers or None,
                 )
                 # FIXED: Ensure kernel is started with the same path as the notebook
                 kernel.start(path=notebook_path)

@@ -30,13 +30,16 @@ def _resolve_and_start(
     runtime_url: str | None,
     runtime_id: str | None,
     runtime_token: str | None,
+    runtime_password: str | None,
     mcp_token: str | None,
     insecure_mcp_noauth: bool,
     document_url: str | None,
     document_id: str | None,
     document_token: str | None,
+    document_password: str | None,
     jupyter_url: str | None,
     jupyter_token: str | None,
+    jupyter_password: str | None,
     port: int,
     provider: str,
     jupyterlab: str,
@@ -61,15 +64,23 @@ def _resolve_and_start(
         runtime_token=runtime_token,
     )
 
+    # Passwords mirror the token precedence: an individual --{runtime,document}-password
+    # wins, otherwise the shared --jupyter-password is used as the fallback. Passwords
+    # take precedence over tokens at the auth layer (see JupyterPasswordAuth).
+    resolved_document_password = document_password or jupyter_password
+    resolved_runtime_password = runtime_password or jupyter_password
+
     do_start(
         transport=transport,
         start_new_runtime=parse_bool_option(start_new_runtime, "--start-new-runtime"),
         runtime_url=resolved_runtime_url,
         runtime_id=runtime_id,
         runtime_token=resolved_runtime_token,
+        runtime_password=resolved_runtime_password,
         document_url=resolved_document_url,
         document_id=document_id,
         document_token=resolved_document_token,
+        document_password=resolved_document_password,
         port=port,
         provider=provider,
         jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
@@ -168,6 +179,14 @@ def server_callback(
             help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
     ] = None,
+    runtime_password: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-password",
+            envvar="RUNTIME_PASSWORD",
+            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
+        ),
+    ] = None,
     mcp_token: Annotated[
         str | None,
         typer.Option(
@@ -208,6 +227,14 @@ def server_callback(
             help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
     ] = None,
+    document_password: Annotated[
+        str | None,
+        typer.Option(
+            "--document-password",
+            envvar="DOCUMENT_PASSWORD",
+            help="Password for document Jupyter server authentication. Takes precedence over --document-token if both are set.",
+        ),
+    ] = None,
     jupyter_url: Annotated[
         str | None,
         typer.Option(
@@ -222,6 +249,14 @@ def server_callback(
             "--jupyter-token",
             envvar="JUPYTER_TOKEN",
             help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
+        ),
+    ] = None,
+    jupyter_password: Annotated[
+        str | None,
+        typer.Option(
+            "--jupyter-password",
+            envvar="JUPYTER_PASSWORD",
+            help="Shared password for both runtime and document servers (fallback if individual passwords not set). Takes precedence over --jupyter-token if both are set.",
         ),
     ] = None,
     allowed_jupyter_mcp_tools: Annotated[
@@ -270,13 +305,16 @@ def server_callback(
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
+        runtime_password=runtime_password,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
+        document_password=document_password,
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
+        jupyter_password=jupyter_password,
         port=port,
         provider=provider.value,
         jupyterlab=jupyterlab,
@@ -370,6 +408,14 @@ def start_command(
             help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
     ] = None,
+    runtime_password: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-password",
+            envvar="RUNTIME_PASSWORD",
+            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
+        ),
+    ] = None,
     mcp_token: Annotated[
         str | None,
         typer.Option(
@@ -410,6 +456,14 @@ def start_command(
             help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
     ] = None,
+    document_password: Annotated[
+        str | None,
+        typer.Option(
+            "--document-password",
+            envvar="DOCUMENT_PASSWORD",
+            help="Password for document Jupyter server authentication. Takes precedence over --document-token if both are set.",
+        ),
+    ] = None,
     jupyter_url: Annotated[
         str | None,
         typer.Option(
@@ -424,6 +478,14 @@ def start_command(
             "--jupyter-token",
             envvar="JUPYTER_TOKEN",
             help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
+        ),
+    ] = None,
+    jupyter_password: Annotated[
+        str | None,
+        typer.Option(
+            "--jupyter-password",
+            envvar="JUPYTER_PASSWORD",
+            help="Shared password for both runtime and document servers (fallback if individual passwords not set). Takes precedence over --jupyter-token if both are set.",
         ),
     ] = None,
     allowed_jupyter_mcp_tools: Annotated[
@@ -469,13 +531,16 @@ def start_command(
         runtime_url=runtime_url,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
+        runtime_password=runtime_password,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
+        document_password=document_password,
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
+        jupyter_password=jupyter_password,
         port=port,
         provider=provider.value,
         jupyterlab=jupyterlab,

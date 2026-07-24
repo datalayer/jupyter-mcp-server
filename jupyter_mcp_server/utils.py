@@ -126,6 +126,8 @@ def do_start(
     reconnect_interval: int = 0,
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
+    runtime_password: str = None,
+    document_password: str = None,
 ):
     """Shared startup routine used by Typer CLI surfaces."""
 
@@ -158,9 +160,11 @@ def do_start(
         start_new_runtime=start_new_runtime,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
+        runtime_password=runtime_password,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
+        document_password=document_password,
         port=port,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
@@ -453,18 +457,25 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 def create_kernel(config, logger):
     """Create a new kernel instance using current configuration."""
     from jupyter_kernel_client import KernelClient
+    from jupyter_mcp_server.server_context import ServerContext
     kernel = None
     try:
         # Initialize the kernel client with the provided parameters.
+        auth_headers = ServerContext.get_instance().runtime_auth_headers
         client_kwargs = {}
         if getattr(config, "reconnect_interval", 0):
             client_kwargs["reconnect_interval"] = config.reconnect_interval
-        kernel = KernelClient(
-            server_url=config.runtime_url,
-            token=config.runtime_token,
-            kernel_id=config.runtime_id,
-            client_kwargs=client_kwargs if client_kwargs else None,
-        )
+        kernel_kwargs = {
+            "server_url": config.runtime_url,
+            # Password auth carries credentials via headers; drop the token so it
+            # doesn't override the cookie/XSRF headers on the kernel client.
+            "token": None if auth_headers else config.runtime_token,
+            "kernel_id": config.runtime_id,
+            "client_kwargs": client_kwargs if client_kwargs else None,
+        }
+        if auth_headers:
+            kernel_kwargs["headers"] = auth_headers
+        kernel = KernelClient(**kernel_kwargs)
         kernel.start()
         logger.info("Kernel created and started successfully")
         return kernel

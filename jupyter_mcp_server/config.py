@@ -21,11 +21,13 @@ class JupyterMCPConfig(BaseModel):
     start_new_runtime: bool = Field(default=False, description="Start a new runtime or use an existing one")
     runtime_id: Optional[str] = Field(default=None, description="The kernel ID to use")
     runtime_token: Optional[str] = Field(default=None, description="The runtime token to use for authentication")
-    
+    runtime_password: Optional[str] = Field(default=None, description="Password for Jupyter server authentication (alternative to token)")
+
     # Document configuration
     document_url: str = Field(default="http://localhost:8888", description="The document URL to use, or 'local' for direct serverapp access")
     document_id: Optional[str] = Field(default=None, description="The document id to use. Optional - if omitted, can list and select notebooks interactively")
     document_token: Optional[str] = Field(default=None, description="The document token to use for authentication")
+    document_password: Optional[str] = Field(default=None, description="Password for Jupyter document server authentication (alternative to token)")
     
     # Server configuration
     port: int = Field(default=4040, description="The port to use for the Streamable HTTP transport")
@@ -121,7 +123,7 @@ def set_config(**kwargs) -> JupyterMCPConfig:
     for key, value in kwargs.items():
         if should_skip(value):
             # For optional fields, set to None; for required fields, skip (use default)
-            if key in ("runtime_token", "document_token", "runtime_id", "document_id"):
+            if key in ("runtime_token", "document_token", "runtime_id", "document_id", "runtime_password", "document_password"):
                 normalized_kwargs[key] = None
             # For required string fields like runtime_url, document_url, skip the key
             # to let the default value be used
