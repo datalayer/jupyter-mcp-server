@@ -10,6 +10,9 @@ replacing the scattered global variable approach with a unified architecture.
 """
 
 from collections.abc import Callable
+import asyncio
+import logging
+from typing import Dict, Any, Optional, Callable, Union
 from types import TracebackType
 from typing import Any
 
@@ -17,6 +20,15 @@ from jupyter_kernel_client import KernelClient
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 
 from .config import get_config
+
+logger = logging.getLogger(__name__)
+
+# Bounds NbModelClient.__aexit__ (the notebook websocket disconnect). The client's own
+# teardown already bounds propagating queued changes to REQUEST_TIMEOUT (10s default),
+# but a stuck cancellation of its background sender task past that point has no further
+# bound of its own, so a hang there was blocking every tool call that opened this
+# connection forever with no response ever reaching the MCP client (#160).
+DISCONNECT_TIMEOUT = 20
 
 
 class NotebookConnection:
@@ -55,9 +67,24 @@ class NotebookConnection:
     async def __aexit__(
         self, exc_type: type | None, exc_val: BaseException | None, exc_tb: TracebackType | None
     ) -> None:
-        """Exit context, clean up connection."""
+        """Exit context, clean up connection.
+
+        Bounded by DISCONNECT_TIMEOUT so a stuck disconnect cannot hang the tool call
+        that owns this connection forever; any exception being propagated through this
+        context manager still surfaces normally either way.
+        """
         if self._notebook:
-            await self._notebook.__aexit__(exc_type, exc_val, exc_tb)
+            try:
+                await asyncio.wait_for(
+                    self._notebook.__aexit__(exc_type, exc_val, exc_tb),
+                    timeout=DISCONNECT_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Notebook client disconnect did not finish within %ss; "
+                    "continuing without waiting for its cleanup.",
+                    DISCONNECT_TIMEOUT,
+                )
 
 
 class NotebookManager:
