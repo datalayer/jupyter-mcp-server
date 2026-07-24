@@ -4,7 +4,7 @@
 
 import os
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JupyterMCPConfig(BaseModel):
@@ -102,11 +102,7 @@ class JupyterMCPConfig(BaseModel):
         default=3600, gt=0, description="Maximum allowed timeout in seconds for code execution."
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        validate_assignment = True
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(validate_assignment=True, arbitrary_types_allowed=True)
 
     def is_local_document(self) -> bool:
         """Check if document URL is set to local."""

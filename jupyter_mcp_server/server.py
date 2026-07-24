@@ -818,7 +818,7 @@ async def read_cell(
 @with_hooks("delete_cell")
 async def delete_cell(
     cell_indices: Annotated[
-        list[int], Field(description="List of cell indices to delete (0-based)", min_items=1)
+        list[int], Field(description="List of cell indices to delete (0-based)", min_length=1)
     ],
     include_source: Annotated[
         bool, Field(description="Whether to include the source of deleted cells")
