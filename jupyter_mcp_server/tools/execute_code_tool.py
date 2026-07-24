@@ -12,6 +12,7 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.utils import track_pending_execution
 
 logger = logging.getLogger(__name__)
 
@@ -153,11 +154,21 @@ class ExecuteCodeTool(BaseTool):
         try:
             # Execute code directly with kernel
             execution_task = asyncio.create_task(asyncio.to_thread(kernel.execute, code))
+            track_pending_execution(kernel, execution_task)
 
-            # Wait for execution with timeout
-            try:
-                outputs = await asyncio.wait_for(execution_task, timeout=timeout)
-            except asyncio.TimeoutError as e:
+            # asyncio.wait_for() would also work for the happy path, but on
+            # timeout it cancels the task and then awaits it until asyncio
+            # settles it as done -- which happens immediately even though
+            # the underlying OS thread (started via to_thread) keeps running
+            # kernel.execute() in the background, since the wrapping Future
+            # can be marked cancelled without the thread actually stopping.
+            # That makes execution_task.done() report True right away,
+            # defeating track_pending_execution above. asyncio.wait() does
+            # not auto-cancel, so leaving the task un-awaited past cancel()
+            # below keeps it accurately pending until the real thread returns.
+            _, pending = await asyncio.wait({execution_task}, timeout=timeout)
+
+            if execution_task in pending:
                 execution_task.cancel()
                 try:
                     if kernel and hasattr(kernel, "interrupt"):
@@ -175,10 +186,12 @@ class ExecuteCodeTool(BaseTool):
                     kernel_id=kid,
                     metadata={},
                     outputs=result,
-                    error=e,
+                    error=asyncio.TimeoutError(),
                     context=hook_ctx,
                 )
                 return result
+
+            outputs = execution_task.result()
 
             # Process and extract outputs
             if outputs:
