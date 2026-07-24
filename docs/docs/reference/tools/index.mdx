@@ -44,15 +44,14 @@ This tool is only available when the `jupyter_mcp_sandboxes` extension is instal
 - Launch a sandbox runtime that can be used as an alternative execution backend to Jupyter kernels.
 - Input:
   - `sandbox_name`(string): Unique sandbox identifier
-  - `variant`(string, optional): Sandbox variant (`eval`, `docker`, `jupyter`, `datalayer`, `colab`, `kaggle`, `monty`, `modal`, default: `eval`)
+  - `variant`(string, optional): Sandbox variant (`eval`, `docker`, `jupyter`, `datalayer`, `kaggle`, `colab`, `monty`, `modal`, default: `eval`)
   - `timeout`(int, optional): Default execution timeout in seconds for this sandbox (default: 60)
   - `environment`(string, optional): Runtime environment name (common for datalayer/modal)
   - `gpu`(string, optional): GPU flavor for supported variants (for example `T4`, `A10G`, `A100`, `H100`)
-  - `server_url`(string, optional): Runtime proxy URL (colab or kaggle variant)
-  - `kernel_id`(string, optional): Kernel ID (colab or kaggle variant; omit for kaggle to create a new kernel)
-  - `channels_url`(string, optional): Kaggle notebook session channels URL to derive `server_url`/`kernel_id` (kaggle variant)
+  - `server_url`(string, optional): Runtime proxy URL (kaggle or colab variant)
+  - `kernel_id`(string, optional): Kernel ID (kaggle or colab variant; omit for kaggle to create a new kernel)
+  - `channels_url`(string, optional): Notebook session channels URL to derive `server_url`/`kernel_id` (kaggle or colab variant)
   - `proxy_token`(string, optional): Colab runtime proxy token (colab variant)
-  - `use_browser_bridge`(bool, optional): For colab variant, derive runtime details from authenticated browser session (default: `false`)
   - `token`(string, optional): Datalayer API token override (also accepted as the Kaggle API token for the kaggle variant; falls back to `KAGGLE_API_TOKEN`)
   - `run_url`(string, optional): Datalayer run URL override
   - `python_version`(string, optional): Modal Python version override (modal variant only)
@@ -241,6 +240,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
 - Execute code directly in the current execution backend (not saved to notebook).
 - By default this is the current notebook kernel.
 - If `use_sandbox` has selected an active sandbox (sandbox features enabled), execution is routed to that sandbox instead.
+- When the active sandbox exposes streaming execution, streamed status/output/result events are consumed in order and returned as the tool output payload.
 - Recommended to use in following cases:
   1. Execute Jupyter magic commands (e.g., %timeit, %pip install xxx)
   2. Performance profiling and debugging
@@ -254,7 +254,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `code`(string): Code to execute (supports magic commands with %, shell commands with !)
   - `timeout`(int, optional): Execution timeout in seconds (default: 30, max: 3600)
   - `kernel_id`(string, optional): Target an existing kernel by ID. If omitted, the current notebook kernel is used.
-- Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed code including text, HTML, images, and shell command results. Supports magic commands and shell commands with ! prefix.
+- Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed code including text, HTML, images, and shell command results. Supports magic commands and shell commands with ! prefix. For streaming-capable sandboxes (for example Kaggle batch mode), includes progress/status text emitted during execution.
 
 :::tip
 `execute_code` can target a specific existing kernel (including raw kernels not attached to a notebook) by passing `kernel_id`, or can be routed through an active sandbox selected with `use_sandbox`.

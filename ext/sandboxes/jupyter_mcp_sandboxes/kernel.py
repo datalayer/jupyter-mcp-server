@@ -27,6 +27,13 @@ import logging
 from typing import Any
 
 
+def _is_default_runtime_url(runtime_url: str | None) -> bool:
+    if not runtime_url:
+        return True
+    normalized = runtime_url.strip().lower()
+    return normalized in {"http://localhost:8888", "http://127.0.0.1:8888", "local"}
+
+
 def _execution_result_to_reply(result: Any) -> dict[str, Any]:
     """Convert a code-sandboxes ``ExecutionResult`` to a Jupyter reply dict.
 
@@ -107,26 +114,38 @@ def build_sandbox(config, logger):
     timeout = float(getattr(config, "execution_timeout", 30) or 30)
 
     if engine == "colab":
-        return Sandbox.create(
-            variant="colab",
-            timeout=timeout,
-            server_url=config.runtime_url,
-            kernel_id=config.runtime_id,
-            proxy_token=config.runtime_proxy_token,
-            use_browser_bridge=getattr(config, "runtime_use_browser_bridge", False),
-        )
-    if engine == "kaggle":
         create_kwargs: dict[str, Any] = {
-            "variant": "kaggle",
+            "variant": "colab",
             "timeout": timeout,
             "server_url": config.runtime_url,
+            "proxy_token": config.runtime_proxy_token,
         }
         if config.runtime_id:
             create_kwargs["kernel_id"] = config.runtime_id
         if getattr(config, "runtime_channels_url", None):
             create_kwargs["channels_url"] = config.runtime_channels_url
+        return Sandbox.create(**create_kwargs)
+    if engine == "kaggle":
+        runtime_url = getattr(config, "runtime_url", None)
+        channels_url = getattr(config, "runtime_channels_url", None)
+        has_explicit_runtime_url = not _is_default_runtime_url(runtime_url)
+
+        create_kwargs: dict[str, Any] = {
+            "variant": "kaggle",
+            "timeout": timeout,
+        }
+        # If runtime values are not explicitly configured, prefer the
+        # transparent batch path in code-sandboxes.
+        if has_explicit_runtime_url and not channels_url:
+            create_kwargs["server_url"] = runtime_url
+        if config.runtime_id:
+            create_kwargs["kernel_id"] = config.runtime_id
+        if channels_url:
+            create_kwargs["channels_url"] = channels_url
         if config.runtime_token:
             create_kwargs["token"] = config.runtime_token
+        if getattr(config, "sandbox_gpu", None):
+            create_kwargs["gpu"] = config.sandbox_gpu
         return Sandbox.create(**create_kwargs)
     if engine == "jupyter_sandbox":
         return Sandbox.create(

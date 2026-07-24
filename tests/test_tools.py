@@ -493,13 +493,13 @@ async def test_multi_notebook_operations(mcp_client_parametrized: MCPClient):
         assert "Reactivating notebook 'notebook_a' and deactivating 'notebook_b'." in result
 
         # Verify we're working with notebook A (our unique marker is there)
-        cell_list_a = await mcp_client_parametrized.read_notebook("notebook_a", limit=100)
+        cell_list_a = await mcp_client_parametrized.read_notebook("notebook_a", limit=1000)
         assert marker_a in cell_list_a
 
         # Switch to notebook B and verify
         await mcp_client_parametrized.use_notebook("notebook_b", "notebook.ipynb")
         cell_list_b = await mcp_client_parametrized.read_notebook(
-            "notebook_b", response_format="detailed", limit=100
+            "notebook_b", response_format="detailed", limit=1000
         )
         assert marker_b in cell_list_b
 

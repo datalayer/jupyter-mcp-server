@@ -69,6 +69,9 @@ async def test_tool_call_spans_emitted(mcp_client_otel: MCPClient, otel_spans_fi
 async def test_execution_spans_emitted(mcp_client_otel: MCPClient, otel_spans_file: str):
     """Code execution must emit BEFORE_EXECUTE/AFTER_EXECUTE spans."""
     async with mcp_client_otel:
+        # Explicitly bind a known notebook to avoid relying on extension
+        # auto-enrollment timing in subprocess-based integration runs.
+        await mcp_client_otel.use_notebook("default", "notebook.ipynb")
         result = await mcp_client_otel.insert_execute_code_cell(1, "40 + 2")
         assert result is not None
         # Clean up

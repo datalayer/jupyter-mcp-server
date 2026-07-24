@@ -37,7 +37,6 @@ class SandboxRuntimeManager:
         kernel_id: str | None = None,
         proxy_token: str | None = None,
         channels_url: str | None = None,
-        use_browser_bridge: bool = False,
         token: str | None = None,
         run_url: str | None = None,
         python_version: str | None = None,
@@ -66,8 +65,8 @@ class SandboxRuntimeManager:
                 create_kwargs["kernel_id"] = kernel_id
             if proxy_token:
                 create_kwargs["proxy_token"] = proxy_token
-            if use_browser_bridge:
-                create_kwargs["use_browser_bridge"] = True
+            if channels_url:
+                create_kwargs["channels_url"] = channels_url
 
         if variant == "kaggle":
             if server_url:
@@ -139,6 +138,46 @@ class SandboxRuntimeManager:
             raise ValueError("No active sandbox selected.")
 
         sandbox = self._sandboxes[self._active_name]
+
+        # Prefer streaming when available to surface provider progress updates
+        # (for example Kaggle batch status transitions).
+        if hasattr(sandbox, "run_code_streaming"):
+            outputs: list[dict[str, Any]] = []
+            for event in sandbox.run_code_streaming(code, timeout=timeout):
+                if hasattr(event, "line"):
+                    outputs.append(
+                        {
+                            "output_type": "stream",
+                            "name": "stderr" if bool(getattr(event, "error", False)) else "stdout",
+                            "text": f"{getattr(event, 'line', '')}\n",
+                        }
+                    )
+                elif hasattr(event, "data"):
+                    outputs.append(
+                        {
+                            "output_type": "execute_result"
+                            if bool(getattr(event, "is_main_result", False))
+                            else "display_data",
+                            "data": getattr(event, "data", {}) or {},
+                            "metadata": getattr(event, "extra", {}) or {},
+                        }
+                    )
+                elif hasattr(event, "name") and hasattr(event, "value"):
+                    traceback = (getattr(event, "traceback", "") or "").split("\n")
+                    if traceback == [""]:
+                        traceback = []
+                    outputs.append(
+                        {
+                            "output_type": "error",
+                            "ename": getattr(event, "name", "Error"),
+                            "evalue": getattr(event, "value", ""),
+                            "traceback": traceback,
+                        }
+                    )
+
+            if outputs:
+                return safe_extract_outputs(outputs)
+
         result = sandbox.run_code(code, timeout=timeout)
         reply = _execution_result_to_reply(result)
         return safe_extract_outputs(reply.get("outputs", []))

@@ -49,7 +49,6 @@ def _resolve_and_start(
     sandbox_variant: str = "jupyter",
     runtime_proxy_token: str | None = None,
     runtime_channels_url: str | None = None,
-    runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
     sandbox_gpu: str | None = None,
 ) -> None:
@@ -90,7 +89,6 @@ def _resolve_and_start(
         sandbox_variant=sandbox_variant,
         runtime_proxy_token=runtime_proxy_token,
         runtime_channels_url=runtime_channels_url,
-        runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )
@@ -290,7 +288,7 @@ def server_callback(
         typer.Option(
             "--runtime-channels-url",
             envvar="RUNTIME_CHANNELS_URL",
-            help="For the 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
+            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -306,17 +304,13 @@ def server_callback(
         typer.Option(
             "--sandbox-gpu",
             envvar="SANDBOX_GPU",
-            help="GPU flavor for sandbox engines that support it (e.g. Modal/Datalayer: T4, A10G, A100, H100).",
+            help=(
+                "GPU flavor / accelerator for sandbox engines that support it "
+                "(Modal/Datalayer examples: T4, A10G, A100, H100; "
+                "Kaggle batch examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
+            ),
         ),
     ] = None,
-    runtime_use_browser_bridge: Annotated[
-        bool,
-        typer.Option(
-            "--runtime-use-browser-bridge/--no-runtime-use-browser-bridge",
-            envvar="RUNTIME_USE_BROWSER_BRIDGE",
-            help="For the 'colab' sandbox variant, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
-        ),
-    ] = False,
 ) -> None:
     """Manages Jupyter MCP Server."""
     if ctx.invoked_subcommand is not None:
@@ -347,7 +341,6 @@ def server_callback(
         sandbox_variant=sandbox_variant,
         runtime_proxy_token=runtime_proxy_token,
         runtime_channels_url=runtime_channels_url,
-        runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )
@@ -546,7 +539,7 @@ def start_command(
         typer.Option(
             "--runtime-channels-url",
             envvar="RUNTIME_CHANNELS_URL",
-            help="For the 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
+            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -562,17 +555,13 @@ def start_command(
         typer.Option(
             "--sandbox-gpu",
             envvar="SANDBOX_GPU",
-            help="GPU flavor for sandbox engines that support it (e.g. Modal/Datalayer: T4, A10G, A100, H100).",
+            help=(
+                "GPU flavor / accelerator for sandbox engines that support it "
+                "(Modal/Datalayer examples: T4, A10G, A100, H100; "
+                "Kaggle batch examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
+            ),
         ),
     ] = None,
-    runtime_use_browser_bridge: Annotated[
-        bool,
-        typer.Option(
-            "--runtime-use-browser-bridge/--no-runtime-use-browser-bridge",
-            envvar="RUNTIME_USE_BROWSER_BRIDGE",
-            help="For the 'colab' sandbox variant, obtain the runtime connection details from an authenticated Colab browser session via jupyter-kernel-client's browser bridge.",
-        ),
-    ] = False,
 ) -> None:
     """Start the Jupyter MCP Server with a transport."""
     _resolve_and_start(
@@ -600,7 +589,6 @@ def start_command(
         sandbox_variant=sandbox_variant,
         runtime_proxy_token=runtime_proxy_token,
         runtime_channels_url=runtime_channels_url,
-        runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )

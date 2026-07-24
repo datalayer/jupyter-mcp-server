@@ -129,7 +129,6 @@ def do_start(
     sandbox_variant: str = "jupyter",
     runtime_proxy_token: str | None = None,
     runtime_channels_url: str | None = None,
-    runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
     sandbox_gpu: str | None = None,
 ):
@@ -177,7 +176,6 @@ def do_start(
         sandbox_variant=sandbox_variant,
         runtime_proxy_token=runtime_proxy_token,
         runtime_channels_url=runtime_channels_url,
-        runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )

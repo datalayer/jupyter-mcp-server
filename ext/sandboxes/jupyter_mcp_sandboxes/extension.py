@@ -139,7 +139,11 @@ class SandboxesExtension(JupyterMCPExtension):
             gpu: Annotated[
                 str | None,
                 Field(
-                    description="Optional GPU flavor for supported variants (for example modal/datalayer: T4, A10G, A100, H100)."
+                    description=(
+                        "Optional GPU flavor / accelerator for supported variants "
+                        "(modal/datalayer examples: T4, A10G, A100, H100; "
+                        "kaggle examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
+                    )
                 ),
             ] = None,
             server_url: Annotated[
@@ -157,13 +161,9 @@ class SandboxesExtension(JupyterMCPExtension):
             channels_url: Annotated[
                 str | None,
                 Field(
-                    description="Kaggle notebook session WebSocket channels URL to parse server_url/kernel_id from (kaggle variant)"
+                    description="Notebook session WebSocket channels URL to derive server_url/kernel_id (colab or kaggle variant)"
                 ),
             ] = None,
-            use_browser_bridge: Annotated[
-                bool,
-                Field(description="For colab variant, derive runtime details from an authenticated browser session"),
-            ] = False,
             token: Annotated[
                 str | None,
                 Field(
@@ -200,7 +200,6 @@ class SandboxesExtension(JupyterMCPExtension):
                     kernel_id=kernel_id,
                     proxy_token=proxy_token,
                     channels_url=channels_url,
-                    use_browser_bridge=use_browser_bridge,
                     token=token,
                     run_url=run_url,
                     python_version=python_version,

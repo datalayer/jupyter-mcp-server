@@ -107,23 +107,22 @@ start:
 			none) \
 				;; \
 			colab) \
-				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ]]; then \
-					echo "Colab requires RUNTIME_URL, RUNTIME_ID, and RUNTIME_PROXY_TOKEN."; \
-					echo "Example: SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start"; \
+				if [[ -z "$${RUNTIME_CHANNELS_URL:-}" && ( -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ) ]]; then \
+					echo "Colab requires either RUNTIME_CHANNELS_URL, or RUNTIME_URL + RUNTIME_ID + RUNTIME_PROXY_TOKEN."; \
+					echo "Examples:"; \
+					echo "  SANDBOX_VARIANT=colab RUNTIME_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start"; \
+					echo "  SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start"; \
 					exit 1; \
 				fi; \
 				;; \
 			kaggle) \
-				if [[ -z "$${RUNTIME_URL:-}" ]]; then \
-					echo "Kaggle requires RUNTIME_URL."; \
-					echo "Example: SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start"; \
-					exit 1; \
-				fi; \
-				if [[ -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
-					echo "Kaggle requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
+				if [[ -n "$${RUNTIME_URL:-}" && -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
+					echo "Kaggle interactive mode with RUNTIME_URL requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
 					echo "Examples:"; \
-					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start"; \
-					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start"; \
+					echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... make start                # default batch mode"; \
+					echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... SANDBOX_GPU=T4 make start # batch + accelerator"; \
+					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start # interactive create"; \
+					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start       # interactive attach"; \
 					exit 1; \
 				fi; \
 				;; \
@@ -246,23 +245,22 @@ start-noauth:
 			none) \
 				;; \
 			colab) \
-				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ]]; then \
-					echo "Colab requires RUNTIME_URL, RUNTIME_ID, and RUNTIME_PROXY_TOKEN."; \
-					echo "Example: SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start-noauth"; \
+				if [[ -z "$${RUNTIME_CHANNELS_URL:-}" && ( -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ) ]]; then \
+					echo "Colab requires either RUNTIME_CHANNELS_URL, or RUNTIME_URL + RUNTIME_ID + RUNTIME_PROXY_TOKEN."; \
+					echo "Examples:"; \
+					echo "  SANDBOX_VARIANT=colab RUNTIME_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start-noauth"; \
+					echo "  SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start-noauth"; \
 					exit 1; \
 				fi; \
 				;; \
 				kaggle) \
-					if [[ -z "$${RUNTIME_URL:-}" ]]; then \
-						echo "Kaggle requires RUNTIME_URL."; \
-						echo "Example: SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start-noauth"; \
-						exit 1; \
-					fi; \
-					if [[ -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
-						echo "Kaggle requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
+					if [[ -n "$${RUNTIME_URL:-}" && -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
+						echo "Kaggle interactive mode with RUNTIME_URL requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
 						echo "Examples:"; \
-						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start-noauth"; \
-						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start-noauth"; \
+						echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... make start-noauth                # default batch mode"; \
+						echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... SANDBOX_GPU=T4 make start-noauth # batch + accelerator"; \
+						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start-noauth # interactive create"; \
+						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start-noauth       # interactive attach"; \
 						exit 1; \
 					fi; \
 					;; \

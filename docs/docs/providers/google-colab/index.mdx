@@ -23,7 +23,7 @@ pip install "jupyter-mcp-server[colab]"
 
 ## Connection parameters
 
-You obtain the following values from Colab's runtime assignment API:
+You obtain the following values from an active Colab browser session:
 
 | Parameter | Environment variable | Description |
 |-----------|----------------------|-------------|
@@ -56,9 +56,8 @@ Read them from your browser's developer tools:
      (same value as the `X-Colab-Runtime-Proxy-Token` header). Ignore the
      `session_id` and `colab-client-agent` parameters.
 
-The programmatic assignment API is the internal endpoint Colab's frontend calls
-(authenticated with your Google session) and is not an officially published public
-API, so the DevTools method above is the practical way to obtain the values.
+Consumer Colab does not expose an official third-party API to provision runtimes
+from scratch. Start/connect a runtime in the Colab UI first, then reuse it here.
 
 ## Configuration
 
@@ -88,30 +87,20 @@ runtime transparently.
 
 :::note
 
-The proxy token is short-lived. Refresh it from the Colab runtime assignment API
-when it expires.
+The proxy token is short-lived. Refresh it from the active Colab session when it
+expires.
 
 :::
 
-## Browser bridge (no manual DevTools)
+## Optional: configure from channels URL
 
-Instead of copying `RUNTIME_URL` / `RUNTIME_ID` / `RUNTIME_PROXY_TOKEN` out of
-DevTools, enable the **browser bridge** to obtain them from an authenticated
-Colab browser session. This reuses `jupyter-kernel-client`'s browser bridge — the
-same pattern as Google's own `colab-mcp`: a short-lived localhost WebSocket
-server is opened with a one-time token, a Colab page is launched, and the
-authenticated tab posts the runtime details back to the server. Google
-credentials never leave the browser.
-
-```bash
-pip install "jupyter-kernel-client[bridge]"
-```
-
-Enable it with the `RUNTIME_USE_BROWSER_BRIDGE` environment variable:
+Instead of setting `RUNTIME_URL` and `RUNTIME_ID` separately, you can provide the
+full WebSocket channels URL:
 
 ```bash
 SANDBOX_VARIANT=colab
-RUNTIME_USE_BROWSER_BRIDGE=true
+RUNTIME_CHANNELS_URL="wss://<host>/api/kernels/<kernel_id>/channels?session_id=<...>&colab-runtime-proxy-token=<proxy_token>&colab-client-agent=web"
+RUNTIME_PROXY_TOKEN=<proxy_token>
 ```
 
 Or on the command line:
@@ -120,15 +109,7 @@ Or on the command line:
 jupyter mcp start \
   --transport streamable-http \
   --sandbox-variant colab \
-  --runtime-use-browser-bridge \
+  --runtime-channels-url "wss://<host>/api/kernels/<kernel_id>/channels?..." \
+  --runtime-proxy-token "<proxy_token>" \
   --port 4040
 ```
-
-:::note
-
-The browser side must run a cooperating page, extension or userscript that reads
-the token and port from the launch URL and sends the connection payload. The MCP
-server implements only the local half of the handshake; it does not add an
-unofficial Colab API.
-
-:::

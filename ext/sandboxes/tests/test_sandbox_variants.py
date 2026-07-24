@@ -59,15 +59,20 @@ def test_build_sandbox_colab_forwards_runtime_connection():
             server_url="https://colab-host.example",
             kernel_id="kernel-id",
             proxy_token="proxy-token",
-            use_browser_bridge=False,
         )
 
 
-def test_build_sandbox_colab_enables_browser_bridge():
-    """Colab engine forwards the browser-bridge flag to code-sandboxes."""
+def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
+    """Colab engine forwards channels_url when supplied and allows missing kernel_id."""
     config = JupyterMCPConfig(
         sandbox_variant="colab",
-        runtime_use_browser_bridge=True,
+        runtime_url="https://colab-host.example",
+        runtime_proxy_token="proxy-token",
+        runtime_channels_url=(
+            "wss://colab-host.example/api/kernels/"
+            "11e073f0-e82d-4029-be8d-3918f7ed1a9e/channels"
+            "?session_id=abc&colab-runtime-proxy-token=proxy-token"
+        ),
     )
 
     with patch("code_sandboxes.Sandbox.create") as mock_create:
@@ -75,9 +80,12 @@ def test_build_sandbox_colab_enables_browser_bridge():
 
         build_sandbox(config, MagicMock())
 
-        _, kwargs = mock_create.call_args
+        kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "colab"
-        assert kwargs["use_browser_bridge"] is True
+        assert kwargs["server_url"] == "https://colab-host.example"
+        assert kwargs["proxy_token"] == "proxy-token"
+        assert "kernel_id" not in kwargs
+        assert kwargs["channels_url"].startswith("wss://colab-host.example")
 
 
 def test_build_sandbox_kaggle_forwards_runtime_connection_and_token():
@@ -101,6 +109,23 @@ def test_build_sandbox_kaggle_forwards_runtime_connection_and_token():
         assert kwargs["token"] == "kaggle-token"
 
 
+def test_build_sandbox_kaggle_forwards_gpu_flavor():
+    """Kaggle engine forwards SANDBOX_GPU as a batch accelerator hint."""
+    config = JupyterMCPConfig(
+        sandbox_variant="kaggle",
+        sandbox_gpu="T4",
+    )
+
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox(config, MagicMock())
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["variant"] == "kaggle"
+        assert kwargs["gpu"] == "T4"
+
+
 def test_build_sandbox_kaggle_forwards_channels_url_without_kernel_id():
     """Kaggle engine forwards channels_url when supplied and allows missing kernel_id."""
     config = JupyterMCPConfig(
@@ -119,8 +144,45 @@ def test_build_sandbox_kaggle_forwards_channels_url_without_kernel_id():
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "kaggle"
-        assert kwargs["server_url"] == "https://kaggle-host.example/proxy"
+        assert "server_url" not in kwargs
         assert "kernel_id" not in kwargs
+        assert kwargs["channels_url"].startswith("wss://kaggle-host.example")
+
+
+def test_build_sandbox_kaggle_defaults_to_batch_when_runtime_not_configured():
+    """Kaggle engine should prefer batch mode when runtime values are not explicitly set."""
+    config = JupyterMCPConfig(sandbox_variant="kaggle")
+
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox(config, MagicMock())
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["variant"] == "kaggle"
+        assert "server_url" not in kwargs
+        assert "kernel_id" not in kwargs
+        assert "channels_url" not in kwargs
+
+
+def test_build_sandbox_kaggle_channels_url_ignores_default_runtime_url():
+    """When channels_url is set, default localhost runtime URL must not leak into Kaggle create args."""
+    config = JupyterMCPConfig(
+        sandbox_variant="kaggle",
+        runtime_channels_url=(
+            "wss://kaggle-host.example/k/123/proxy/api/kernels/"
+            "11e073f0-e82d-4029-be8d-3918f7ed1a9e/channels?session_id=abc"
+        ),
+    )
+
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox(config, MagicMock())
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["variant"] == "kaggle"
+        assert "server_url" not in kwargs
         assert kwargs["channels_url"].startswith("wss://kaggle-host.example")
 
 

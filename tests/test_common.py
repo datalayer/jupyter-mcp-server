@@ -401,6 +401,17 @@ class MCPClient:
             if not isinstance(result_value, list):
                 # Wrap the single value in a list
                 structured["result"] = [result_value]
+            else:
+                # Jupyter extension transport may prefix outputs with execution_count.
+                # Keep textual-only outputs unchanged, but drop the scalar prefix when
+                # multimodal items (dict payloads) are present.
+                has_multimodal = any(isinstance(item, dict) for item in result_value)
+                if has_multimodal and result_value:
+                    first = result_value[0]
+                    if isinstance(first, int) or (
+                        isinstance(first, str) and first.isdigit()
+                    ):
+                        structured["result"] = result_value[1:]
         return structured
 
     @requires_session
@@ -427,7 +438,7 @@ class MCPClient:
         server_url: str | None = None,
         kernel_id: str | None = None,
         proxy_token: str | None = None,
-        use_browser_bridge: bool = False,
+        channels_url: str | None = None,
         token: str | None = None,
         run_url: str | None = None,
         python_version: str | None = None,
@@ -448,8 +459,8 @@ class MCPClient:
             arguments["kernel_id"] = kernel_id
         if proxy_token is not None:
             arguments["proxy_token"] = proxy_token
-        if use_browser_bridge:
-            arguments["use_browser_bridge"] = True
+        if channels_url is not None:
+            arguments["channels_url"] = channels_url
         if token is not None:
             arguments["token"] = token
         if run_url is not None:

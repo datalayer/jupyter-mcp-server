@@ -44,21 +44,12 @@ class JupyterMCPConfig(BaseModel):
         default=None,
         description="Proxy token for the Colab sandbox variant (colab-runtime-proxy-token).",
     )
-    runtime_use_browser_bridge: bool = Field(
-        default=False,
-        description=(
-            "For the 'colab' sandbox variant, obtain the runtime connection "
-            "details (server_url / kernel_id / proxy_token) from an authenticated "
-            "Colab browser session via jupyter-kernel-client's browser bridge "
-            "instead of requiring them to be provided explicitly."
-        ),
-    )
     runtime_channels_url: str | None = Field(
         default=None,
         description=(
-            "For the 'kaggle' sandbox variant, the WebSocket channels URL of a "
-            "running Kaggle notebook session. When set, server_url and kernel_id "
-            "are parsed from it."
+            "For the 'colab' and 'kaggle' sandbox variants, the WebSocket "
+            "channels URL of a running notebook session. When set, server_url "
+            "and kernel_id are parsed from it."
         ),
     )
     sandbox_environment: str | None = Field(
@@ -68,8 +59,9 @@ class JupyterMCPConfig(BaseModel):
     sandbox_gpu: str | None = Field(
         default=None,
         description=(
-            "GPU flavor for sandbox engines that support it (for example Modal or "
-            "Datalayer), e.g. T4, A10G, A100, H100."
+            "GPU flavor / accelerator for sandbox engines that support it. "
+            "Examples: Modal/Datalayer -> T4, A10G, A100, H100; "
+            "Kaggle batch -> NvidiaTeslaT4, NvidiaTeslaP100 (aliases T4/P100)."
         ),
     )
 
