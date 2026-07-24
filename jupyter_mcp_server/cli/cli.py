@@ -25,6 +25,7 @@ def serve() -> None:
     """Console-script entrypoint for the Typer CLI."""
     app()
 
+
 __all__ = [
     "Provider",
     "app",

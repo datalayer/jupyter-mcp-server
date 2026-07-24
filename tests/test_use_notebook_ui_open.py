@@ -71,9 +71,7 @@ def _reset_state(monkeypatch):
     """Each test gets a clean config, context flag, and call recorder."""
     reset_config()
     FakeMCPToolsClient.calls = []
-    monkeypatch.setattr(
-        "jupyter_mcp_tools.client.MCPToolsClient", FakeMCPToolsClient
-    )
+    monkeypatch.setattr("jupyter_mcp_tools.client.MCPToolsClient", FakeMCPToolsClient)
     yield
     reset_config()
 
@@ -130,9 +128,7 @@ async def test_switching_notebook_opens_ui_when_opted_in():
 
     await _switch_to_nb2(nm)
 
-    assert FakeMCPToolsClient.calls == [
-        ("docmanager_open", {"path": "work/nb2.ipynb"})
-    ]
+    assert FakeMCPToolsClient.calls == [("docmanager_open", {"path": "work/nb2.ipynb"})]
 
 
 @pytest.mark.asyncio

@@ -15,7 +15,7 @@ from .test_common import MCPClient, timeout_wrapper
 # Now, prompt feature is only available in MCP_SERVER mode.
 pytestmark = pytest.mark.skipif(
     not os.environ.get("TEST_MCP_SERVER", "false").lower() == "true",
-    reason="Prompt feature is only available in MCP_SERVER mode now."
+    reason="Prompt feature is only available in MCP_SERVER mode now.",
 )
 
 
@@ -42,4 +42,6 @@ async def test_jupyter_cite(mcp_client: MCPClient):
         # Test cite other notebook
         response = await mcp_client.jupyter_cite(prompt="", cell_indices="0", notebook_name="new")
         assert "from notebook new" in response[0], "should cite new notebook"
-        assert "# A New Notebook" in response[0], "Cell 0 of new notebook should contain A New Notebook"
+        assert (
+            "# A New Notebook" in response[0]
+        ), "Cell 0 of new notebook should contain A New Notebook"

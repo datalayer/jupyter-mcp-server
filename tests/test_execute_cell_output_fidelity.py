@@ -14,7 +14,6 @@ import pytest
 
 from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
 
-
 STREAM_OUTPUT = {
     "output_type": "stream",
     "name": "stdout",
@@ -55,7 +54,7 @@ def _write_notebook(tmp_path, source="print('hello')"):
 
 
 def _read_notebook(path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return nbformat.read(f, as_version=4)
 
 
@@ -131,9 +130,7 @@ async def test_multiple_outputs_keep_their_order_and_types(tmp_path):
     path = _write_notebook(tmp_path)
     tool = ExecuteCellTool()
 
-    await tool._write_outputs_to_cell(
-        path, 0, [], raw_outputs=[STREAM_OUTPUT, ERROR_OUTPUT]
-    )
+    await tool._write_outputs_to_cell(path, 0, [], raw_outputs=[STREAM_OUTPUT, ERROR_OUTPUT])
 
     outputs = _read_notebook(path).cells[0].outputs
     assert [o["output_type"] for o in outputs] == ["stream", "error"]
@@ -159,9 +156,7 @@ async def test_falls_back_to_formatted_strings_without_raw_outputs(tmp_path):
     path = _write_notebook(tmp_path)
     tool = ExecuteCellTool()
 
-    await tool._write_outputs_to_cell(
-        path, 0, ["[TIMEOUT ERROR: Execution exceeded 1 seconds]"]
-    )
+    await tool._write_outputs_to_cell(path, 0, ["[TIMEOUT ERROR: Execution exceeded 1 seconds]"])
 
     notebook = _read_notebook(path)
     outputs = notebook.cells[0].outputs
@@ -198,9 +193,7 @@ async def test_no_output_sentinel_is_not_persisted(tmp_path):
     path = _write_notebook(tmp_path, source="x = 1")
     tool = ExecuteCellTool()
 
-    await tool._write_outputs_to_cell(
-        path, 0, ["[No output generated]"], raw_outputs=[]
-    )
+    await tool._write_outputs_to_cell(path, 0, ["[No output generated]"], raw_outputs=[])
 
     cell = _read_notebook(path).cells[0]
     assert cell.outputs == []

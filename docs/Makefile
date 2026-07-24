@@ -29,7 +29,7 @@ env-rm:
 
 env:
 	-conda env create -f environment.yml
-	@echo 
+	@echo
 	@echo --------------------------------------------------
 	@echo 🔧  Datalayer environment is created.
 	@echo --------------------------------------------------

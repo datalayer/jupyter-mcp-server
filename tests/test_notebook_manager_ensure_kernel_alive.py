@@ -68,8 +68,11 @@ def test_ensure_kernel_alive_keeps_live_kernel():
     nm = NotebookManager()
     live = FakeKernel("live-kernel", alive=True)
     nm.add_notebook(
-        "nb", live,
-        server_url=RUNTIME_URL, token=RUNTIME_AUTH, path=NB_PATH,
+        "nb",
+        live,
+        server_url=RUNTIME_URL,
+        token=RUNTIME_AUTH,
+        path=NB_PATH,
     )
 
     result = nm.ensure_kernel_alive("nb", lambda: FakeKernel("should-not-be-used"))

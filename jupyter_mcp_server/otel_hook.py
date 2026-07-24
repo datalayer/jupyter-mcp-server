@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -62,9 +62,7 @@ class OTelHookHandler:
         ctx = kwargs.get("context", {})
 
         if event == HookEvent.BEFORE_TOOL_CALL:
-            span = self._tracer.start_span(
-                f"tool_call:{kwargs.get('tool_name', 'unknown')}"
-            )
+            span = self._tracer.start_span(f"tool_call:{kwargs.get('tool_name', 'unknown')}")
             span.set_attribute("tool.name", kwargs.get("tool_name", ""))
             ctx["_otel_span"] = span
 

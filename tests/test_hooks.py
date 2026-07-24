@@ -5,6 +5,7 @@
 """Tests for the hook system."""
 
 import pytest
+
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
 
 
@@ -88,8 +89,12 @@ class TestHookRegistry:
         handler = MyHandler()
         registry.register(handler)
 
-        ctx = await registry.fire(HookEvent.BEFORE_EXECUTE, code="x", kernel_id="k", metadata={"nonce": 40})
-        await registry.fire(HookEvent.AFTER_EXECUTE, code="x", kernel_id="k", metadata={}, outputs=[], context=ctx)
+        ctx = await registry.fire(
+            HookEvent.BEFORE_EXECUTE, code="x", kernel_id="k", metadata={"nonce": 40}
+        )
+        await registry.fire(
+            HookEvent.AFTER_EXECUTE, code="x", kernel_id="k", metadata={}, outputs=[], context=ctx
+        )
 
         assert handler.final_value == 42
 
@@ -109,7 +114,9 @@ class TestHookRegistry:
 
         registry.register(Handler("first"))
         registry.register(Handler("second"))
-        await registry.fire(HookEvent.KERNEL_LIFECYCLE, event_type="started", kernel_id="k", kernel_name="nb")
+        await registry.fire(
+            HookEvent.KERNEL_LIFECYCLE, event_type="started", kernel_id="k", kernel_name="nb"
+        )
 
         assert order == ["first", "second"]
 
@@ -185,4 +192,3 @@ class TestWithHooksDecorator:
         assert handler.events[1][0] == HookEvent.AFTER_TOOL_CALL
         assert handler.events[1][1]["result"] is None
         assert isinstance(handler.events[1][1]["error"], ValueError)
-

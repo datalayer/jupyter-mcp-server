@@ -28,16 +28,13 @@ import requests
 
 from .conftest import JUPYTER_TOKEN
 
-
 ###############################################################################
 # Unit Tests - Extension Components
 ###############################################################################
 
+
 def test_import():
     """Test that all extension imports work."""
-    from jupyter_mcp_server.jupyter_extension import extension
-    from jupyter_mcp_server.jupyter_extension import handlers
-    from jupyter_mcp_server.jupyter_extension import context
     logging.info("✅ All imports successful")
     assert True
 
@@ -45,6 +42,7 @@ def test_import():
 def test_extension_points():
     """Test extension discovery."""
     from jupyter_mcp_server import _jupyter_server_extension_points
+
     points = _jupyter_server_extension_points()
     logging.info(f"Extension points: {points}")
     assert len(points) > 0
@@ -54,10 +52,11 @@ def test_extension_points():
 def test_handler_creation():
     """Test that handlers can be instantiated."""
     from jupyter_mcp_server.jupyter_extension.handlers import (
-        MCPSSEHandler, 
-        MCPHealthHandler, 
-        MCPToolsListHandler
+        MCPHealthHandler,
+        MCPSSEHandler,
+        MCPToolsListHandler,
     )
+
     logging.info("✅ Handlers available")
     assert MCPSSEHandler is not None
     assert MCPHealthHandler is not None
@@ -68,10 +67,11 @@ def test_handler_creation():
 # Integration Tests - Extension Running in Jupyter
 ###############################################################################
 
+
 def test_extension_health(jupyter_server_with_extension):
     """Test that Jupyter server with MCP extension is healthy"""
     logging.info(f"Testing Jupyter+MCP extension health ({jupyter_server_with_extension})")
-    
+
     # Test Jupyter API is accessible
     response = requests.get(
         f"{jupyter_server_with_extension}/api/status",
@@ -84,13 +84,13 @@ def test_extension_health(jupyter_server_with_extension):
 def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_server):
     """
     Document the differences between the two server modes for future reference.
-    
+
     This test serves as living documentation of the architecture.
     """
-    logging.info("\n" + "="*80)
+    logging.info("\n" + "=" * 80)
     logging.info("SERVER MODE COMPARISON")
-    logging.info("="*80)
-    
+    logging.info("=" * 80)
+
     logging.info("\nMCP_SERVER Mode (Standalone):")
     logging.info(f"  - URL: {jupyter_server}")
     logging.info("  - Started via: python -m jupyter_mcp_server --transport streamable-http")
@@ -99,7 +99,7 @@ def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_se
     logging.info("  - Cell operations: WebSocket messages")
     logging.info("  - Execute IPython: WebSocket to kernel")
     logging.info("  - Tests: test_mcp_server.py")
-    
+
     logging.info("\nJUPYTER_SERVER Mode (Extension):")
     logging.info(f"  - URL: {jupyter_server_with_extension}")
     logging.info("  - Started via: jupyter lab --ServerApp.jpserver_extensions")
@@ -108,21 +108,21 @@ def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_se
     logging.info("  - Cell operations: YDoc when available, nbformat fallback")
     logging.info("  - Execute IPython: Direct kernel_manager.get_kernel() + ZMQ")
     logging.info("  - Tests: test_jupyter_extension.py (this file)")
-    
+
     logging.info("\nKey Benefits of JUPYTER_SERVER Mode:")
     logging.info("  ✓ Real-time collaborative editing via YDoc")
     logging.info("  ✓ Zero-latency local operations")
     logging.info("  ✓ Direct ZMQ access to kernels")
     logging.info("  ✓ Automatic sync with JupyterLab UI")
-    
+
     logging.info("\nKey Benefits of MCP_SERVER Mode:")
     logging.info("  ✓ Works with remote Jupyter servers")
     logging.info("  ✓ No Jupyter extension installation required")
     logging.info("  ✓ Can proxy to multiple Jupyter instances")
     logging.info("  ✓ Standard MCP protocol compatibility")
-    
-    logging.info("="*80 + "\n")
-    
+
+    logging.info("=" * 80 + "\n")
+
     # Both servers should be running
     assert jupyter_server is not None
     assert jupyter_server_with_extension is not None
@@ -148,19 +148,28 @@ def test_get_endpoint_auth(jupyter_server_with_extension, path):
     url = f"{jupyter_server_with_extension}{path}"
     # No token -> rejected
     r = requests.get(url, allow_redirects=False)
-    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.FOUND), f"{path} allowed unauthenticated GET"
+    assert r.status_code in (
+        HTTPStatus.FORBIDDEN,
+        HTTPStatus.FOUND,
+    ), f"{path} allowed unauthenticated GET"
     # Wrong token -> rejected
     r = requests.get(url, headers={"Authorization": "token WRONG"}, allow_redirects=False)
-    assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.FOUND), f"{path} allowed invalid token"
+    assert r.status_code in (
+        HTTPStatus.FORBIDDEN,
+        HTTPStatus.FOUND,
+    ), f"{path} allowed invalid token"
     # Valid token -> 200
     r = requests.get(url, headers={"Authorization": f"token {JUPYTER_TOKEN}"})
     assert r.status_code == HTTPStatus.OK, f"{path} rejected valid token"
 
 
-@pytest.mark.parametrize("path,body", [
-    ("/mcp/tools/call", {"tool_name": "list_notebooks", "arguments": {}}),
-    ("/mcp", {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
-])
+@pytest.mark.parametrize(
+    "path,body",
+    [
+        ("/mcp/tools/call", {"tool_name": "list_notebooks", "arguments": {}}),
+        ("/mcp", {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+    ],
+)
 def test_post_endpoint_auth(jupyter_server_with_extension, path, body):
     """POST endpoints reject unauthenticated requests and accept valid tokens."""
     url = f"{jupyter_server_with_extension}{path}"
@@ -179,28 +188,29 @@ def test_post_endpoint_auth(jupyter_server_with_extension, path, body):
 # Unit Tests - Extension Configuration
 ###############################################################################
 
+
 def test_extension_trait_configuration():
     """Test that the extension trait handles allowed_jupyter_mcp_tools configuration."""
     from jupyter_mcp_server.jupyter_extension.extension import JupyterMCPServerExtensionApp
-    
+
     # Test default configuration
     app = JupyterMCPServerExtensionApp()
-    assert hasattr(app, 'allowed_jupyter_mcp_tools')
+    assert hasattr(app, "allowed_jupyter_mcp_tools")
     assert app.allowed_jupyter_mcp_tools == "notebook_run-all-cells,notebook_get-selected-cell"
-    
+
     # Test custom configuration
     app.allowed_jupyter_mcp_tools = "notebook_append-execute,console_create"
     assert app.allowed_jupyter_mcp_tools == "notebook_append-execute,console_create"
-    
+
     logging.info("✅ Extension trait configuration test passed")
 
 
 def test_extension_trait_validation():
     """Test that the extension trait validates allowed_jupyter_mcp_tools input."""
     from jupyter_mcp_server.jupyter_extension.extension import JupyterMCPServerExtensionApp
-    
+
     app = JupyterMCPServerExtensionApp()
-    
+
     # Test various valid formats
     valid_configurations = [
         "tool1,tool2,tool3",
@@ -209,9 +219,9 @@ def test_extension_trait_validation():
         "",  # Empty should be allowed
         " tool1 , tool2 ",  # Spaces should be handled
     ]
-    
+
     for config in valid_configurations:
         app.allowed_jupyter_mcp_tools = config
         assert isinstance(app.allowed_jupyter_mcp_tools, str)
-    
+
     logging.info("✅ Extension trait validation test passed")

@@ -1,0 +1,150 @@
+# Kaggle Provider
+
+The Jupyter MCP Server can execute code against a **Kaggle** notebook runtime.
+Kaggle exposes a Jupyter-compatible kernel behind an authenticating proxy, so the
+server connects through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `kaggle` sandbox
+variant.
+
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[Kaggle sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#kaggle)
+in the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the Kaggle extra:
+
+```bash
+pip install "jupyter-mcp-server[kaggle]"
+```
+
+Install the sandbox extension package used by this provider:
+
+```bash
+pip install datalayer_mcp_sandboxes
+```
+
+## Connection modes
+
+Kaggle supports two connection modes:
+
+1. **Batch mode (default):** when no runtime URL/channels are configured, code
+  is executed via Kaggle's job API (`KaggleKernelExecutor`).
+2. **Interactive mode:** create or connect to a runtime kernel via
+  `KaggleKernelClient`.
+
+### Mode A: batch execution (default)
+
+No `RUNTIME_URL` is required. Configure Kaggle credentials (for example
+`KAGGLE_API_TOKEN`, or standard Kaggle credentials such as `kaggle.json`).
+Optionally set `SANDBOX_GPU` to request a specific accelerator.
+
+```bash
+SANDBOX_VARIANT=kaggle
+KAGGLE_API_TOKEN=...
+SANDBOX_GPU=T4
+```
+
+Supported accelerator values include:
+
+- `NvidiaTeslaP100`
+- `NvidiaTeslaT4`
+- `NvidiaTeslaT4Highmem`
+- `NvidiaL4`
+- `NvidiaL4X1`
+- `NvidiaTeslaA100`
+- `NvidiaH100`
+- `NvidiaRtxPro6000`
+
+Friendly aliases such as `P100`, `T4`, `A100`, and `H100` are accepted.
+
+> Note: Kaggle free-tier access is typically limited to `P100` and `T4`.
+
+### Mode B: interactive create kernel (token-based)
+
+| Parameter | Environment variable | Description |
+|-----------|----------------------|-------------|
+| Server URL | `RUNTIME_URL` | Kaggle proxied runtime URL ending in `/proxy` |
+| API token | `KAGGLE_API_TOKEN` (or `RUNTIME_TOKEN`) | Kaggle API token |
+
+```bash
+SANDBOX_VARIANT=kaggle
+RUNTIME_URL=https://kkb-production.jupyter-proxy.kaggle.net/k/12345678/eyJ.../proxy
+KAGGLE_API_TOKEN=...
+```
+
+### Mode B: connect to an existing kernel
+
+Use either:
+
+- `RUNTIME_URL` + `RUNTIME_ID`, or
+- `RUNTIME_CHANNELS_URL` (the websocket URL from the notebook session)
+
+Example channels URL:
+
+```
+wss://kkb-production.jupyter-proxy.kaggle.net/k/<n>/<jwt>/proxy/api/kernels/<kernel_id>/channels?session_id=<...>
+```
+
+## How to obtain runtime values
+
+The official Kaggle API (`kaggle` CLI / `kagglehub`) provides batch notebook/job
+operations, but not interactive kernel WebSocket provisioning. Interactive
+runtime values come from an active browser session:
+
+1. Open your notebook on [kaggle.com](https://www.kaggle.com) and run a cell.
+2. Open DevTools (`F12`) -> **Network** -> **WS**.
+3. Find the `.../proxy/api/kernels/<id>/channels?...` request and copy its URL.
+
+You can parse `RUNTIME_URL` and `RUNTIME_ID` from that URL automatically by
+setting `RUNTIME_CHANNELS_URL`.
+
+## Configuration
+
+Default (batch mode):
+
+```bash
+SANDBOX_VARIANT=kaggle
+KAGGLE_API_TOKEN=...
+SANDBOX_GPU=T4
+```
+
+Interactive mode:
+
+```bash
+SANDBOX_VARIANT=kaggle
+RUNTIME_URL=https://kkb-production.jupyter-proxy.kaggle.net/k/12345678/eyJ.../proxy
+KAGGLE_API_TOKEN=...
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --sandbox-variant kaggle \
+  --runtime-url "https://kkb-production.jupyter-proxy.kaggle.net/k/12345678/eyJ.../proxy" \
+  --runtime-token "${KAGGLE_API_TOKEN}" \
+  --port 4040
+```
+
+Existing-kernel flow:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --sandbox-variant kaggle \
+  --runtime-channels-url "wss://kkb-production.jupyter-proxy.kaggle.net/k/.../proxy/api/kernels/.../channels?session_id=..." \
+  --port 4040
+```
+
+Once connected, all notebook and cell execution tools run against the Kaggle
+runtime transparently.
+
+When a Kaggle sandbox is active, `execute_code` prefers the sandbox streaming
+execution path when available, so batch status/progress lines and output events
+are surfaced in-order in the returned tool output.

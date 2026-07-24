@@ -21,11 +21,13 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "jupyter-kernel-client>=0.12.0",
-    "jupyter-mcp-tools>=0.1.6",
-    "jupyter-nbmodel-client>=0.14.6",
-    "jupyter-server-nbmodel>=0.1.1a4",
-    "jupyter-server-client>=0.1.1",
+    "code-sandboxes",
+    "datalayer_reactor",
+    "jupyter-kernel-client",
+    "jupyter-mcp-tools",
+    "jupyter-nbmodel-client",
+    "jupyter-server-nbmodel",
+    "jupyter-server-client",
     "jupyter_server>=1.6,<3",
     "jupyter-collaboration",
     "tornado>=6.1",
@@ -36,10 +38,16 @@ dependencies = [
     "typer",
     "fastapi",
     "opentelemetry-api>=1.24.0",
-    "opentelemetry-sdk>=1.24.0"
+    "opentelemetry-sdk>=1.24.0",
 ]
 
 [project.optional-dependencies]
+colab = ["code-sandboxes[colab]"]
+kaggle = ["code-sandboxes[kaggle]"]
+monty = ["code-sandboxes[monty]"]
+modal = ["code-sandboxes[modal]"]
+datalayer = ["code-sandboxes[datalayer]"]
+all-sandboxes = ["code-sandboxes[all]"]
 test = [
     "ipykernel",
     "jupyter_server>=1.6,<3",

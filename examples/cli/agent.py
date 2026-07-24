@@ -17,7 +17,6 @@ import sys
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 
-
 DEFAULT_MODEL = "bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 DEFAULT_MCP_URL = "http://127.0.0.1:4040/mcp"
 

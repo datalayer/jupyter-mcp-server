@@ -1,0 +1,101 @@
+# Modal Provider
+
+The Jupyter MCP Server can execute code in a [Modal](https://modal.com/docs/guide)
+cloud sandbox, providing fully isolated, on-demand containers with configurable
+images and secrets. Execution is routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `modal` engine.
+
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[Modal sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#modal) in
+the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the Modal extra and authenticate with Modal:
+
+```bash
+pip install "jupyter-mcp-server[modal]"
+modal token new
+```
+
+For local development, `modal token new` is usually enough because the Modal SDK
+loads credentials from `~/.modal.toml`.
+
+Alternatively, provide credentials through environment variables:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `MODAL_TOKEN_ID` | Modal token id |
+| `MODAL_TOKEN_SECRET` | Modal token secret |
+
+For environment-based auth (CI/CD, containers, hosted runners), you need both
+variables. Modal authenticates with a token pair (public id + secret), so
+providing only one value is insufficient.
+
+If needed, export both values from your local Modal config:
+
+```bash
+python - <<'PY'
+import pathlib
+import tomllib
+
+cfg = tomllib.loads(pathlib.Path("~/.modal.toml").expanduser().read_text())
+profile = cfg.get("default", cfg)
+token_id = profile.get("token_id")
+token_secret = profile.get("token_secret")
+if token_id and token_secret:
+  print(f"export MODAL_TOKEN_ID={token_id}")
+  print(f"export MODAL_TOKEN_SECRET={token_secret}")
+else:
+  raise SystemExit("Could not find token_id/token_secret in ~/.modal.toml")
+PY
+```
+
+## Configuration
+
+Select the Modal engine with `SANDBOX_VARIANT=modal`:
+
+```bash
+SANDBOX_VARIANT=modal
+MODAL_TOKEN_ID=ak-...
+MODAL_TOKEN_SECRET=as-...
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --sandbox-variant modal \
+  --port 4040
+```
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "SANDBOX_VARIANT": "modal",
+        "MODAL_TOKEN_ID": "ak-...",
+        "MODAL_TOKEN_SECRET": "as-..."
+      }
+    }
+  }
+}
+```
+
+:::note
+
+Each execution runs in a fresh `python -c` process, so kernel state does not
+persist across separate tool calls. Combine statements into a single cell when you
+need shared state.
+
+:::

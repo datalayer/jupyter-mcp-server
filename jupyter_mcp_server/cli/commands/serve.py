@@ -46,6 +46,11 @@ def _resolve_and_start(
     reconnect_interval: int,
     execution_timeout: int,
     max_execution_timeout: int,
+    sandbox_variant: str = "jupyter",
+    runtime_proxy_token: str | None = None,
+    runtime_channels_url: str | None = None,
+    sandbox_environment: str | None = None,
+    sandbox_gpu: str | None = None,
 ) -> None:
     (
         resolved_document_url,
@@ -73,9 +78,7 @@ def _resolve_and_start(
         port=port,
         provider=provider,
         jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
-        open_notebook_in_ui=parse_bool_option(
-            open_notebook_in_ui, "--open-notebook-in-ui"
-        ),
+        open_notebook_in_ui=parse_bool_option(open_notebook_in_ui, "--open-notebook-in-ui"),
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
         otel_file=otel_file,
         mcp_token=mcp_token,
@@ -83,6 +86,11 @@ def _resolve_and_start(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
+        sandbox_variant=sandbox_variant,
+        runtime_proxy_token=runtime_proxy_token,
+        runtime_channels_url=runtime_channels_url,
+        sandbox_environment=sandbox_environment,
+        sandbox_gpu=sandbox_gpu,
     )
 
 
@@ -259,6 +267,50 @@ def server_callback(
             help="Maximum timeout in seconds a tool call may request for code execution. Defaults to 3600.",
         ),
     ] = 3600,
+    sandbox_variant: Annotated[
+        str,
+        typer.Option(
+            "--sandbox-variant",
+            envvar="SANDBOX_VARIANT",
+            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+        ),
+    ] = "jupyter",
+    runtime_proxy_token: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-proxy-token",
+            envvar="RUNTIME_PROXY_TOKEN",
+            help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
+        ),
+    ] = None,
+    runtime_channels_url: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-channels-url",
+            envvar="RUNTIME_CHANNELS_URL",
+            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
+        ),
+    ] = None,
+    sandbox_environment: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-environment",
+            envvar="SANDBOX_ENVIRONMENT",
+            help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
+        ),
+    ] = None,
+    sandbox_gpu: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-gpu",
+            envvar="SANDBOX_GPU",
+            help=(
+                "GPU flavor / accelerator for sandbox engines that support it "
+                "(Modal/Datalayer examples: T4, A10G, A100, H100; "
+                "Kaggle batch examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Manages Jupyter MCP Server."""
     if ctx.invoked_subcommand is not None:
@@ -286,6 +338,11 @@ def server_callback(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
+        sandbox_variant=sandbox_variant,
+        runtime_proxy_token=runtime_proxy_token,
+        runtime_channels_url=runtime_channels_url,
+        sandbox_environment=sandbox_environment,
+        sandbox_gpu=sandbox_gpu,
     )
 
 
@@ -461,6 +518,50 @@ def start_command(
             help="Maximum timeout in seconds a tool call may request for code execution. Defaults to 3600.",
         ),
     ] = 3600,
+    sandbox_variant: Annotated[
+        str,
+        typer.Option(
+            "--sandbox-variant",
+            envvar="SANDBOX_VARIANT",
+            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+        ),
+    ] = "jupyter",
+    runtime_proxy_token: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-proxy-token",
+            envvar="RUNTIME_PROXY_TOKEN",
+            help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
+        ),
+    ] = None,
+    runtime_channels_url: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-channels-url",
+            envvar="RUNTIME_CHANNELS_URL",
+            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
+        ),
+    ] = None,
+    sandbox_environment: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-environment",
+            envvar="SANDBOX_ENVIRONMENT",
+            help="Environment name for cloud sandboxes (e.g. Datalayer/Modal).",
+        ),
+    ] = None,
+    sandbox_gpu: Annotated[
+        str | None,
+        typer.Option(
+            "--sandbox-gpu",
+            envvar="SANDBOX_GPU",
+            help=(
+                "GPU flavor / accelerator for sandbox engines that support it "
+                "(Modal/Datalayer examples: T4, A10G, A100, H100; "
+                "Kaggle batch examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Start the Jupyter MCP Server with a transport."""
     _resolve_and_start(
@@ -485,4 +586,9 @@ def start_command(
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
+        sandbox_variant=sandbox_variant,
+        runtime_proxy_token=runtime_proxy_token,
+        runtime_channels_url=runtime_channels_url,
+        sandbox_environment=sandbox_environment,
+        sandbox_gpu=sandbox_gpu,
     )

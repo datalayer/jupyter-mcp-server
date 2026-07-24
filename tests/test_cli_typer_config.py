@@ -331,6 +331,7 @@ def test_jupyter_collaboration_is_a_required_dependency():
     (see #259).
     """
     import importlib.metadata as metadata
+
     from packaging.requirements import Requirement
 
     requires = metadata.requires("jupyter_mcp_server") or []

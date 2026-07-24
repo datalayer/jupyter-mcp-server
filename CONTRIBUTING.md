@@ -15,6 +15,7 @@ This project and everyone participating in it is governed by the [Contributor Co
 ## How Can I Contribute?
 
 We welcome contributions of all kinds, including:
+
 - 🐛 Bug fixes
 - 📝 Improvements to existing features or documentation
 - 🔧 New feature development
@@ -30,35 +31,40 @@ Before creating a new issue, please **ensure one does not already exist** by sea
 
 To get started with development, you'll need to set up your environment.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/datalayer/jupyter-mcp-server
-    cd jupyter-mcp-server
-    ```
+1. **Clone the repository:**
 
-2.  **Install dependencies:**
-    ```bash
-    # Install the project in editable mode with test dependencies
-    pip install -e ".[test]"
-    ```
+   ```bash
+   git clone https://github.com/datalayer/jupyter-mcp-server
+   cd jupyter-mcp-server
+   ```
 
-3.  **Make Some Amazing Changes!**
-    ```bash
-    # Make some amazing changes to the source code!
-    ```
+1. **Install dependencies:**
 
-4.  **Run Tests:**
-    ```bash
-    make test
-    ```
+   ```bash
+   # Install the project in editable mode with test dependencies
+   pip install -e ".[test]"
+   ```
 
-5.  **Build Python Package/Docker Image:**
-    ```bash
-    # Build the Python package
-    make build
-    # Build the Docker image
-    make build-docker
-    ```
+1. **Make Some Amazing Changes!**
+
+   ```bash
+   # Make some amazing changes to the source code!
+   ```
+
+1. **Run Tests:**
+
+   ```bash
+   make test
+   ```
+
+1. **Build Python Package/Docker Image:**
+
+   ```bash
+   # Build the Python package
+   make build
+   # Build the Docker image
+   make build-docker
+   ```
 
 ## Testing Guidelines
 
@@ -69,7 +75,7 @@ This section provides comprehensive guidance for adding and maintaining tests in
 The project supports testing in two deployment modes:
 
 1. **MCP_SERVER Mode**: Standalone MCP server using HTTP/WebSocket to connect to Jupyter
-2. **JUPYTER_SERVER Mode**: Jupyter extension with direct serverapp API access
+1. **JUPYTER_SERVER Mode**: Jupyter extension with direct serverapp API access
 
 Tests are parametrized to run against both modes using the same MCPClient, ensuring consistent behavior across deployment patterns.
 
@@ -86,62 +92,65 @@ When adding tests for new features or modifying existing tools, ensure your test
 
 ## (Recommended) Manual Agent Testing
 
-1.  **Build Python Package:**
-    ```bash
-    make build
-    ```
+1. **Build Python Package:**
 
-2. **Set Up Your Environment:**
-    ```bash
-    pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel
-    pip uninstall -y pycrdt datalayer_pycrdt
-    pip install datalayer_pycrdt==0.12.17
-    ```
+   ```bash
+   make build
+   ```
 
-3.  **Start Jupyter Server:**
-    ```bash
-    jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
-    ```
+1. **Set Up Your Environment:**
 
-4.  **Set Up Your MCP Client:**
-    We recommend using `uvx` to start the MCP server, first install `uvx` with `pip install uv`.
+   ```bash
+   pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel
+   pip uninstall -y pycrdt datalayer_pycrdt
+   pip install datalayer_pycrdt==0.12.17
+   ```
 
-    ```bash
-    pip install uv
-    uv --version
-    # should be 0.6.14 or higher
-    ```
+1. **Start Jupyter Server:**
 
-    Then, set up your MCP client with the following configuration file.
+   ```bash
+   jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
+   ```
 
-    ```json
-    {
-        "mcpServers": {
-            "Jupyter-MCP": {
-                "command": "uvx",
-                "args": [
-                    "--from",
-                    "your/path/to/jupyter-mcp-server/dist/jupyter_mcp_server-x.x.x-py3-none-any.whl",
-                    "jupyter-mcp-server"
-                ],
-                "env": {
-                    "JUPYTER_URL": "http://localhost:8888",
-                    "JUPYTER_TOKEN": "MY_TOKEN",
-                    "ALLOW_IMG_OUTPUT": "true"
-                }
-            }
-        }
-    }
-    ```
+1. **Set Up Your MCP Client:**
+   We recommend using `uvx` to start the MCP server, first install `uvx` with `pip install uv`.
 
-5.  **Test Your Changes:**
+   ```bash
+   pip install uv
+   uv --version
+   # should be 0.6.14 or higher
+   ```
 
-    You Can Test Your Changes with your favorite MCP client(e.g. Cursor, Gemini CLI, etc.).
+   Then, set up your MCP client with the following configuration file.
+
+   ```json
+   {
+       "mcpServers": {
+           "Jupyter-MCP": {
+               "command": "uvx",
+               "args": [
+                   "--from",
+                   "your/path/to/jupyter-mcp-server/dist/jupyter_mcp_server-x.x.x-py3-none-any.whl",
+                   "jupyter-mcp-server"
+               ],
+               "env": {
+                   "JUPYTER_URL": "http://localhost:8888",
+                   "JUPYTER_TOKEN": "MY_TOKEN",
+                   "ALLOW_IMG_OUTPUT": "true"
+               }
+           }
+       }
+   }
+   ```
+
+1. **Test Your Changes:**
+
+   You Can Test Your Changes with your favorite MCP client(e.g. Cursor, Gemini CLI, etc.).
 
 ## Pull Request Process
 
-1.  Once you are satisfied with your changes and tests, commit your code.
-2.  Push your branch to your fork and attach with detailed description of the changes you made.
-3.  Open a pull request to the `main` branch of the original repository.
+1. Once you are satisfied with your changes and tests, commit your code.
+1. Push your branch to your fork and attach with detailed description of the changes you made.
+1. Open a pull request to the `main` branch of the original repository.
 
 We look forward to your contributions!

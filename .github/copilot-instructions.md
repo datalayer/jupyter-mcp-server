@@ -7,10 +7,12 @@ Jupyter MCP Server is a Python-based Model Context Protocol (MCP) server impleme
 ## Working Effectively
 
 ### Environment Setup
+
 - **Python Requirements**: Python 3.10 or higher (tested with 3.9-3.13)
 - **Network Considerations**: PyPI installs may fail due to SSL certificate issues or timeout limitations. This is a known environment constraint.
 
 ### Build and Install (CRITICAL: Network Limitations)
+
 ```bash
 # Standard installation (may fail with network issues)
 pip install ".[test,lint,typing]"
@@ -18,7 +20,7 @@ pip install ".[test,lint,typing]"
 # Alternative if pip install fails:
 # 1. Install dependencies individually with longer timeouts
 pip install --timeout=300 pytest
-pip install --timeout=300 ruff  
+pip install --timeout=300 ruff
 pip install --timeout=300 mypy
 
 # 2. Or use Docker approach (preferred for consistency)
@@ -26,17 +28,19 @@ docker build -t jupyter-mcp-server .
 ```
 
 **NETWORK TIMEOUT WARNING**: pip install commands may fail with SSL certificate errors or read timeouts when connecting to PyPI. If installs fail:
+
 - Try increasing timeout: `pip install --timeout=300`
 - Use Docker build which handles dependencies internally
 - Document the network limitation in any testing notes
 
 ### Core Development Commands
+
 ```bash
 # Development installation (when network allows)
 make dev
 # Equivalent to: pip install ".[test,lint,typing]"
 
-# Basic installation  
+# Basic installation
 make install
 # Equivalent to: pip install .
 
@@ -46,6 +50,7 @@ make build
 ```
 
 ### Testing (CRITICAL: Use Long Timeouts)
+
 ```bash
 # Run tests using hatch (when available)
 make test
@@ -61,6 +66,7 @@ pytest .
 ```
 
 **VALIDATION REQUIREMENT**: When testing is not possible due to network issues, verify at minimum:
+
 ```bash
 # Syntax validation (always works)
 python -m py_compile jupyter_mcp_server/server.py
@@ -71,6 +77,7 @@ PYTHONPATH=. python -c "import jupyter_mcp_server; print('Import successful')"
 ```
 
 ### Linting and Code Quality (CRITICAL: Use Long Timeouts)
+
 ```bash
 # Full linting pipeline (when network allows)
 bash ./.github/workflows/lint.sh
@@ -78,7 +85,7 @@ bash ./.github/workflows/lint.sh
 # Individual linting commands:
 pip install -e ".[lint,typing]"
 mypy --install-types --non-interactive .  # May take 10+ minutes, NEVER CANCEL
-ruff check .                              # Quick, usually <1 minute  
+ruff check .                              # Quick, usually <1 minute
 mdformat --check *.md                     # Quick, usually <1 minute
 pipx run 'validate-pyproject[all]' pyproject.toml  # 2-3 minutes
 
@@ -89,6 +96,7 @@ pipx run 'validate-pyproject[all]' pyproject.toml  # 2-3 minutes
 ### Running the Application
 
 #### Local Development Mode
+
 ```bash
 # Start with streamable HTTP transport
 make start
@@ -105,6 +113,7 @@ jupyter-mcp-server start \
 ```
 
 #### JupyterLab Setup (Required for Testing)
+
 ```bash
 # Start JupyterLab server for MCP integration
 make jupyterlab
@@ -119,11 +128,12 @@ jupyter lab \
 ```
 
 #### Docker Deployment
+
 ```bash
 # Build Docker image (NEVER CANCEL: Build takes 10-15 minutes)
 make build-docker  # Takes 10-15 minutes, set timeout to 20+ minutes
 
-# Run with Docker  
+# Run with Docker
 make start-docker
 # Or manually:
 docker run -i --rm \
@@ -142,24 +152,27 @@ docker run -i --rm \
 **When full testing is not possible due to network constraints, always verify:**
 
 1. **Syntax and Import Validation**:
+
    ```bash
    # Validate all Python files compile
    find . -name "*.py" -exec python -m py_compile {} \;
-   
+
    # Test local imports work
    PYTHONPATH=. python -c "import jupyter_mcp_server; print('SUCCESS')"
    ```
 
-2. **Configuration Validation**:
+1. **Configuration Validation**:
+
    ```bash
    # Verify pyproject.toml is valid
    python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))"
-   
+
    # Test module structure
    python -c "import jupyter_mcp_server.server, jupyter_mcp_server.models"
    ```
 
-3. **Documentation Build** (when Node.js available):
+1. **Documentation Build** (when Node.js available):
+
    ```bash
    cd docs/
    npm install  # May have network issues
@@ -169,6 +182,7 @@ docker run -i --rm \
 ## Project Structure and Navigation
 
 ### Key Directories
+
 - **`jupyter_mcp_server/`**: Main Python package
   - `server.py`: Core MCP server implementation with FastMCP integration
   - `models.py`: Pydantic data models for document and runtime handling
@@ -180,6 +194,7 @@ docker run -i --rm \
 - **`.github/workflows/`**: CI/CD pipeline definitions
 
 ### Important Files
+
 - **`pyproject.toml`**: Build configuration, dependencies, and tool settings
 - **`Makefile`**: Development workflow automation
 - **`Dockerfile`**: Container build definition
@@ -187,6 +202,7 @@ docker run -i --rm \
 - **`pytest.ini`**: Test configuration
 
 ### Frequently Modified Areas
+
 - **Server Logic**: `jupyter_mcp_server/server.py` - Main MCP server implementation
 - **Data Models**: `jupyter_mcp_server/models.py` - When adding new MCP tools or changing data structures
 - **Tests**: `tests/test_mcp.py` - Integration tests for MCP functionality
@@ -195,22 +211,26 @@ docker run -i --rm \
 ## Common Tasks and Gotchas
 
 ### Adding New MCP Tools
+
 1. Add tool definition in `jupyter_mcp_server/server.py`
-2. Update models in `jupyter_mcp_server/models.py` if needed
-3. Add tests in `tests/test_mcp.py`
-4. Update documentation in `docs/`
+1. Update models in `jupyter_mcp_server/models.py` if needed
+1. Add tests in `tests/test_mcp.py`
+1. Update documentation in `docs/`
 
 ### Dependency Management
+
 - **Core deps**: Defined in `pyproject.toml` dependencies section
 - **Dev deps**: Use `[test,lint,typing]` optional dependencies
 - **Special handling**: `datalayer_pycrdt` has specific version requirements (0.12.17)
 
 ### CI/CD Pipeline Expectations
+
 - **Build Matrix**: Tests run on Ubuntu, macOS, Windows with Python 3.9, 3.13
 - **Critical Timing**: Full CI pipeline takes 20-30 minutes
 - **Required Checks**: pytest, ruff, mypy, mdformat, pyproject validation
 
 ### Environment Variables for Testing
+
 ```bash
 # Required for MCP server operation
 export DOCUMENT_URL="http://localhost:8888"
@@ -225,29 +245,32 @@ export RUNTIME_TOKEN="MY_TOKEN"
 **CRITICAL CONSTRAINT**: This development environment has limited PyPI connectivity with SSL certificate issues and timeout problems.
 
 ### Known Working Commands
+
 ```bash
 # These always work (no network required):
 python -m py_compile <file>          # Syntax validation
-PYTHONPATH=. python -c "import ..."  # Import testing  
+PYTHONPATH=. python -c "import ..."  # Import testing
 python -c "import tomllib; ..."      # Config validation
 git operations                       # Version control
 docker build (when base images cached)
 ```
 
 ### Commands That May Fail
+
 ```bash
 pip install <anything>               # Network timeouts/SSL issues
-npm install                          # Network limitations  
+npm install                          # Network limitations
 mypy --install-types                 # Downloads type stubs
 hatch test                           # May need PyPI for dependencies
 ```
 
 ### Required Workarounds
+
 1. **Document network failures** when they occur: "pip install fails due to network limitations"
-2. **Use syntax validation** instead of full testing when pip installs fail
-3. **Prefer Docker approach** for consistent builds when possible
-4. **Set generous timeouts** (60+ minutes) for any network operations
-5. **Never cancel long-running commands** - document expected timing instead
+1. **Use syntax validation** instead of full testing when pip installs fail
+1. **Prefer Docker approach** for consistent builds when possible
+1. **Set generous timeouts** (60+ minutes) for any network operations
+1. **Never cancel long-running commands** - document expected timing instead
 
 ## Timing Expectations
 
@@ -256,7 +279,7 @@ hatch test                           # May need PyPI for dependencies
 - **pip install ".[test,lint,typing]"**: 5-10 minutes (when network works)
 - **mypy --install-types --non-interactive**: 10-15 minutes first run
 - **Docker build**: 10-15 minutes
-- **Full test suite**: 15-20 minutes  
+- **Full test suite**: 15-20 minutes
 - **Documentation build**: 3-5 minutes
 - **CI pipeline**: 20-30 minutes total
 

@@ -7,24 +7,23 @@
 import asyncio
 import logging
 import time
-import nbformat
 from pathlib import Path
-from typing import Optional, Union, List
+
+import nbformat
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
-    get_current_notebook_context,
-    execute_via_execution_stack,
-    safe_extract_outputs,
-    get_jupyter_ydoc,
     clean_notebook_outputs,
-    wait_for_kernel_idle,
-    safe_extract_outputs,
     execute_cell_with_forced_sync,
+    execute_via_execution_stack,
+    extract_output,
+    get_current_notebook_context,
+    get_jupyter_ydoc,
+    safe_extract_outputs,
+    wait_for_kernel_idle,
     track_pending_execution,
-    extract_output
 )
 
 logger = logging.getLogger(__name__)
@@ -37,8 +36,8 @@ class ExecuteCellTool(BaseTool):
         self,
         notebook_path: str,
         cell_index: int,
-        outputs: List[Union[str, ImageContent]],
-        raw_outputs: Optional[List[dict]] = None
+        outputs: list[str | ImageContent],
+        raw_outputs: list[dict] | None = None,
     ):
         """Write execution outputs back to a notebook cell.
 
@@ -48,20 +47,22 @@ class ExecuteCellTool(BaseTool):
         the output type can only be guessed from the string form.
         """
 
-        with open(notebook_path, 'r', encoding='utf-8') as f:
+        with open(notebook_path, encoding="utf-8") as f:
             notebook = nbformat.read(f, as_version=4)
 
         # Handle negative indices (e.g., -1 for last cell)
         num_cells = len(notebook.cells)
         if cell_index < 0:
             cell_index = num_cells + cell_index
-        
+
         if cell_index < 0 or cell_index >= num_cells:
-            logger.warning(f"Cell index {cell_index} out of range (notebook has {num_cells} cells), cannot write outputs")
+            logger.warning(
+                f"Cell index {cell_index} out of range (notebook has {num_cells} cells), cannot write outputs"
+            )
             return
 
         cell = notebook.cells[cell_index]
-        if cell.cell_type != 'code':
+        if cell.cell_type != "code":
             logger.warning(f"Cell {cell_index} is not a code cell, cannot write outputs")
             return
 
@@ -74,31 +75,37 @@ class ExecuteCellTool(BaseTool):
             cell.outputs = []
             for output in outputs:
                 if isinstance(output, ImageContent):
-                    cell.outputs.append(nbformat.v4.new_output(
-                        output_type='display_data',
-                        data={output.mimeType: output.data},
-                        metadata={}
-                    ))
+                    cell.outputs.append(
+                        nbformat.v4.new_output(
+                            output_type="display_data",
+                            data={output.mimeType: output.data},
+                            metadata={},
+                        )
+                    )
                 elif isinstance(output, str):
-                    if output == '[No output generated]':
+                    if output == "[No output generated]":
                         # A display-only sentinel for the tool response (see
                         # execute_via_execution_stack in utils.py): a cell that
                         # produced nothing must persist no output, not a
                         # fabricated execute_result.
                         continue
-                    if output.startswith('[ERROR:') or output.startswith('[TIMEOUT ERROR:') or output.startswith('[PROGRESS:'):
-                        cell.outputs.append(nbformat.v4.new_output(
-                            output_type='stream',
-                            name='stdout',
-                            text=output
-                        ))
+                    if (
+                        output.startswith("[ERROR:")
+                        or output.startswith("[TIMEOUT ERROR:")
+                        or output.startswith("[PROGRESS:")
+                    ):
+                        cell.outputs.append(
+                            nbformat.v4.new_output(output_type="stream", name="stdout", text=output)
+                        )
                     else:
-                        cell.outputs.append(nbformat.v4.new_output(
-                            output_type='execute_result',
-                            data={'text/plain': output},
-                            metadata={},
-                            execution_count=None
-                        ))
+                        cell.outputs.append(
+                            nbformat.v4.new_output(
+                                output_type="execute_result",
+                                data={"text/plain": output},
+                                metadata={},
+                                execution_count=None,
+                            )
+                        )
 
         # Strip kernel-protocol fields that are not part of the nbformat schema
         # (the raw outputs above come straight from the kernel).
@@ -107,16 +114,16 @@ class ExecuteCellTool(BaseTool):
         # Update execution count
         max_count = 0
         for c in notebook.cells:
-            if c.cell_type == 'code' and c.execution_count:
+            if c.cell_type == "code" and c.execution_count:
                 max_count = max(max_count, c.execution_count)
         cell.execution_count = max_count + 1
 
         # An execute_result carries the execution count of the cell that produced it.
         for output in cell.outputs:
-            if output.get('output_type') == 'execute_result':
-                output['execution_count'] = cell.execution_count
+            if output.get("output_type") == "execute_result":
+                output["execution_count"] = cell.execution_count
 
-        with open(notebook_path, 'w', encoding='utf-8') as f:
+        with open(notebook_path, "w", encoding="utf-8") as f:
             nbformat.write(notebook, f)
 
         logger.info(f"Wrote {len(outputs)} outputs to cell {cell_index} in {notebook_path}")
@@ -136,8 +143,8 @@ class ExecuteCellTool(BaseTool):
         stream: bool = False,
         progress_interval: int = 5,
         ensure_kernel_alive_fn=None,
-        **kwargs
-    ) -> List[Union[str, ImageContent]]:
+        **kwargs,
+    ) -> list[str | ImageContent]:
         """Execute a cell with configurable timeout and optional streaming progress updates.
 
         Args:
@@ -191,10 +198,12 @@ class ExecuteCellTool(BaseTool):
                         name=notebook_path,
                         kernel=kernel_info,
                         server_url="local",
-                        path=notebook_path
+                        path=notebook_path,
                     )
 
-            logger.info(f"Executing cell {cell_index} in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)")
+            logger.info(
+                f"Executing cell {cell_index} in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)"
+            )
 
             # Get file_id from file_id_manager
             file_id_manager = serverapp.web_app.settings.get("file_id_manager")
@@ -211,10 +220,12 @@ class ExecuteCellTool(BaseTool):
             if ydoc:
                 # Notebook is open - use YDoc and RTC
                 logger.info(f"Notebook {file_id} is open, using RTC mode")
-                
+
                 num_cells = len(ydoc.ycells)
                 if cell_index >= num_cells:
-                    raise ValueError(f"Cell index {cell_index} out of range (notebook has {num_cells} cells)")
+                    raise ValueError(
+                        f"Cell index {cell_index} out of range (notebook has {num_cells} cells)"
+                    )
 
                 cell_id = ydoc.ycells[cell_index].get("id")
                 cell_source = ydoc.ycells[cell_index].get("source")
@@ -236,7 +247,7 @@ class ExecuteCellTool(BaseTool):
                     code=code_to_execute,
                     document_id=document_id,
                     cell_id=cell_id,
-                    timeout=timeout_seconds
+                    timeout=timeout_seconds,
                 )
 
                 return outputs
@@ -244,15 +255,17 @@ class ExecuteCellTool(BaseTool):
                 # Notebook not open - use file-based approach
                 logger.info(f"Notebook {file_id} not open, using file mode")
 
-                with open(notebook_path, 'r', encoding='utf-8') as f:
+                with open(notebook_path, encoding="utf-8") as f:
                     notebook = nbformat.read(f, as_version=4)
 
                 num_cells = len(notebook.cells)
                 if cell_index >= num_cells:
-                    raise ValueError(f"Cell index {cell_index} out of range (notebook has {num_cells} cells)")
+                    raise ValueError(
+                        f"Cell index {cell_index} out of range (notebook has {num_cells} cells)"
+                    )
 
                 cell = notebook.cells[cell_index]
-                if cell.cell_type != 'code':
+                if cell.cell_type != "code":
                     raise ValueError(f"Cell {cell_index} is not a code cell")
 
                 code_to_execute = cell.source
@@ -260,13 +273,13 @@ class ExecuteCellTool(BaseTool):
                     return []
 
                 # Execute without RTC metadata
-                raw_outputs: List[dict] = []
+                raw_outputs: list[dict] = []
                 outputs = await execute_via_execution_stack(
                     serverapp=serverapp,
                     kernel_id=kernel_id,
                     code=code_to_execute,
                     timeout=timeout_seconds,
-                    raw_outputs=raw_outputs
+                    raw_outputs=raw_outputs,
                 )
 
                 # Write outputs back to file
@@ -285,18 +298,24 @@ class ExecuteCellTool(BaseTool):
             async with notebook_manager.get_current_connection() as notebook:
                 num_cells = len(notebook)
                 if cell_index >= num_cells:
-                    raise ValueError(f"Cell index {cell_index} out of range (notebook has {num_cells} cells)")
+                    raise ValueError(
+                        f"Cell index {cell_index} out of range (notebook has {num_cells} cells)"
+                    )
 
                 cell_source = str(notebook[cell_index].get("source", ""))
                 hooks = HookRegistry.get_instance()
                 hook_ctx = await hooks.fire(
                     HookEvent.BEFORE_EXECUTE,
-                    code=cell_source, kernel_id=kid, metadata={},
+                    code=cell_source,
+                    kernel_id=kid,
+                    metadata={},
                 )
 
                 if stream:
                     # Streaming mode: Real-time monitoring with progress updates
-                    logger.info(f"Executing cell {cell_index} in streaming mode (timeout: {timeout_seconds}s, interval: {progress_interval}s)")
+                    logger.info(
+                        f"Executing cell {cell_index} in streaming mode (timeout: {timeout_seconds}s, interval: {progress_interval}s)"
+                    )
 
                     outputs_log = []
 
@@ -345,7 +364,9 @@ class ExecuteCellTool(BaseTool):
 
                         # Progress update
                         if int(elapsed) % progress_interval == 0 and elapsed > 0:
-                            outputs_log.append(f"[PROGRESS: {elapsed:.1f}s elapsed, {last_output_count} outputs so far]")
+                            outputs_log.append(
+                                f"[PROGRESS: {elapsed:.1f}s elapsed, {last_output_count} outputs so far]"
+                            )
 
                         await asyncio.sleep(1)
 
@@ -374,35 +395,49 @@ class ExecuteCellTool(BaseTool):
                     result = outputs_log if outputs_log else ["[No output generated]"]
                     await hooks.fire(
                         HookEvent.AFTER_EXECUTE,
-                        code=cell_source, kernel_id=kid, metadata={},
-                        outputs=result, error=None, context=hook_ctx,
+                        code=cell_source,
+                        kernel_id=kid,
+                        metadata={},
+                        outputs=result,
+                        error=None,
+                        context=hook_ctx,
                     )
                     return result
 
                 else:
                     # Non-streaming mode: Use forced synchronization
-                    logger.info(f"Starting execution of cell {cell_index} with {timeout_seconds}s timeout")
+                    logger.info(
+                        f"Starting execution of cell {cell_index} with {timeout_seconds}s timeout"
+                    )
 
                     try:
                         # Use the forced sync function
-                        await execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds)
+                        await execute_cell_with_forced_sync(
+                            notebook, cell_index, kernel, timeout_seconds
+                        )
 
                         # Get final outputs
                         outputs = notebook[cell_index].get("outputs", [])
                         result = safe_extract_outputs(outputs)
 
-                        logger.info(f"Cell {cell_index} completed successfully with {len(result)} outputs")
+                        logger.info(
+                            f"Cell {cell_index} completed successfully with {len(result)} outputs"
+                        )
                         await hooks.fire(
                             HookEvent.AFTER_EXECUTE,
-                            code=cell_source, kernel_id=kid, metadata={},
-                            outputs=result, error=None, context=hook_ctx,
+                            code=cell_source,
+                            kernel_id=kid,
+                            metadata={},
+                            outputs=result,
+                            error=None,
+                            context=hook_ctx,
                         )
                         return result
 
                     except asyncio.TimeoutError as e:
                         logger.error(f"Cell {cell_index} execution timed out: {e}")
                         try:
-                            if kernel and hasattr(kernel, 'interrupt'):
+                            if kernel and hasattr(kernel, "interrupt"):
                                 kernel.interrupt()
                                 logger.info("Sent interrupt signal to kernel")
                         except Exception as interrupt_err:
@@ -412,21 +447,33 @@ class ExecuteCellTool(BaseTool):
                         try:
                             outputs = notebook[cell_index].get("outputs", [])
                             partial_outputs = safe_extract_outputs(outputs)
-                            partial_outputs.append(f"[TIMEOUT ERROR: Execution exceeded {timeout_seconds} seconds]")
+                            partial_outputs.append(
+                                f"[TIMEOUT ERROR: Execution exceeded {timeout_seconds} seconds]"
+                            )
                             await hooks.fire(
                                 HookEvent.AFTER_EXECUTE,
-                                code=cell_source, kernel_id=kid, metadata={},
-                                outputs=partial_outputs, error=e, context=hook_ctx,
+                                code=cell_source,
+                                kernel_id=kid,
+                                metadata={},
+                                outputs=partial_outputs,
+                                error=e,
+                                context=hook_ctx,
                             )
                             return partial_outputs
                         except Exception:
                             pass
 
-                        timeout_result = [f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds and was interrupted]"]
+                        timeout_result = [
+                            f"[TIMEOUT ERROR: Cell execution exceeded {timeout_seconds} seconds and was interrupted]"
+                        ]
                         await hooks.fire(
                             HookEvent.AFTER_EXECUTE,
-                            code=cell_source, kernel_id=kid, metadata={},
-                            outputs=timeout_result, error=e, context=hook_ctx,
+                            code=cell_source,
+                            kernel_id=kid,
+                            metadata={},
+                            outputs=timeout_result,
+                            error=e,
+                            context=hook_ctx,
                         )
                         return timeout_result
 
@@ -434,8 +481,12 @@ class ExecuteCellTool(BaseTool):
                         logger.error(f"Error executing cell {cell_index}: {e}")
                         await hooks.fire(
                             HookEvent.AFTER_EXECUTE,
-                            code=cell_source, kernel_id=kid, metadata={},
-                            outputs=[], error=e, context=hook_ctx,
+                            code=cell_source,
+                            kernel_id=kid,
+                            metadata={},
+                            outputs=[],
+                            error=e,
+                            context=hook_ctx,
                         )
                         raise
         else:

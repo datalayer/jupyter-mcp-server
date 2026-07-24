@@ -1,8 +1,8 @@
 # Tools
 
-The server currently offers 16 tools organized into 3 categories:
+The server offers 18 tools by default, plus 4 sandbox tools when the optional [`jupyter_mcp_sandboxes`](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/sandboxes) extension is installed.
 
-## Server Management (3 tools)
+## Server and Runtime Management (3 + 4 optional tools)
 
 #### 1. `list_files`
 
@@ -35,7 +35,61 @@ The server currently offers 16 tools organized into 3 categories:
   - **Last_Activity**: Timestamp of last kernel activity in YYYY-MM-DD HH:MM:SS format
   - **Environment**: Environment variables defined in the kernel spec (truncated if long)
 
-#### 3. `connect_to_jupyter`
+#### 3. `launch_sandbox`
+
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
+:::
+
+- Launch a sandbox runtime that can be used as an alternative execution backend to Jupyter kernels.
+- Input:
+  - `sandbox_name`(string): Unique sandbox identifier
+  - `variant`(string, optional): Sandbox variant (`eval`, `docker`, `jupyter`, `datalayer`, `kaggle`, `colab`, `monty`, `modal`, default: `eval`)
+  - `timeout`(int, optional): Default execution timeout in seconds for this sandbox (default: 60)
+  - `environment`(string, optional): Runtime environment name (common for datalayer/modal)
+  - `gpu`(string, optional): GPU flavor for supported variants (for example `T4`, `A10G`, `A100`, `H100`)
+  - `server_url`(string, optional): Runtime proxy URL (kaggle or colab variant)
+  - `kernel_id`(string, optional): Kernel ID (kaggle or colab variant; omit for kaggle to create a new kernel)
+  - `channels_url`(string, optional): Notebook session channels URL to derive `server_url`/`kernel_id` (kaggle or colab variant)
+  - `proxy_token`(string, optional): Colab runtime proxy token (colab variant)
+  - `token`(string, optional): Datalayer API token override (also accepted as the Kaggle API token for the kaggle variant; falls back to `KAGGLE_API_TOKEN`)
+  - `run_url`(string, optional): Datalayer run URL override
+  - `python_version`(string, optional): Modal Python version override (modal variant only)
+- Returns: Launch status message and sandbox metadata.
+
+#### 4. `list_sandboxes`
+
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
+:::
+
+- List all launched sandbox runtimes and their status.
+- Input: None
+- Returns: List of sandbox entries including name, variant, status, active flag, and selected config such as environment and GPU.
+
+#### 5. `use_sandbox`
+
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
+:::
+
+- Select which launched sandbox `execute_code` should use.
+- Input:
+  - `sandbox_name`(string, optional): Sandbox name to activate. Pass empty/null to disable sandbox routing and return to kernel routing.
+- Returns: Routing status message.
+
+#### 6. `terminate_sandbox`
+
+:::note Extension required
+This tool is only available when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`).
+:::
+
+- Terminate and unregister a launched sandbox runtime.
+- Input:
+  - `sandbox_name`(string): Sandbox identifier to terminate
+- Returns: Termination status message.
+
+#### 7. `connect_to_jupyter`
 
 - Connect to a Jupyter server dynamically with URL and token.
 - This tool allows you to connect to different Jupyter servers without needing to restart the MCP server or modify configuration files.
@@ -53,7 +107,7 @@ The server currently offers 16 tools organized into 3 categories:
 
 ## Multi-Notebook (5 tools)
 
-#### 4. `use_notebook`
+#### 8. `use_notebook`
 
 - Use a notebook and activate it for following cell operations.
 - Input:
@@ -67,7 +121,7 @@ The server currently offers 16 tools organized into 3 categories:
 When `use_notebook` starts a new kernel for a notebook, the kernel is started with the notebook path context so execution behavior matches JupyterLab's working-directory behavior.
 :::
 
-#### 5. `list_notebooks`
+#### 9. `list_notebooks`
 
 - List all notebooks that have been used via use_notebook tool.
 - Input: None
@@ -78,21 +132,21 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - **Kernel_Status**: Current status of the kernel
   - **Activate**: "✓" if this is the currently active notebook, empty otherwise
 
-#### 6. `restart_notebook`
+#### 10. `restart_notebook`
 
 - Restart the kernel for a specific notebook.
 - Input:
   - `notebook_name`(string): Notebook identifier to restart
 - Returns: Success message confirming the kernel has been restarted and memory state cleared
 
-#### 7. `unuse_notebook`
+#### 11. `unuse_notebook`
 
 - Unuse from a specific notebook and release its resources.
 - Input:
   - `notebook_name`(string): Notebook identifier to disconnect
 - Returns: Success message confirming the notebook has been disconnected and resources released
 
-#### 8. `read_notebook`
+#### 12. `read_notebook`
 
 - Read a notebook and return index, source content, type, execution count of each cell.
 - Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
@@ -105,9 +159,9 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `limit`(int, optional): Maximum number of items to return (0 means no limit, default: 20)
 - Returns: Notebook content in the requested format with cell details, metadata, and pagination information
 
-## Cell Tools (8 tools)
+## Cell Tools (10 tools)
 
-#### 9. `insert_cell`
+#### 13. `insert_cell`
 
 - Insert a cell to specified position from the currently activated notebook.
 - Input:
@@ -116,7 +170,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `cell_source`(string): Source content for the cell
 - Returns: Success message with insertion confirmation and the structure of surrounding cells (up to 5 cells above and below)
 
-#### 10. `overwrite_cell_source`
+#### 14. `overwrite_cell_source`
 
 - Overwrite the source of a specific cell from the currently activated notebook.
 - It will return a diff style comparison (e.g. `+` for new lines, `-` for deleted lines) of the cell's content
@@ -125,7 +179,18 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `cell_source`(string): New complete cell source
 - Returns: Success message with diff style comparison showing changes made (e.g. `+` for new lines, `-` for deleted lines)
 
-#### 11. `execute_cell`
+#### 15. `edit_cell_source`
+
+- Edit a specific string in a cell source from the currently activated notebook.
+- It supports targeted find-and-replace without replacing the entire cell source.
+- Input:
+  - `cell_index`(int): Index of the cell to edit (0-based)
+  - `old_string`(string): String to replace
+  - `new_string`(string): Replacement string
+  - `replace_all`(bool, optional): Replace all occurrences instead of the first match (default: false)
+- Returns: Success message with replacement summary.
+
+#### 16. `execute_cell`
 
 - Execute a cell from the currently activated notebook with timeout and return it's outputs
 - Input:
@@ -135,7 +200,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `progress_interval`(int, optional): Seconds between progress updates when stream=true (default: 5)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Supports streaming mode with progress updates for long-running cells.
 
-#### 12. `insert_execute_code_cell`
+#### 17. `insert_execute_code_cell`
 
 - Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs.
 - It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time
@@ -145,7 +210,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `timeout`(int, optional): Maximum seconds to wait for execution (0 = use config default, default: 0). Configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var (default: 120s, max: 3600s)
 - Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed cell including text, HTML, and images. Returns both insertion confirmation and execution results.
 
-#### 13. `read_cell`
+#### 18. `read_cell`
 
 - Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
 - Input:
@@ -153,7 +218,7 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `include_outputs`(bool, optional): Include outputs in the response (only for code cells, default: true)
 - Returns: `list[Union[str, ImageContent]]` - List containing cell metadata (index, type, execution count), source code, and outputs (for code cells with include_outputs=true)
 
-#### 14. `delete_cell`
+#### 19. `delete_cell`
 
 - Delete a specific cell or multiple cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
 - When deleting many cells, MUST delete them in descending order of their index to avoid index shifting.
@@ -162,9 +227,20 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `include_source`(bool, optional): Whether to include the source of deleted cells (default: true)
 - Returns: Success message with deletion confirmation and the source code of the deleted cells (if include_source=True)
 
-#### 15. `execute_code`
+#### 20. `move_cell`
 
-- Execute code directly in the kernel (not saved to notebook) on the current activated notebook.
+- Move a cell from a source position to a target position in the currently activated notebook.
+- Input:
+  - `source_index`(int): Current cell index (0-based)
+  - `target_index`(int): Destination cell index (0-based)
+- Returns: Success message confirming the move operation.
+
+#### 21. `execute_code`
+
+- Execute code directly in the current execution backend (not saved to notebook).
+- By default this is the current notebook kernel.
+- If `use_sandbox` has selected an active sandbox (sandbox features enabled), execution is routed to that sandbox instead.
+- When the active sandbox exposes streaming execution, streamed status/output/result events are consumed in order and returned as the tool output payload.
 - Recommended to use in following cases:
   1. Execute Jupyter magic commands (e.g., %timeit, %pip install xxx)
   2. Performance profiling and debugging
@@ -178,13 +254,17 @@ When `use_notebook` starts a new kernel for a notebook, the kernel is started wi
   - `code`(string): Code to execute (supports magic commands with %, shell commands with !)
   - `timeout`(int, optional): Execution timeout in seconds (default: 30, max: 3600)
   - `kernel_id`(string, optional): Target an existing kernel by ID. If omitted, the current notebook kernel is used.
-- Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed code including text, HTML, images, and shell command results. Supports magic commands and shell commands with ! prefix.
+- Returns: `list[Union[str, ImageContent]]` - List of outputs from the executed code including text, HTML, images, and shell command results. Supports magic commands and shell commands with ! prefix. For streaming-capable sandboxes (for example Kaggle batch mode), includes progress/status text emitted during execution.
 
 :::tip
-`execute_code` can now target a specific existing kernel (including raw kernels not attached to a notebook) by passing `kernel_id`.
+`execute_code` can target a specific existing kernel (including raw kernels not attached to a notebook) by passing `kernel_id`, or can be routed through an active sandbox selected with `use_sandbox`.
 :::
 
-#### 16. `clear_cell_output`
+:::note Extension required for sandbox routing
+Sandbox routing in `execute_code` only applies when the `jupyter_mcp_sandboxes` extension is installed (`pip install jupyter_mcp_sandboxes`) and a sandbox is active.
+:::
+
+#### 22. `clear_cell_output`
 
 - Clear the outputs and execution count of a single code cell in the currently activated notebook, without deleting the cell itself.
 - Input:

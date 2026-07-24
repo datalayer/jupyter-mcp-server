@@ -33,6 +33,7 @@ jobs:
       - name: Install the extension
         run: |
           python -m pip install ".[test]"
+          python -m pip install ./ext/sandboxes
 
       - name: Build the extension
         run: |

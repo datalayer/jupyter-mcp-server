@@ -1,7 +1,66 @@
 # Datalayer Provider
 
-:::warning
+The Jupyter MCP Server can execute code on the [Datalayer](https://datalayer.ai)
+cloud runtime, providing fully isolated execution with GPU support, snapshots, and
+persistence. Execution is routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `datalayer` engine,
+which is powered by `agent_runtimes`.
 
-🚧 This page is under construction.
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[Datalayer sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#datalayer)
+in the code-sandboxes documentation.
 
 :::
+
+## Requirements
+
+Install the Datalayer extra:
+
+```bash
+pip install "jupyter-mcp-server[datalayer]"
+```
+
+Install the sandbox extension package used by this provider:
+
+```bash
+pip install datalayer_mcp_sandboxes
+```
+
+## Credentials
+
+1. Create an account at [datalayer.ai](https://datalayer.ai).
+2. Generate an API token from your account settings (**IAM → Tokens / API Keys**).
+3. Export it as an environment variable:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `DATALAYER_API_KEY` | API key for Datalayer runtime authentication |
+| `DATALAYER_RUN_URL` | Custom Datalayer service URL (optional, self-hosted) |
+
+## Configuration
+
+Select the Datalayer engine with `SANDBOX_VARIANT=datalayer`:
+
+```bash
+SANDBOX_VARIANT=datalayer
+DATALAYER_API_KEY=your-datalayer-token
+```
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "SANDBOX_VARIANT": "datalayer",
+        "DATALAYER_API_KEY": "your-datalayer-token"
+      }
+    }
+  }
+}
+```

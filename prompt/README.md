@@ -10,11 +10,11 @@ Welcome to the Jupyter MCP Server Prompt Templates repository! This directory co
 
 ## 💡 How to Use Prompt Templates
 
-Templates are organized by use case, you can choose any of them. 
+Templates are organized by use case, you can choose any of them.
 
 > [!TIP]
 >
->  Start with the [`general/`](general/) template if you're new to Jupyter MCP Server. It provides foundational guidance applicable to most use cases.
+> Start with the [`general/`](general/) template if you're new to Jupyter MCP Server. It provides foundational guidance applicable to most use cases.
 
 ### Example Usage
 
@@ -46,7 +46,7 @@ create a `README.md` file in the new folder and it should include the brief desc
 
 ### Step 3: Create the AGENT.md
 
-Create an `AGENT.md` file containing the actual system prompt for AI agents. 
+Create an `AGENT.md` file containing the actual system prompt for AI agents.
 
 ### Step 4: Add Resources (Optional)
 

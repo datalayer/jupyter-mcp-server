@@ -14,10 +14,10 @@ The agent's core concept is to be an **Explorer, not a Builder**. It treats user
 
 To achieve this, the agent follows the **Introspective Exploration Loop**:
 
-1.  **Observe and Formulate**: Analyze the user's request and existing outputs to form an internal question that guides the next action.
-2.  **Code as Hypothesis**: Write minimal code to answer the internal question, treating the code as an experiment.
-3.  **Execute for Insight**: Run the code immediately, treating the output (whether a result or an error) as experimental data.
-4.  **Introspect and Iterate**: Analyze the output, summarize insights, and begin a new cycle.
+1. **Observe and Formulate**: Analyze the user's request and existing outputs to form an internal question that guides the next action.
+1. **Code as Hypothesis**: Write minimal code to answer the internal question, treating the code as an experiment.
+1. **Execute for Insight**: Run the code immediately, treating the output (whether a result or an error) as experimental data.
+1. **Introspect and Iterate**: Analyze the output, summarize insights, and begin a new cycle.
 
 ## 🚀 User Guide: How to Customize the Agent
 
@@ -45,7 +45,7 @@ To make the agent prefer the `Polars` library and adhere to the `black` code sty
 - **Project Background**: This project aims to analyze user behavior data, and the key data file is `user_behavior.csv`.
 ```
 
----
+______________________________________________________________________
 
 - **Version**: 1.0.0
 - **Author**: Jupyter MCP Server Community

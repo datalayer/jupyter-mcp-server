@@ -25,7 +25,7 @@ This directory contains the source files for building an MCPB (MCP Bundle) / DXT
    npm install -g @anthropic-ai/mcpb
    ```
 
-2. Build the `.mcpb` file from this directory:
+1. Build the `.mcpb` file from this directory:
 
    ```bash
    cd mcpb
@@ -37,10 +37,10 @@ This directory contains the source files for building an MCPB (MCP Bundle) / DXT
 ## Installing in Claude Desktop
 
 1. Double-click the `.mcpb` file, or drag it into Claude Desktop Settings
-2. Claude Desktop will prompt you to configure:
+1. Claude Desktop will prompt you to configure:
    - **Jupyter Server URL**: The URL of your running Jupyter server (default: `http://localhost:8888`)
    - **Jupyter Server Token**: The authentication token for your Jupyter server
-3. The extension is ready to use
+1. The extension is ready to use
 
 ## How It Works
 
@@ -67,9 +67,9 @@ mcpb/
 
 When installed, users provide two settings:
 
-| Setting | Environment Variable | Description |
-|---------|---------------------|-------------|
-| Jupyter Server URL | `JUPYTER_URL` | URL of the Jupyter server (e.g., `http://localhost:8888`) |
-| Jupyter Server Token | `JUPYTER_TOKEN` | Authentication token (stored securely in OS keychain) |
+| Setting              | Environment Variable | Description                                               |
+| -------------------- | -------------------- | --------------------------------------------------------- |
+| Jupyter Server URL   | `JUPYTER_URL`        | URL of the Jupyter server (e.g., `http://localhost:8888`) |
+| Jupyter Server Token | `JUPYTER_TOKEN`      | Authentication token (stored securely in OS keychain)     |
 
 These are passed to the server as environment variables by Claude Desktop.

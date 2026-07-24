@@ -10,17 +10,17 @@ allowing MCP clients to connect to the Jupyter Server's MCP endpoints.
 """
 
 import logging
-from traitlets import Unicode, Bool
+
 from jupyter_server.extension.application import ExtensionApp, ExtensionAppJinjaMixin
 from jupyter_server.utils import url_path_join
+from traitlets import Bool, Unicode
 
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.jupyter_extension.handlers import (
     MCPHealthHandler,
-    MCPToolsListHandler,
     MCPToolsCallHandler,
+    MCPToolsListHandler,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,10 @@ logger = logging.getLogger(__name__)
 class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
     """
     Jupyter Server Extension for MCP Server.
-    
+
     This extension allows MCP clients to connect to Jupyter Server and use
     MCP tools to interact with notebooks and kernels.
-    
+
     Configuration:
         c.JupyterMCPServerExtensionApp.document_url = "local"  # or http://...
         c.JupyterMCPServerExtensionApp.runtime_url = "local"   # or http://...
@@ -39,90 +39,69 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         c.JupyterMCPServerExtensionApp.start_new_runtime = True  # Start new kernel
         c.JupyterMCPServerExtensionApp.runtime_id = "kernel-id"  # Or connect to existing
     """
-    
+
     # Extension metadata
     name = "jupyter_mcp_server"
     default_url = "/mcp"
     load_other_extensions = True
-    
+
     # Configuration traits
     document_url = Unicode(
         "local",
         config=True,
-        help='Document URL - use "local" for local serverapp access or http://... for remote'
+        help='Document URL - use "local" for local serverapp access or http://... for remote',
     )
-    
+
     runtime_url = Unicode(
         "local",
         config=True,
-        help='Runtime URL - use "local" for local serverapp access or http://... for remote'
+        help='Runtime URL - use "local" for local serverapp access or http://... for remote',
     )
-    
-    document_id = Unicode(
-        "notebook.ipynb",
-        config=True,
-        help='Default document ID (notebook path)'
-    )
-    
+
+    document_id = Unicode("notebook.ipynb", config=True, help="Default document ID (notebook path)")
+
     start_new_runtime = Bool(
-        False,
-        config=True,
-        help='Whether to start a new kernel runtime on initialization'
+        False, config=True, help="Whether to start a new kernel runtime on initialization"
     )
-    
+
     runtime_id = Unicode(
-        "",
-        config=True,
-        help='Existing kernel ID to connect to (if not starting new runtime)'
+        "", config=True, help="Existing kernel ID to connect to (if not starting new runtime)"
     )
-    
+
     document_token = Unicode(
-        "",
-        config=True,
-        help='Authentication token for document server (if remote)'
+        "", config=True, help="Authentication token for document server (if remote)"
     )
-    
+
     runtime_token = Unicode(
-        "",
-        config=True,
-        help='Authentication token for runtime server (if remote)'
+        "", config=True, help="Authentication token for runtime server (if remote)"
     )
-    
-    provider = Unicode(
-        "jupyter",
-        config=True,
-        help='Provider type for document/runtime'
-    )
-    
-    jupyterlab = Bool(
-        True,
-        config=True,
-        help='Enable JupyterLab mode (defaults to True)'
-    )
-    
+
+    provider = Unicode("jupyter", config=True, help="Provider type for document/runtime")
+
+    jupyterlab = Bool(True, config=True, help="Enable JupyterLab mode (defaults to True)")
+
     open_notebook_in_ui = Bool(
         False,
         config=True,
-        help='Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False)'
+        help="Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False)",
     )
-    
+
     allowed_jupyter_mcp_tools = Unicode(
         "notebook_run-all-cells,notebook_get-selected-cell",
         config=True,
-        help='Comma-separated list of jupyter-mcp-tools to enable'
+        help="Comma-separated list of jupyter-mcp-tools to enable",
     )
-
     otel_file = Unicode(
         "",
         config=True,
-        help='Path to JSONL file for OpenTelemetry span export. '
-             'Falls back to JUPYTER_MCP_OTEL_FILE env var when empty.'
+        help="Path to JSONL file for OpenTelemetry span export. "
+        "Falls back to JUPYTER_MCP_OTEL_FILE env var when empty.",
     )
 
     def initialize_settings(self):
         """
         Initialize extension settings.
-        
+
         This is called during extension loading to set up configuration
         and update the server context.
         """
@@ -131,10 +110,11 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
         # Auto-register OTel hook handler if configured (traitlet → env var fallback)
         from jupyter_mcp_server.otel_hook import maybe_register_otel
+
         logger.info(f"  OTel file (traitlet): {self.otel_file!r}")
         maybe_register_otel(self.otel_file or None)
-        
-        logger.info(f"Initializing Jupyter MCP Server Extension")
+
+        logger.info("Initializing Jupyter MCP Server Extension")
         logger.info(f"  Document URL: {self.document_url}")
         logger.info(f"  Runtime URL: {self.runtime_url}")
         logger.info(f"  Document ID: {self.document_id}")
@@ -143,7 +123,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         logger.info(f"  Open Notebook in UI: {self.open_notebook_in_ui}")
         if self.runtime_id:
             logger.info(f"  Runtime ID: {self.runtime_id}")
-        
+
         # Update the global server context
         context = get_server_context()
         context.update(
@@ -151,11 +131,12 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             serverapp=self.serverapp,
             document_url=self.document_url,
             runtime_url=self.runtime_url,
-            jupyterlab=self.jupyterlab
+            jupyterlab=self.jupyterlab,
         )
-        
+
         # Update global MCP configuration
         from jupyter_mcp_server.config import get_config
+
         config = get_config()
         config.document_url = self.document_url
         config.runtime_url = self.runtime_url
@@ -168,23 +149,25 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config.jupyterlab = self.jupyterlab
         config.open_notebook_in_ui = self.open_notebook_in_ui
         config.allowed_jupyter_mcp_tools = self.allowed_jupyter_mcp_tools
-        
+
         # Store configuration in settings for handlers
-        self.settings.update({
-            "mcp_document_url": self.document_url,
-            "mcp_runtime_url": self.runtime_url,
-            "mcp_document_id": self.document_id,
-            "mcp_document_token": self.document_token,
-            "mcp_runtime_token": self.runtime_token,
-            "mcp_start_new_runtime": self.start_new_runtime,
-            "mcp_runtime_id": self.runtime_id,
-            "mcp_provider": self.provider,
-            "mcp_jupyterlab": self.jupyterlab,
-            "mcp_open_notebook_in_ui": self.open_notebook_in_ui,
-            "mcp_allowed_jupyter_mcp_tools": self.allowed_jupyter_mcp_tools,
-            "mcp_serverapp": self.serverapp,
-        })
-        
+        self.settings.update(
+            {
+                "mcp_document_url": self.document_url,
+                "mcp_runtime_url": self.runtime_url,
+                "mcp_document_id": self.document_id,
+                "mcp_document_token": self.document_token,
+                "mcp_runtime_token": self.runtime_token,
+                "mcp_start_new_runtime": self.start_new_runtime,
+                "mcp_runtime_id": self.runtime_id,
+                "mcp_provider": self.provider,
+                "mcp_jupyterlab": self.jupyterlab,
+                "mcp_open_notebook_in_ui": self.open_notebook_in_ui,
+                "mcp_allowed_jupyter_mcp_tools": self.allowed_jupyter_mcp_tools,
+                "mcp_serverapp": self.serverapp,
+            }
+        )
+
         # Trigger auto-enrollment if document_id is configured
         # Note: Auto-enrollment supports 3 modes:
         # 1. With existing kernel (runtime_id set)
@@ -195,24 +178,25 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
             if "default" not in notebook_manager:
                 notebook_manager.add_notebook(
-                    "default", None,
+                    "default",
+                    None,
                     server_url=self.document_url,
                     token=self.document_token,
-                    path=self.document_id
+                    path=self.document_id,
                 )
                 notebook_manager.set_current_notebook("default")
                 logger.info(f"Auto-enrolled document '{self.document_id}' as 'default'")
-        
+
         logger.info("Jupyter MCP Server Extension settings initialized")
-    
+
     def initialize_handlers(self):
         """
         Register MCP protocol handlers.
-        
+
         Strategy: Implement MCP protocol directly in Tornado handlers that
         call the MCP tools from server.py. This avoids the complexity of
         wrapping the Starlette ASGI app.
-        
+
         Endpoints:
         - GET/POST /mcp - MCP protocol endpoint (SSE-based)
         - GET /mcp/healthz - Health check (Tornado handler)
@@ -220,10 +204,10 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         - POST /mcp/tools/call - Execute a tool (Tornado handler)
         """
         base_url = self.serverapp.base_url
-        
+
         # Import here to avoid circular imports
         from jupyter_mcp_server.jupyter_extension.handlers import MCPSSEHandler
-        
+
         # Define handlers
         handlers = [
             # MCP protocol endpoint - SSE-based handler
@@ -234,53 +218,54 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             (url_path_join("mcp/tools/list"), MCPToolsListHandler),
             (url_path_join("mcp/tools/call"), MCPToolsCallHandler),
         ]
-        
+
         # Register handlers
         self.handlers.extend(handlers)
-        
+
         # Log registered endpoints using url_path_join for consistent formatting
         logger.info(f"Registered MCP handlers at {url_path_join(base_url, 'mcp/')}")
         logger.info(f"  - MCP protocol: {url_path_join(base_url, 'mcp')} (SSE-based)")
         logger.info(f"  - Health check: {url_path_join(base_url, 'mcp/healthz')}")
         logger.info(f"  - List tools: {url_path_join(base_url, 'mcp/tools/list')}")
         logger.info(f"  - Call tool: {url_path_join(base_url, 'mcp/tools/call')}")
-    
+
     def initialize_templates(self):
         """
         Initialize Jinja templates.
-        
+
         Not needed for API-only extension, but included for completeness.
         """
         pass
-    
+
     async def stop_extension(self):
         """
         Clean up when extension stops.
-        
+
         Shutdown any managed kernels and cleanup resources.
         """
         logger.info("Stopping Jupyter MCP Server Extension")
-        
+
         # Reset server context
         context = get_server_context()
         context.reset()
-        
+
         logger.info("Jupyter MCP Server Extension stopped")
 
 
 # Extension loading functions
 
+
 def _jupyter_server_extension_points():
     """
     Declare the Jupyter Server extension.
-    
+
     Returns:
         List of extension metadata dictionaries
     """
     return [
         {
             "module": "jupyter_mcp_server.jupyter_extension.extension",
-            "app": JupyterMCPServerExtensionApp
+            "app": JupyterMCPServerExtensionApp,
         }
     ]
 
@@ -288,7 +273,7 @@ def _jupyter_server_extension_points():
 def _load_jupyter_server_extension(serverapp):
     """
     Load the extension (for backward compatibility).
-    
+
     Args:
         serverapp: Jupyter ServerApp instance
     """

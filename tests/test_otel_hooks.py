@@ -7,6 +7,7 @@
 import json
 
 import pytest
+
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
 from jupyter_mcp_server.otel_hook import create_otel_handler
 
@@ -116,9 +117,7 @@ class TestExecutionSpans:
         registry = HookRegistry.get_instance()
         registry.register(handler)
 
-        ctx = await registry.fire(
-            HookEvent.BEFORE_EXECUTE, code="1/0", kernel_id="k2", metadata={}
-        )
+        ctx = await registry.fire(HookEvent.BEFORE_EXECUTE, code="1/0", kernel_id="k2", metadata={})
         await registry.fire(
             HookEvent.AFTER_EXECUTE,
             code="1/0",

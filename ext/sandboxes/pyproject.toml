@@ -1,0 +1,48 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jupyter_mcp_sandboxes"
+version = "0.1.0"
+description = "Sandboxes extension for Jupyter MCP Server (launch/use code-sandboxes runtimes as an alternative to Jupyter kernels)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Datalayer", email = "info@datalayer.io" }]
+keywords = ["jupyter", "mcp", "sandbox", "extension"]
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "code-sandboxes",
+    "datalayer_reactor",
+    "jupyter_mcp_server",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0"]
+build = ["build>=1.2.1", "twine>=5.1.1"]
+
+# Register the extension so Jupyter MCP Server can discover it at startup.
+[project.entry-points."jupyter_mcp_server.extensions"]
+sandboxes = "jupyter_mcp_sandboxes:SandboxesExtension"
+
+[project.urls]
+Homepage = "https://github.com/datalayer/jupyter-mcp-server"
+Source = "https://github.com/datalayer/jupyter-mcp-server"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["jupyter_mcp_sandboxes*"]
