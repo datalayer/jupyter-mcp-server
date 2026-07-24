@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0"]
+build = ["build>=1.2.1", "twine>=5.1.1"]
 
 # Register the extension so Jupyter MCP Server can discover it at startup.
 [project.entry-points."jupyter_mcp_server.extensions"]
@@ -40,4 +41,8 @@ Homepage = "https://github.com/datalayer/jupyter-mcp-server"
 Source = "https://github.com/datalayer/jupyter-mcp-server"
 
 [tool.setuptools]
-packages = ["jupyter_mcp_sandboxes"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["jupyter_mcp_sandboxes*"]

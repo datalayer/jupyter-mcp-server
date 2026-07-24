@@ -335,3 +335,41 @@ async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
         await mcp.tools["launch_sandbox"](sandbox_name="my_sandbox")
 
     assert mock_execute.await_args.kwargs["variant"] == "eval"
+
+
+@pytest.mark.asyncio
+async def test_launch_sandbox_kaggle_variant_forwards_runtime_fields():
+    extension = SandboxesExtension()
+    mcp = _FakeMCP()
+    fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
+
+    with (
+        patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
+        patch(
+            "jupyter_mcp_sandboxes.extension.get_config",
+            return_value=JupyterMCPConfig(sandbox_variant="jupyter"),
+        ),
+        patch(
+            "jupyter_mcp_sandboxes.extension.LaunchSandboxTool.execute",
+            new_callable=AsyncMock,
+            return_value={"message": "ok", "sandbox": {}},
+        ) as mock_execute,
+    ):
+        extension.register_tools(mcp)
+        await mcp.tools["launch_sandbox"](
+            sandbox_name="kaggle-sbx",
+            variant="kaggle",
+            server_url="https://kaggle.example/proxy",
+            kernel_id="k-123",
+            channels_url="wss://kaggle.example/channels",
+            token="kaggle-token",
+            gpu="T4",
+        )
+
+    kwargs = mock_execute.await_args.kwargs
+    assert kwargs["variant"] == "kaggle"
+    assert kwargs["server_url"] == "https://kaggle.example/proxy"
+    assert kwargs["kernel_id"] == "k-123"
+    assert kwargs["channels_url"] == "wss://kaggle.example/channels"
+    assert kwargs["token"] == "kaggle-token"
+    assert kwargs["gpu"] == "T4"

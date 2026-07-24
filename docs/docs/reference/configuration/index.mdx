@@ -95,7 +95,7 @@ For deployments requiring granular control over document storage and runtime exe
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
 | `OPEN_NOTEBOOK_IN_UI` | Open the notebook in the JupyterLab UI on `use_notebook`, activating its tab | `true` / `false` | `false` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
-| `SANDBOX_VARIANT` | Code sandbox variant (see [Sandbox Variants](#sandbox-variants)) | `jupyter` / `kaggle` / `colab` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
+| `SANDBOX_VARIANT` | Code sandbox variant (see [Sandbox Variants](#sandbox-variants)) | `jupyter` / `kaggle` / `monty` / `colab` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
 | `RUNTIME_PROXY_TOKEN` | Proxy token used by the `colab` sandbox variant (`colab-runtime-proxy-token`) | `ya29...` | `None` |
 | `RUNTIME_CHANNELS_URL` | For the `kaggle` and `colab` engines, notebook session websocket channels URL used to derive `RUNTIME_URL` and `RUNTIME_ID` | `wss://.../api/kernels/.../channels?...` | `None` |
 | `SANDBOX_ENVIRONMENT` | Environment name for cloud sandboxes (Datalayer/Modal) | `python-cpu-env` | `None` |
@@ -119,8 +119,8 @@ lifecycle tools and use any non-`jupyter` sandbox variant.
 |--------|-------------|---------------|---------------|
 | `jupyter` (default) | Jupyter Server via `jupyter-kernel-client` | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `RUNTIME_*` + `DOCUMENT_*`) |
 | `kaggle` | Kaggle notebook runtime | `jupyter-mcp-server[kaggle]` | Default batch mode: `KAGGLE_API_TOKEN` (or Kaggle credentials). Interactive mode: `RUNTIME_URL` (+ `KAGGLE_API_TOKEN`, or `RUNTIME_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| `colab` | Google Colab runtime | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |
 | `monty` | In-process secure Python interpreter ([Monty](https://github.com/pydantic/monty)) | `jupyter-mcp-server[monty]` | — |
+| `colab` | Google Colab runtime | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |
 | `modal` | [Modal](https://modal.com/docs/guide) cloud sandbox | `jupyter-mcp-server[modal]` | Modal credentials |
 | `docker` | Local Docker container running Jupyter | `jupyter-mcp-server[sandboxes]` | — |
 | `eval` | In-process `exec()` (development only) | `jupyter-mcp-server[sandboxes]` | — |
