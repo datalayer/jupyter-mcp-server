@@ -74,7 +74,7 @@ start:
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			echo "Choose optional additional sandbox variant:"; \
-			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
+			echo "  none (default), jupyterhub, datalayer, colab, kaggle, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
@@ -89,7 +89,7 @@ start:
 		VARIANT="none"; \
 	fi; \
 	case "$$VARIANT" in \
-		none|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|colab|kaggle|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
 	if [[ "$$VARIANT" == "none" ]]; then \
@@ -110,6 +110,20 @@ start:
 				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ]]; then \
 					echo "Colab requires RUNTIME_URL, RUNTIME_ID, and RUNTIME_PROXY_TOKEN."; \
 					echo "Example: SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start"; \
+					exit 1; \
+				fi; \
+				;; \
+			kaggle) \
+				if [[ -z "$${RUNTIME_URL:-}" ]]; then \
+					echo "Kaggle requires RUNTIME_URL."; \
+					echo "Example: SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start"; \
+					exit 1; \
+				fi; \
+				if [[ -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
+					echo "Kaggle requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
+					echo "Examples:"; \
+					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start"; \
+					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start"; \
 					exit 1; \
 				fi; \
 				;; \
@@ -199,7 +213,7 @@ start-noauth:
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			echo "Choose optional additional sandbox variant:"; \
-			echo "  none (default), jupyterhub, datalayer, colab, monty, modal, eval, docker"; \
+			echo "  none (default), jupyterhub, datalayer, colab, kaggle, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
@@ -214,7 +228,7 @@ start-noauth:
 		VARIANT="none"; \
 	fi; \
 	case "$$VARIANT" in \
-		none|jupyterhub|datalayer|colab|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|colab|kaggle|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
 	if [[ "$$VARIANT" == "none" ]]; then \
@@ -238,6 +252,20 @@ start-noauth:
 					exit 1; \
 				fi; \
 				;; \
+				kaggle) \
+					if [[ -z "$${RUNTIME_URL:-}" ]]; then \
+						echo "Kaggle requires RUNTIME_URL."; \
+						echo "Example: SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start-noauth"; \
+						exit 1; \
+					fi; \
+					if [[ -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
+						echo "Kaggle requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
+						echo "Examples:"; \
+						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start-noauth"; \
+						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start-noauth"; \
+						exit 1; \
+					fi; \
+					;; \
 			datalayer) \
 				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
 					echo "Datalayer requires RUNTIME_URL and RUNTIME_TOKEN."; \

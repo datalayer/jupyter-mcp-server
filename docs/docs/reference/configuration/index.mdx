@@ -95,9 +95,10 @@ For deployments requiring granular control over document storage and runtime exe
 | `JUPYTERLAB` | Enable JupyterLab mode | `true` / `false` | `true` |
 | `OPEN_NOTEBOOK_IN_UI` | Open the notebook in the JupyterLab UI on `use_notebook`, activating its tab | `true` / `false` | `false` |
 | `JUPYTER_MCP_OTEL_FILE` | Path for OpenTelemetry span export (JSONL) | `/tmp/spans.jsonl` | `None` |
-| `SANDBOX_VARIANT` | Code sandbox variant (see [Sandbox Variants](#sandbox-variants)) | `jupyter` / `colab` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
+| `SANDBOX_VARIANT` | Code sandbox variant (see [Sandbox Variants](#sandbox-variants)) | `jupyter` / `colab` / `kaggle` / `monty` / `modal` / `docker` / `eval` / `datalayer` | `jupyter` |
 | `RUNTIME_PROXY_TOKEN` | Proxy token used by the `colab` sandbox variant (`colab-runtime-proxy-token`) | `ya29...` | `None` |
 | `RUNTIME_USE_BROWSER_BRIDGE` | For the `colab` engine, obtain the runtime connection details from an authenticated Colab browser session via `jupyter-kernel-client`'s browser bridge | `true` / `false` | `false` |
+| `RUNTIME_CHANNELS_URL` | For the `kaggle` engine, notebook session websocket channels URL used to derive `RUNTIME_URL` and `RUNTIME_ID` | `wss://.../proxy/api/kernels/.../channels?...` | `None` |
 | `SANDBOX_ENVIRONMENT` | Environment name for cloud sandboxes (Datalayer/Modal) | `python-cpu-env` | `None` |
 
 ## Sandbox Variants
@@ -118,6 +119,7 @@ lifecycle tools and use any non-`jupyter` sandbox variant.
 |--------|-------------|---------------|---------------|
 | `jupyter` (default) | Jupyter Server via `jupyter-kernel-client` | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `RUNTIME_*` + `DOCUMENT_*`) |
 | `colab` | Google Colab runtime | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |
+| `kaggle` | Kaggle notebook runtime | `jupyter-mcp-server[kaggle]` | `RUNTIME_URL` (+ `KAGGLE_API_TOKEN`, or `RUNTIME_ID`) |
 | `monty` | In-process secure Python interpreter ([Monty](https://github.com/pydantic/monty)) | `jupyter-mcp-server[monty]` | — |
 | `modal` | [Modal](https://modal.com/docs/guide) cloud sandbox | `jupyter-mcp-server[modal]` | Modal credentials |
 | `docker` | Local Docker container running Jupyter | `jupyter-mcp-server[sandboxes]` | — |
@@ -131,6 +133,17 @@ SANDBOX_VARIANT=colab
 RUNTIME_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
 RUNTIME_ID=a1b2c3d4-....
 RUNTIME_PROXY_TOKEN=ya29....
+```
+
+### Example: Kaggle engine
+
+```bash
+SANDBOX_VARIANT=kaggle
+RUNTIME_URL=https://kkb-production.jupyter-proxy.kaggle.net/k/12345678/eyJ.../proxy
+# Create a new kernel with a Kaggle API token:
+KAGGLE_API_TOKEN=...
+# ...or connect to an existing kernel by also setting RUNTIME_ID:
+# RUNTIME_ID=11e073f0-e82d-4029-be8d-3918f7ed1a9e
 ```
 
 ### Example: Monty engine
@@ -219,8 +232,9 @@ Options:
   --max-execution-timeout INTEGER RANGE
                                       Maximum timeout in seconds a tool call may request (default: 3600)
   --otel-file TEXT                    Path for OpenTelemetry span export as JSONL (default: None)
-  --sandbox-variant TEXT             Code sandbox variant: jupyter (default), colab, monty, modal, docker, eval, datalayer
+  --sandbox-variant TEXT             Code sandbox variant: jupyter (default), colab, kaggle, monty, modal, docker, eval, datalayer
   --runtime-proxy-token TEXT          Proxy token for the colab sandbox variant (default: None)
+  --runtime-channels-url TEXT         WebSocket channels URL for the kaggle sandbox variant (default: None)
   --sandbox-environment TEXT          Environment name for cloud sandboxes (default: None)
   --port INTEGER                      Port for streamable-http transport (default: 4040)
 ```

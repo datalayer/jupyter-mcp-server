@@ -120,7 +120,8 @@ class SandboxesExtension(JupyterMCPExtension):
                 str, Field(description="Unique sandbox identifier used by list/use/terminate tools")
             ],
             variant: Annotated[
-                Literal["eval", "docker", "jupyter", "datalayer", "colab", "monty", "modal"] | None,
+                Literal["eval", "docker", "jupyter", "datalayer", "colab", "kaggle", "monty", "modal"]
+                | None,
                 Field(
                     description=(
                         "Sandbox variant to launch. If omitted, defaults to configured "
@@ -141,17 +142,34 @@ class SandboxesExtension(JupyterMCPExtension):
                     description="Optional GPU flavor for supported variants (for example modal/datalayer: T4, A10G, A100, H100)."
                 ),
             ] = None,
-            server_url: Annotated[str | None, Field(description="Colab runtime URL when using colab variant")] = None,
-            kernel_id: Annotated[str | None, Field(description="Colab kernel ID when using colab variant")] = None,
+            server_url: Annotated[
+                str | None,
+                Field(description="Runtime proxy URL when using colab or kaggle variant"),
+            ] = None,
+            kernel_id: Annotated[
+                str | None,
+                Field(description="Kernel ID when using colab or kaggle variant"),
+            ] = None,
             proxy_token: Annotated[
                 str | None,
                 Field(description="Colab runtime proxy token when using colab variant"),
+            ] = None,
+            channels_url: Annotated[
+                str | None,
+                Field(
+                    description="Kaggle notebook session WebSocket channels URL to parse server_url/kernel_id from (kaggle variant)"
+                ),
             ] = None,
             use_browser_bridge: Annotated[
                 bool,
                 Field(description="For colab variant, derive runtime details from an authenticated browser session"),
             ] = False,
-            token: Annotated[str | None, Field(description="Datalayer API token override")] = None,
+            token: Annotated[
+                str | None,
+                Field(
+                    description="Datalayer API token override, or Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN)"
+                ),
+            ] = None,
             run_url: Annotated[str | None, Field(description="Datalayer run URL override")] = None,
             python_version: Annotated[
                 str | None,
@@ -181,6 +199,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     server_url=server_url,
                     kernel_id=kernel_id,
                     proxy_token=proxy_token,
+                    channels_url=channels_url,
                     use_browser_bridge=use_browser_bridge,
                     token=token,
                     run_url=run_url,

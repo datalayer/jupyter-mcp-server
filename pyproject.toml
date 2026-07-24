@@ -43,6 +43,7 @@ dependencies = [
 
 [project.optional-dependencies]
 colab = ["code-sandboxes[colab]"]
+kaggle = ["code-sandboxes[kaggle]"]
 monty = ["code-sandboxes[monty]"]
 modal = ["code-sandboxes[modal]"]
 datalayer = ["code-sandboxes[datalayer]"]

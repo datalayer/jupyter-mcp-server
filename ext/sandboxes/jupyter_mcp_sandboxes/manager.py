@@ -36,6 +36,7 @@ class SandboxRuntimeManager:
         server_url: str | None = None,
         kernel_id: str | None = None,
         proxy_token: str | None = None,
+        channels_url: str | None = None,
         use_browser_bridge: bool = False,
         token: str | None = None,
         run_url: str | None = None,
@@ -67,6 +68,16 @@ class SandboxRuntimeManager:
                 create_kwargs["proxy_token"] = proxy_token
             if use_browser_bridge:
                 create_kwargs["use_browser_bridge"] = True
+
+        if variant == "kaggle":
+            if server_url:
+                create_kwargs["server_url"] = server_url
+            if kernel_id:
+                create_kwargs["kernel_id"] = kernel_id
+            if channels_url:
+                create_kwargs["channels_url"] = channels_url
+            if token:
+                create_kwargs["token"] = token
 
         if variant == "datalayer":
             if token:

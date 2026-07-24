@@ -69,7 +69,7 @@ make start-noauth-agent
 
 This will:
 
-1. Ask for an optional sandbox variant (`none`, `jupyterhub`, `datalayer`, `colab`, `monty`, `modal`, `eval`, `docker`)
+1. Ask for an optional sandbox variant (`none`, `jupyterhub`, `datalayer`, `colab`, `kaggle`, `monty`, `modal`, `eval`, `docker`)
 1. Start JupyterLab with token auth
 1. Wait until JupyterLab is ready
 1. Start Jupyter MCP Server with Streamable HTTP transport
@@ -113,6 +113,7 @@ Variant-specific required environment variables:
 - `jupyterhub`: requires `RUNTIME_URL` and `RUNTIME_TOKEN`.
 - `datalayer`: requires `RUNTIME_URL` and `RUNTIME_TOKEN`.
 - `colab`: requires `RUNTIME_URL`, `RUNTIME_ID`, and `RUNTIME_PROXY_TOKEN`.
+- `kaggle`: requires `RUNTIME_URL` and either `KAGGLE_API_TOKEN`/`RUNTIME_TOKEN` (create a new kernel) or `RUNTIME_ID`/`RUNTIME_CHANNELS_URL` (connect existing kernel).
 - `modal`: requires either (`MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET`) or a local
   Modal login in `~/.modal.toml` (for example after `modal token new`).
 
@@ -129,7 +130,7 @@ Supported variables:
 - `MCP_TOKEN` (default: `MY_MCP_TOKEN`)
 - `DOCUMENT_ID` (default: `notebook.ipynb`)
 - `SANDBOX_VARIANT` (optional; when unset, `make start` prompts and defaults to `none` = Jupyter kernels)
-- `RUNTIME_URL`, `RUNTIME_TOKEN`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` (required for some variants)
+- `RUNTIME_URL`, `RUNTIME_TOKEN`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN`, `RUNTIME_CHANNELS_URL`, `KAGGLE_API_TOKEN` (required for some variants)
 - `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` (required for Modal unless `~/.modal.toml` exists)
 
 The CLI targets export Bedrock credentials from these environment variables:

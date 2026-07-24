@@ -36,7 +36,7 @@ class JupyterMCPConfig(BaseModel):
         default="jupyter",
         description=(
             "Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client "
-            "directly. Any other value ('colab', 'monty', 'modal', 'docker', 'eval', "
+            "directly. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
             "'datalayer') routes execution through the code-sandboxes package."
         ),
     )
@@ -51,6 +51,14 @@ class JupyterMCPConfig(BaseModel):
             "details (server_url / kernel_id / proxy_token) from an authenticated "
             "Colab browser session via jupyter-kernel-client's browser bridge "
             "instead of requiring them to be provided explicitly."
+        ),
+    )
+    runtime_channels_url: str | None = Field(
+        default=None,
+        description=(
+            "For the 'kaggle' sandbox variant, the WebSocket channels URL of a "
+            "running Kaggle notebook session. When set, server_url and kernel_id "
+            "are parsed from it."
         ),
     )
     sandbox_environment: str | None = Field(

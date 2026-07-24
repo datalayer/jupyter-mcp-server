@@ -44,15 +44,16 @@ This tool is only available when the `jupyter_mcp_sandboxes` extension is instal
 - Launch a sandbox runtime that can be used as an alternative execution backend to Jupyter kernels.
 - Input:
   - `sandbox_name`(string): Unique sandbox identifier
-  - `variant`(string, optional): Sandbox variant (`eval`, `docker`, `jupyter`, `datalayer`, `colab`, `monty`, `modal`, default: `eval`)
+  - `variant`(string, optional): Sandbox variant (`eval`, `docker`, `jupyter`, `datalayer`, `colab`, `kaggle`, `monty`, `modal`, default: `eval`)
   - `timeout`(int, optional): Default execution timeout in seconds for this sandbox (default: 60)
   - `environment`(string, optional): Runtime environment name (common for datalayer/modal)
   - `gpu`(string, optional): GPU flavor for supported variants (for example `T4`, `A10G`, `A100`, `H100`)
-  - `server_url`(string, optional): Colab runtime URL (colab variant)
-  - `kernel_id`(string, optional): Colab kernel ID (colab variant)
+  - `server_url`(string, optional): Runtime proxy URL (colab or kaggle variant)
+  - `kernel_id`(string, optional): Kernel ID (colab or kaggle variant; omit for kaggle to create a new kernel)
+  - `channels_url`(string, optional): Kaggle notebook session channels URL to derive `server_url`/`kernel_id` (kaggle variant)
   - `proxy_token`(string, optional): Colab runtime proxy token (colab variant)
   - `use_browser_bridge`(bool, optional): For colab variant, derive runtime details from authenticated browser session (default: `false`)
-  - `token`(string, optional): Datalayer API token override
+  - `token`(string, optional): Datalayer API token override (also accepted as the Kaggle API token for the kaggle variant; falls back to `KAGGLE_API_TOKEN`)
   - `run_url`(string, optional): Datalayer run URL override
   - `python_version`(string, optional): Modal Python version override (modal variant only)
 - Returns: Launch status message and sandbox metadata.

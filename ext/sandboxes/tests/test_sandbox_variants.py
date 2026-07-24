@@ -80,6 +80,50 @@ def test_build_sandbox_colab_enables_browser_bridge():
         assert kwargs["use_browser_bridge"] is True
 
 
+def test_build_sandbox_kaggle_forwards_runtime_connection_and_token():
+    """Kaggle engine forwards runtime URL, optional kernel id and token."""
+    config = JupyterMCPConfig(
+        sandbox_variant="kaggle",
+        runtime_url="https://kaggle-host.example/proxy",
+        runtime_id="kernel-id",
+        runtime_token="kaggle-token",
+    )
+
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox(config, MagicMock())
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["variant"] == "kaggle"
+        assert kwargs["server_url"] == "https://kaggle-host.example/proxy"
+        assert kwargs["kernel_id"] == "kernel-id"
+        assert kwargs["token"] == "kaggle-token"
+
+
+def test_build_sandbox_kaggle_forwards_channels_url_without_kernel_id():
+    """Kaggle engine forwards channels_url when supplied and allows missing kernel_id."""
+    config = JupyterMCPConfig(
+        sandbox_variant="kaggle",
+        runtime_url="https://kaggle-host.example/proxy",
+        runtime_channels_url=(
+            "wss://kaggle-host.example/k/123/proxy/api/kernels/"
+            "11e073f0-e82d-4029-be8d-3918f7ed1a9e/channels?session_id=abc"
+        ),
+    )
+
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox(config, MagicMock())
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["variant"] == "kaggle"
+        assert kwargs["server_url"] == "https://kaggle-host.example/proxy"
+        assert "kernel_id" not in kwargs
+        assert kwargs["channels_url"].startswith("wss://kaggle-host.example")
+
+
 def test_build_sandbox_datalayer_forwards_token_and_run_url():
     """Datalayer engine forwards runtime auth/settings to code-sandboxes."""
     config = JupyterMCPConfig(

@@ -90,7 +90,7 @@ For more details on each tool, their parameters, and return values, please refer
 | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                          |
 | `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                                    |
-| `launch_sandbox`     | Launch a sandbox runtime (eval/docker/jupyter/datalayer/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
+| `launch_sandbox`     | Launch a sandbox runtime (eval/docker/jupyter/datalayer/colab/kaggle/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
 | `list_sandboxes`     | List launched sandbox runtimes and their state (active flag, variant, status, and selected runtime options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                               |
 | `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                     |
 | `terminate_sandbox`  | Stop and unregister a launched sandbox runtime. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                              |
@@ -309,6 +309,7 @@ install it with `pip install jupyter_mcp_sandboxes`.
 | JupyterHub               | `jupyter`          | —                               | `RUNTIME_URL`, `RUNTIME_TOKEN`                        |
 | Datalayer                | `datalayer`        | `jupyter-mcp-server[datalayer]` | `RUNTIME_URL`, `RUNTIME_TOKEN`, `SANDBOX_ENVIRONMENT` |
 | Google Colab             | `colab`            | `jupyter-mcp-server[colab]`     | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN`    |
+| Kaggle                   | `kaggle`           | `jupyter-mcp-server[kaggle]`    | `RUNTIME_URL` + `KAGGLE_API_TOKEN` (or `RUNTIME_ID`)  |
 | Monty                    | `monty`            | `jupyter-mcp-server[monty]`     | —                                                     |
 | Modal                    | `modal`            | `jupyter-mcp-server[modal]`     | Modal credentials                                     |
 
@@ -388,7 +389,26 @@ Alternatively, set `RUNTIME_USE_BROWSER_BRIDGE=true` (or pass
 `jupyter-kernel-client`'s browser bridge, instead of supplying them manually.
 Install the bridge extra with `pip install 'jupyter-kernel-client[bridge]'`.
 
-### 5. Monty
+### 5. Kaggle
+
+Execute against a Kaggle notebook runtime.
+
+```bash
+pip install "jupyter-mcp-server[kaggle]"
+```
+
+```json
+"env": {
+  "SANDBOX_VARIANT": "kaggle",
+  "RUNTIME_URL": "https://kkb-production.jupyter-proxy.kaggle.net/k/12345678/eyJ.../proxy",
+  "KAGGLE_API_TOKEN": "..."
+}
+```
+
+To connect to an existing Kaggle kernel instead of creating one, also provide
+`RUNTIME_ID` (or `RUNTIME_CHANNELS_URL`).
+
+### 6. Monty
 
 Execute in [Monty](https://github.com/pydantic/monty), a secure in-process Python
 interpreter — ideal for short, safe LLM snippets. No credentials required.
@@ -406,7 +426,7 @@ pip install "jupyter-mcp-server[monty]"
 > Monty supports only a subset of Python; third-party libraries and rich display
 > outputs are not available.
 
-### 6. Modal
+### 7. Modal
 
 Execute in a [Modal](https://modal.com/docs/guide) cloud sandbox. Install the
 extra and configure Modal credentials:

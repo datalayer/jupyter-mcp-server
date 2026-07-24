@@ -48,6 +48,7 @@ def _resolve_and_start(
     max_execution_timeout: int,
     sandbox_variant: str = "jupyter",
     runtime_proxy_token: str | None = None,
+    runtime_channels_url: str | None = None,
     runtime_use_browser_bridge: bool = False,
     sandbox_environment: str | None = None,
     sandbox_gpu: str | None = None,
@@ -88,6 +89,7 @@ def _resolve_and_start(
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
         runtime_proxy_token=runtime_proxy_token,
+        runtime_channels_url=runtime_channels_url,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
@@ -272,7 +274,7 @@ def server_callback(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     runtime_proxy_token: Annotated[
@@ -281,6 +283,14 @@ def server_callback(
             "--runtime-proxy-token",
             envvar="RUNTIME_PROXY_TOKEN",
             help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
+        ),
+    ] = None,
+    runtime_channels_url: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-channels-url",
+            envvar="RUNTIME_CHANNELS_URL",
+            help="For the 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -336,6 +346,7 @@ def server_callback(
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
         runtime_proxy_token=runtime_proxy_token,
+        runtime_channels_url=runtime_channels_url,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
@@ -519,7 +530,7 @@ def start_command(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     runtime_proxy_token: Annotated[
@@ -528,6 +539,14 @@ def start_command(
             "--runtime-proxy-token",
             envvar="RUNTIME_PROXY_TOKEN",
             help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
+        ),
+    ] = None,
+    runtime_channels_url: Annotated[
+        str | None,
+        typer.Option(
+            "--runtime-channels-url",
+            envvar="RUNTIME_CHANNELS_URL",
+            help="For the 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -580,6 +599,7 @@ def start_command(
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
         runtime_proxy_token=runtime_proxy_token,
+        runtime_channels_url=runtime_channels_url,
         runtime_use_browser_bridge=runtime_use_browser_bridge,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,

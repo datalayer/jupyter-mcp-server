@@ -6,7 +6,7 @@
 
 The Jupyter MCP tools were originally written against
 ``jupyter_kernel_client.KernelClient``. To support additional execution engines
-(Google Colab, Monty, Modal, Docker, ...) without rewriting every tool, this
+(Google Colab, Kaggle, Monty, Modal, Docker, ...) without rewriting every tool, this
 module provides :class:`SandboxKernel`, a thin adapter that wraps a
 ``code_sandboxes.Sandbox`` and mimics the small subset of the ``KernelClient``
 API used across the codebase:
@@ -115,6 +115,19 @@ def build_sandbox(config, logger):
             proxy_token=config.runtime_proxy_token,
             use_browser_bridge=getattr(config, "runtime_use_browser_bridge", False),
         )
+    if engine == "kaggle":
+        create_kwargs: dict[str, Any] = {
+            "variant": "kaggle",
+            "timeout": timeout,
+            "server_url": config.runtime_url,
+        }
+        if config.runtime_id:
+            create_kwargs["kernel_id"] = config.runtime_id
+        if getattr(config, "runtime_channels_url", None):
+            create_kwargs["channels_url"] = config.runtime_channels_url
+        if config.runtime_token:
+            create_kwargs["token"] = config.runtime_token
+        return Sandbox.create(**create_kwargs)
     if engine == "jupyter_sandbox":
         return Sandbox.create(
             variant="jupyter",
