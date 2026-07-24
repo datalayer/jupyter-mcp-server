@@ -41,7 +41,7 @@ class ListNotebooksTool(BaseTool):
             return "No notebook manager available."
 
         # Get all managed notebooks
-        managed_notebooks = notebook_manager.list_all_notebooks()
+        managed_notebooks = notebook_manager.list_all_notebooks(kernel_manager=kernel_manager)
 
         if not managed_notebooks:
             return "No managed notebooks. Use the use_notebook tool to manage notebooks first."

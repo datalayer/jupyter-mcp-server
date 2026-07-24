@@ -469,6 +469,7 @@ async def list_notebooks() -> (
     return await ListNotebooksTool().execute(
         mode=server_context.mode,
         notebook_manager=notebook_manager,
+        kernel_manager=server_context.kernel_manager,
     )
 
 
