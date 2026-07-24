@@ -686,6 +686,7 @@ async def execute_via_execution_stack(
     poll_interval: float = 0.1,
     logger=None,
     raw_outputs: list | None = None,
+    execution_count_out: list | None = None,
 ) -> list[str | ImageContent]:
     """Execute code using ExecutionStack (JUPYTER_SERVER mode with jupyter-server-nbmodel).
 
@@ -707,6 +708,10 @@ async def execute_via_execution_stack(
             outputs to disk can keep each output's real ``output_type`` instead
             of re-deriving it from the formatted strings. The formatted return
             value is unaffected.
+        execution_count_out: Optional list. When provided, the kernel's own
+            reply execution_count is appended to it (once), so callers that
+            persist the cell to disk can use the kernel's real counter instead
+            of re-deriving it by scanning the notebook's existing cells.
 
     Returns:
         List of formatted outputs (strings or ImageContent)
@@ -766,6 +771,13 @@ async def execute_via_execution_stack(
                 if result is not None:
                     # Execution complete
                     logger.info(f"Execution request {request_id} completed")
+
+                    # The kernel's reply carries the real execution_count for
+                    # both the error and success cases (a kernel increments it
+                    # whether or not the cell raised); capture it before the
+                    # branches below return.
+                    if execution_count_out is not None and "execution_count" in result:
+                        execution_count_out.append(result["execution_count"])
 
                     # Check for errors
                     if "error" in result:
