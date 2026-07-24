@@ -8,12 +8,12 @@ Extensions are standalone Python packages that plug additional capabilities
 into the server — extra MCP tools, alternative kernel factories, or custom
 ``execute_code`` routing — without the core needing to know about them.
 
-Discovery and lifecycle are powered by :mod:`datalayer_reactor`, a small
+Discovery and lifecycle are powered by :mod:`reactor`, a small
 ``pluggy``-based plugin platform. Each extension:
 
 * is published on the ``jupyter_mcp_server.extensions`` entry-point group,
 * subclasses :class:`JupyterMCPExtension`,
-* is registered with a :class:`~datalayer_reactor.PluginManifest` so the reactor
+* is registered with a :class:`~reactor.PluginManifest` so the reactor
   platform can track versions, compatibility and lifecycle.
 
 The first bundled extension is ``jupyter_mcp_sandboxes`` (see ``ext/sandboxes``),
@@ -27,7 +27,7 @@ from importlib import metadata
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from datalayer_reactor import PluginManifest
+    from reactor import PluginManifest
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class JupyterMCPExtension:
 class ExtensionManager:
     """Discover, register and coordinate :class:`JupyterMCPExtension` plugins.
 
-    Uses a :class:`datalayer_reactor.PluginPlatform` as the underlying registry
+    Uses a :class:`reactor.PluginPlatform` as the underlying registry
     for manifests, version compatibility and lifecycle hooks, while dispatching
     the MCP-specific hooks (tool registration, kernel creation, execute_code
     interception) to the registered extensions directly.
@@ -99,10 +99,10 @@ class ExtensionManager:
     def _ensure_platform(self) -> Any:
         if self._platform is None:
             try:
-                from datalayer_reactor import PluginPlatform
+                from reactor import PluginPlatform
             except ImportError:  # pragma: no cover - optional dependency
                 logger.warning(
-                    "datalayer_reactor is not installed; extension mechanism disabled."
+                    "reactor is not installed; extension mechanism disabled."
                 )
                 return None
             self._platform = PluginPlatform()

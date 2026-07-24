@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, Literal, Optional
 
-from datalayer_reactor import PluginCompatibility, PluginManifest
+from reactor import PluginCompatibility, PluginManifest
 from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks

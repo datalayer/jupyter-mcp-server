@@ -1274,5 +1274,5 @@ async def get_registered_tools():
 # Discover installed extensions (for example jupyter_mcp_sandboxes) and let
 # them contribute their MCP tools to the server. Extensions are resolved via
 # the "jupyter_mcp_server.extensions" entry-point group and coordinated through
-# the datalayer_reactor plugin platform.
+# the reactor plugin platform.
 extension_manager.register_tools(mcp)
