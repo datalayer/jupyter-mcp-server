@@ -382,9 +382,15 @@ class NotebookManager:
             return self._notebooks[current]["notebook_info"].get("path")
         return None
 
-    def list_all_notebooks(self) -> dict[str, dict[str, Any]]:
+    def list_all_notebooks(self, kernel_manager: Any | None = None) -> dict[str, dict[str, Any]]:
         """
         Get information about all managed notebooks.
+
+        Args:
+            kernel_manager: Jupyter server's kernel manager (JUPYTER_SERVER mode only).
+                In that mode `kernel` is a plain dict ({"id": kernel_id}), not a
+                KernelClient, so liveness has to be checked against the real kernel
+                manager instead of via `is_alive()`.
 
         Returns:
             Dictionary with notebook names as keys and their info as values
@@ -398,9 +404,11 @@ class NotebookManager:
             kernel_status = "unknown"
             if kernel:
                 try:
-                    kernel_status = (
-                        "alive" if hasattr(kernel, "is_alive") and kernel.is_alive() else "dead"
-                    )
+                    if hasattr(kernel, "is_alive"):
+                        kernel_status = "alive" if kernel.is_alive() else "dead"
+                    elif isinstance(kernel, dict) and kernel_manager is not None:
+                        kernel_id = kernel.get("id")
+                        kernel_status = "alive" if kernel_id and kernel_id in kernel_manager else "dead"
                 except Exception:
                     kernel_status = "error"
             else:
