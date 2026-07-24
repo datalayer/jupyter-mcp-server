@@ -20,7 +20,7 @@
 [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server) that adds
 sandbox-backed code execution. It is discovered automatically through the
 `jupyter_mcp_server.extensions` entry point (powered by
-[`datalayer_reactor`](https://github.com/datalayer/reactor)) once installed.
+[`reactor`](https://github.com/datalayer/reactor)) once installed.
 
 ## Features
 

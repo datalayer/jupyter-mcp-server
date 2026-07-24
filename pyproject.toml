@@ -22,7 +22,6 @@ classifiers = [
 ]
 dependencies = [
     "code-sandboxes",
-    "datalayer_reactor",
     "jupyter-kernel-client",
     "jupyter-mcp-tools",
     "jupyter-nbmodel-client",
@@ -39,6 +38,7 @@ dependencies = [
     "fastapi",
     "opentelemetry-api>=1.24.0",
     "opentelemetry-sdk>=1.24.0"
+    "reactor",
 ]
 
 [project.optional-dependencies]
