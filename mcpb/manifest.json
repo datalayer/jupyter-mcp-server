@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "jupyter-mcp-server",
   "display_name": "Jupyter MCP Server",
-  "version": "0.22.1",
+  "version": "1.0.7",
   "description": "Connect AI agents to Jupyter Notebooks - execute code, manage notebooks, and interact with kernels in real-time",
   "long_description": "The Jupyter MCP Server enables AI agents like Claude to connect to and manage Jupyter Notebooks in real-time. It provides 14 tools to execute code, manage notebooks, read and write cells, and interact with Jupyter kernels through the standardized Model Context Protocol.\n\n**Requirements:** You need a running Jupyter server (JupyterLab or Jupyter Notebook) to connect to. Start one with:\n```\npip install jupyterlab\njupyter lab --port 8888 --IdentityProvider.token MY_TOKEN\n```",
   "author": {

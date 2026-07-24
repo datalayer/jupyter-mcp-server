@@ -63,6 +63,9 @@ jobs:
       - name: Run Linters
         run: |
           bash ./.github/workflows/lint.sh
+      - name: Check mcpb version sync
+        run: |
+          python scripts/sync_mcpb_version.py --check
 
   test_sdist:
     needs: build
