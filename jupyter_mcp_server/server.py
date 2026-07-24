@@ -6,6 +6,7 @@
 Jupyter MCP Server Layer
 """
 
+import hmac
 from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
@@ -76,7 +77,7 @@ class RuntimeTokenVerifier:
         self._token = token
 
     async def verify_token(self, token: str) -> AccessToken | None:
-        if token != self._token:
+        if not hmac.compare_digest(token, self._token):
             return None
         return AccessToken(token=token, client_id="mcp-client", scopes=[])
 
