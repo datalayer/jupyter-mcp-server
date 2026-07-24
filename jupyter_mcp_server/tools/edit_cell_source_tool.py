@@ -15,8 +15,9 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     clean_notebook_outputs,
-    get_current_notebook_context,
     get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
 )
 
 
@@ -153,8 +154,9 @@ class EditCellSourceTool(BaseTool):
         old_string: str,
         new_string: str,
         replace_all: bool,
+        notebook_name: str | None = None,
     ) -> str:
-        async with notebook_manager.get_current_connection() as notebook:
+        async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook:
             if cell_index >= len(notebook):
                 raise ValueError(f"Cell index {cell_index} out of range")
 
@@ -184,6 +186,7 @@ class EditCellSourceTool(BaseTool):
         old_string: str = None,
         new_string: str = None,
         replace_all: bool = False,
+        notebook_name: str | None = None,
         **kwargs,
     ) -> str:
         """Execute the edit_cell_source tool.
@@ -191,13 +194,16 @@ class EditCellSourceTool(BaseTool):
         Performs a surgical find-and-replace within a single cell's source,
         delegating the actual write to the appropriate backend (YDoc, file, or
         WebSocket) depending on the server mode.
+
+        Args:
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
         """
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             from jupyter_mcp_server.jupyter_extension.context import get_server_context
 
             context = get_server_context()
             serverapp = context.serverapp
-            notebook_path, _ = get_current_notebook_context(notebook_manager)
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
 
             if serverapp and not Path(notebook_path).is_absolute():
                 root_dir = serverapp.root_dir
@@ -228,6 +234,7 @@ class EditCellSourceTool(BaseTool):
                 old_string,
                 new_string,
                 replace_all,
+                notebook_name,
             )
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

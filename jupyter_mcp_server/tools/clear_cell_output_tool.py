@@ -14,8 +14,9 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     clean_notebook_outputs,
-    get_current_notebook_context,
     get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
 )
 
 
@@ -106,18 +107,22 @@ class ClearCellOutputTool(BaseTool):
         return cleared_count
 
     async def _clear_cell_output_websocket(
-        self, notebook_manager: NotebookManager, cell_index: int
+        self,
+        notebook_manager: NotebookManager,
+        cell_index: int,
+        notebook_name: str | None = None,
     ) -> int:
         """Clear cell output using WebSocket connection (MCP_SERVER mode).
 
         Args:
             notebook_manager: Notebook manager instance
             cell_index: Index of the cell to clear (0-based)
+            notebook_name: Notebook to target; the currently activated one if None
 
         Returns:
             Number of outputs that were cleared.
         """
-        async with notebook_manager.get_current_connection() as notebook:
+        async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook:
             return self._clear_notebook_model_cell(notebook, cell_index)
 
     async def execute(
@@ -131,6 +136,7 @@ class ClearCellOutputTool(BaseTool):
         notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
         cell_index: int = None,
+        notebook_name: str | None = None,
         **kwargs,
     ) -> str:
         """Execute the clear_cell_output tool.
@@ -156,6 +162,7 @@ class ClearCellOutputTool(BaseTool):
             contents_manager: Direct API access for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             cell_index: Index of the code cell to clear (0-based)
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
             **kwargs: Additional parameters
 
         Returns:
@@ -171,7 +178,7 @@ class ClearCellOutputTool(BaseTool):
 
             context = get_server_context()
             serverapp = context.serverapp
-            notebook_path, _ = get_current_notebook_context(notebook_manager)
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
 
             # Resolve to absolute path
             if serverapp and not Path(notebook_path).is_absolute():
@@ -189,7 +196,7 @@ class ClearCellOutputTool(BaseTool):
 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            cleared_count = await self._clear_cell_output_websocket(notebook_manager, cell_index)
+            cleared_count = await self._clear_cell_output_websocket(notebook_manager, cell_index, notebook_name)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 

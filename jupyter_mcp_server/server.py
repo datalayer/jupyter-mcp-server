@@ -588,6 +588,12 @@ async def insert_cell(
     ],
     cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
     cell_source: Annotated[str, Field(description="Source content for the cell")],
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
 ) -> Annotated[
     str, Field(description="Success message and the structure of its surrounding cells")
 ]:
@@ -602,6 +608,7 @@ async def insert_cell(
             cell_index=cell_index,
             cell_source=cell_source,
             cell_type=cell_type,
+            notebook_name=notebook_name,
         )
     )
 
@@ -616,6 +623,12 @@ async def insert_cell(
 async def overwrite_cell_source(
     cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
     cell_source: Annotated[str, Field(description="New complete cell source")],
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
     """Replace the entire source of a cell in the currently activated notebook.
     Returns a diff showing the changes made.
@@ -631,6 +644,7 @@ async def overwrite_cell_source(
             notebook_manager=notebook_manager,
             cell_index=cell_index,
             cell_source=cell_source,
+            notebook_name=notebook_name,
         )
     )
 
@@ -648,6 +662,12 @@ async def edit_cell_source(
     replace_all: Annotated[
         bool, Field(description="Replace all occurrences (default: first only)")
     ] = False,
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
     """Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
     Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
@@ -668,6 +688,7 @@ async def edit_cell_source(
             old_string=old_string,
             new_string=new_string,
             replace_all=replace_all,
+            notebook_name=notebook_name,
         )
     )
 
@@ -790,6 +811,12 @@ async def read_cell(
     include_outputs: Annotated[
         bool, Field(description="Include outputs in the response (only for code cells)")
     ] = True,
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
 ) -> Annotated[
     list[str | ImageContent],
     Field(
@@ -805,6 +832,7 @@ async def read_cell(
             notebook_manager=notebook_manager,
             cell_index=cell_index,
             include_outputs=include_outputs,
+            notebook_name=notebook_name,
         )
     )
 
@@ -823,6 +851,12 @@ async def delete_cell(
     include_source: Annotated[
         bool, Field(description="Whether to include the source of deleted cells")
     ] = True,
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
 ) -> Annotated[
     str,
     Field(
@@ -839,6 +873,7 @@ async def delete_cell(
             notebook_manager=notebook_manager,
             cell_indices=cell_indices,
             include_source=include_source,
+            notebook_name=notebook_name,
         )
     )
 
@@ -854,6 +889,12 @@ async def clear_cell_output(
     cell_index: Annotated[
         int, Field(description="Index of the code cell to clear (0-based)", ge=0)
     ],
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
 ) -> Annotated[str, Field(description="Success message with the number of outputs removed")]:
     """Clear the outputs and execution count of a single code cell in the currently
     activated notebook, without deleting the cell itself."""
@@ -865,6 +906,7 @@ async def clear_cell_output(
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
+            notebook_name=notebook_name,
         )
     )
 
@@ -880,6 +922,12 @@ async def move_cell(
     target_index: Annotated[
         int, Field(description="Destination index where the cell will end up (0-based)", ge=0)
     ],
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
 ) -> Annotated[
     str, Field(description="Success message with moved cell info and surrounding context")
 ]:
@@ -900,6 +948,7 @@ async def move_cell(
             notebook_manager=notebook_manager,
             source_index=source_index,
             target_index=target_index,
+            notebook_name=notebook_name,
         )
     )
 

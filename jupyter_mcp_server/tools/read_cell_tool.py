@@ -14,7 +14,11 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
-from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model
+from jupyter_mcp_server.utils import (
+    get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
+)
 
 
 class ReadCellTool(BaseTool):
@@ -32,6 +36,7 @@ class ReadCellTool(BaseTool):
         # Tool-specific parameters
         cell_index: int = None,
         include_outputs: bool = True,
+        notebook_name: str | None = None,
         **kwargs,
     ) -> list[str | ImageContent]:
         """Execute the read_cell tool.
@@ -42,6 +47,7 @@ class ReadCellTool(BaseTool):
             notebook_manager: Notebook manager instance
             cell_index: Index of the cell to read (0-based)
             include_outputs: Include outputs in the response (only for code cells)
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
             **kwargs: Additional parameters
 
         Returns:
@@ -53,7 +59,7 @@ class ReadCellTool(BaseTool):
             # sees it instead of the on-disk copy the autosave hasn't flushed yet.
             # Guard against no active notebook — without this, a None path causes
             # 'quote_from_bytes() expected bytes' deep in the contents manager.
-            notebook_path, _ = get_current_notebook_context(notebook_manager)
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
 
             if not notebook_path:
                 return [
@@ -80,9 +86,10 @@ class ReadCellTool(BaseTool):
                 notebook = Notebook(**model["content"])
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # Remote mode: use WebSocket connection to Y.js document.
-            # get_current_connection() falls back to the default pre-configured
-            # notebook (--document-id), so no explicit guard is needed here.
-            async with notebook_manager.get_current_connection() as notebook_content:
+            # resolve_notebook_connection() falls back to the default
+            # pre-configured notebook (--document-id) when notebook_name is
+            # None, so no explicit guard is needed here.
+            async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook_content:
                 notebook = Notebook(**notebook_content.as_dict())
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
