@@ -38,6 +38,7 @@ class ExecuteCellTool(BaseTool):
         cell_index: int,
         outputs: list[str | ImageContent],
         raw_outputs: list[dict] | None = None,
+        kernel_execution_count: int | None = None,
     ):
         """Write execution outputs back to a notebook cell.
 
@@ -45,6 +46,12 @@ class ExecuteCellTool(BaseTool):
         persisted, which keeps each output's real output_type. Without them only
         the formatted strings are available (the timeout path, for example), and
         the output type can only be guessed from the string form.
+
+        When kernel_execution_count is given, it is used as the cell's
+        execution_count directly. Without it, the count is re-derived by
+        scanning the notebook's other cells, which diverges from the kernel's
+        own counter whenever the two disagree (most commonly after a kernel
+        restart mid-session).
         """
 
         with open(notebook_path, encoding="utf-8") as f:
@@ -111,12 +118,18 @@ class ExecuteCellTool(BaseTool):
         # (the raw outputs above come straight from the kernel).
         clean_notebook_outputs(notebook)
 
-        # Update execution count
-        max_count = 0
-        for c in notebook.cells:
-            if c.cell_type == "code" and c.execution_count:
-                max_count = max(max_count, c.execution_count)
-        cell.execution_count = max_count + 1
+        # Update execution count. Prefer the kernel's own reported count; it is
+        # the authoritative source and can diverge from a file-scan heuristic
+        # (e.g. after a kernel restart resets the kernel's counter below the
+        # notebook's existing max).
+        if kernel_execution_count is not None:
+            cell.execution_count = kernel_execution_count
+        else:
+            max_count = 0
+            for c in notebook.cells:
+                if c.cell_type == "code" and c.execution_count:
+                    max_count = max(max_count, c.execution_count)
+            cell.execution_count = max_count + 1
 
         # An execute_result carries the execution count of the cell that produced it.
         for output in cell.outputs:
@@ -274,17 +287,23 @@ class ExecuteCellTool(BaseTool):
 
                 # Execute without RTC metadata
                 raw_outputs: list[dict] = []
+                execution_count_out: list[int] = []
                 outputs = await execute_via_execution_stack(
                     serverapp=serverapp,
                     kernel_id=kernel_id,
                     code=code_to_execute,
                     timeout=timeout_seconds,
                     raw_outputs=raw_outputs,
+                    execution_count_out=execution_count_out,
                 )
 
                 # Write outputs back to file
                 await self._write_outputs_to_cell(
-                    notebook_path, cell_index, outputs, raw_outputs=raw_outputs
+                    notebook_path,
+                    cell_index,
+                    outputs,
+                    raw_outputs=raw_outputs,
+                    kernel_execution_count=execution_count_out[0] if execution_count_out else None,
                 )
 
                 return outputs
