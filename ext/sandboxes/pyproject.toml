@@ -24,8 +24,8 @@ classifiers = [
 ]
 dependencies = [
     "code-sandboxes",
+    "datalayer_reactor",
     "jupyter_mcp_server",
-    "datalayer_reactor>=0.1.0",
 ]
 
 [project.optional-dependencies]
