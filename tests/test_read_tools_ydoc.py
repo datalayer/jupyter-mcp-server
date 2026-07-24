@@ -117,7 +117,7 @@ class TestReadCellToolYDocFirst:
             context_type="JUPYTER_SERVER", serverapp=_FakeServerApp(str(tmp_path))
         )
         monkeypatch.setattr(
-            read_cell_tool_module, "get_current_notebook_context", lambda nm: ("nb.ipynb", None)
+            read_cell_tool_module, "resolve_notebook_path", lambda nm, name: ("nb.ipynb", None)
         )
         monkeypatch.setattr(
             read_cell_tool_module,
@@ -144,7 +144,7 @@ class TestReadCellToolYDocFirst:
             context_type="JUPYTER_SERVER", serverapp=_FakeServerApp(str(tmp_path))
         )
         monkeypatch.setattr(
-            read_cell_tool_module, "get_current_notebook_context", lambda nm: ("nb.ipynb", None)
+            read_cell_tool_module, "resolve_notebook_path", lambda nm, name: ("nb.ipynb", None)
         )
         monkeypatch.setattr(
             read_cell_tool_module, "get_notebook_model", _fake_get_notebook_model(None)

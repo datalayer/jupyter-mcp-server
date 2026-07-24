@@ -46,6 +46,56 @@ def get_current_notebook_context(notebook_manager=None):
     return notebook_path, kernel_id
 
 
+def resolve_notebook_path(notebook_manager=None, notebook_name: Optional[str] = None):
+    """
+    Resolve a notebook's file path and kernel ID for JUPYTER_SERVER mode, optionally
+    targeting an explicit notebook instead of the currently activated one.
+
+    Args:
+        notebook_manager: NotebookManager instance (optional)
+        notebook_name: Explicit notebook identifier to target. When None, falls back
+            to the currently activated notebook (get_current_notebook_context).
+
+    Returns:
+        Tuple of (notebook_path, kernel_id)
+
+    Raises:
+        ValueError: When notebook_name is given but is not a connected notebook.
+    """
+    if notebook_name is None:
+        return get_current_notebook_context(notebook_manager)
+
+    if notebook_manager is None or notebook_name not in notebook_manager:
+        raise ValueError(f"Notebook '{notebook_name}' is not connected.")
+
+    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(notebook_name)
+
+
+def resolve_notebook_connection(notebook_manager, notebook_name: Optional[str] = None):
+    """
+    Resolve a NotebookConnection context manager for MCP_SERVER mode, optionally
+    targeting an explicit notebook instead of the currently activated one.
+
+    Args:
+        notebook_manager: NotebookManager instance
+        notebook_name: Explicit notebook identifier to target. When None, falls back
+            to the currently activated notebook (get_current_connection).
+
+    Returns:
+        NotebookConnection context manager
+
+    Raises:
+        ValueError: When notebook_name is given but is not a connected notebook.
+    """
+    if notebook_name is None:
+        return notebook_manager.get_current_connection()
+
+    if notebook_name not in notebook_manager:
+        raise ValueError(f"Notebook '{notebook_name}' is not connected.")
+
+    return notebook_manager.get_notebook_connection(notebook_name)
+
+
 def resolve_url_and_token_variables(
     jupyter_url,
     jupyter_token,
