@@ -243,12 +243,17 @@ class UseNotebookTool(BaseTool):
                 # Ensure the kernel is started with the same path as the notebook.
                 # Routed through code-sandboxes (jupyter variant) rather than a
                 # direct KernelClient; the sandbox creates and starts the kernel.
+                from jupyter_mcp_server.config import get_config
+
+                config = get_config()
                 kernel = create_jupyter_sandbox_kernel(
                     server_url=runtime_url,
                     token=runtime_token,
                     kernel_id=kernel_id,
                     path=notebook_path,
                     logger=logger,
+                    timeout=getattr(config, "execution_timeout", None),
+                    reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
                 )
 
                 info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
