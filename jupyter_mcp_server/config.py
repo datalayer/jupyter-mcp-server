@@ -30,6 +30,10 @@ class JupyterMCPConfig(BaseModel):
     runtime_token: str | None = Field(
         default=None, description="The runtime token to use for authentication"
     )
+    runtime_password: str | None = Field(
+        default=None,
+        description="Password for Jupyter server authentication (alternative to token)",
+    )
 
     # Sandbox variant configuration
     sandbox_variant: str = Field(
@@ -76,6 +80,10 @@ class JupyterMCPConfig(BaseModel):
     )
     document_token: str | None = Field(
         default=None, description="The document token to use for authentication"
+    )
+    document_password: str | None = Field(
+        default=None,
+        description="Password for Jupyter document server authentication (alternative to token)",
     )
 
     # Server configuration
@@ -194,7 +202,7 @@ def set_config(**kwargs) -> JupyterMCPConfig:
     for key, value in kwargs.items():
         if should_skip(value):
             # For optional fields, set to None; for required fields, skip (use default)
-            if key in ("runtime_token", "document_token", "runtime_id", "document_id"):
+            if key in ("runtime_token", "document_token", "runtime_id", "document_id", "runtime_password", "document_password"):
                 normalized_kwargs[key] = None
             # For required string fields like runtime_url, document_url, skip the key
             # to let the default value be used

@@ -63,12 +63,18 @@ def create_jupyter_sandbox_client(
     path: str | None = None,
     timeout: float | None = None,
     reconnect_interval: int = 0,
+    headers: dict[str, str] | None = None,
     logger: logging.Logger | None = None,
 ) -> ISandboxClient:
     """Build and start a jupyter sandbox, then return its plain kernel client.
 
     When ``kernel_id`` is provided, the client connects to that specific
     existing kernel; otherwise a new kernel is created.
+
+    ``headers`` carries extra HTTP headers for every request the sandbox makes,
+    used by password auth to pass the session Cookie and the matching
+    X-XSRFToken. A password-authenticated server has no token, so callers pass
+    ``token=None`` alongside and let the headers authenticate.
     """
     from code_sandboxes import Sandbox
 
@@ -91,6 +97,8 @@ def create_jupyter_sandbox_client(
         create_kwargs["timeout"] = float(timeout)
     if client_kwargs:
         create_kwargs["client_kwargs"] = client_kwargs
+    if headers:
+        create_kwargs["headers"] = dict(headers)
 
     sandbox = Sandbox.create(**create_kwargs)
     try:
