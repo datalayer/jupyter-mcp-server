@@ -167,7 +167,6 @@ class ListFilesTool(BaseTool):
         self,
         mode: ServerMode,
         server_client: JupyterServerClient | None = None,
-        kernel_client: Any | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
