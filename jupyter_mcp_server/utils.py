@@ -47,8 +47,8 @@ def get_mimebundle_text(bundle: dict[str, Any] | None, default: str | None = Non
 
     The preference order is ``text/markdown``, ``text/latex``,
     ``application/json``, then ``text/plain`` (see :data:`RICH_TEXT_MIMETYPES`);
-    ``application/json`` is pretty-printed. ``text/html`` is deliberately not
-    consulted.
+    ``application/json`` is pretty-printed when it is not already a string.
+    ``text/html`` is deliberately not consulted.
     """
     if not bundle:
         return default
@@ -519,10 +519,10 @@ def create_kernel(config, logger):
 
     1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
        over kernel creation for a non-'jupyter' sandbox variant.
-    2. Otherwise the kernel is created through the ``code_sandboxes`` package
-       using the configured ``sandbox_variant`` ('jupyter' by default), wrapped
-       in a :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` that
-       exposes the ``KernelClient`` interface the rest of the server expects.
+     2. Otherwise the kernel is created through the ``code_sandboxes`` package
+         using the ``jupyter`` variant, wrapped in a
+         :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` that exposes
+         the ``KernelClient`` interface the rest of the server expects.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
     calling ``jupyter_kernel_client`` directly.

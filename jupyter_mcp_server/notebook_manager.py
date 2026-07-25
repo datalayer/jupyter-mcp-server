@@ -14,9 +14,8 @@ from __future__ import annotations
 from collections.abc import Callable
 import asyncio
 import logging
-from typing import Dict, Any, Optional, Callable, Union, TYPE_CHECKING
 from types import TracebackType
-from typing import Any
+from typing import Any, Dict, Optional, TYPE_CHECKING, Union
 
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 

@@ -26,13 +26,6 @@ import logging
 from typing import Any
 
 
-def _is_default_runtime_url(runtime_url: str | None) -> bool:
-    if not runtime_url:
-        return True
-    normalized = runtime_url.strip().lower()
-    return normalized in {"http://localhost:8888", "http://127.0.0.1:8888", "local"}
-
-
 class SandboxKernel:
     """Expose a code-sandboxes ``Sandbox`` through the ``KernelClient`` API."""
 
@@ -270,5 +263,12 @@ def create_jupyter_sandbox_kernel(
 
     sandbox = Sandbox.create(**create_kwargs)
     kernel = SandboxKernel(sandbox, logger=logger)
-    kernel.start()
+    try:
+        kernel.start()
+    except Exception:
+        try:
+            sandbox.stop()
+        except Exception:
+            pass
+        raise
     return kernel
