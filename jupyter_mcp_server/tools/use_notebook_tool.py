@@ -320,9 +320,28 @@ class UseNotebookTool(BaseTool):
                     notebook = Notebook()
 
             elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
-                # Use notebook manager to get cell info
-                async with notebook_manager.get_current_connection() as notebook_content:
-                    notebook = Notebook(**notebook_content.as_dict())
+                # Prefer Contents API so summary matches what JupyterLab shows.
+                # Fall back to websocket model only if the contents read fails.
+                loaded_from_contents = False
+                if server_client is not None and notebook_path:
+                    try:
+                        model = server_client.contents.get(notebook_path, content=True, type="notebook")
+                        content = model.content if hasattr(model, "content") else model.get("content")
+                        if isinstance(content, dict):
+                            notebook = Notebook(**content)
+                        else:
+                            notebook = Notebook(**content.model_dump())
+                        loaded_from_contents = True
+                    except Exception as exc:
+                        logger.warning(
+                            "Contents API read failed for '%s', falling back to websocket model: %s",
+                            notebook_path,
+                            exc,
+                        )
+
+                if not loaded_from_contents:
+                    async with notebook_manager.get_current_connection() as notebook_content:
+                        notebook = Notebook(**notebook_content.as_dict())
 
             info_list.append(f"\nNotebook has {len(notebook)} cells.")
             info_list.append(f"Showing first {min(20, len(notebook))} cells:\n")

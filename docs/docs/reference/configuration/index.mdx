@@ -103,9 +103,9 @@ For deployments requiring granular control over document storage and runtime exe
 
 ## Sandbox Variants
 
-By default the server executes code through `jupyter-kernel-client` against a
-Jupyter Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any
-other value routes execution through the
+By default the server executes code through the `code-sandboxes` `jupyter`
+engine against a Jupyter Server (`SANDBOX_VARIANT=jupyter`). Setting
+`SANDBOX_VARIANT` to any other value routes execution through the
 [code-sandboxes](https://github.com/datalayer/code-sandboxes) package via a
 `SandboxKernel` adapter, so the same notebook tools can run code on additional
 backends.
@@ -117,7 +117,7 @@ lifecycle tools and use any non-`jupyter` sandbox variant.
 
 | Variant | Description | Extra install | Key variables |
 |--------|-------------|---------------|---------------|
-| `jupyter` (default) | Jupyter Server via `jupyter-kernel-client` | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `RUNTIME_*` + `DOCUMENT_*`) |
+| `jupyter` (default) | Jupyter Server via `code-sandboxes` (`jupyter` engine) | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `RUNTIME_*` + `DOCUMENT_*`) |
 | `kaggle` | Kaggle notebook runtime | `jupyter-mcp-server[kaggle]` | Default batch mode: `KAGGLE_API_TOKEN` (or Kaggle credentials). Interactive mode: `RUNTIME_URL` (+ `KAGGLE_API_TOKEN`, or `RUNTIME_ID`). Optional accelerator: `SANDBOX_GPU`. |
 | `monty` | In-process secure Python interpreter ([Monty](https://github.com/pydantic/monty)) | `jupyter-mcp-server[monty]` | — |
 | `colab` | Google Colab runtime | `jupyter-mcp-server[colab]` | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN` |

@@ -4,8 +4,8 @@
 
 """Adapter exposing a code-sandboxes ``Sandbox`` as a ``KernelClient``.
 
-The Jupyter MCP tools were originally written against
-``jupyter_kernel_client.KernelClient``. To support additional execution engines
+The Jupyter MCP tools were originally written against a direct kernel client
+API. To support additional execution engines
 (Google Colab, Kaggle, Monty, Modal, Docker, ...) without rewriting every tool, this
 module provides :class:`SandboxKernel`, a thin adapter that wraps a
 ``code_sandboxes.Sandbox`` and mimics the small subset of the ``KernelClient``

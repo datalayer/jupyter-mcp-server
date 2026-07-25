@@ -4,10 +4,10 @@
 
 """Adapter exposing a code-sandboxes ``Sandbox`` through the kernel interface.
 
-The Jupyter MCP server historically drove a
-``jupyter_kernel_client.KernelClient`` directly. To route all execution through
+The Jupyter MCP server historically drove a direct ``KernelClient``
+implementation. To route all execution through
 the ``code_sandboxes`` abstraction (``jupyter`` variant by default) without
-rewriting every tool — and without any direct call to ``jupyter_kernel_client``
+rewriting every tool — and without any direct call to a legacy kernel client package
 from this package — :class:`SandboxKernel` wraps a ``code_sandboxes.Sandbox``
 and re-exposes the exact subset of the ``KernelClient`` API the server relies
 on.
@@ -42,8 +42,8 @@ class SandboxKernel:
     def _client(self) -> Any:
         """The underlying kernel client owned by the sandbox (may be ``None``).
 
-        For the ``jupyter`` variant this is a real
-        ``jupyter_kernel_client.KernelClient``. Other variants may not expose
+        For the ``jupyter`` variant this is a real kernel client. Other
+        variants may not expose
         one, in which case execution falls back to ``sandbox.run_code``.
         """
         return getattr(self._sandbox, "kernel_client", None)

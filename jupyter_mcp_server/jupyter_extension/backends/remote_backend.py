@@ -5,8 +5,9 @@
 """
 Remote Backend Implementation
 
-This backend uses the existing jupyter_nbmodel_client, jupyter_kernel_client,
-and jupyter_server_client packages to connect to remote Jupyter servers.
+This backend uses the existing jupyter_nbmodel_client and
+jupyter_server_client packages, plus kernel client adapters, to connect to
+remote Jupyter servers.
 
 For MCP_SERVER mode, this maintains 100% backward compatibility with the existing implementation.
 """
@@ -28,7 +29,7 @@ class RemoteBackend(Backend):
 
     Uses:
     - jupyter_nbmodel_client.NbModelClient for notebook operations
-    - jupyter_kernel_client.KernelClient for kernel operations
+    - A kernel client adapter for kernel operations
     - jupyter_server_client.JupyterServerClient for server operations
     """
 
@@ -114,29 +115,29 @@ class RemoteBackend(Backend):
 
     async def get_or_create_kernel(self, path: str, kernel_id: str | None = None) -> str:
         """Get or create kernel via kernel_client."""
-        # TODO: Implement using jupyter_kernel_client
+        # TODO: Implement using the configured kernel client adapter
         raise NotImplementedError("To be refactored from server.py")
 
     async def execute_cell(
         self, path: str, cell_index: int, kernel_id: str, timeout_seconds: int = 300
     ) -> list[str | ImageContent]:
         """Execute cell via kernel_client."""
-        # TODO: Implement using jupyter_kernel_client
+        # TODO: Implement using the configured kernel client adapter
         raise NotImplementedError("To be refactored from server.py")
 
     async def interrupt_kernel(self, kernel_id: str) -> None:
         """Interrupt kernel via kernel_client."""
-        # TODO: Implement using jupyter_kernel_client
+        # TODO: Implement using the configured kernel client adapter
         raise NotImplementedError("To be refactored from server.py")
 
     async def restart_kernel(self, kernel_id: str) -> None:
         """Restart kernel via kernel_client."""
-        # TODO: Implement using jupyter_kernel_client
+        # TODO: Implement using the configured kernel client adapter
         raise NotImplementedError("To be refactored from server.py")
 
     async def shutdown_kernel(self, kernel_id: str) -> None:
         """Shutdown kernel via kernel_client."""
-        # TODO: Implement using jupyter_kernel_client
+        # TODO: Implement using the configured kernel client adapter
         raise NotImplementedError("To be refactored from server.py")
 
     async def list_kernels(self) -> list[dict[str, Any]]:

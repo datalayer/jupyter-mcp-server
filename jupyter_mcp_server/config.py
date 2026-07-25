@@ -35,8 +35,8 @@ class JupyterMCPConfig(BaseModel):
     sandbox_variant: str = Field(
         default="jupyter",
         description=(
-            "Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client "
-            "directly. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
+            "Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes "
+            "Jupyter engine. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
             "'datalayer') routes execution through the code-sandboxes package."
         ),
     )

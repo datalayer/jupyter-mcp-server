@@ -112,7 +112,7 @@ Both modes share the same tool implementations, with automatic backend selection
 
 **RemoteBackend** - Placeholder implementation for HTTP/WebSocket access:
 
-- Designed for `jupyter_server_client`, `jupyter_kernel_client`, `jupyter_nbmodel_client`
+- Designed for `jupyter_server_client`, code-sandboxes kernel adapters, `jupyter_nbmodel_client`
 - Maintains 100% backward compatibility with existing MCP_SERVER mode
 - Currently marked as "Not Implemented" - to be refactored from server.py
 

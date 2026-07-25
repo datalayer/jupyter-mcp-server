@@ -292,10 +292,10 @@ For detailed instructions on configuring various MCP clients—including [Claude
 
 ## 🧩 Sandbox Variants
 
-By default, code executes through `jupyter-kernel-client` against a Jupyter
-Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any other value
-routes execution through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
-package via a `SandboxKernel` adapter, so the same notebook tools can run code on
+By default, code executes through the `code-sandboxes` `jupyter` variant against
+a Jupyter Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any
+other value uses another [code-sandboxes](https://github.com/datalayer/code-sandboxes)
+engine via a `SandboxKernel` adapter, so the same notebook tools can run code on
 additional backends.
 
 Sandbox features are provided by the optional `jupyter_mcp_sandboxes` extension.

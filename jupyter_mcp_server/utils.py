@@ -351,7 +351,7 @@ def extract_output(output: dict | Any) -> str | ImageContent:
         # real content lives in a richer key; get_mimebundle_text prefers
         # text/markdown, text/latex, application/json (pretty-printed) over an
         # object-repr text/plain, and falls back to text/plain otherwise. It
-        # lives in jupyter-kernel-client so every consumer of the client shares
+        # lives in the shared kernel helper layer so every consumer shares
         # the same selection. Unwrap CRDT YText values to their source first,
         # matching how the other branches here read bundle values.
         text_bundle = {
@@ -525,7 +525,7 @@ def create_kernel(config, logger):
          the ``KernelClient`` interface the rest of the server expects.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
-    calling ``jupyter_kernel_client`` directly.
+    calling a legacy direct kernel client package.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
     from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
@@ -662,7 +662,7 @@ def is_kernel_busy(kernel):
     """Check if kernel is currently executing something.
 
     Reflects the task recorded by track_pending_execution, not
-    kernel._client.is_alive(): KernelClient (jupyter_kernel_client) has no
+    kernel._client.is_alive(): KernelClient has no
     _client attribute, so that check always fell through to `return False`
     and a timed-out execution's orphaned background thread was never seen
     as "busy" by wait_for_kernel_idle.
