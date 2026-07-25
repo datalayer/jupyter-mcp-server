@@ -4,8 +4,8 @@
 
 """Adapter exposing a code-sandboxes ``Sandbox`` as a ``KernelClient``.
 
-The Jupyter MCP tools were originally written against
-``jupyter_kernel_client.KernelClient``. To support additional execution engines
+The Jupyter MCP tools were originally written against a direct kernel client
+API. To support additional execution engines
 (Google Colab, Kaggle, Monty, Modal, Docker, ...) without rewriting every tool, this
 module provides :class:`SandboxKernel`, a thin adapter that wraps a
 ``code_sandboxes.Sandbox`` and mimics the small subset of the ``KernelClient``
@@ -147,13 +147,21 @@ def build_sandbox(config, logger):
         if getattr(config, "sandbox_gpu", None):
             create_kwargs["gpu"] = config.sandbox_gpu
         return Sandbox.create(**create_kwargs)
-    if engine == "jupyter_sandbox":
-        return Sandbox.create(
-            variant="jupyter",
-            timeout=timeout,
-            server_url=config.runtime_url,
-            token=config.runtime_token,
-        )
+    if engine in ("jupyter", "jupyter_sandbox"):
+        create_kwargs: dict[str, Any] = {
+            "variant": "jupyter",
+            "timeout": timeout,
+            "server_url": config.runtime_url,
+            "token": config.runtime_token,
+            "kernel_id": config.runtime_id,
+            # Keep parity with the core jupyter sandbox path: no runtime_id
+            # means create a fresh kernel rather than reusing an arbitrary one.
+            "reuse_kernel": False,
+        }
+        reconnect_interval = getattr(config, "reconnect_interval", 0) or 0
+        if reconnect_interval:
+            create_kwargs["client_kwargs"] = {"reconnect_interval": reconnect_interval}
+        return Sandbox.create(**create_kwargs)
     if engine in ("monty", "modal", "eval", "docker", "datalayer"):
         create_kwargs = {"variant": engine, "timeout": timeout}
         if engine in ("modal", "datalayer") and getattr(config, "sandbox_gpu", None):
@@ -183,8 +191,16 @@ class SandboxKernel:
         return self._sandbox
 
     @property
+    def _client(self) -> Any:
+        """Kernel client exposed by the sandbox when available."""
+        return getattr(self._sandbox, "kernel_client", None)
+
+    @property
     def id(self) -> str | None:
         """The sandbox identifier (analogous to a kernel id)."""
+        client = self._client
+        if client is not None and hasattr(client, "id"):
+            return client.id
         info = getattr(self._sandbox, "info", None)
         return info.id if info is not None else None
 
@@ -203,10 +219,20 @@ class SandboxKernel:
 
     def is_alive(self, *args: Any, **kwargs: Any) -> bool:
         """Return whether the sandbox is currently started."""
+        client = self._client
+        if client is not None and hasattr(client, "is_alive"):
+            try:
+                return bool(client.is_alive())
+            except Exception as exc:  # pragma: no cover - defensive
+                self._log.debug("Kernel is_alive check failed: %s", exc)
+                return False
         return bool(getattr(self._sandbox, "is_started", False))
 
     def interrupt(self, *args: Any, **kwargs: Any) -> bool:
         """Request interruption of the running code."""
+        client = self._client
+        if client is not None and hasattr(client, "interrupt"):
+            return bool(client.interrupt())
         try:
             return bool(self._sandbox.interrupt())
         except Exception as exc:  # pragma: no cover - defensive
@@ -215,6 +241,10 @@ class SandboxKernel:
 
     def restart(self, *args: Any, **kwargs: Any) -> None:
         """Restart the sandbox by stopping and starting it again."""
+        client = self._client
+        if client is not None and hasattr(client, "restart"):
+            client.restart()
+            return
         try:
             self._sandbox.stop()
         finally:
@@ -222,5 +252,33 @@ class SandboxKernel:
 
     def execute(self, code: str, timeout: float | None = None, **kwargs: Any) -> dict[str, Any]:
         """Execute code and return a Jupyter-style reply dict."""
+        client = self._client
+        if client is not None and hasattr(client, "execute"):
+            return client.execute(code, timeout=timeout, **kwargs)
         result = self._sandbox.run_code(code, timeout=timeout)
         return _execution_result_to_reply(result)
+
+    def execute_interactive(self, code: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Execute code using the low-level streaming API when available."""
+        client = self._client
+        if client is not None and hasattr(client, "execute_interactive"):
+            return client.execute_interactive(code, *args, **kwargs)
+        raise NotImplementedError(
+            "The active sandbox does not expose a kernel client that supports "
+            "streaming execution (execute_interactive)."
+        )
+
+    def get_variable(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        """Read a variable value from the active kernel/sandbox."""
+        client = self._client
+        if client is not None and hasattr(client, "get_variable"):
+            return client.get_variable(name, *args, **kwargs)
+        return self._sandbox.get_variable(name)
+
+    def set_variable(self, name: str, value: Any, *args: Any, **kwargs: Any) -> None:
+        """Set a variable value in the active kernel/sandbox."""
+        client = self._client
+        if client is not None and hasattr(client, "set_variable"):
+            client.set_variable(name, value, *args, **kwargs)
+            return
+        self._sandbox.set_variable(name, value)

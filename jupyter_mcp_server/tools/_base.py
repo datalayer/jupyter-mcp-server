@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
 
-from jupyter_kernel_client import KernelClient
 from jupyter_server_client import JupyterServerClient
 
 
@@ -36,7 +35,6 @@ class BaseTool(ABC):
         self,
         mode: ServerMode,
         server_client: JupyterServerClient | None = None,
-        kernel_client: KernelClient | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
@@ -47,7 +45,6 @@ class BaseTool(ABC):
         Args:
             mode: ServerMode indicating MCP_SERVER or JUPYTER_SERVER
             server_client: JupyterServerClient for HTTP access (MCP_SERVER mode)
-            kernel_client: KernelClient for kernel HTTP access (MCP_SERVER mode)
             contents_manager: Direct access to contents manager (JUPYTER_SERVER mode)
             kernel_manager: Direct access to kernel manager (JUPYTER_SERVER mode)
             kernel_spec_manager: Direct access to kernel spec manager (JUPYTER_SERVER mode)

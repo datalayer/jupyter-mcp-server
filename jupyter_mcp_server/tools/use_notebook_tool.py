@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 from jupyter_core.utils import ensure_async
-from jupyter_kernel_client import KernelClient
 from jupyter_server_client import JupyterServerClient, NotFoundError
 
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,6 @@ class UseNotebookTool(BaseTool):
         self,
         mode: ServerMode,
         server_client: JupyterServerClient | None = None,
-        kernel_client: Any | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
@@ -241,11 +240,16 @@ class UseNotebookTool(BaseTool):
                     kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
                     if not kernel_exists:
                         return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."
-                kernel = KernelClient(
-                    server_url=runtime_url, token=runtime_token, kernel_id=kernel_id
+                # Ensure the kernel is started with the same path as the notebook.
+                # Routed through code-sandboxes (jupyter variant) rather than a
+                # direct KernelClient; the sandbox creates and starts the kernel.
+                kernel = create_jupyter_sandbox_kernel(
+                    server_url=runtime_url,
+                    token=runtime_token,
+                    kernel_id=kernel_id,
+                    path=notebook_path,
+                    logger=logger,
                 )
-                # FIXED: Ensure kernel is started with the same path as the notebook
-                kernel.start(path=notebook_path)
 
                 info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
@@ -365,7 +369,8 @@ class UseNotebookTool(BaseTool):
 
                             if execution_result.get("success"):
                                 logger.info(
-                                    f"Successfully opened notebook '{notebook_path}' in JupyterLab UI"
+                                    "Successfully opened notebook '%s' in JupyterLab UI",
+                                    notebook_path,
                                 )
                             else:
                                 logger.warning(

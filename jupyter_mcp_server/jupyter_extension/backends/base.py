@@ -19,7 +19,7 @@ class Backend(ABC):
     Abstract backend for notebook and kernel operations.
 
     Implementations:
-    - RemoteBackend: Uses jupyter_nbmodel_client, jupyter_kernel_client, jupyter_server_client
+    - RemoteBackend: Uses jupyter_nbmodel_client, kernel client adapters, jupyter_server_client
     - LocalBackend: Uses local serverapp.contents_manager and serverapp.kernel_manager
     """
 

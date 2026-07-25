@@ -224,6 +224,32 @@ def test_build_sandbox_modal_forwards_gpu_flavor():
         assert kwargs["gpu"] == "A100"
 
 
+def test_build_sandbox_jupyter_forwards_runtime_and_reconnect():
+    """Jupyter engine forwards runtime connection settings and disables implicit reuse."""
+    config = JupyterMCPConfig(
+        sandbox_variant="jupyter",
+        runtime_url="https://jupyter-host.example",
+        runtime_token="runtime-token",
+        runtime_id="kernel-id",
+        reconnect_interval=5,
+    )
+
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox(config, MagicMock())
+
+        mock_create.assert_called_once_with(
+            variant="jupyter",
+            timeout=float(config.execution_timeout),
+            server_url="https://jupyter-host.example",
+            token="runtime-token",
+            kernel_id="kernel-id",
+            reuse_kernel=False,
+            client_kwargs={"reconnect_interval": 5},
+        )
+
+
 def test_extension_create_kernel_returns_none_for_jupyter_variant():
     """The default jupyter variant is handled by the core, not the extension."""
     config = JupyterMCPConfig(sandbox_variant="jupyter")

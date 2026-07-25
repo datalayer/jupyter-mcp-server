@@ -6,7 +6,10 @@
 
 import asyncio
 import logging
+from typing import cast
 
+from jupyter_kernel_client import KernelClient
+from jupyter_server_client import JupyterServerClient
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
@@ -45,15 +48,16 @@ class ExecuteCodeTool(BaseTool):
             logger=logger,
         )
 
-    def _connect_to_kernel(self, kernel_id: str, server_client):
+    def _connect_to_kernel(
+        self, kernel_id: str, server_client: JupyterServerClient | None
+    ) -> tuple[KernelClient | None, str | None]:
         """Connect to an existing kernel by ID (MCP_SERVER mode).
 
         Returns (kernel, None) on success, or (None, error_message) if the id
         does not name a kernel on the server.
         """
-        from jupyter_kernel_client import KernelClient
-
         from jupyter_mcp_server.config import get_config
+        from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
 
         if server_client is not None:
             kernels = server_client.kernels.list_kernels()
@@ -64,13 +68,15 @@ class ExecuteCodeTool(BaseTool):
                 )
 
         config = get_config()
-        kernel = KernelClient(
+        kernel = create_jupyter_sandbox_kernel(
             server_url=config.runtime_url,
             token=config.runtime_token,
             kernel_id=kernel_id,
+            timeout=getattr(config, "execution_timeout", None),
+            reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
+            logger=logger,
         )
-        kernel.start()
-        return kernel, None
+        return cast(KernelClient, kernel), None
 
     async def _execute_via_notebook_manager(
         self,
@@ -95,11 +101,13 @@ class ExecuteCodeTool(BaseTool):
 
         # A kernel we connect to here is borrowed, not owned: it must be released
         # in the finally below, and never shut down.
-        borrowed_kernel = None
+        borrowed_kernel: KernelClient | None = None
         if kernel_id is not None and kernel_id != current_kernel_id:
             kernel, error = self._connect_to_kernel(kernel_id, server_client)
             if error is not None:
                 return [error]
+            if kernel is None:
+                return ["[ERROR: Failed to connect to kernel]"]
             borrowed_kernel = kernel
             kid = kernel_id
         else:
@@ -108,6 +116,11 @@ class ExecuteCodeTool(BaseTool):
             if not kernel:
                 # Ensure kernel is alive
                 kernel = ensure_kernel_alive_fn()
+
+            if isinstance(kernel, dict):
+                return [
+                    "[ERROR: Kernel metadata found instead of active KernelClient in MCP_SERVER mode]"
+                ]
 
             kid = current_kernel_id or ""
 
@@ -129,7 +142,7 @@ class ExecuteCodeTool(BaseTool):
 
     async def _execute_on_kernel(
         self,
-        kernel,
+        kernel: KernelClient,
         kid: str,
         code: str,
         timeout: int,

@@ -9,17 +9,20 @@ This module provides centralized management for Jupyter notebooks and kernels,
 replacing the scattered global variable approach with a unified architecture.
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable
 import asyncio
 import logging
-from typing import Dict, Any, Optional, Callable, Union
 from types import TracebackType
-from typing import Any
+from typing import Any, Dict, Optional, TYPE_CHECKING, Union
 
-from jupyter_kernel_client import KernelClient
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 
 from .config import get_config
+
+if TYPE_CHECKING:
+    from jupyter_mcp_server.sandbox_kernel import SandboxKernel as KernelClient
 
 logger = logging.getLogger(__name__)
 

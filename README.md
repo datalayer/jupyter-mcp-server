@@ -16,7 +16,7 @@
 
 **An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage [Jupyter](https://jupyter.org) Notebooks in real-time**
 
-*Developed by [Datalayer](https://github.com/datalayer)*
+*Developed by [Datalayer](https://github.com/datalayer) - Join our [Discord](https://github.com/datalayer)*
 
 [![PyPI - Version](https://img.shields.io/pypi/v/jupyter-mcp-server?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/jupyter-mcp-server)
 [![Total PyPI downloads](https://img.shields.io/pepy/dt/jupyter-mcp-server?style=for-the-badge&logo=python&logoColor=white)](https://pepy.tech/project/jupyter-mcp-server)
@@ -27,30 +27,9 @@
 
 </div>
 
-> [!IMPORTANT]
+> **New in v1.1.0:** We are not supporting external `Sandboxes` (Datalayer, Kaggle, Monty, Google Colab, Modal...).
 >
-> - **Update in v1.0.2:**: Configurable timeout: `execute_cell` timeout is now configurable via `JUPYTER_MCP_EXECUTION_TIMEOUT` env var or `execution_timeout` config (default: 120s, max: 3600s). Per-call `timeout=0` uses the config default.
->
-> **Hotfixes in v1.0.3:**
->
-> - **Management routes security (`/api/connect`, `/api/stop`, `/api/healthz`)** has been hardened in standalone `streamable-http` mode:
->   - local `Host` is required for all management routes
->   - non-local browser `Origin` is rejected
->   - `MCP_TOKEN` (Bearer) is required for state-changing routes (`/api/connect`, `/api/stop`)
->
-> **Update in v1.0.2:** `pycrdt` is now supported, so installing `datalayer_pycrdt` is no longer required.
->
-> **Breaking change in v1.0.0:** You must configure `MCP_TOKEN` in your MCP client setup.
->
-> For setup details, see: https://jupyter-mcp-server.datalayer.tech/providers/jupyter-streamable-http-standalone/#3-configure-your-mcp-client
-
-> [!NOTE]
-> **We Need Your Feedback!**
->
-> We're actively developing support for **JupyterHub** and **Google Colab** deployments. If you're using or planning to use Jupyter MCP Server with these platforms, we'd love to hear from you!
->
-> - 🏢 **JupyterHub users**: Share your deployment setup and requirements
-> - 🌐 **Google Colab users**: Help us understand your use cases and workflows
+> Setup details [on this page](https://jupyter-mcp-server.datalayer.tech/transports/streamable-http/#3-configure-your-mcp-client)
 >
 > Join the conversation in our [Community page](https://jupyter-mcp-server.datalayer.tech/community) - your feedback will help us prioritize features and ensure these integrations work seamlessly for your needs.
 
@@ -292,10 +271,10 @@ For detailed instructions on configuring various MCP clients—including [Claude
 
 ## 🧩 Sandbox Variants
 
-By default, code executes through `jupyter-kernel-client` against a Jupyter
-Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any other value
-routes execution through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
-package via a `SandboxKernel` adapter, so the same notebook tools can run code on
+By default, code executes through the `code-sandboxes` `jupyter` variant against
+a Jupyter Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any
+other value uses another [code-sandboxes](https://github.com/datalayer/code-sandboxes)
+engine via a `SandboxKernel` adapter, so the same notebook tools can run code on
 additional backends.
 
 Sandbox features are provided by the optional `jupyter_mcp_sandboxes` extension.

@@ -270,6 +270,8 @@ start:
 	$(BEDROCK_ENV) \
 	PYDANTIC_AI_MODEL="$(MODEL)" \
 	JUPYTER_MCP_URL="$$MCP_URL_RUNTIME" \
+	SANDBOX_VARIANT="$$VARIANT_LABEL" \
+	SANDBOX_ID="$${SANDBOX_ID:-$${RUNTIME_ID:-}}" \
 	MCP_TOKEN="$(MCP_TOKEN)" \
 	python agent.py
 
@@ -493,6 +495,8 @@ start-noauth:
 	$(BEDROCK_ENV) \
 	PYDANTIC_AI_MODEL="$(MODEL)" \
 	JUPYTER_MCP_URL="$$MCP_URL_RUNTIME" \
+	SANDBOX_VARIANT="$$VARIANT_LABEL" \
+	SANDBOX_ID="$${SANDBOX_ID:-$${RUNTIME_ID:-}}" \
 	MCP_TOKEN="" \
 	python agent.py
 
@@ -506,6 +510,8 @@ start-noauth-agent:
 	$(BEDROCK_ENV) \
 	PYDANTIC_AI_MODEL="$(MODEL)" \
 	JUPYTER_MCP_URL="$(MCP_URL)" \
+	SANDBOX_VARIANT="$(SANDBOX_VARIANT)" \
+	SANDBOX_ID="$${SANDBOX_ID:-$${RUNTIME_ID:-}}" \
 	MCP_TOKEN="" \
 	python agent.py
 

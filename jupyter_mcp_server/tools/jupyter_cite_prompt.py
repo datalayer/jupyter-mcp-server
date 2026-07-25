@@ -162,9 +162,26 @@ class JupyterCitePrompt(BaseTool):
                 raise ValueError(f"Could not read notebook content from {notebook_path}")
             notebook = Notebook(**model["content"])
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
-            # Remote mode: use WebSocket connection to Y.js document
-            async with notebook_manager.get_notebook_connection(notebook_name) as notebook_content:
-                notebook = Notebook(**notebook_content.as_dict())
+            # Remote mode: prefer Contents API for deterministic citations
+            # across tests/workflows, then fall back to WebSocket state.
+            notebook_path = notebook_manager.get_notebook_path(notebook_name)
+            loaded_from_contents = False
+
+            if server_client is not None and notebook_path:
+                try:
+                    model = server_client.contents.get(notebook_path, content=True, type="notebook")
+                    content = model.content if hasattr(model, "content") else model.get("content")
+                    if isinstance(content, dict):
+                        notebook = Notebook(**content)
+                    else:
+                        notebook = Notebook(**content.model_dump())
+                    loaded_from_contents = True
+                except Exception:
+                    loaded_from_contents = False
+
+            if not loaded_from_contents:
+                async with notebook_manager.get_notebook_connection(notebook_name) as notebook_content:
+                    notebook = Notebook(**notebook_content.as_dict())
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 

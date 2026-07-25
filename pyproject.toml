@@ -23,7 +23,6 @@ classifiers = [
 dependencies = [
     "code-sandboxes",
     "datalayer_reactor",
-    "jupyter-kernel-client",
     "jupyter-mcp-tools",
     "jupyter-nbmodel-client",
     "jupyter-server-nbmodel",
@@ -136,3 +135,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # S101 Use of `assert` detected
 "jupyter_mcp_server/tests/*" = ["S101"]
+# Test modules commonly rely on assert statements, dummy credentials, and
+# simple mutable class-level fixtures/mocks.
+"tests/*" = ["S101", "S106", "RUF012"]

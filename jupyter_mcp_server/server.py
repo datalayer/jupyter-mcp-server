@@ -6,7 +6,7 @@
 Jupyter MCP Server Layer
 """
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from fastapi import Request

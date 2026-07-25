@@ -108,6 +108,27 @@ def test_launch_kaggle_forwards_runtime_fields(fake_sandbox: MagicMock):
     assert kwargs["token"] == "kaggle-token"
 
 
+def test_launch_jupyter_forwards_runtime_fields(fake_sandbox: MagicMock):
+    manager = SandboxRuntimeManager()
+
+    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+        manager.launch(
+            sandbox_name="jupyter-1",
+            variant="jupyter",
+            timeout=45,
+            server_url="https://jupyter.example",
+            kernel_id="kernel-3",
+            token="runtime-token",
+        )
+
+    kwargs = mock_create.call_args.kwargs
+    assert kwargs["variant"] == "jupyter"
+    assert kwargs["server_url"] == "https://jupyter.example"
+    assert kwargs["kernel_id"] == "kernel-3"
+    assert kwargs["token"] == "runtime-token"
+    assert kwargs["reuse_kernel"] is False
+
+
 def test_launch_datalayer_forwards_token_and_run_url(fake_sandbox: MagicMock):
     manager = SandboxRuntimeManager()
 

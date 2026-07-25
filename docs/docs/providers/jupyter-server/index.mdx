@@ -1,13 +1,13 @@
 # Jupyter Server Provider
 
 The **Jupyter Server** provider is the default. Code executes through
-`jupyter-kernel-client` against a local or remote Jupyter Server
+the `code-sandboxes` `jupyter` variant against a local or remote Jupyter Server
 (`SANDBOX_VARIANT=jupyter`), giving you a full Jupyter kernel with process
 isolation, persistent state, and rich outputs (images, plots, HTML).
 
 :::tip
 
-This engine uses `jupyter-kernel-client` directly. For other
+This engine uses the `code-sandboxes` Jupyter engine. For other
 `SANDBOX_VARIANT` values (`kaggle`, `colab`, `monty`, `modal`, ...), see the
 [code-sandboxes documentation](https://code-sandboxes.datalayer.tech/) for
 engine-level parameters and credential setup. Non-`jupyter` engines also

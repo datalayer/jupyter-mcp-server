@@ -11,11 +11,11 @@ what is under test is which kernel the code actually reaches.
 import time
 
 import pytest
-from jupyter_kernel_client import KernelClient
 from jupyter_server_client import JupyterServerClient
 
 from jupyter_mcp_server.config import reset_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.execute_code_tool import ExecuteCodeTool
 from jupyter_mcp_server.utils import safe_extract_outputs, wait_for_kernel_idle
@@ -50,10 +50,16 @@ def targeting_setup(jupyter_server):
     set_config(runtime_url=jupyter_server, runtime_token=JUPYTER_TOKEN)
     server_client = JupyterServerClient(base_url=jupyter_server, token=JUPYTER_TOKEN)
 
-    current_kernel = KernelClient(server_url=jupyter_server, token=JUPYTER_TOKEN)
-    current_kernel.start()
-    raw_kernel = KernelClient(server_url=jupyter_server, token=JUPYTER_TOKEN)
-    raw_kernel.start()
+    current_kernel = create_jupyter_sandbox_kernel(
+        server_url=jupyter_server,
+        token=JUPYTER_TOKEN,
+        logger=None,
+    )
+    raw_kernel = create_jupyter_sandbox_kernel(
+        server_url=jupyter_server,
+        token=JUPYTER_TOKEN,
+        logger=None,
+    )
 
     try:
         # Give each kernel its own identity so the assertion cannot pass by luck.

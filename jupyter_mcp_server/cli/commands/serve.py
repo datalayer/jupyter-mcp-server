@@ -272,7 +272,7 @@ def server_callback(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     runtime_proxy_token: Annotated[
@@ -523,7 +523,7 @@ def start_command(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses jupyter-kernel-client directly. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     runtime_proxy_token: Annotated[

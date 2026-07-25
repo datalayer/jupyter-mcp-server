@@ -23,7 +23,6 @@ class ServerContext:
     _kernel_spec_manager = None
     _session_manager = None
     _server_client = None
-    _kernel_client = None
     _initialized = False
 
     @classmethod
@@ -43,7 +42,6 @@ class ServerContext:
             cls._instance._kernel_spec_manager = None
             cls._instance._session_manager = None
             cls._instance._server_client = None
-            cls._instance._kernel_client = None
 
     def initialize(self):
         """Initialize context once."""
@@ -90,7 +88,6 @@ class ServerContext:
                 self._server_client = JupyterServerClient(
                     base_url=runtime_url, token=config.runtime_token
                 )
-                # kernel_client will be created lazily when needed
         except (ImportError, Exception) as e:
             # If not in Jupyter context, use MCP_SERVER mode
             if not isinstance(e, ValueError):
@@ -155,12 +152,6 @@ class ServerContext:
         if not self._initialized:
             self.initialize()
         return self._server_client
-
-    @property
-    def kernel_client(self):
-        if not self._initialized:
-            self.initialize()
-        return self._kernel_client
 
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""
