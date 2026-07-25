@@ -49,7 +49,6 @@ datalayer = ["code-sandboxes[datalayer]"]
 all-sandboxes = ["code-sandboxes[all]"]
 test = [
     "ipykernel",
-    "jupyter-kernel-client",
     "jupyter_server>=1.6,<3",
     "pytest>=7.0",
     "pytest-asyncio",
