@@ -51,9 +51,8 @@ class ExecuteCodeTool(BaseTool):
         Returns (kernel, None) on success, or (None, error_message) if the id
         does not name a kernel on the server.
         """
-        from jupyter_kernel_client import KernelClient
-
         from jupyter_mcp_server.config import get_config
+        from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
 
         if server_client is not None:
             kernels = server_client.kernels.list_kernels()
@@ -64,12 +63,14 @@ class ExecuteCodeTool(BaseTool):
                 )
 
         config = get_config()
-        kernel = KernelClient(
+        kernel = create_jupyter_sandbox_kernel(
             server_url=config.runtime_url,
             token=config.runtime_token,
             kernel_id=kernel_id,
+            timeout=getattr(config, "execution_timeout", None),
+            reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
+            logger=logger,
         )
-        kernel.start()
         return kernel, None
 
     async def _execute_via_notebook_manager(

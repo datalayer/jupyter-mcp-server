@@ -10,7 +10,6 @@ from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 
 from fastapi import Request
-from jupyter_kernel_client import KernelClient
 from mcp.server import FastMCP
 from mcp.server.auth.provider import AccessToken
 from mcp.types import ImageContent, ToolAnnotations
@@ -207,10 +206,10 @@ async def __auto_enroll_document():
     )
 
 
-def __ensure_kernel_alive() -> KernelClient:
+def __ensure_kernel_alive() -> Any:
     """Ensure kernel is running, restart if needed."""
 
-    def __create_kernel() -> KernelClient:
+    def __create_kernel() -> Any:
         """Create a new kernel instance using current configuration."""
         config = get_config()
         return create_kernel(config, logger)

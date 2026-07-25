@@ -23,7 +23,6 @@ classifiers = [
 dependencies = [
     "code-sandboxes",
     "datalayer_reactor",
-    "jupyter-kernel-client",
     "jupyter-mcp-tools",
     "jupyter-nbmodel-client",
     "jupyter-server-nbmodel",

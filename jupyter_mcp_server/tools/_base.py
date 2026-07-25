@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
 
-from jupyter_kernel_client import KernelClient
 from jupyter_server_client import JupyterServerClient
 
 
@@ -36,7 +35,7 @@ class BaseTool(ABC):
         self,
         mode: ServerMode,
         server_client: JupyterServerClient | None = None,
-        kernel_client: KernelClient | None = None,
+        kernel_client: Any = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,

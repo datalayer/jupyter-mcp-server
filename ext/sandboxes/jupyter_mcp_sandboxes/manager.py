@@ -78,6 +78,17 @@ class SandboxRuntimeManager:
             if token:
                 create_kwargs["token"] = token
 
+        if variant == "jupyter":
+            if server_url:
+                create_kwargs["server_url"] = server_url
+            if kernel_id:
+                create_kwargs["kernel_id"] = kernel_id
+            if token:
+                create_kwargs["token"] = token
+            # Align with core behavior: creating through extension tools should
+            # not silently reuse arbitrary existing kernels.
+            create_kwargs["reuse_kernel"] = False
+
         if variant == "datalayer":
             if token:
                 create_kwargs["token"] = token

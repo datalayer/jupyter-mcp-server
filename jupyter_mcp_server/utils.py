@@ -3,16 +3,69 @@
 # BSD 3-Clause License
 
 import asyncio
+import json
 import re
 import time
 from typing import Any
 
-from jupyter_kernel_client import get_mimebundle_text
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
+
+
+#: MIME types that carry readable text, richest first. ``text/plain`` is the
+#: universal fallback. ``text/html`` is intentionally absent: it is markup
+#: rather than readable text, and results that emit both an ASCII ``text/plain``
+#: table and a ``text/html`` table (a pandas ``DataFrame``, for instance) should
+#: surface the plain table to a text consumer.
+RICH_TEXT_MIMETYPES = ("text/markdown", "text/latex", "application/json", "text/plain")
+
+
+def _coerce_bundle_text(value: Any) -> str:
+    """Coerce a MIME bundle text value to ``str``.
+
+    nbformat allows a multi-line text representation to be stored either as a
+    single string or as a list of strings (one per line, newlines included);
+    join the list form so the caller always gets a single string.
+    """
+    if isinstance(value, list):
+        return "".join(str(part) for part in value)
+    return str(value)
+
+
+def get_mimebundle_text(bundle: dict[str, Any] | None, default: str | None = None) -> str | None:
+    """Pick the richest readable text representation from a MIME bundle.
+
+    A cell output MIME bundle (the ``data`` dictionary of an ``execute_result``
+    or ``display_data`` output) may carry several representations of one value.
+    For ``IPython.display`` objects the ``text/plain`` key is only the bare
+    object repr while the readable content lives in a richer key. This returns
+    the richest readable text so a text consumer never sees the repr
+    placeholder when real text is present.
+
+    The preference order is ``text/markdown``, ``text/latex``,
+    ``application/json``, then ``text/plain`` (see :data:`RICH_TEXT_MIMETYPES`);
+    ``application/json`` is pretty-printed. ``text/html`` is deliberately not
+    consulted.
+    """
+    if not bundle:
+        return default
+
+    for mimetype in RICH_TEXT_MIMETYPES:
+        if mimetype not in bundle:
+            continue
+        value = bundle[mimetype]
+        if mimetype == "application/json" and not isinstance(value, str):
+            try:
+                return json.dumps(value, indent=2, ensure_ascii=False)
+            except (TypeError, ValueError):
+                return _coerce_bundle_text(value)
+        return _coerce_bundle_text(value)
+
+    return default
+
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -462,46 +515,40 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 def create_kernel(config, logger):
     """Create a new kernel instance using current configuration.
 
-    When ``config.sandbox_variant`` is 'jupyter' (the default) a
-    ``jupyter_kernel_client.KernelClient`` is created. Installed extensions
-    (for example ``jupyter_mcp_sandboxes``) may provide an alternative kernel —
-    such as a sandbox-backed kernel — for non-'jupyter' variants. Both expose
-    the same interface to the rest of the server.
+    Kernel creation is resolved in this order:
+
+    1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
+       over kernel creation for a non-'jupyter' sandbox variant.
+    2. Otherwise the kernel is created through the ``code_sandboxes`` package
+       using the configured ``sandbox_variant`` ('jupyter' by default), wrapped
+       in a :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` that
+       exposes the ``KernelClient`` interface the rest of the server expects.
+
+    This routes all kernel execution through ``code_sandboxes`` instead of
+    calling ``jupyter_kernel_client`` directly.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
+    from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
 
     extension_kernel = get_extension_manager().create_kernel(config, logger)
     if extension_kernel is not None:
         return extension_kernel
 
-    from jupyter_kernel_client import KernelClient
-
-    kernel = None
     try:
-        # Initialize the kernel client with the provided parameters.
-        client_kwargs = {}
-        if getattr(config, "reconnect_interval", 0):
-            client_kwargs["reconnect_interval"] = config.reconnect_interval
-        kernel = KernelClient(
+        kernel = create_jupyter_sandbox_kernel(
             server_url=config.runtime_url,
             token=config.runtime_token,
             kernel_id=config.runtime_id,
-            client_kwargs=client_kwargs if client_kwargs else None,
+            timeout=getattr(config, "execution_timeout", None),
+            reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
+            logger=logger,
         )
-        kernel.start()
         logger.info("Kernel created and started successfully")
         return kernel
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
-        # Clean up partially initialized kernel to prevent __del__ errors
-        if kernel is not None:
-            try:
-                # Try to clean up the kernel object if it exists
-                if hasattr(kernel, "stop"):
-                    kernel.stop()
-            except Exception as cleanup_error:
-                logger.debug(f"Error during kernel cleanup: {cleanup_error}")
         raise
+
 
 
 def start_kernel(notebook_manager, config, logger):

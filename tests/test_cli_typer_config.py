@@ -154,7 +154,8 @@ def test_jupyter_extension_trait():
 
 
 def test_create_kernel_passes_reconnect_interval():
-    """Verify create_kernel passes reconnect_interval to KernelClient via client_kwargs."""
+    """create_kernel routes through code-sandboxes (jupyter variant) and forwards
+    reconnect_interval to the underlying KernelClient via client_kwargs."""
     from jupyter_mcp_server.utils import create_kernel
 
     config = JupyterMCPConfig(
@@ -164,23 +165,27 @@ def test_create_kernel_passes_reconnect_interval():
         reconnect_interval=5,
     )
 
-    with patch("jupyter_kernel_client.KernelClient") as mock_kernel_client:
-        mock_kernel = MagicMock()
-        mock_kernel_client.return_value = mock_kernel
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_sandbox = MagicMock()
+        mock_create.return_value = mock_sandbox
 
         create_kernel(config, MagicMock())
 
-        mock_kernel_client.assert_called_once_with(
+        mock_create.assert_called_once_with(
+            variant="jupyter",
             server_url="http://localhost:8888",
             token="test_token",
             kernel_id="test-kernel-id",
+            kernel_path=None,
+            reuse_kernel=False,
+            timeout=120.0,
             client_kwargs={"reconnect_interval": 5},
         )
-        mock_kernel.start.assert_called_once()
+        mock_sandbox.start.assert_called_once()
 
 
 def test_create_kernel_no_reconnect_by_default():
-    """Verify create_kernel does not pass client_kwargs when reconnect_interval=0."""
+    """create_kernel omits client_kwargs when reconnect_interval=0."""
     from jupyter_mcp_server.utils import create_kernel
 
     config = JupyterMCPConfig(
@@ -190,18 +195,22 @@ def test_create_kernel_no_reconnect_by_default():
         reconnect_interval=0,
     )
 
-    with patch("jupyter_kernel_client.KernelClient") as mock_kernel_client:
-        mock_kernel = MagicMock()
-        mock_kernel_client.return_value = mock_kernel
+    with patch("code_sandboxes.Sandbox.create") as mock_create:
+        mock_sandbox = MagicMock()
+        mock_create.return_value = mock_sandbox
 
         create_kernel(config, MagicMock())
 
-        mock_kernel_client.assert_called_once_with(
+        mock_create.assert_called_once_with(
+            variant="jupyter",
             server_url="http://localhost:8888",
             token="test_token",
             kernel_id="test-kernel-id",
-            client_kwargs=None,
+            kernel_path=None,
+            reuse_kernel=False,
+            timeout=120.0,
         )
+        mock_sandbox.start.assert_called_once()
 
 
 def test_reconnect_interval_config():
