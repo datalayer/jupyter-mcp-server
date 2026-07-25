@@ -4,7 +4,6 @@
 
 """Read cell tool implementation."""
 
-import logging
 from pathlib import Path
 from typing import Any
 
@@ -16,9 +15,6 @@ from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import get_current_notebook_context, get_notebook_model
-
-
-logger = logging.getLogger(__name__)
 
 
 class ReadCellTool(BaseTool):
@@ -83,35 +79,11 @@ class ReadCellTool(BaseTool):
                     raise ValueError(f"Could not read notebook content from {notebook_path}")
                 notebook = Notebook(**model["content"])
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
-            # Remote mode: prefer Contents API so reads match what JupyterLab
-            # shows for the notebook file. Fall back to websocket model only if
-            # the contents read is unavailable.
-            notebook_path, _ = get_current_notebook_context(notebook_manager)
-            if not notebook_path:
-                return [
-                    "No active notebook. Use the use_notebook tool to activate a notebook first."
-                ]
-
-            loaded_from_contents = False
-            if server_client is not None:
-                try:
-                    model = server_client.contents.get(notebook_path, content=True, type="notebook")
-                    content = model.content if hasattr(model, "content") else model.get("content")
-                    if isinstance(content, dict):
-                        notebook = Notebook(**content)
-                    else:
-                        notebook = Notebook(**content.model_dump())
-                    loaded_from_contents = True
-                except Exception as exc:
-                    logger.warning(
-                        "Contents API read failed for '%s', falling back to websocket model: %s",
-                        notebook_path,
-                        exc,
-                    )
-
-            if not loaded_from_contents:
-                async with notebook_manager.get_current_connection() as notebook_content:
-                    notebook = Notebook(**notebook_content.as_dict())
+            # Remote mode: use WebSocket connection to Y.js document.
+            # get_current_connection() falls back to the default pre-configured
+            # notebook (--document-id), so no explicit guard is needed here.
+            async with notebook_manager.get_current_connection() as notebook_content:
+                notebook = Notebook(**notebook_content.as_dict())
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 
