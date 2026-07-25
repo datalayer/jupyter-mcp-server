@@ -6,8 +6,10 @@ import asyncio
 import json
 import re
 import time
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
+from jupyter_kernel_client import KernelClient
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
@@ -512,7 +514,7 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_kernel(config, logger):
+def create_kernel(config, logger) -> KernelClient:
     """Create a new kernel instance using current configuration.
 
     Kernel creation is resolved in this order:
@@ -544,7 +546,7 @@ def create_kernel(config, logger):
             logger=logger,
         )
         logger.info("Kernel created and started successfully")
-        return kernel
+        return cast(KernelClient, kernel)
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
         raise
@@ -567,9 +569,11 @@ def start_kernel(notebook_manager, config, logger):
         raise
 
 
-def ensure_kernel_alive(notebook_manager, current_notebook, create_kernel_fn):
+def ensure_kernel_alive(
+    notebook_manager, current_notebook, create_kernel_fn: Callable[[], KernelClient]
+) -> KernelClient:
     """Ensure kernel is running, restart if needed."""
-    return notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn)
+    return cast(KernelClient, notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn))
 
 
 def track_pending_execution(kernel, task):
