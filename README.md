@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fdatalayer%2Fjupyter-mcp-server.svg)](https://mcptoplist.com/server/glama%2Fdatalayer%2Fjupyter-mcp-server)
+
 <!--
   ~ Copyright (c) 2024- Datalayer, Inc.
   ~
