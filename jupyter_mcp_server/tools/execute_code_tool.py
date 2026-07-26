@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import cast
 
-from jupyter_kernel_client import KernelClient
+from code_sandboxes.interfaces import ISandboxClient
 from jupyter_server_client import JupyterServerClient
 from mcp.types import ImageContent
 
@@ -50,7 +50,7 @@ class ExecuteCodeTool(BaseTool):
 
     def _connect_to_kernel(
         self, kernel_id: str, server_client: JupyterServerClient | None
-    ) -> tuple[KernelClient | None, str | None]:
+    ) -> tuple[ISandboxClient | None, str | None]:
         """Connect to an existing kernel by ID (MCP_SERVER mode).
 
         Returns (kernel, None) on success, or (None, error_message) if the id
@@ -76,7 +76,7 @@ class ExecuteCodeTool(BaseTool):
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
             logger=logger,
         )
-        return cast(KernelClient, kernel), None
+        return cast(ISandboxClient, kernel), None
 
     async def _execute_via_notebook_manager(
         self,
@@ -101,7 +101,7 @@ class ExecuteCodeTool(BaseTool):
 
         # A kernel we connect to here is borrowed, not owned: it must be released
         # in the finally below, and never shut down.
-        borrowed_kernel: KernelClient | None = None
+        borrowed_kernel: ISandboxClient | None = None
         if kernel_id is not None and kernel_id != current_kernel_id:
             kernel, error = self._connect_to_kernel(kernel_id, server_client)
             if error is not None:
@@ -119,7 +119,7 @@ class ExecuteCodeTool(BaseTool):
 
             if isinstance(kernel, dict):
                 return [
-                    "[ERROR: Kernel metadata found instead of active KernelClient in MCP_SERVER mode]"
+                    "[ERROR: Kernel metadata found instead of active ISandboxClient in MCP_SERVER mode]"
                 ]
 
             kid = current_kernel_id or ""
@@ -142,7 +142,7 @@ class ExecuteCodeTool(BaseTool):
 
     async def _execute_on_kernel(
         self,
-        kernel: KernelClient,
+        kernel: ISandboxClient,
         kid: str,
         code: str,
         timeout: int,

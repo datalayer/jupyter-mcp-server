@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from jupyter_kernel_client import KernelClient
+from code_sandboxes.interfaces import ISandboxClient
 
 
 class SandboxKernel:
@@ -41,7 +41,7 @@ class SandboxKernel:
         return self._sandbox
 
     @property
-    def _client(self) -> KernelClient | None:
+    def _client(self) -> ISandboxClient | None:
         """The underlying kernel client owned by the sandbox (may be ``None``).
 
         For the ``jupyter`` variant this is a real kernel client. Other

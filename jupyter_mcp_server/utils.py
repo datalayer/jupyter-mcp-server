@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from typing import Any, cast
 
-from jupyter_kernel_client import KernelClient
+from code_sandboxes.interfaces import ISandboxClient
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
@@ -514,7 +514,7 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_kernel(config, logger) -> KernelClient:
+def create_kernel(config, logger) -> ISandboxClient:
     """Create a new kernel instance using current configuration.
 
     Kernel creation is resolved in this order:
@@ -546,7 +546,7 @@ def create_kernel(config, logger) -> KernelClient:
             logger=logger,
         )
         logger.info("Kernel created and started successfully")
-        return cast(KernelClient, kernel)
+        return cast(ISandboxClient, kernel)
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
         raise
@@ -570,10 +570,12 @@ def start_kernel(notebook_manager, config, logger):
 
 
 def ensure_kernel_alive(
-    notebook_manager, current_notebook, create_kernel_fn: Callable[[], KernelClient]
-) -> KernelClient:
+    notebook_manager, current_notebook, create_kernel_fn: Callable[[], ISandboxClient]
+) -> ISandboxClient:
     """Ensure kernel is running, restart if needed."""
-    return cast(KernelClient, notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn))
+    return cast(
+        ISandboxClient, notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn)
+    )
 
 
 def track_pending_execution(kernel, task):
