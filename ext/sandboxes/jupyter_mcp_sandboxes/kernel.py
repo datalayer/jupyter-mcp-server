@@ -15,6 +15,8 @@ This module exposes:
 
 from __future__ import annotations
 
+import logging
+from types import MethodType
 from typing import Any
 
 
@@ -169,6 +171,39 @@ def build_sandbox(config, logger):
     raise ValueError(f"Unsupported sandbox variant: {config.sandbox_variant}")
 
 
+def _attach_sandbox_stop(client: Any, sandbox: Any, logger: logging.Logger | None = None) -> None:
+    """Ensure ``client.stop()`` also tears down the backing sandbox.
+
+    ``shutdown_kernel=False`` preserves borrowed-kernel semantics by skipping
+    sandbox-level shutdown.
+    """
+    original_stop = getattr(client, "stop", None)
+    if not callable(original_stop) or getattr(client, "_mcp_sandbox_stop_wrapped", False):
+        return
+
+    log = logger or logging.getLogger(__name__)
+
+    def _stop_with_sandbox(self, *args: Any, **kwargs: Any):
+        shutdown_kernel = kwargs.get("shutdown_kernel", None)
+        if shutdown_kernel is None and args:
+            shutdown_kernel = args[0]
+
+        if shutdown_kernel is False:
+            return original_stop(*args, **kwargs)
+
+        try:
+            setattr(self, "stop", original_stop)
+            return sandbox.stop()
+        except Exception:
+            log.debug("Error stopping sandbox from wrapped extension client.stop", exc_info=True)
+            return original_stop(*args, **kwargs)
+        finally:
+            setattr(self, "stop", MethodType(_stop_with_sandbox, self))
+
+    setattr(client, "stop", MethodType(_stop_with_sandbox, client))
+    setattr(client, "_mcp_sandbox_stop_wrapped", True)
+
+
 def create_sandbox_kernel_client(config, logger) -> Any:
     """Create and start a sandbox, then return its plain kernel client.
 
@@ -186,6 +221,7 @@ def create_sandbox_kernel_client(config, logger) -> Any:
                 "execute_code, or a kernel-backed variant (jupyter/colab/kaggle/docker)."
             )
         setattr(client, "_sandbox", sandbox)
+        _attach_sandbox_stop(client, sandbox, logger)
         return client
     except Exception:
         try:

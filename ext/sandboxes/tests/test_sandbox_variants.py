@@ -297,6 +297,37 @@ def test_extension_create_kernel_builds_and_starts_kernel_client():
     fake_sandbox.start.assert_called_once_with()
 
 
+def test_extension_create_kernel_client_stop_releases_backing_sandbox():
+    """Returned kernel client stop() should stop the backing sandbox by default."""
+
+    class _FakeKernelClient:
+        def __init__(self) -> None:
+            self.stop_calls: list[tuple[tuple, dict]] = []
+
+        def stop(self, *args, **kwargs):
+            self.stop_calls.append((args, kwargs))
+
+    config = JupyterMCPConfig(sandbox_variant="docker")
+    fake_logger = MagicMock()
+    fake_sandbox = MagicMock()
+    fake_kernel_client = _FakeKernelClient()
+    fake_sandbox.kernel_client = fake_kernel_client
+    extension = SandboxesExtension()
+
+    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox):
+        kernel = extension.create_kernel(config, fake_logger)
+
+    kernel.stop()
+    fake_sandbox.stop.assert_called_once_with()
+
+    fake_sandbox.stop.reset_mock()
+
+    kernel.stop(shutdown_kernel=False)
+    fake_sandbox.stop.assert_not_called()
+    assert len(fake_kernel_client.stop_calls) == 1
+    assert fake_kernel_client.stop_calls[0][1]["shutdown_kernel"] is False
+
+
 def test_extension_create_kernel_raises_for_non_kernel_client_variant():
     """Notebook-bound kernel flow rejects variants without kernel_client exposure."""
     config = JupyterMCPConfig(sandbox_variant="eval")

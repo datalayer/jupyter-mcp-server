@@ -12,9 +12,47 @@ adapter class.
 from __future__ import annotations
 
 import logging
+from types import MethodType
 from typing import Any
 
 from code_sandboxes.interfaces import ISandboxClient
+
+
+def _attach_sandbox_stop(client: ISandboxClient, sandbox: Any, log: logging.Logger) -> None:
+    """Ensure ``client.stop()`` also releases the backing sandbox.
+
+    When callers pass ``shutdown_kernel=False`` (borrowed-kernel flow), keep the
+    original client stop semantics and skip sandbox-level shutdown.
+    """
+    original_stop = getattr(client, "stop", None)
+    if not callable(original_stop):
+        return
+
+    if getattr(client, "_mcp_sandbox_stop_wrapped", False):
+        return
+
+    def _stop_with_sandbox(self, *args: Any, **kwargs: Any):
+        shutdown_kernel = kwargs.get("shutdown_kernel", None)
+        if shutdown_kernel is None and args:
+            shutdown_kernel = args[0]
+
+        if shutdown_kernel is False:
+            return original_stop(*args, **kwargs)
+
+        previous_stop = getattr(self, "stop", None)
+        try:
+            setattr(self, "stop", original_stop)
+            return sandbox.stop()
+        except Exception:
+            log.debug("Error stopping sandbox from wrapped client.stop", exc_info=True)
+            if callable(previous_stop):
+                return original_stop(*args, **kwargs)
+            raise
+        finally:
+            setattr(self, "stop", MethodType(_stop_with_sandbox, self))
+
+    setattr(client, "stop", MethodType(_stop_with_sandbox, client))
+    setattr(client, "_mcp_sandbox_stop_wrapped", True)
 
 
 def create_jupyter_sandbox_client(
@@ -64,6 +102,7 @@ def create_jupyter_sandbox_client(
         # Keep a reference for cleanup/diagnostics by callers that manage
         # lifecycle beyond the kernel-client API.
         setattr(client, "_sandbox", sandbox)
+        _attach_sandbox_stop(client, sandbox, log)
         return client
     except Exception:
         try:

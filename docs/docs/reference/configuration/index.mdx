@@ -107,8 +107,8 @@ By default the server executes code through the `code-sandboxes` `jupyter`
 engine against a Jupyter Server (`SANDBOX_VARIANT=jupyter`). Setting
 `SANDBOX_VARIANT` to any other value routes execution through the
 [code-sandboxes](https://github.com/datalayer/code-sandboxes) package via a
-`SandboxKernel` adapter, so the same notebook tools can run code on additional
-backends.
+sandbox-backed plain kernel client (when the selected variant exposes one), so
+the same notebook tools can run code on additional backends.
 
 Sandbox functionality is provided by the optional
 [`jupyter_mcp_sandboxes`](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/sandboxes)
