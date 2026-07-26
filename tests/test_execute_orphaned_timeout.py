@@ -32,9 +32,11 @@ class FakeKernel:
 
     def __init__(self):
         self.interrupted = False
+        self.interrupt_count = 0
 
     def interrupt(self):
         self.interrupted = True
+        self.interrupt_count += 1
 
 
 class FakeNotebook:
@@ -140,6 +142,50 @@ async def test_wait_for_kernel_idle_blocks_until_orphaned_stream_task_finishes()
 
     assert elapsed >= 0.5
     assert is_kernel_busy(kernel) is False
+
+
+@pytest.mark.asyncio
+async def test_non_stream_timeout_interrupts_kernel_once():
+    """execute_cell_with_forced_sync interrupts the kernel and awaits the settle
+    window itself before raising TimeoutError. The tool's except block used to
+    repeat both, so a timed-out call interrupted twice and waited two settle
+    windows instead of the single one TIMEOUT_OUTPUT_SETTLE_SECONDS implies.
+    Reported by @AmirF194 in review of #309."""
+    cell = {"source": "time.sleep(60)", "outputs": []}
+    kernel = FakeKernel()
+    manager = FakeNotebookManager(
+        FakeNotebook(cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP))
+    )
+
+    result = await ExecuteCellTool().execute(
+        mode=ServerMode.MCP_SERVER,
+        notebook_manager=manager,
+        cell_index=0,
+        timeout_seconds=0,
+        stream=False,
+        progress_interval=1,
+        ensure_kernel_alive_fn=lambda: kernel,
+    )
+
+    assert kernel.interrupt_count == 1, (
+        f"timeout path should interrupt once, got {kernel.interrupt_count}"
+    )
+    assert any(
+        isinstance(entry, str) and "[TIMEOUT ERROR" in entry for entry in result
+    ), f"expected a timeout marker in the result, got {result!r}"
+
+
+@pytest.mark.asyncio
+async def test_stream_timeout_interrupts_kernel_once():
+    """The streaming branch owns its own interrupt; it must not double up either."""
+    cell = {"source": "time.sleep(60)", "outputs": []}
+    kernel = FakeKernel()
+
+    await _run_stream(
+        cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP), timeout_seconds=0, kernel=kernel
+    )
+
+    assert kernel.interrupt_count == 1
 
 
 @pytest.mark.asyncio

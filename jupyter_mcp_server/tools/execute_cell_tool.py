@@ -18,7 +18,6 @@ from jupyter_mcp_server.utils import (
     clean_notebook_outputs,
     execute_cell_with_forced_sync,
     execute_via_execution_stack,
-    extract_output,
     get_current_notebook_context,
     get_jupyter_ydoc,
     safe_extract_outputs,
@@ -454,7 +453,11 @@ class ExecuteCellTool(BaseTool):
                         f"Executing cell {cell_index} in streaming mode (timeout: {timeout_seconds}s, interval: {progress_interval}s)"
                     )
 
-                    outputs_log = []
+                    # Streaming only adds a timeline; the cell's own outputs are
+                    # snapshotted at the end so the response keeps the same shape
+                    # as the non-streaming path (structured outputs first, in
+                    # kernel order), with these log lines appended after them.
+                    timeline: list[str] = []
 
                     # Start execution in background
                     execution_task = asyncio.create_task(
@@ -480,31 +483,30 @@ class ExecuteCellTool(BaseTool):
                         # when elapsed is still 0.0 on a coarse clock tick.
                         if elapsed >= timeout_seconds:
                             timed_out = True
-                            outputs_log.append(f"[TIMEOUT at {elapsed:.1f}s: Interrupting execution]")
+                            timeline.append(f"[TIMEOUT at {elapsed:.1f}s: Interrupting execution]")
                             try:
                                 kernel.interrupt()
-                                outputs_log.append("[Sent interrupt signal to kernel]")
+                                timeline.append("[Sent interrupt signal to kernel]")
                             except Exception:
                                 pass
                             # Do not cancel execution_task: see settle_timed_out_execution.
                             break
 
-                        # Check for new outputs
+                        # Record when new outputs appear. Only the arrival is
+                        # logged: copying the payload here would duplicate it,
+                        # and re-formatting it as a string would drop images.
                         try:
                             current_outputs = notebook[cell_index].get("outputs", [])
                             if len(current_outputs) > last_output_count:
-                                new_outputs = current_outputs[last_output_count:]
-                                for output in new_outputs:
-                                    extracted = extract_output(output)
-                                    if isinstance(extracted, str):
-                                        outputs_log.append(f"[{elapsed:.1f}s] {extracted}")
-                                    else:
-                                        outputs_log.append(f"[{elapsed:.1f}s]")
-                                        outputs_log.append(extracted)
+                                new_count = len(current_outputs) - last_output_count
                                 last_output_count = len(current_outputs)
+                                timeline.append(
+                                    f"[{elapsed:.1f}s] {new_count} new output(s), "
+                                    f"{last_output_count} total"
+                                )
 
                         except Exception as e:
-                            outputs_log.append(f"[{elapsed:.1f}s] Error checking outputs: {e}")
+                            timeline.append(f"[{elapsed:.1f}s] Error checking outputs: {e}")
 
                         # Progress update (tool log + MCP keepalive). Use wall-clock
                         # gating so we emit once per interval, not on every poll
@@ -515,7 +517,7 @@ class ExecuteCellTool(BaseTool):
                             and (elapsed - last_progress_emit) >= progress_interval
                         ):
                             last_progress_emit = elapsed
-                            outputs_log.append(
+                            timeline.append(
                                 f"[PROGRESS: {elapsed:.1f}s elapsed, {last_output_count} outputs so far]"
                             )
                             await emit_execution_progress(
@@ -530,44 +532,30 @@ class ExecuteCellTool(BaseTool):
                         remaining = timeout_seconds - elapsed
                         await asyncio.sleep(min(1.0, max(remaining, 0.0)))
 
-                    # Get final result. On timeout the task was cancelled above, so
-                    # awaiting it would raise CancelledError, which is a BaseException
-                    # and is not caught below, discarding the timeout log just built.
+                    # Wait for the execution to settle before snapshotting. On
+                    # timeout the task is not cancelled (see
+                    # settle_timed_out_execution), so awaiting it directly would
+                    # block for the full cell.
                     if timed_out:
                         await settle_timed_out_execution(execution_task)
-                        try:
-                            final_outputs = notebook[cell_index].get("outputs", [])
-                            if len(final_outputs) > last_output_count:
-                                remaining = final_outputs[last_output_count:]
-                                for output in remaining:
-                                    extracted = extract_output(output)
-                                    if not isinstance(extracted, str):
-                                        outputs_log.append(extracted)
-                                    elif extracted.strip():
-                                        outputs_log.append(extracted)
-                                last_output_count = len(final_outputs)
-                        except Exception as e:
-                            outputs_log.append(f"[ERROR reading post-timeout outputs: {e}]")
                     else:
                         try:
                             await execution_task
-                            final_outputs = notebook[cell_index].get("outputs", [])
-                            outputs_log.append(f"[COMPLETED in {time.perf_counter() - start_time:.1f}s]")
-
-                            # Add any final outputs not captured during monitoring
-                            if len(final_outputs) > last_output_count:
-                                remaining = final_outputs[last_output_count:]
-                                for output in remaining:
-                                    extracted = extract_output(output)
-                                    if not isinstance(extracted, str):
-                                        outputs_log.append(extracted)
-                                    elif extracted.strip():
-                                        outputs_log.append(extracted)
-
+                            timeline.append(
+                                f"[COMPLETED in {time.perf_counter() - start_time:.1f}s]"
+                            )
                         except Exception as e:
-                            outputs_log.append(f"[ERROR: {e}]")
+                            timeline.append(f"[ERROR: {e}]")
 
-                    result = outputs_log if outputs_log else ["[No output generated]"]
+                    # Same extraction as the non-streaming path, so streaming
+                    # does not change the outputs a client receives.
+                    try:
+                        outputs = safe_extract_outputs(notebook[cell_index].get("outputs", []))
+                    except Exception as e:
+                        outputs = []
+                        timeline.append(f"[ERROR reading outputs: {e}]")
+
+                    result = (outputs + timeline) or ["[No output generated]"]
                     await hooks.fire(
                         HookEvent.AFTER_EXECUTE,
                         code=cell_source,
@@ -616,16 +604,10 @@ class ExecuteCellTool(BaseTool):
 
                     except asyncio.TimeoutError as e:
                         logger.error(f"Cell {cell_index} execution timed out: {e}")
-                        # Interrupt already attempted inside execute_cell_with_forced_sync;
-                        # settle so the notebook snapshot matches post-timeout writes.
-                        pending = getattr(kernel, "_mcp_pending_execution", None)
-                        await settle_timed_out_execution(pending)
-                        try:
-                            if kernel and hasattr(kernel, "interrupt"):
-                                kernel.interrupt()
-                                logger.info("Sent interrupt signal to kernel")
-                        except Exception as interrupt_err:
-                            logger.error(f"Failed to interrupt kernel: {interrupt_err}")
+                        # execute_cell_with_forced_sync already interrupted the
+                        # kernel and awaited the settle window before raising.
+                        # Repeating either here interrupts the kernel twice and
+                        # doubles the time the tool call takes to return.
 
                         # Return partial outputs if available
                         try:
