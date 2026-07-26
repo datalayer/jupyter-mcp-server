@@ -753,7 +753,7 @@ async def execute_cell(
         Field(
             description="Enable streaming progress (including time indicator) updates for long-running cells"
         ),
-    ] = False,
+    ] = True,
     progress_interval: Annotated[
         int,
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
@@ -809,7 +809,7 @@ async def insert_execute_code_cell(
         Field(
             description="Enable streaming progress (including time indicator) updates for long-running cells"
         ),
-    ] = False,
+    ] = True,
     progress_interval: Annotated[
         int,
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
