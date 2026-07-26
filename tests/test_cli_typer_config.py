@@ -155,7 +155,7 @@ def test_jupyter_extension_trait():
 
 def test_create_kernel_passes_reconnect_interval():
     """create_kernel routes through code-sandboxes (jupyter variant) and forwards
-    reconnect_interval to the underlying KernelClient via client_kwargs."""
+    reconnect_interval to the underlying JupyterKernelClient via client_kwargs."""
     from jupyter_mcp_server.utils import create_kernel
 
     config = JupyterMCPConfig(

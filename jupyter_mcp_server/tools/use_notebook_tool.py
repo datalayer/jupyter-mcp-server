@@ -242,7 +242,7 @@ class UseNotebookTool(BaseTool):
                         return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."
                 # Ensure the kernel is started with the same path as the notebook.
                 # Routed through code-sandboxes (jupyter variant) rather than a
-                # direct KernelClient; the sandbox creates and starts the kernel.
+                # direct JupyterKernelClient; the sandbox creates and starts the kernel.
                 from jupyter_mcp_server.config import get_config
 
                 config = get_config()

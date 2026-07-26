@@ -524,7 +524,7 @@ def create_kernel(config, logger) -> ISandboxClient:
      2. Otherwise the kernel is created through the ``code_sandboxes`` package
          using the ``jupyter`` variant, wrapped in a
          :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` that exposes
-         the ``KernelClient`` interface the rest of the server expects.
+         the ``JupyterKernelClient`` interface the rest of the server expects.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
     calling a legacy direct kernel client package.
@@ -668,7 +668,7 @@ def is_kernel_busy(kernel):
     """Check if kernel is currently executing something.
 
     Reflects the task recorded by track_pending_execution, not
-    kernel._client.is_alive(): KernelClient has no
+    kernel._client.is_alive(): JupyterKernelClient has no
     _client attribute, so that check always fell through to `return False`
     and a timed-out execution's orphaned background thread was never seen
     as "busy" by wait_for_kernel_idle.

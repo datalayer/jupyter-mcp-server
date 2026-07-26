@@ -58,7 +58,7 @@ class JupyterMCPExtension:
     def create_kernel(self, config: Any, logger: logging.Logger) -> Optional[Any]:
         """Optionally build a kernel for the current configuration.
 
-        Return a kernel-like object (exposing the ``KernelClient`` interface) to
+        Return a kernel-like object (exposing the ``JupyterKernelClient`` interface) to
         take over kernel creation, or ``None`` to let the core / other extensions
         handle it.
         """

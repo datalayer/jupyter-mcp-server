@@ -4,7 +4,7 @@
 
 """Unit tests for NotebookManager.ensure_kernel_alive kernel regeneration.
 
-These tests use an in-memory NotebookManager with minimal KernelClient
+These tests use an in-memory NotebookManager with minimal JupyterKernelClient
 stand-ins, so no running Jupyter server is required.
 """
 
@@ -18,7 +18,7 @@ NB_PATH = "work/analysis.ipynb"
 
 
 class FakeKernel:
-    """Minimal KernelClient stand-in exposing only the liveness surface that
+    """Minimal JupyterKernelClient stand-in exposing only the liveness surface that
     ensure_kernel_alive checks (`is_alive`), plus an id for identity asserts."""
 
     def __init__(self, kernel_id, alive=True):
