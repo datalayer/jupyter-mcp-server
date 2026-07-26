@@ -71,7 +71,7 @@ class UnuseNotebookTool(BaseTool):
 
         elif mode == ServerMode.MCP_SERVER:
             # MCP_SERVER mode: Use notebook_manager's remove_notebook method
-            # which handles KernelClient cleanup automatically
+            # which handles JupyterKernelClient cleanup automatically
             success = notebook_manager.remove_notebook(notebook_name)
         else:
             return f"Invalid mode: {mode}"

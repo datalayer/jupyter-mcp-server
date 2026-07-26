@@ -22,7 +22,7 @@ from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from .config import get_config
 
 if TYPE_CHECKING:
-    from jupyter_mcp_server.sandbox_kernel import SandboxKernel as KernelClient
+    from code_sandboxes.interfaces import ISandboxClient
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class NotebookManager:
     def add_notebook(
         self,
         name: str,
-        kernel: KernelClient | dict[str, Any],  # Can be KernelClient or dict with kernel metadata
+        kernel: ISandboxClient | dict[str, Any],  # Can be sandbox client or dict with kernel metadata
         server_url: str | None = None,
         token: str | None = None,
         path: str | None = None,
@@ -124,7 +124,7 @@ class NotebookManager:
 
         Args:
             name: Unique identifier for the notebook
-            kernel: Kernel client instance (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode)
+            kernel: Sandbox client instance (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode)
             server_url: Jupyter server URL (optional, uses config default). Use "local" for JUPYTER_SERVER mode.
             token: Authentication token (optional, uses config default)
             path: Notebook file path (optional, uses config default)
@@ -165,7 +165,7 @@ class NotebookManager:
                 is_local = notebook_data.get("is_local", False)
                 kernel = notebook_data["kernel"]
 
-                # Only stop kernel if it's an HTTP KernelClient (MCP_SERVER mode)
+                # Only stop kernel if it's an HTTP sandbox client (MCP_SERVER mode)
                 # In JUPYTER_SERVER mode, kernel is just metadata, actual kernel managed elsewhere
                 if not is_local and kernel and hasattr(kernel, "stop"):
                     kernel.stop()
@@ -189,7 +189,7 @@ class NotebookManager:
             return True
         return False
 
-    def get_kernel(self, name: str) -> KernelClient | dict[str, Any] | None:
+    def get_kernel(self, name: str) -> ISandboxClient | dict[str, Any] | None:
         """
         Get the kernel for a specific notebook.
 
@@ -197,7 +197,7 @@ class NotebookManager:
             name: Notebook identifier
 
         Returns:
-            Kernel client (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode), or None if not found
+            Sandbox client (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode), or None if not found
         """
         if name in self._notebooks:
             return self._notebooks[name]["kernel"]
@@ -215,7 +215,7 @@ class NotebookManager:
         """
         if name in self._notebooks:
             kernel = self._notebooks[name]["kernel"]
-            # Handle both KernelClient objects and kernel metadata dicts
+            # Handle both sandbox client objects and kernel metadata dicts
             if isinstance(kernel, dict):
                 return kernel.get("id")
             elif hasattr(kernel, "id"):
@@ -293,8 +293,8 @@ class NotebookManager:
         return len(self._notebooks) == 0
 
     def ensure_kernel_alive(
-        self, name: str, kernel_factory: Callable[[], KernelClient]
-    ) -> KernelClient:
+        self, name: str, kernel_factory: Callable[[], ISandboxClient]
+    ) -> ISandboxClient:
         """
         Ensure a kernel is alive, create if necessary.
 

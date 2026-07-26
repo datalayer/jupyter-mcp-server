@@ -2,13 +2,13 @@
 #
 # BSD 3-Clause License
 
-"""Adapter exposing a code-sandboxes ``Sandbox`` as a ``KernelClient``.
+"""Adapter exposing a code-sandboxes ``Sandbox`` as a ``JupyterKernelClient``.
 
 The Jupyter MCP tools were originally written against a direct kernel client
 API. To support additional execution engines
 (Google Colab, Kaggle, Monty, Modal, Docker, ...) without rewriting every tool, this
 module provides :class:`SandboxKernel`, a thin adapter that wraps a
-``code_sandboxes.Sandbox`` and mimics the small subset of the ``KernelClient``
+``code_sandboxes.Sandbox`` and mimics the small subset of the ``JupyterKernelClient``
 API used across the codebase:
 
 * ``start()`` / ``stop()``
@@ -179,7 +179,7 @@ def build_sandbox(config, logger):
 
 
 class SandboxKernel:
-    """Expose a code-sandboxes ``Sandbox`` through the ``KernelClient`` API."""
+    """Expose a code-sandboxes ``Sandbox`` through the ``JupyterKernelClient`` API."""
 
     def __init__(self, sandbox: Any, logger: logging.Logger | None = None) -> None:
         self._sandbox = sandbox
@@ -212,7 +212,7 @@ class SandboxKernel:
         """Stop the underlying sandbox.
 
         The ``shutdown_kernel`` argument is accepted for signature compatibility
-        with ``KernelClient.stop`` and ignored: sandboxes manage their own
+        with ``JupyterKernelClient.stop`` and ignored: sandboxes manage their own
         lifecycle.
         """
         self._sandbox.stop()

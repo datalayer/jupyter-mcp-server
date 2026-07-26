@@ -4,15 +4,15 @@
 
 """Adapter exposing a code-sandboxes ``Sandbox`` through the kernel interface.
 
-The Jupyter MCP server historically drove a direct ``KernelClient``
+The Jupyter MCP server historically drove a direct ``JupyterKernelClient``
 implementation. To route all execution through
 the ``code_sandboxes`` abstraction (``jupyter`` variant by default) without
 rewriting every tool — and without any direct call to a legacy kernel client package
 from this package — :class:`SandboxKernel` wraps a ``code_sandboxes.Sandbox``
-and re-exposes the exact subset of the ``KernelClient`` API the server relies
+and re-exposes the exact subset of the ``JupyterKernelClient`` API the server relies
 on.
 
-For the ``jupyter`` variant the sandbox owns a real ``KernelClient`` internally
+For the ``jupyter`` variant the sandbox owns a real ``JupyterKernelClient`` internally
 (``sandbox.kernel_client``). The adapter delegates every execution and
 introspection call to that client so behaviour — including streaming via
 ``execute_interactive`` used by the RTC ``execute_cell`` path — is identical to
@@ -25,11 +25,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from jupyter_kernel_client import KernelClient
+from code_sandboxes.interfaces import ISandboxClient
 
 
 class SandboxKernel:
-    """Expose a code-sandboxes ``Sandbox`` through the ``KernelClient`` API."""
+    """Expose a code-sandboxes ``Sandbox`` through the ``JupyterKernelClient`` API."""
 
     def __init__(self, sandbox: Any, logger: logging.Logger | None = None) -> None:
         self._sandbox = sandbox
@@ -41,7 +41,7 @@ class SandboxKernel:
         return self._sandbox
 
     @property
-    def _client(self) -> KernelClient | None:
+    def _client(self) -> ISandboxClient | None:
         """The underlying kernel client owned by the sandbox (may be ``None``).
 
         For the ``jupyter`` variant this is a real kernel client. Other
@@ -59,7 +59,7 @@ class SandboxKernel:
     def stop(self, shutdown_kernel: bool | None = None, *args: Any, **kwargs: Any) -> None:
         """Stop the underlying sandbox.
 
-        ``shutdown_kernel`` mirrors ``KernelClient.stop``: a borrowed kernel
+        ``shutdown_kernel`` mirrors ``JupyterKernelClient.stop``: a borrowed kernel
         (connected by id, not owned) is never shut down by the sandbox, so the
         argument only matters for owned kernels, which the sandbox tears down
         as part of ``stop()``.
@@ -103,7 +103,7 @@ class SandboxKernel:
 
     @property
     def id(self) -> str | None:
-        """The kernel identifier (analogous to ``KernelClient.id``)."""
+        """The kernel identifier (analogous to ``JupyterKernelClient.id``)."""
         client = self._client
         if client is not None and hasattr(client, "id"):
             return client.id
@@ -228,7 +228,7 @@ def create_jupyter_sandbox_kernel(
     Connects to the Jupyter runtime at ``server_url`` and wraps it. When
     ``kernel_id`` is provided the sandbox connects to that specific kernel;
     otherwise a brand-new kernel is created (matching the previous
-    ``KernelClient`` semantics used by ``create_kernel``).
+    ``JupyterKernelClient`` semantics used by ``create_kernel``).
 
     Args:
         server_url: Runtime (Jupyter server) URL.

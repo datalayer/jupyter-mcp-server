@@ -27,7 +27,7 @@ def _seed(server_client, kernel, marker, timeout=60):
     """Wait for a kernel to be ready, then give it its identity.
 
     A kernel is created asynchronously, so ``start()`` returns while the server may
-    still report it as ``starting``. ``KernelClient.execution_state`` cannot answer
+    still report it as ``starting``. ``JupyterKernelClient.execution_state`` cannot answer
     this: it caches the creation reply and is only valid after ``refresh()``. Ask
     the server, then assert the seeding ran, so a kernel that never came up fails
     here rather than as a puzzling timeout inside the assertion under test.

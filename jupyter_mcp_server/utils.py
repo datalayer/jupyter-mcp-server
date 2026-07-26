@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from typing import Any, cast
 
-from jupyter_kernel_client import KernelClient
+from code_sandboxes.interfaces import ISandboxClient
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
@@ -514,7 +514,7 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_kernel(config, logger) -> KernelClient:
+def create_kernel(config, logger) -> ISandboxClient:
     """Create a new kernel instance using current configuration.
 
     Kernel creation is resolved in this order:
@@ -524,7 +524,7 @@ def create_kernel(config, logger) -> KernelClient:
      2. Otherwise the kernel is created through the ``code_sandboxes`` package
          using the ``jupyter`` variant, wrapped in a
          :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` that exposes
-         the ``KernelClient`` interface the rest of the server expects.
+         the ``JupyterKernelClient`` interface the rest of the server expects.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
     calling a legacy direct kernel client package.
@@ -546,7 +546,7 @@ def create_kernel(config, logger) -> KernelClient:
             logger=logger,
         )
         logger.info("Kernel created and started successfully")
-        return cast(KernelClient, kernel)
+        return cast(ISandboxClient, kernel)
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
         raise
@@ -570,10 +570,12 @@ def start_kernel(notebook_manager, config, logger):
 
 
 def ensure_kernel_alive(
-    notebook_manager, current_notebook, create_kernel_fn: Callable[[], KernelClient]
-) -> KernelClient:
+    notebook_manager, current_notebook, create_kernel_fn: Callable[[], ISandboxClient]
+) -> ISandboxClient:
     """Ensure kernel is running, restart if needed."""
-    return cast(KernelClient, notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn))
+    return cast(
+        ISandboxClient, notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn)
+    )
 
 
 def track_pending_execution(kernel, task):
@@ -666,7 +668,7 @@ def is_kernel_busy(kernel):
     """Check if kernel is currently executing something.
 
     Reflects the task recorded by track_pending_execution, not
-    kernel._client.is_alive(): KernelClient has no
+    kernel._client.is_alive(): JupyterKernelClient has no
     _client attribute, so that check always fell through to `return False`
     and a timed-out execution's orphaned background thread was never seen
     as "busy" by wait_for_kernel_idle.

@@ -94,7 +94,7 @@ def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_se
     logging.info("\nMCP_SERVER Mode (Standalone):")
     logging.info(f"  - URL: {jupyter_server}")
     logging.info("  - Started via: python -m jupyter_mcp_server --transport streamable-http")
-    logging.info("  - Tools use: JupyterServerClient + KernelClient (HTTP)")
+    logging.info("  - Tools use: JupyterServerClient + JupyterKernelClient (HTTP)")
     logging.info("  - File operations: HTTP API (contents API)")
     logging.info("  - Cell operations: WebSocket messages")
     logging.info("  - Execute IPython: WebSocket to kernel")

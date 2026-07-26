@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import cast
 
-from jupyter_kernel_client import KernelClient
+from code_sandboxes.interfaces import ISandboxClient
 from jupyter_server_client import JupyterServerClient
 from mcp.types import ImageContent
 
@@ -50,7 +50,7 @@ class ExecuteCodeTool(BaseTool):
 
     def _connect_to_kernel(
         self, kernel_id: str, server_client: JupyterServerClient | None
-    ) -> tuple[KernelClient | None, str | None]:
+    ) -> tuple[ISandboxClient | None, str | None]:
         """Connect to an existing kernel by ID (MCP_SERVER mode).
 
         Returns (kernel, None) on success, or (None, error_message) if the id
@@ -68,7 +68,7 @@ class ExecuteCodeTool(BaseTool):
                 )
 
         config = get_config()
-        kernel = create_jupyter_sandbox_kernel(
+        sandbox_client = create_jupyter_sandbox_kernel(
             server_url=config.runtime_url,
             token=config.runtime_token,
             kernel_id=kernel_id,
@@ -76,7 +76,7 @@ class ExecuteCodeTool(BaseTool):
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
             logger=logger,
         )
-        return cast(KernelClient, kernel), None
+        return cast(ISandboxClient, sandbox_client), None
 
     async def _execute_via_notebook_manager(
         self,
@@ -99,34 +99,34 @@ class ExecuteCodeTool(BaseTool):
         current_notebook = notebook_manager.get_current_notebook() or "default"
         current_kernel_id = notebook_manager.get_kernel_id(current_notebook)
 
-        # A kernel we connect to here is borrowed, not owned: it must be released
+        # A sandbox client we connect to here is borrowed, not owned: it must be released
         # in the finally below, and never shut down.
-        borrowed_kernel: KernelClient | None = None
+        borrowed_sandbox: ISandboxClient | None = None
         if kernel_id is not None and kernel_id != current_kernel_id:
-            kernel, error = self._connect_to_kernel(kernel_id, server_client)
+            sandbox_client, error = self._connect_to_kernel(kernel_id, server_client)
             if error is not None:
                 return [error]
-            if kernel is None:
+            if sandbox_client is None:
                 return ["[ERROR: Failed to connect to kernel]"]
-            borrowed_kernel = kernel
+            borrowed_sandbox = sandbox_client
             kid = kernel_id
         else:
-            kernel = notebook_manager.get_kernel(current_notebook)
+            sandbox_client = notebook_manager.get_kernel(current_notebook)
 
-            if not kernel:
+            if not sandbox_client:
                 # Ensure kernel is alive
-                kernel = ensure_kernel_alive_fn()
+                sandbox_client = ensure_kernel_alive_fn()
 
-            if isinstance(kernel, dict):
+            if isinstance(sandbox_client, dict):
                 return [
-                    "[ERROR: Kernel metadata found instead of active KernelClient in MCP_SERVER mode]"
+                    "[ERROR: Kernel metadata found instead of active ISandboxClient in MCP_SERVER mode]"
                 ]
 
             kid = current_kernel_id or ""
 
         try:
             return await self._execute_on_kernel(
-                kernel=kernel,
+                sandbox_client=sandbox_client,
                 kid=kid,
                 code=code,
                 timeout=timeout,
@@ -134,24 +134,24 @@ class ExecuteCodeTool(BaseTool):
                 safe_extract_outputs_fn=safe_extract_outputs_fn,
             )
         finally:
-            if borrowed_kernel is not None:
+            if borrowed_sandbox is not None:
                 try:
-                    borrowed_kernel.stop(shutdown_kernel=False)
+                    borrowed_sandbox.stop(shutdown_kernel=False)
                 except Exception as stop_err:
                     logger.warning(f"Failed to release kernel {kid}: {stop_err}")
 
     async def _execute_on_kernel(
         self,
-        kernel: KernelClient,
+        sandbox_client: ISandboxClient,
         kid: str,
         code: str,
         timeout: int,
         wait_for_kernel_idle_fn,
         safe_extract_outputs_fn,
     ) -> list[str | ImageContent]:
-        """Run code on an already-resolved kernel (MCP_SERVER mode)."""
+        """Run code on an already-resolved sandbox client (MCP_SERVER mode)."""
         # Wait for kernel to be idle before executing
-        await wait_for_kernel_idle_fn(kernel, max_wait_seconds=30)
+        await wait_for_kernel_idle_fn(sandbox_client, max_wait_seconds=30)
 
         logger.info(f"Executing IPython code (MCP_SERVER) with timeout {timeout}s: {code[:100]}...")
 
@@ -165,7 +165,7 @@ class ExecuteCodeTool(BaseTool):
 
         try:
             # Execute code directly with kernel
-            execution_task = asyncio.create_task(asyncio.to_thread(kernel.execute, code))
+            execution_task = asyncio.create_task(asyncio.to_thread(sandbox_client.execute, code))
 
             # Wait for execution with timeout
             try:
@@ -173,8 +173,8 @@ class ExecuteCodeTool(BaseTool):
             except asyncio.TimeoutError as e:
                 execution_task.cancel()
                 try:
-                    if kernel and hasattr(kernel, "interrupt"):
-                        kernel.interrupt()
+                    if sandbox_client and hasattr(sandbox_client, "interrupt"):
+                        sandbox_client.interrupt()
                         logger.info("Sent interrupt signal to kernel due to timeout")
                 except Exception as interrupt_err:
                     logger.error(f"Failed to interrupt kernel: {interrupt_err}")
