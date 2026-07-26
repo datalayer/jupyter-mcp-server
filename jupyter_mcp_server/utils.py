@@ -519,25 +519,24 @@ def create_kernel(config, logger) -> ISandboxClient:
 
     Kernel creation is resolved in this order:
 
-    1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
-       over kernel creation for a non-'jupyter' sandbox variant.
+     1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
+         over kernel creation for a non-'jupyter' sandbox variant.
      2. Otherwise the kernel is created through the ``code_sandboxes`` package
-         using the ``jupyter`` variant, wrapped in a
-         :class:`~jupyter_mcp_server.sandbox_kernel.SandboxKernel` that exposes
-         the ``JupyterKernelClient`` interface the rest of the server expects.
+         using the ``jupyter`` variant, and this function returns the plain
+         ``sandbox.kernel_client`` exposed by that sandbox.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
     calling a legacy direct kernel client package.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
-    from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
+    from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 
     extension_kernel = get_extension_manager().create_kernel(config, logger)
     if extension_kernel is not None:
         return extension_kernel
 
     try:
-        kernel = create_jupyter_sandbox_kernel(
+        kernel = create_jupyter_sandbox_client(
             server_url=config.runtime_url,
             token=config.runtime_token,
             kernel_id=config.runtime_id,

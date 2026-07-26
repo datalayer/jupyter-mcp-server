@@ -33,7 +33,8 @@ Installing this extension exposes four additional MCP tools:
 - `terminate_sandbox` — stop and unregister a sandbox.
 
 It also lets `SANDBOX_VARIANT` route the standard notebook/cell execution tools
-through a non-`jupyter` backend via a `SandboxKernel` adapter.
+through a non-`jupyter` backend via the sandbox's plain kernel client when the
+selected variant exposes one.
 
 ## Installation
 

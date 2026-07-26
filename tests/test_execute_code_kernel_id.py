@@ -15,7 +15,7 @@ from jupyter_server_client import JupyterServerClient
 
 from jupyter_mcp_server.config import reset_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
+from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.execute_code_tool import ExecuteCodeTool
 from jupyter_mcp_server.utils import safe_extract_outputs, wait_for_kernel_idle
@@ -50,12 +50,12 @@ def targeting_setup(jupyter_server):
     set_config(runtime_url=jupyter_server, runtime_token=JUPYTER_TOKEN)
     server_client = JupyterServerClient(base_url=jupyter_server, token=JUPYTER_TOKEN)
 
-    current_kernel = create_jupyter_sandbox_kernel(
+    current_kernel = create_jupyter_sandbox_client(
         server_url=jupyter_server,
         token=JUPYTER_TOKEN,
         logger=None,
     )
-    raw_kernel = create_jupyter_sandbox_kernel(
+    raw_kernel = create_jupyter_sandbox_client(
         server_url=jupyter_server,
         token=JUPYTER_TOKEN,
         logger=None,

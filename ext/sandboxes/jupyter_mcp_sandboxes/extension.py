@@ -63,24 +63,19 @@ class SandboxesExtension(JupyterMCPExtension):
         if not (uses_variant and config.uses_sandbox_variant()):
             return None
 
-        from jupyter_mcp_sandboxes.kernel import SandboxKernel, build_sandbox
+        from jupyter_mcp_sandboxes.kernel import create_sandbox_kernel_client
 
-        kernel = None
         try:
-            sandbox = build_sandbox(config, log)
-            kernel = SandboxKernel(sandbox, logger=log)
-            kernel.start()
-            log.info("Sandbox kernel created and started (variant=%s)", config.sandbox_variant)
-            return kernel
+            kernel_client = create_sandbox_kernel_client(config, log)
+            log.info(
+                "Sandbox kernel client created and started (variant=%s)",
+                config.sandbox_variant,
+            )
+            return kernel_client
         except Exception:
             log.exception(
-                "Failed to create sandbox kernel (variant=%s)", config.sandbox_variant
+                "Failed to create sandbox kernel client (variant=%s)", config.sandbox_variant
             )
-            if kernel is not None:
-                try:
-                    kernel.stop()
-                except Exception:
-                    log.debug("Error during sandbox cleanup", exc_info=True)
             raise
 
     # -- execute_code interception -----------------------------------------
