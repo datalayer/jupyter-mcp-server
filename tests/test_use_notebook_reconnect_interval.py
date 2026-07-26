@@ -3,7 +3,7 @@
 # BSD 3-Clause License
 
 """use_notebook's MCP_SERVER kernel-creation path must forward the configured
-reconnect_interval/execution_timeout to create_jupyter_sandbox_kernel, the same
+reconnect_interval/execution_timeout to create_jupyter_sandbox_client, the same
 way its sibling call sites (utils.create_kernel, execute_code_tool) already do.
 """
 
@@ -59,10 +59,10 @@ def configured_reconnect():
 
 @pytest.mark.asyncio
 async def test_use_notebook_mcp_server_forwards_reconnect_interval(configured_reconnect):
-    """A configured --reconnect-interval must reach create_jupyter_sandbox_kernel
+    """A configured --reconnect-interval must reach create_jupyter_sandbox_client
     on the use_notebook MCP_SERVER path, not be silently dropped."""
     with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_kernel", return_value=FakeKernel()
+        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
     ) as mock_create:
         await UseNotebookTool().execute(
             mode=ServerMode.MCP_SERVER,
@@ -88,7 +88,7 @@ async def test_use_notebook_mcp_server_defaults_reconnect_interval_to_zero(confi
     reset_config()
 
     with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_kernel", return_value=FakeKernel()
+        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
     ) as mock_create:
         await UseNotebookTool().execute(
             mode=ServerMode.MCP_SERVER,

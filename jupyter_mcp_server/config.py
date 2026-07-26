@@ -116,7 +116,7 @@ class JupyterMCPConfig(BaseModel):
         """Check if execution should be routed through code-sandboxes.
 
         Any sandbox variant other than the default 'jupyter' is served by the
-        code-sandboxes package via a SandboxKernel adapter.
+        code-sandboxes package via a sandbox-backed kernel client.
         """
         return (self.sandbox_variant or "jupyter").lower() != "jupyter"
 

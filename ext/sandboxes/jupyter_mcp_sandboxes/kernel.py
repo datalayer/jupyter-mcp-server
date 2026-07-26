@@ -2,28 +2,19 @@
 #
 # BSD 3-Clause License
 
-"""Adapter exposing a code-sandboxes ``Sandbox`` as a ``JupyterKernelClient``.
+"""Sandbox construction helpers used by the sandboxes extension.
 
-The Jupyter MCP tools were originally written against a direct kernel client
-API. To support additional execution engines
-(Google Colab, Kaggle, Monty, Modal, Docker, ...) without rewriting every tool, this
-module provides :class:`SandboxKernel`, a thin adapter that wraps a
-``code_sandboxes.Sandbox`` and mimics the small subset of the ``JupyterKernelClient``
-API used across the codebase:
+This module exposes:
 
-* ``start()`` / ``stop()``
-* ``execute(code, timeout=...)`` returning a Jupyter-style reply dict
-* ``interrupt()`` / ``restart()`` / ``is_alive()``
-* ``id`` property
-
-Only ``execute`` requires translation: the sandbox returns a structured
-``ExecutionResult`` which is converted back into the ``{"outputs": [...]}`` dict
-shape that :func:`jupyter_mcp_server.utils.safe_extract_outputs` consumes.
+- :func:`build_sandbox`: variant-aware sandbox construction.
+- :func:`create_sandbox_kernel_client`: direct kernel-client creation from a
+    sandbox when the variant exposes one.
+- :func:`_execution_result_to_reply`: shared output conversion helper used by
+    sandbox runtime tooling.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 
@@ -178,107 +169,27 @@ def build_sandbox(config, logger):
     raise ValueError(f"Unsupported sandbox variant: {config.sandbox_variant}")
 
 
-class SandboxKernel:
-    """Expose a code-sandboxes ``Sandbox`` through the ``JupyterKernelClient`` API."""
+def create_sandbox_kernel_client(config, logger) -> Any:
+    """Create and start a sandbox, then return its plain kernel client.
 
-    def __init__(self, sandbox: Any, logger: logging.Logger | None = None) -> None:
-        self._sandbox = sandbox
-        self._log = logger or logging.getLogger(__name__)
-
-    @property
-    def sandbox(self) -> Any:
-        """The wrapped code-sandboxes Sandbox instance."""
-        return self._sandbox
-
-    @property
-    def _client(self) -> Any:
-        """Kernel client exposed by the sandbox when available."""
-        return getattr(self._sandbox, "kernel_client", None)
-
-    @property
-    def id(self) -> str | None:
-        """The sandbox identifier (analogous to a kernel id)."""
-        client = self._client
-        if client is not None and hasattr(client, "id"):
-            return client.id
-        info = getattr(self._sandbox, "info", None)
-        return info.id if info is not None else None
-
-    def start(self, *args: Any, **kwargs: Any) -> None:
-        """Start the underlying sandbox."""
-        self._sandbox.start()
-
-    def stop(self, shutdown_kernel: bool | None = None, *args: Any, **kwargs: Any) -> None:
-        """Stop the underlying sandbox.
-
-        The ``shutdown_kernel`` argument is accepted for signature compatibility
-        with ``JupyterKernelClient.stop`` and ignored: sandboxes manage their own
-        lifecycle.
-        """
-        self._sandbox.stop()
-
-    def is_alive(self, *args: Any, **kwargs: Any) -> bool:
-        """Return whether the sandbox is currently started."""
-        client = self._client
-        if client is not None and hasattr(client, "is_alive"):
-            try:
-                return bool(client.is_alive())
-            except Exception as exc:  # pragma: no cover - defensive
-                self._log.debug("Kernel is_alive check failed: %s", exc)
-                return False
-        return bool(getattr(self._sandbox, "is_started", False))
-
-    def interrupt(self, *args: Any, **kwargs: Any) -> bool:
-        """Request interruption of the running code."""
-        client = self._client
-        if client is not None and hasattr(client, "interrupt"):
-            return bool(client.interrupt())
+    This only supports variants exposing ``sandbox.kernel_client``.
+    """
+    sandbox = build_sandbox(config, logger)
+    try:
+        sandbox.start()
+        client = getattr(sandbox, "kernel_client", None)
+        if client is None:
+            variant = getattr(config, "sandbox_variant", None)
+            raise RuntimeError(
+                "Sandbox variant does not expose a kernel client for notebook-bound "
+                f"kernel flows: {variant!r}. Use launch_sandbox/use_sandbox with "
+                "execute_code, or a kernel-backed variant (jupyter/colab/kaggle/docker)."
+            )
+        setattr(client, "_sandbox", sandbox)
+        return client
+    except Exception:
         try:
-            return bool(self._sandbox.interrupt())
-        except Exception as exc:  # pragma: no cover - defensive
-            self._log.debug("Sandbox interrupt failed: %s", exc)
-            return False
-
-    def restart(self, *args: Any, **kwargs: Any) -> None:
-        """Restart the sandbox by stopping and starting it again."""
-        client = self._client
-        if client is not None and hasattr(client, "restart"):
-            client.restart()
-            return
-        try:
-            self._sandbox.stop()
-        finally:
-            self._sandbox.start()
-
-    def execute(self, code: str, timeout: float | None = None, **kwargs: Any) -> dict[str, Any]:
-        """Execute code and return a Jupyter-style reply dict."""
-        client = self._client
-        if client is not None and hasattr(client, "execute"):
-            return client.execute(code, timeout=timeout, **kwargs)
-        result = self._sandbox.run_code(code, timeout=timeout)
-        return _execution_result_to_reply(result)
-
-    def execute_interactive(self, code: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        """Execute code using the low-level streaming API when available."""
-        client = self._client
-        if client is not None and hasattr(client, "execute_interactive"):
-            return client.execute_interactive(code, *args, **kwargs)
-        raise NotImplementedError(
-            "The active sandbox does not expose a kernel client that supports "
-            "streaming execution (execute_interactive)."
-        )
-
-    def get_variable(self, name: str, *args: Any, **kwargs: Any) -> Any:
-        """Read a variable value from the active kernel/sandbox."""
-        client = self._client
-        if client is not None and hasattr(client, "get_variable"):
-            return client.get_variable(name, *args, **kwargs)
-        return self._sandbox.get_variable(name)
-
-    def set_variable(self, name: str, value: Any, *args: Any, **kwargs: Any) -> None:
-        """Set a variable value in the active kernel/sandbox."""
-        client = self._client
-        if client is not None and hasattr(client, "set_variable"):
-            client.set_variable(name, value, *args, **kwargs)
-            return
-        self._sandbox.set_variable(name, value)
+            sandbox.stop()
+        except Exception:
+            pass
+        raise

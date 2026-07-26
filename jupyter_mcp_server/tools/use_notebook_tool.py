@@ -13,7 +13,7 @@ from jupyter_server_client import JupyterServerClient, NotFoundError
 
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
+from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
 logger = logging.getLogger(__name__)
@@ -246,7 +246,7 @@ class UseNotebookTool(BaseTool):
                 from jupyter_mcp_server.config import get_config
 
                 config = get_config()
-                kernel = create_jupyter_sandbox_kernel(
+                kernel = create_jupyter_sandbox_client(
                     server_url=runtime_url,
                     token=runtime_token,
                     kernel_id=kernel_id,

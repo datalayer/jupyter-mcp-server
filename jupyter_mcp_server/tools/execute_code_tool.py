@@ -58,7 +58,7 @@ class ExecuteCodeTool(BaseTool):
         does not name a kernel on the server.
         """
         from jupyter_mcp_server.config import get_config
-        from jupyter_mcp_server.sandbox_kernel import create_jupyter_sandbox_kernel
+        from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 
         if server_client is not None:
             kernels = server_client.kernels.list_kernels()
@@ -69,7 +69,7 @@ class ExecuteCodeTool(BaseTool):
                 )
 
         config = get_config()
-        sandbox_client = create_jupyter_sandbox_kernel(
+        sandbox_client = create_jupyter_sandbox_client(
             server_url=config.runtime_url,
             token=config.runtime_token,
             kernel_id=kernel_id,
