@@ -15,8 +15,9 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     clean_notebook_outputs,
-    get_current_notebook_context,
     get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
 )
 
 
@@ -120,7 +121,11 @@ class OverwriteCellSourceTool(BaseTool):
         return self._generate_diff(old_source, cell_source)
 
     async def _overwrite_cell_websocket(
-        self, notebook_manager: NotebookManager, cell_index: int, cell_source: str
+        self,
+        notebook_manager: NotebookManager,
+        cell_index: int,
+        cell_source: str,
+        notebook_name: str | None = None,
     ) -> str:
         """Overwrite cell using WebSocket connection (MCP_SERVER mode).
 
@@ -128,6 +133,7 @@ class OverwriteCellSourceTool(BaseTool):
             notebook_manager: Notebook manager instance
             cell_index: Index of the cell to overwrite
             cell_source: New cell source content
+            notebook_name: Notebook to target; the currently activated one if None
 
         Returns:
             Diff showing changes made
@@ -135,7 +141,7 @@ class OverwriteCellSourceTool(BaseTool):
         Raises:
             ValueError: When cell_index is out of range
         """
-        async with notebook_manager.get_current_connection() as notebook:
+        async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook:
             if cell_index >= len(notebook):
                 raise ValueError(f"Cell index {cell_index} out of range")
 
@@ -159,6 +165,7 @@ class OverwriteCellSourceTool(BaseTool):
         # Tool-specific parameters
         cell_index: int = None,
         cell_source: str = None,
+        notebook_name: str | None = None,
         **kwargs,
     ) -> str:
         """Execute the overwrite_cell_source tool.
@@ -191,6 +198,7 @@ class OverwriteCellSourceTool(BaseTool):
             notebook_manager: Notebook manager instance
             cell_index: Index of the cell to overwrite (0-based)
             cell_source: New cell source
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
             **kwargs: Additional parameters
 
         Returns:
@@ -206,7 +214,7 @@ class OverwriteCellSourceTool(BaseTool):
 
             context = get_server_context()
             serverapp = context.serverapp
-            notebook_path, _ = get_current_notebook_context(notebook_manager)
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
 
             # Resolve to absolute path
             if serverapp and not Path(notebook_path).is_absolute():
@@ -224,7 +232,7 @@ class OverwriteCellSourceTool(BaseTool):
 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection with remote transaction management
-            diff = await self._overwrite_cell_websocket(notebook_manager, cell_index, cell_source)
+            diff = await self._overwrite_cell_websocket(notebook_manager, cell_index, cell_source, notebook_name)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 

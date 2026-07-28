@@ -14,8 +14,9 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     clean_notebook_outputs,
-    get_current_notebook_context,
     get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
 )
 
 
@@ -112,18 +113,22 @@ class DeleteCellTool(BaseTool):
         return deleted_cells
 
     async def _delete_cell_websocket(
-        self, notebook_manager: NotebookManager, cell_indices: list[int]
+        self,
+        notebook_manager: NotebookManager,
+        cell_indices: list[int],
+        notebook_name: str | None = None,
     ) -> list:
         """Delete cell using WebSocket connection (MCP_SERVER mode).
 
         Args:
             notebook_manager: Notebook manager instance
             cell_indices: List of indices of cells to delete
+            notebook_name: Notebook to target; the currently activated one if None
 
         Returns:
             List of deleted cell information
         """
-        async with notebook_manager.get_current_connection() as notebook:
+        async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook:
             self._validate_indices(cell_indices, len(notebook))
 
             cells = notebook.delete_many_cells(cell_indices)
@@ -140,6 +145,7 @@ class DeleteCellTool(BaseTool):
         # Tool-specific parameters
         cell_indices: list[int] = None,
         include_source: bool = True,
+        notebook_name: str | None = None,
         **kwargs,
     ) -> str:
         """Execute the delete_cell tool.
@@ -165,6 +171,7 @@ class DeleteCellTool(BaseTool):
             contents_manager: Direct API access for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             cell_index: Index of the cell to delete (0-based)
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
             **kwargs: Additional parameters
 
         Returns:
@@ -176,7 +183,7 @@ class DeleteCellTool(BaseTool):
 
             context = get_server_context()
             serverapp = context.serverapp
-            notebook_path, _ = get_current_notebook_context(notebook_manager)
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
 
             # Resolve to absolute path
             if serverapp and not Path(notebook_path).is_absolute():
@@ -192,7 +199,7 @@ class DeleteCellTool(BaseTool):
 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            cells = await self._delete_cell_websocket(notebook_manager, cell_indices)
+            cells = await self._delete_cell_websocket(notebook_manager, cell_indices, notebook_name)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 

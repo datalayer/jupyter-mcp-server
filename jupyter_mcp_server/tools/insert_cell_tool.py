@@ -15,8 +15,9 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     clean_notebook_outputs,
-    get_current_notebook_context,
     get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
 )
 
 
@@ -146,6 +147,7 @@ class InsertCellTool(BaseTool):
         cell_index: int,
         cell_type: Literal["code", "markdown"],
         cell_source: str,
+        notebook_name: str | None = None,
     ) -> tuple[Notebook, int, int]:
         """Insert cell using WebSocket connection (MCP_SERVER mode).
 
@@ -154,6 +156,7 @@ class InsertCellTool(BaseTool):
             cell_index: Index to insert at (-1 for append)
             cell_type: Type of cell to insert ("code", "markdown")
             cell_source: Source content for the cell
+            notebook_name: Notebook to target; the currently activated one if None
 
         Returns:
             Tuple of (notebook, actual_index, total_cells_after_insertion)
@@ -162,7 +165,7 @@ class InsertCellTool(BaseTool):
             IndexError: When cell_index is out of range
             ValueError: When cell_type is invalid
         """
-        async with notebook_manager.get_current_connection() as notebook:
+        async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook:
             total_cells = len(notebook)
 
             # Validate insertion parameters
@@ -186,6 +189,7 @@ class InsertCellTool(BaseTool):
         cell_index: int = None,
         cell_type: Literal["code", "markdown"] = None,
         cell_source: str = None,
+        notebook_name: str | None = None,
         **kwargs,
     ) -> str:
         """Execute the insert_cell tool.
@@ -219,6 +223,7 @@ class InsertCellTool(BaseTool):
             cell_index: Target index for insertion (0-based, -1 to append)
             cell_type: Type of cell ("code", "markdown")
             cell_source: Source content for the cell
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
             **kwargs: Additional parameters
 
         Returns:
@@ -235,7 +240,7 @@ class InsertCellTool(BaseTool):
 
             context = get_server_context()
             serverapp = context.serverapp
-            notebook_path, _ = get_current_notebook_context(notebook_manager)
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
 
             # Resolve to absolute path
             if serverapp and not Path(notebook_path).is_absolute():
@@ -256,7 +261,7 @@ class InsertCellTool(BaseTool):
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection with unified insert_cell pattern
             notebook, actual_index, new_total_cells = await self._insert_cell_websocket(
-                notebook_manager, cell_index, cell_type, cell_source
+                notebook_manager, cell_index, cell_type, cell_source, notebook_name
             )
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
