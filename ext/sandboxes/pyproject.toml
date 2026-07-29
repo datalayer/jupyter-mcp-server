@@ -13,7 +13,7 @@ description = "Sandboxes extension for Jupyter MCP Server (launch/use code-sandb
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "BSD-3-Clause" }
-authors = [{ name = "Datalayer", email = "info@datalayer.io" }]
+authors = [{ name = "Datalayer", email = "info@datalayer.ai" }]
 keywords = ["jupyter", "mcp", "sandbox", "extension"]
 classifiers = [
     "License :: OSI Approved :: BSD License",
@@ -24,8 +24,8 @@ classifiers = [
 ]
 dependencies = [
     "code-sandboxes",
-    "datalayer_reactor",
-    "jupyter_mcp_server",
+    "datalayer-reactor",
+    "jupyter-mcp-server",
 ]
 
 [project.optional-dependencies]

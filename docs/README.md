@@ -4,13 +4,13 @@
   ~ BSD 3-Clause License
 -->
 
-[![Datalayer](https://images.datalayer.io/brand/logos/datalayer-horizontal.svg)](https://datalayer.io)
+[![Datalayer](https://images.datalayer.io/brand/logos/datalayer-horizontal.svg)](https://datalayer.ai)
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
 # Jupyter MCP Server Docs
 
-> Source code for the [Jupyter MCP Server Documentation](https://datalayer.io), built with [Docusaurus](https://docusaurus.io).
+> Source code for the [Jupyter MCP Server Documentation](https://datalayer.ai), built with [Docusaurus](https://docusaurus.io).
 
 ```bash
 # Install the dependencies.
