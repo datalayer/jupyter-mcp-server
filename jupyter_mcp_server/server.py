@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 from code_sandboxes.interfaces import ISandboxClient
 from fastapi import Request
-from mcp.server import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.server.auth.provider import AccessToken
 from mcp.types import ImageContent, ToolAnnotations
 from pydantic import Field
@@ -149,7 +149,7 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-class FastMCPWithCORS(FastMCP):
+class FastMCPWithCORS(MCPServer):
     def streamable_http_app(self) -> Starlette:
         """Return StreamableHTTP server app with CORS and auth middleware.
 
@@ -159,7 +159,7 @@ class FastMCPWithCORS(FastMCP):
         # when _token_verifier is set, but NOT the AuthenticationMiddleware
         # that actually validates Bearer tokens — that requires settings.auth
         # which we don't use). Add it here directly.
-        app = super().streamable_http_app()
+        app = super().streamable_http_app(json_response=False, stateless_http=True)
 
         app.add_middleware(
             ManagementRouteSecurityMiddleware,
@@ -186,7 +186,7 @@ class FastMCPWithCORS(FastMCP):
         return app
 
 
-mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
+mcp = FastMCPWithCORS(name="Jupyter MCP Server")
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()

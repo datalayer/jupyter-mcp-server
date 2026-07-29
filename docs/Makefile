@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-# Copyright (c) Datalayer, Inc. https://datalayer.io
+# Copyright (c) Datalayer, Inc. https://datalayer.ai
 # Distributed under the terms of the MIT License.
 
 SHELL=/bin/bash
