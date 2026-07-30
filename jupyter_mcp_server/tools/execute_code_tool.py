@@ -59,6 +59,7 @@ class ExecuteCodeTool(BaseTool):
         """
         from jupyter_mcp_server.config import get_config
         from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
+        from jupyter_mcp_server.server_context import ServerContext
 
         if server_client is not None:
             kernels = server_client.kernels.list_kernels()
@@ -69,12 +70,19 @@ class ExecuteCodeTool(BaseTool):
                 )
 
         config = get_config()
+        # Password auth carries credentials via cookie/XSRF headers; when present,
+        # drop the token so it can't override them (mirrors create_kernel and
+        # use_notebook). Without this, a borrowed cross-kernel connection under
+        # password auth would be unauthenticated, since runtime_token is typically
+        # None in that mode.
+        auth_headers = ServerContext.get_instance().runtime_auth_headers
         sandbox_client = create_jupyter_sandbox_client(
             server_url=config.runtime_url,
-            token=config.runtime_token,
+            token=None if auth_headers else config.runtime_token,
             kernel_id=kernel_id,
             timeout=getattr(config, "execution_timeout", None),
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
+            headers=auth_headers or None,
             logger=logger,
         )
         return cast(ISandboxClient, sandbox_client), None

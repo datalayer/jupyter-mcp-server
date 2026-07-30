@@ -139,6 +139,7 @@ class UseNotebookTool(BaseTool):
         kernel_id: str | None = None,
         runtime_url: str | None = None,
         runtime_token: str | None = None,
+        auth_headers: dict[str, str] | None = None,
         **kwargs,
     ) -> str:
         """Execute the use_notebook tool.
@@ -231,6 +232,18 @@ class UseNotebookTool(BaseTool):
                         )
                     )
                 elif mode == ServerMode.MCP_SERVER and server_client is not None:
+                    # Creating a notebook is a state-changing PUT to /api/contents,
+                    # which Jupyter's XSRF protection guards. Under password auth the
+                    # injected session carries the _xsrf cookie but not the matching
+                    # X-XSRFToken header, and the cookie alone fails the check
+                    # ("'_xsrf' argument missing from POST"). Echo the token the
+                    # caller just read from the live cookie jar, so a rotated cookie
+                    # cannot go stale. Token auth has no _xsrf cookie and satisfies
+                    # XSRF via its own header, so nothing happens there.
+                    xsrf_token = (auth_headers or {}).get("X-XSRFToken")
+                    session = getattr(getattr(server_client, "http_client", None), "session", None)
+                    if xsrf_token and session is not None:
+                        session.headers["X-XSRFToken"] = xsrf_token
                     server_client.contents.create_notebook(notebook_path, content=content)
 
             # # Create/connect to kernel based on mode
@@ -248,12 +261,15 @@ class UseNotebookTool(BaseTool):
                 config = get_config()
                 kernel = create_jupyter_sandbox_client(
                     server_url=runtime_url,
-                    token=runtime_token,
+                    # Password auth authenticates via the cookie/XSRF headers, so
+                    # the token is dropped when they are present.
+                    token=None if auth_headers else runtime_token,
                     kernel_id=kernel_id,
                     path=notebook_path,
                     logger=logger,
                     timeout=getattr(config, "execution_timeout", None),
                     reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
+                    headers=auth_headers or None,
                 )
 
                 info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")

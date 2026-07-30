@@ -236,6 +236,8 @@ def do_start(
     runtime_channels_url: str | None = None,
     sandbox_environment: str | None = None,
     sandbox_gpu: str | None = None,
+    runtime_password: str | None = None,
+    document_password: str | None = None,
 ):
     """Shared startup routine used by Typer CLI surfaces."""
 
@@ -268,9 +270,11 @@ def do_start(
         start_new_runtime=start_new_runtime,
         runtime_id=runtime_id,
         runtime_token=runtime_token,
+        runtime_password=runtime_password,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
+        document_password=document_password,
         port=port,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
@@ -585,13 +589,20 @@ def create_kernel(config, logger) -> ISandboxClient:
     if extension_kernel is not None:
         return extension_kernel
 
+    from jupyter_mcp_server.server_context import ServerContext
+
+    # Password auth carries credentials as cookie/XSRF headers; drop the token
+    # when they are present so it cannot override them.
+    auth_headers = ServerContext.get_instance().runtime_auth_headers
+
     try:
         kernel = create_jupyter_sandbox_client(
             server_url=config.runtime_url,
-            token=config.runtime_token,
+            token=None if auth_headers else config.runtime_token,
             kernel_id=config.runtime_id,
             timeout=getattr(config, "execution_timeout", None),
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
+            headers=auth_headers or None,
             logger=logger,
         )
         logger.info("Kernel created and started successfully")

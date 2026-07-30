@@ -21,10 +21,13 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "code-sandboxes",
+    # 0.17.0 adds the `headers` passthrough and stops overwriting an explicit
+    # `token=None` in JupyterSandbox. Password auth needs both: its credentials are
+    # a session Cookie plus X-XSRFToken rather than a token.
+    "code-sandboxes>=0.17.0",
     "datalayer_reactor",
     "jupyter-mcp-tools",
-    "jupyter-nbmodel-client",
+    "jupyter-nbmodel-client>=0.14.8",
     "jupyter-server-nbmodel",
     "jupyter-server-client",
     "jupyter_server>=1.6,<3",
