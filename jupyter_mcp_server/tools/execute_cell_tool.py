@@ -32,6 +32,73 @@ logger = logging.getLogger(__name__)
 class ExecuteCellTool(BaseTool):
     """Execute a cell with configurable timeout and optional streaming progress updates"""
 
+    async def _read_notebook_file_with_retry(self, notebook_path: str, retries: int = 4):
+        """Read a notebook file, retrying transient parse failures during writes.
+
+        Jupyter can briefly expose an empty or partially-written notebook file
+        between write phases; retry a few times before failing.
+        """
+        last_error: Exception | None = None
+        for attempt in range(retries + 1):
+            try:
+                with open(notebook_path, encoding="utf-8") as f:
+                    return nbformat.read(f, as_version=4)
+            except Exception as error:
+                last_error = error
+                error_text = str(error)
+                is_transient_parse_error = (
+                    "does not appear to be JSON" in error_text
+                    or "Expecting value" in error_text
+                )
+                if not is_transient_parse_error or attempt >= retries:
+                    raise
+                backoff = 0.05 * (attempt + 1)
+                logger.debug(
+                    "Notebook parse failed for %s (attempt %s/%s): %s; retrying in %.2fs",
+                    notebook_path,
+                    attempt + 1,
+                    retries + 1,
+                    error,
+                    backoff,
+                )
+                await asyncio.sleep(backoff)
+
+        # Unreachable under normal flow, but keeps typing explicit.
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Unable to read notebook: {notebook_path}")
+
+    @staticmethod
+    async def _kernel_exists(kernel_manager, kernel_id: str | None) -> bool:
+        """Return whether kernel_id is currently known by the local kernel manager."""
+        if not kernel_id:
+            return False
+        try:
+            kernels = kernel_manager.list_kernels()
+            if asyncio.iscoroutine(kernels):
+                kernels = await kernels
+            return any((kernel.get("id") == kernel_id) for kernel in kernels)
+        except Exception as error:
+            # Fail open: if we cannot introspect kernel list, keep existing behavior.
+            logger.debug(f"Unable to check kernel liveness for '{kernel_id}': {error}")
+            return True
+
+    async def _start_and_bind_kernel(self, kernel_manager, notebook_manager, notebook_path: str) -> str:
+        """Start a kernel and rebind it to the current notebook in local mode."""
+        kernel_id = await kernel_manager.start_kernel()
+        await asyncio.sleep(1.0)
+        logger.info(f"Kernel {kernel_id} started and initialized")
+
+        if notebook_manager is not None:
+            kernel_info = {"id": kernel_id}
+            notebook_manager.add_notebook(
+                name=notebook_path,
+                kernel=kernel_info,
+                server_url="local",
+                path=notebook_path,
+            )
+        return kernel_id
+
     async def _write_outputs_to_cell(
         self,
         notebook_path: str,
@@ -194,25 +261,21 @@ class ExecuteCellTool(BaseTool):
                 root_dir = serverapp.root_dir
                 notebook_path = str(Path(root_dir) / notebook_path)
 
-            # Check if kernel needs to be started
+            # Start or rebind when notebook context has no kernel, or points to
+            # a stale/cullled kernel id.
             if kernel_id is None:
-                # No kernel available - start a new one on demand
                 logger.info("No kernel_id available, starting new kernel for execute_cell")
-                kernel_id = await kernel_manager.start_kernel()
-
-                # Wait a bit for kernel to initialize
-                await asyncio.sleep(1.0)
-                logger.info(f"Kernel {kernel_id} started and initialized")
-
-                # Store the kernel in notebook_manager if available
-                if notebook_manager is not None:
-                    kernel_info = {"id": kernel_id}
-                    notebook_manager.add_notebook(
-                        name=notebook_path,
-                        kernel=kernel_info,
-                        server_url="local",
-                        path=notebook_path,
-                    )
+                kernel_id = await self._start_and_bind_kernel(
+                    kernel_manager, notebook_manager, notebook_path
+                )
+            elif not await self._kernel_exists(kernel_manager, kernel_id):
+                logger.info(
+                    "Kernel %s is not available anymore, starting a replacement for execute_cell",
+                    kernel_id,
+                )
+                kernel_id = await self._start_and_bind_kernel(
+                    kernel_manager, notebook_manager, notebook_path
+                )
 
             logger.info(
                 f"Executing cell {cell_index} in JUPYTER_SERVER mode (timeout: {timeout_seconds}s)"
@@ -254,22 +317,42 @@ class ExecuteCellTool(BaseTool):
                 document_id = f"json:notebook:{file_id}"
 
                 # Execute with RTC metadata - outputs will sync automatically
-                outputs = await execute_via_execution_stack(
-                    serverapp=serverapp,
-                    kernel_id=kernel_id,
-                    code=code_to_execute,
-                    document_id=document_id,
-                    cell_id=cell_id,
-                    timeout=timeout_seconds,
-                )
+                try:
+                    outputs = await execute_via_execution_stack(
+                        serverapp=serverapp,
+                        kernel_id=kernel_id,
+                        code=code_to_execute,
+                        document_id=document_id,
+                        cell_id=cell_id,
+                        timeout=timeout_seconds,
+                    )
+                except Exception as error:
+                    error_text = str(error).lower()
+                    if "kernel" in error_text and "not found" in error_text:
+                        logger.warning(
+                            "Kernel %s disappeared during execute_cell; starting replacement and retrying once",
+                            kernel_id,
+                        )
+                        kernel_id = await self._start_and_bind_kernel(
+                            kernel_manager, notebook_manager, notebook_path
+                        )
+                        outputs = await execute_via_execution_stack(
+                            serverapp=serverapp,
+                            kernel_id=kernel_id,
+                            code=code_to_execute,
+                            document_id=document_id,
+                            cell_id=cell_id,
+                            timeout=timeout_seconds,
+                        )
+                    else:
+                        raise
 
                 return outputs
             else:
                 # Notebook not open - use file-based approach
                 logger.info(f"Notebook {file_id} not open, using file mode")
 
-                with open(notebook_path, encoding="utf-8") as f:
-                    notebook = nbformat.read(f, as_version=4)
+                notebook = await self._read_notebook_file_with_retry(notebook_path)
 
                 num_cells = len(notebook.cells)
                 if cell_index >= num_cells:
@@ -288,14 +371,37 @@ class ExecuteCellTool(BaseTool):
                 # Execute without RTC metadata
                 raw_outputs: list[dict] = []
                 execution_count_out: list[int] = []
-                outputs = await execute_via_execution_stack(
-                    serverapp=serverapp,
-                    kernel_id=kernel_id,
-                    code=code_to_execute,
-                    timeout=timeout_seconds,
-                    raw_outputs=raw_outputs,
-                    execution_count_out=execution_count_out,
-                )
+                try:
+                    outputs = await execute_via_execution_stack(
+                        serverapp=serverapp,
+                        kernel_id=kernel_id,
+                        code=code_to_execute,
+                        timeout=timeout_seconds,
+                        raw_outputs=raw_outputs,
+                        execution_count_out=execution_count_out,
+                    )
+                except Exception as error:
+                    error_text = str(error).lower()
+                    if "kernel" in error_text and "not found" in error_text:
+                        logger.warning(
+                            "Kernel %s disappeared during execute_cell; starting replacement and retrying once",
+                            kernel_id,
+                        )
+                        kernel_id = await self._start_and_bind_kernel(
+                            kernel_manager, notebook_manager, notebook_path
+                        )
+                        raw_outputs = []
+                        execution_count_out = []
+                        outputs = await execute_via_execution_stack(
+                            serverapp=serverapp,
+                            kernel_id=kernel_id,
+                            code=code_to_execute,
+                            timeout=timeout_seconds,
+                            raw_outputs=raw_outputs,
+                            execution_count_out=execution_count_out,
+                        )
+                    else:
+                        raise
 
                 # Write outputs back to file
                 await self._write_outputs_to_cell(

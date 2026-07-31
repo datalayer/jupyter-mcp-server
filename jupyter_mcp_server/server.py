@@ -7,6 +7,7 @@ Jupyter MCP Server Layer
 """
 
 import hmac
+import re
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -771,7 +772,7 @@ async def insert_execute_code_cell(
         config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
     )
 
-    await safe_notebook_operation(
+    insert_result = await safe_notebook_operation(
         lambda: InsertCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -784,6 +785,15 @@ async def insert_execute_code_cell(
         )
     )
 
+    # Execute exactly the cell that was inserted. This avoids races where an
+    # append operation (-1) could execute a previously last cell if notebook
+    # state visibility lags briefly between insert and execute paths.
+    execute_index = cell_index
+    if isinstance(insert_result, str):
+        match = re.search(r"Cell inserted successfully at index (-?\d+)", insert_result)
+        if match:
+            execute_index = int(match.group(1))
+
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
@@ -791,7 +801,7 @@ async def insert_execute_code_cell(
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
-            cell_index=cell_index,
+            cell_index=execute_index,
             timeout_seconds=effective_timeout,
             stream=False,
             progress_interval=0,
