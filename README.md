@@ -69,10 +69,10 @@ For more details on each tool, their parameters, and return values, please refer
 | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                          |
 | `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                                    |
-| `launch_sandbox`     | Launch a sandbox runtime (eval/docker/jupyter/datalayer/kaggle/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
-| `list_sandboxes`     | List launched sandbox runtimes and their state (active flag, variant, status, and selected runtime options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                               |
+| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter/datalayer/kaggle/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
+| `list_sandboxes`     | List launched code sandboxes and their state (active flag, variant, status, and selected code sandbox options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                               |
 | `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                     |
-| `terminate_sandbox`  | Stop and unregister a launched sandbox runtime. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                              |
+| `terminate_sandbox`  | Stop and unregister a launched code sandbox. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                              |
 | `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.* [Read more](https://jupyter-mcp-server.datalayer.tech/reference/tools/#7-connect_to_jupyter) |
 
 #### Multi-Notebook Management Tools
@@ -262,8 +262,8 @@ Then, configure your client:
 > [!TIP]
 >
 > 1. **Port Configuration**: Ensure the `port` in your Jupyter URLs matches the one used in the `jupyter lab` command. For simplified config, set this in `JUPYTER_URL`.
-> 1. **Server Separation**: Use `JUPYTER_URL` when both services are on the same server, or set individual variables for advanced deployments. The different URL variables exist because some deployments separate notebook storage (`DOCUMENT_URL`) from kernel execution (`RUNTIME_URL`).
-> 1. **Authentication**: In most cases, document and runtime services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `RUNTIME_TOKEN` individually for different credentials.
+> 1. **Server Separation**: Use `JUPYTER_URL` when both services are on the same server, or set individual variables for advanced deployments. The different URL variables exist because some deployments separate notebook storage (`DOCUMENT_URL`) from kernel execution (`CODE_SANDBOX_URL`).
+> 1. **Authentication**: In most cases, document and code sandbox services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `CODE_SANDBOX_TOKEN` individually for different credentials.
 > 1. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook the MCP client default to connect. It should be relative to the directory where JupyterLab was started. If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
 > 1. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
 
@@ -285,10 +285,10 @@ install it with `pip install jupyter_mcp_sandboxes`.
 | Engine                   | `SANDBOX_VARIANT` | Extra install                   | Key variables                                         |
 | ------------------------ | ------------------ | ------------------------------- | ----------------------------------------------------- |
 | Jupyter Server (default) | `jupyter`          | —                               | `JUPYTER_URL`, `JUPYTER_TOKEN`                        |
-| JupyterHub               | `jupyter`          | —                               | `RUNTIME_URL`, `RUNTIME_TOKEN`                        |
-| Datalayer                | `datalayer`        | `jupyter-mcp-server[datalayer]` | `RUNTIME_URL`, `RUNTIME_TOKEN`, `SANDBOX_ENVIRONMENT` |
-| Kaggle                   | `kaggle`           | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `RUNTIME_URL` + (`KAGGLE_API_TOKEN`/`RUNTIME_TOKEN` or `RUNTIME_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| Google Colab             | `colab`            | `jupyter-mcp-server[colab]`     | `RUNTIME_URL`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN`    |
+| JupyterHub               | `jupyter`          | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                        |
+| Datalayer                | `datalayer`        | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT` |
+| Kaggle                   | `kaggle`           | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
+| Google Colab             | `colab`            | `jupyter-mcp-server[colab]`     | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`    |
 | Monty                    | `monty`            | `jupyter-mcp-server[monty]`     | —                                                     |
 | Modal                    | `modal`            | `jupyter-mcp-server[modal]`     | Modal credentials                                     |
 
@@ -314,8 +314,8 @@ Authenticate with a JupyterHub API token that has the `access:servers` scope:
 
 ```json
 "env": {
-  "RUNTIME_URL": "https://your-jupyterhub.domain/user/<username>",
-  "RUNTIME_TOKEN": "your-jupyterhub-api-token",
+  "CODE_SANDBOX_URL": "https://your-jupyterhub.domain/user/<username>",
+  "CODE_SANDBOX_TOKEN": "your-jupyterhub-api-token",
   "DOCUMENT_URL": "https://your-jupyterhub.domain/user/<username>",
   "DOCUMENT_TOKEN": "your-jupyterhub-api-token"
 }
@@ -325,7 +325,7 @@ See the [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/provi
 
 ### 3. Datalayer
 
-Execute on the [Datalayer](https://datalayer.ai) cloud runtime with GPU support
+Execute on the [Datalayer](https://datalayer.ai) cloud code sandbox with GPU support
 and persistence:
 
 ```bash
@@ -335,17 +335,17 @@ pip install "jupyter-mcp-server[datalayer]"
 ```json
 "env": {
   "SANDBOX_VARIANT": "datalayer",
-  "RUNTIME_URL": "https://prod1.datalayer.run",
-  "RUNTIME_TOKEN": "your-datalayer-token",
+  "CODE_SANDBOX_URL": "https://prod1.datalayer.run",
+  "CODE_SANDBOX_TOKEN": "your-datalayer-token",
   "SANDBOX_ENVIRONMENT": "python-cpu-env"
 }
 ```
 
 ### 4. Kaggle
 
-Execute against Kaggle. By default, when no runtime URL/channels are provided,
+Execute against Kaggle. By default, when no code sandbox URL/channels are provided,
 the server uses the transparent Kaggle **batch** path from `code-sandboxes`.
-If runtime values are provided, it uses Kaggle interactive kernel mode.
+If code sandbox values are provided, it uses Kaggle interactive kernel mode.
 
 ```bash
 pip install "jupyter-mcp-server[kaggle]"
@@ -359,10 +359,10 @@ pip install "jupyter-mcp-server[kaggle]"
 }
 ```
 
-To force interactive runtime mode, provide `RUNTIME_URL` and either:
+To force interactive code sandbox mode, provide `CODE_SANDBOX_URL` and either:
 
-- `KAGGLE_API_TOKEN` / `RUNTIME_TOKEN` (create kernel), or
-- `RUNTIME_ID` / `RUNTIME_CHANNELS_URL` (connect existing kernel).
+- `KAGGLE_API_TOKEN` / `CODE_SANDBOX_TOKEN` (create kernel), or
+- `CODE_SANDBOX_ID` / `CODE_SANDBOX_CHANNELS_URL` (connect existing kernel).
 
 Supported Kaggle accelerator values include:
 `NvidiaTeslaP100`, `NvidiaTeslaT4`, `NvidiaTeslaT4Highmem`, `NvidiaL4`,
@@ -375,7 +375,7 @@ Aliases such as `P100` and `T4` are accepted.
 
 ### 5. Google Colab
 
-Execute against a Google Colab runtime. Install the extra and provide the values
+Execute against a Google Colab code sandbox. Install the extra and provide the values
 from an active Colab notebook session:
 
 ```bash
@@ -385,17 +385,17 @@ pip install "jupyter-mcp-server[colab]"
 ```json
 "env": {
   "SANDBOX_VARIANT": "colab",
-  "RUNTIME_URL": "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev",
-  "RUNTIME_ID": "a1b2c3d4-....",
-  "RUNTIME_PROXY_TOKEN": "ya29...."
+  "CODE_SANDBOX_URL": "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev",
+  "CODE_SANDBOX_ID": "a1b2c3d4-....",
+  "CODE_SANDBOX_PROXY_TOKEN": "ya29...."
 }
 ```
 
-> The proxy token (`colab-runtime-proxy-token`) is short-lived; refresh it when it
+> The proxy token (`colab-code-sandbox-proxy-token`) is short-lived; refresh it when it
 > expires.
 
-You can also pass `RUNTIME_CHANNELS_URL` with the Colab channels WebSocket URL
-and let the server derive `RUNTIME_URL` and `RUNTIME_ID`.
+You can also pass `CODE_SANDBOX_CHANNELS_URL` with the Colab channels WebSocket URL
+and let the server derive `CODE_SANDBOX_URL` and `CODE_SANDBOX_ID`.
 
 ### 6. Monty
 
@@ -466,7 +466,7 @@ PY
 ```
 
 > You can also select the engine on the command line with
-> `--sandbox-variant`, `--runtime-proxy-token`, and `--sandbox-environment`.
+> `--sandbox-variant`, `--code-sandbox-proxy-token`, and `--sandbox-environment`.
 
 ## 🧪 Testing
 
@@ -485,7 +485,7 @@ Optional environment variables:
 - `TEST_MCP_SERVER`: `true`/`false` toggle for standalone MCP server mode tests (default `true`).
 - `TEST_JUPYTER_SERVER`: `true`/`false` toggle for Jupyter extension mode tests (default `true`).
 - `DATALAYER_API_KEY`: required only for Datalayer cloud smoke/integration tests.
-- `DATALAYER_RUN_URL`: optional custom Datalayer runtime URL for datalayer engine tests.
+- `DATALAYER_RUN_URL`: optional custom Datalayer code sandbox URL for datalayer engine tests.
 - `SANDBOX_ENVIRONMENT`: optional cloud environment override (for example `ai-agents-env`).
 
 ## ✅ Best Practices

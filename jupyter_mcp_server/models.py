@@ -14,9 +14,9 @@ class DocumentRuntime(BaseModel):
     document_url: str
     document_id: str
     document_token: str
-    runtime_url: str
-    runtime_id: str
-    runtime_token: str
+    code_sandbox_url: str
+    code_sandbox_id: str
+    code_sandbox_token: str
     allowed_jupyter_tools: str | None = None
 
 

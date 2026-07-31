@@ -102,8 +102,8 @@ async def _switch_to_nb2(notebook_manager):
         notebook_name="nb2",
         notebook_path="work/nb2.ipynb",
         use_mode="connect",
-        runtime_url="http://localhost:8888",
-        runtime_token="token",
+        code_sandbox_url="http://localhost:8888",
+        code_sandbox_token="token",
     )
 
 
@@ -145,8 +145,8 @@ async def test_ui_open_stays_off_when_jupyterlab_mode_disabled():
         notebook_name="nb2",
         notebook_path="work/nb2.ipynb",
         use_mode="connect",
-        runtime_url="http://localhost:8888",
-        runtime_token="token",
+        code_sandbox_url="http://localhost:8888",
+        code_sandbox_token="token",
     )
 
     assert FakeMCPToolsClient.calls == []

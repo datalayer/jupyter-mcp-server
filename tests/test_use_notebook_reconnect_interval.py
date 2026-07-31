@@ -71,8 +71,8 @@ async def test_use_notebook_mcp_server_forwards_reconnect_interval(configured_re
             notebook_name="nb",
             notebook_path="nb.ipynb",
             use_mode="create",
-            runtime_url="http://localhost:8888",
-            runtime_token="secret",
+            code_sandbox_url="http://localhost:8888",
+            code_sandbox_token="secret",
         )
 
     assert mock_create.call_count == 1
@@ -97,8 +97,8 @@ async def test_use_notebook_mcp_server_defaults_reconnect_interval_to_zero(confi
             notebook_name="nb2",
             notebook_path="nb2.ipynb",
             use_mode="create",
-            runtime_url="http://localhost:8888",
-            runtime_token="secret",
+            code_sandbox_url="http://localhost:8888",
+            code_sandbox_token="secret",
         )
 
     kwargs = mock_create.call_args.kwargs

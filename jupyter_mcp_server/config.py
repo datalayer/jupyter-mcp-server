@@ -15,22 +15,22 @@ class JupyterMCPConfig(BaseModel):
 
     # Provider configuration
     provider: str = Field(
-        default="jupyter", description="The provider to use for the document and runtime"
+        default="jupyter", description="The provider to use for the document and code sandbox"
     )
 
     # Runtime configuration
-    runtime_url: str = Field(
+    code_sandbox_url: str = Field(
         default="http://localhost:8888",
-        description="The runtime URL to use, or 'local' for direct serverapp access",
+        description="The code sandbox URL to use, or 'local' for direct serverapp access",
     )
-    start_new_runtime: bool = Field(
-        default=False, description="Start a new runtime or use an existing one"
+    start_new_code_sandbox: bool = Field(
+        default=False, description="Start a new code sandbox or use an existing one"
     )
-    runtime_id: str | None = Field(default=None, description="The kernel ID to use")
-    runtime_token: str | None = Field(
-        default=None, description="The runtime token to use for authentication"
+    code_sandbox_id: str | None = Field(default=None, description="The kernel ID to use")
+    code_sandbox_token: str | None = Field(
+        default=None, description="The code sandbox token to use for authentication"
     )
-    runtime_password: str | None = Field(
+    code_sandbox_password: str | None = Field(
         default=None,
         description="Password for Jupyter server authentication (alternative to token)",
     )
@@ -44,11 +44,11 @@ class JupyterMCPConfig(BaseModel):
             "'datalayer') routes execution through the code-sandboxes package."
         ),
     )
-    runtime_proxy_token: str | None = Field(
+    code_sandbox_proxy_token: str | None = Field(
         default=None,
-        description="Proxy token for the Colab sandbox variant (colab-runtime-proxy-token).",
+        description="Proxy token for the Colab sandbox variant (colab-code-sandbox-proxy-token).",
     )
-    runtime_channels_url: str | None = Field(
+    code_sandbox_channels_url: str | None = Field(
         default=None,
         description=(
             "For the 'colab' and 'kaggle' sandbox variants, the WebSocket "
@@ -116,9 +116,9 @@ class JupyterMCPConfig(BaseModel):
         """Check if document URL is set to local."""
         return self.document_url == "local"
 
-    def is_local_runtime(self) -> bool:
-        """Check if runtime URL is set to local."""
-        return self.runtime_url == "local"
+    def is_local_code_sandbox(self) -> bool:
+        """Check if code sandbox URL is set to local."""
+        return self.code_sandbox_url == "local"
 
     def uses_sandbox_variant(self) -> bool:
         """Check if execution should be routed through code-sandboxes.
@@ -197,14 +197,14 @@ def set_config(**kwargs) -> JupyterMCPConfig:
         return isinstance(value, str) and value.lower() in ("none", "null", "")
 
     # Filter out string "None" values and let defaults be used instead
-    # For optional fields (tokens, runtime_id, document_id), convert to actual None
+    # For optional fields (tokens, code_sandbox_id, document_id), convert to actual None
     normalized_kwargs = {}
     for key, value in kwargs.items():
         if should_skip(value):
             # For optional fields, set to None; for required fields, skip (use default)
-            if key in ("runtime_token", "document_token", "runtime_id", "document_id", "runtime_password", "document_password"):
+            if key in ("code_sandbox_token", "document_token", "code_sandbox_id", "document_id", "code_sandbox_password", "document_password"):
                 normalized_kwargs[key] = None
-            # For required string fields like runtime_url, document_url, skip the key
+            # For required string fields like code_sandbox_url, document_url, skip the key
             # to let the default value be used
             # Do nothing - skip this key
         else:

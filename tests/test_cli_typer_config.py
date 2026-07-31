@@ -48,9 +48,9 @@ def test_connect_command_sends_mcp_token():
             provider=Provider.jupyter,
             jupyterlab=True,
             open_notebook_in_ui=False,
-            runtime_url=None,
-            runtime_id="kernel-id",
-            runtime_token=None,
+            code_sandbox_url=None,
+            code_sandbox_id="kernel-id",
+            code_sandbox_token=None,
             mcp_token="client-token",
             document_url=None,
             document_id="notebook.ipynb",
@@ -84,28 +84,28 @@ def test_config():
     reset_config()
 
     config = get_config()
-    assert config.runtime_url == "http://localhost:8888"
+    assert config.code_sandbox_url == "http://localhost:8888"
     assert config.document_id is None
     assert config.provider == "jupyter"
 
     new_config = set_config(
-        runtime_url="http://localhost:9999",
+        code_sandbox_url="http://localhost:9999",
         document_id="test_notebooks.ipynb",
         provider="datalayer",
-        runtime_token="test_token",
+        code_sandbox_token="test_token",
     )
 
-    assert new_config.runtime_url == "http://localhost:9999"
+    assert new_config.code_sandbox_url == "http://localhost:9999"
     assert new_config.document_id == "test_notebooks.ipynb"
     assert new_config.provider == "datalayer"
 
     config2 = get_config()
-    assert config2.runtime_url == "http://localhost:9999"
+    assert config2.code_sandbox_url == "http://localhost:9999"
     assert config2.document_id == "test_notebooks.ipynb"
 
     reset_config()
     config3 = get_config()
-    assert config3.runtime_url == "http://localhost:8888"
+    assert config3.code_sandbox_url == "http://localhost:8888"
     assert config3.document_id is None
     assert config3.provider == "jupyter"
 
@@ -159,9 +159,9 @@ def test_create_kernel_passes_reconnect_interval():
     from jupyter_mcp_server.utils import create_kernel
 
     config = JupyterMCPConfig(
-        runtime_url="http://localhost:8888",
-        runtime_token="test_token",
-        runtime_id="test-kernel-id",
+        code_sandbox_url="http://localhost:8888",
+        code_sandbox_token="test_token",
+        code_sandbox_id="test-kernel-id",
         reconnect_interval=5,
     )
 
@@ -189,9 +189,9 @@ def test_create_kernel_no_reconnect_by_default():
     from jupyter_mcp_server.utils import create_kernel
 
     config = JupyterMCPConfig(
-        runtime_url="http://localhost:8888",
-        runtime_token="test_token",
-        runtime_id="test-kernel-id",
+        code_sandbox_url="http://localhost:8888",
+        code_sandbox_token="test_token",
+        code_sandbox_id="test-kernel-id",
         reconnect_interval=0,
     )
 

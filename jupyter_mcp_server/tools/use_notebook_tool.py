@@ -4,11 +4,13 @@
 
 """Use notebook tool implementation."""
 
+import inspect
 import logging
 from pathlib import Path
 from typing import Any, Literal
 
 from jupyter_core.utils import ensure_async
+from jupyter_nbmodel_client import NbModelClient
 from jupyter_server_client import JupyterServerClient, NotFoundError
 
 from jupyter_mcp_server.models import Notebook
@@ -137,8 +139,8 @@ class UseNotebookTool(BaseTool):
         notebook_path: str = None,
         use_mode: Literal["connect", "create"] = "connect",
         kernel_id: str | None = None,
-        runtime_url: str | None = None,
-        runtime_token: str | None = None,
+        code_sandbox_url: str | None = None,
+        code_sandbox_token: str | None = None,
         auth_headers: dict[str, str] | None = None,
         **kwargs,
     ) -> str:
@@ -155,8 +157,8 @@ class UseNotebookTool(BaseTool):
             notebook_path: Path to the notebook file (optional, if not provided switches to existing notebook)
             use_mode: "connect" or "create"
             kernel_id: Optional specific kernel ID
-            runtime_url: Runtime URL for HTTP mode
-            runtime_token: Runtime token for HTTP mode
+            code_sandbox_url: Runtime URL for HTTP mode
+            code_sandbox_token: Runtime token for HTTP mode
             **kwargs: Additional parameters
 
         Returns:
@@ -260,10 +262,10 @@ class UseNotebookTool(BaseTool):
 
                 config = get_config()
                 kernel = create_jupyter_sandbox_client(
-                    server_url=runtime_url,
+                    server_url=code_sandbox_url,
                     # Password auth authenticates via the cookie/XSRF headers, so
                     # the token is dropped when they are present.
-                    token=None if auth_headers else runtime_token,
+                    token=None if auth_headers else code_sandbox_token,
                     kernel_id=kernel_id,
                     path=notebook_path,
                     logger=logger,
@@ -309,12 +311,12 @@ class UseNotebookTool(BaseTool):
                     )
 
             # Add notebook to notebook_manager
-            if mode == ServerMode.MCP_SERVER and runtime_url:
+            if mode == ServerMode.MCP_SERVER and code_sandbox_url:
                 notebook_manager.add_notebook(
                     notebook_name,
                     kernel,
-                    server_url=runtime_url,
-                    token=runtime_token,
+                    server_url=code_sandbox_url,
+                    token=code_sandbox_token,
                     path=notebook_path,
                 )
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
@@ -322,7 +324,7 @@ class UseNotebookTool(BaseTool):
                     notebook_name, kernel, server_url="local", token=None, path=notebook_path
                 )
             else:
-                return f"Invalid configuration: mode={mode}, runtime_url={runtime_url}, kernel_manager={kernel_manager is not None}"
+                return f"Invalid configuration: mode={mode}, code_sandbox_url={code_sandbox_url}, kernel_manager={kernel_manager is not None}"
 
             notebook_manager.set_current_notebook(notebook_name)
             info_list.append(f"[INFO] Successfully activate notebook '{notebook_name}'.")
@@ -341,6 +343,15 @@ class UseNotebookTool(BaseTool):
 
             elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
                 # Use notebook manager to get cell info
+                nbclient_supports_headers = (
+                    "additional_headers" in inspect.signature(NbModelClient).parameters
+                )
+                if auth_headers and not code_sandbox_token and not nbclient_supports_headers:
+                    info_list.append(
+                        "\nNotebook preview skipped: current jupyter_nbmodel_client "
+                        "does not support websocket auth headers in password-only mode."
+                    )
+                    return "\n".join(info_list)
                 async with notebook_manager.get_current_connection() as notebook_content:
                     notebook = Notebook(**notebook_content.as_dict())
 
@@ -373,10 +384,10 @@ class UseNotebookTool(BaseTool):
                     # JUPYTER_SERVER mode: Use ServerApp connection details
                     base_url = context.serverapp.connection_url
                     token = context.serverapp.token
-                elif mode == ServerMode.MCP_SERVER and runtime_url:
-                    # MCP_SERVER mode: Use runtime_url and runtime_token
-                    base_url = runtime_url
-                    token = runtime_token
+                elif mode == ServerMode.MCP_SERVER and code_sandbox_url:
+                    # MCP_SERVER mode: Use code_sandbox_url and code_sandbox_token
+                    base_url = code_sandbox_url
+                    token = code_sandbox_token
 
                 if base_url and token:
                     try:

@@ -43,7 +43,7 @@ class ServerContext:
         self._context_type: Literal["MCP_SERVER", "JUPYTER_SERVER"] = "MCP_SERVER"
         self._serverapp: ServerApp | None = None
         self._document_url: str | None = None
-        self._runtime_url: str | None = None
+        self._code_sandbox_url: str | None = None
         self._jupyterlab: bool = True  # Default to True
 
     @property
@@ -62,9 +62,9 @@ class ServerContext:
         return self._document_url
 
     @property
-    def runtime_url(self) -> str | None:
-        """Get the configured runtime URL."""
-        return self._runtime_url
+    def code_sandbox_url(self) -> str | None:
+        """Get the configured code sandbox URL."""
+        return self._code_sandbox_url
 
     @property
     def jupyterlab(self) -> bool:
@@ -76,7 +76,7 @@ class ServerContext:
         context_type: Literal["MCP_SERVER", "JUPYTER_SERVER"],
         serverapp: Optional["ServerApp"] = None,
         document_url: str | None = None,
-        runtime_url: str | None = None,
+        code_sandbox_url: str | None = None,
         jupyterlab: bool | None = None,
     ):
         """
@@ -86,14 +86,14 @@ class ServerContext:
             context_type: The type of server context
             serverapp: Jupyter ServerApp instance (required for JUPYTER_SERVER mode)
             document_url: Document URL configuration
-            runtime_url: Runtime URL configuration
+            code_sandbox_url: Runtime URL configuration
             jupyterlab: JupyterLab mode flag (defaults to True when JUPYTER_SERVER mode is true)
         """
         with self._lock:
             self._context_type = context_type
             self._serverapp = serverapp
             self._document_url = document_url
-            self._runtime_url = runtime_url
+            self._code_sandbox_url = code_sandbox_url
 
             # Set jupyterlab flag - default to True if JUPYTER_SERVER mode, otherwise keep current value
             if jupyterlab is not None:
@@ -108,9 +108,9 @@ class ServerContext:
         """Check if document operations should use local serverapp."""
         return self._context_type == "JUPYTER_SERVER" and self._document_url == "local"
 
-    def is_local_runtime(self) -> bool:
-        """Check if runtime operations should use local serverapp."""
-        return self._context_type == "JUPYTER_SERVER" and self._runtime_url == "local"
+    def is_local_code_sandbox(self) -> bool:
+        """Check if code sandbox operations should use local serverapp."""
+        return self._context_type == "JUPYTER_SERVER" and self._code_sandbox_url == "local"
 
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""
@@ -176,7 +176,7 @@ class ServerContext:
             self._context_type = "MCP_SERVER"
             self._serverapp = None
             self._document_url = None
-            self._runtime_url = None
+            self._code_sandbox_url = None
             self._jupyterlab = True  # Default to True
 
 

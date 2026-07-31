@@ -71,7 +71,7 @@ from jupyter_mcp_server.utils import (
 
 
 class RuntimeTokenVerifier:
-    """Verify MCP client requests against the configured runtime token."""
+    """Verify MCP client requests against the configured code sandbox token."""
 
     def __init__(self, token: str):
         self._token = token
@@ -226,19 +226,19 @@ def __ensure_kernel_alive() -> ISandboxClient:
 
 @mcp.custom_route("/api/connect", ["PUT"])
 async def connect(request: Request):
-    """Connect to a document and a runtime from the Jupyter MCP Server."""
+    """Connect to a document and a code sandbox from the Jupyter MCP Server."""
 
     data = await request.json()
 
     # Log the received data for diagnostics
     # Note: set_config() will automatically normalize string "None" values
     logger.info(
-        f"Connect endpoint received - runtime_url: {data.get('runtime_url')!r}, "
+        f"Connect endpoint received - code_sandbox_url: {data.get('code_sandbox_url')!r}, "
         f"document_url: {data.get('document_url')!r}, "
         f"provider: {data.get('provider')}"
     )
 
-    document_runtime = DocumentRuntime(**data)
+    document_code_sandbox = DocumentRuntime(**data)
 
     # Clean up existing default notebook if any
     if "default" in notebook_manager:
@@ -250,14 +250,14 @@ async def connect(request: Request):
     # Update configuration with new values
     # String "None" values will be automatically normalized by set_config()
     set_config(
-        provider=document_runtime.provider,
-        runtime_url=document_runtime.runtime_url,
-        runtime_id=document_runtime.runtime_id,
-        runtime_token=document_runtime.runtime_token,
-        document_url=document_runtime.document_url,
-        document_id=document_runtime.document_id,
-        document_token=document_runtime.document_token,
-        allowed_jupyter_tools=document_runtime.allowed_jupyter_tools
+        provider=document_code_sandbox.provider,
+        code_sandbox_url=document_code_sandbox.code_sandbox_url,
+        code_sandbox_id=document_code_sandbox.code_sandbox_id,
+        code_sandbox_token=document_code_sandbox.code_sandbox_token,
+        document_url=document_code_sandbox.document_url,
+        document_id=document_code_sandbox.document_id,
+        document_token=document_code_sandbox.document_token,
+        allowed_jupyter_tools=document_code_sandbox.allowed_jupyter_tools
         or "notebook_run-all-cells,notebook_get-selected-cell",
     )
 
@@ -442,9 +442,9 @@ async def use_notebook(
             kernel_manager=server_context.kernel_manager,
             session_manager=server_context.session_manager,
             notebook_manager=notebook_manager,
-            runtime_url=config.runtime_url if config.runtime_url != "local" else None,
-            runtime_token=config.runtime_token,
-            auth_headers=server_context.runtime_auth_headers or None,
+            code_sandbox_url=config.code_sandbox_url if config.code_sandbox_url != "local" else None,
+            code_sandbox_token=config.code_sandbox_token,
+            auth_headers=server_context.code_sandbox_auth_headers or None,
         )
     )
     kid = notebook_manager.get_kernel_id(notebook_name) or "unknown"
@@ -1154,9 +1154,9 @@ async def get_registered_tools():
                 else:
                     # Fallback to configuration (for remote scenarios)
                     config = get_config()
-                    base_url = config.runtime_url if config.runtime_url else "http://localhost:8888"
-                    token = config.runtime_token
-                    logger.info(f"Using config runtime URL: {base_url}")
+                    base_url = config.code_sandbox_url if config.code_sandbox_url else "http://localhost:8888"
+                    token = config.code_sandbox_token
+                    logger.info(f"Using config code sandbox URL: {base_url}")
 
                 logger.info(f"Querying jupyter-mcp-tools at {base_url}")
 

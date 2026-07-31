@@ -26,11 +26,11 @@ class Transport(str, Enum):
 
 def _resolve_and_start(
     transport: str,
-    start_new_runtime: str,
-    runtime_url: str | None,
-    runtime_id: str | None,
-    runtime_token: str | None,
-    runtime_password: str | None,
+    start_new_code_sandbox: str,
+    code_sandbox_url: str | None,
+    code_sandbox_id: str | None,
+    code_sandbox_token: str | None,
+    code_sandbox_password: str | None,
     mcp_token: str | None,
     insecure_mcp_noauth: bool,
     document_url: str | None,
@@ -50,38 +50,38 @@ def _resolve_and_start(
     execution_timeout: int,
     max_execution_timeout: int,
     sandbox_variant: str = "jupyter",
-    runtime_proxy_token: str | None = None,
-    runtime_channels_url: str | None = None,
+    code_sandbox_proxy_token: str | None = None,
+    code_sandbox_channels_url: str | None = None,
     sandbox_environment: str | None = None,
     sandbox_gpu: str | None = None,
 ) -> None:
     (
         resolved_document_url,
         resolved_document_token,
-        resolved_runtime_url,
-        resolved_runtime_token,
+        resolved_code_sandbox_url,
+        resolved_code_sandbox_token,
     ) = resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
         document_token=document_token,
-        runtime_url=runtime_url,
-        runtime_token=runtime_token,
+        code_sandbox_url=code_sandbox_url,
+        code_sandbox_token=code_sandbox_token,
     )
 
-    # Passwords mirror the token precedence: an individual --{runtime,document}-password
+    # Passwords mirror the token precedence: an individual --{code sandbox,document}-password
     # wins, otherwise the shared --jupyter-password is used as the fallback. Passwords
     # take precedence over tokens at the auth layer (see JupyterPasswordAuth).
     resolved_document_password = document_password or jupyter_password
-    resolved_runtime_password = runtime_password or jupyter_password
+    resolved_code_sandbox_password = code_sandbox_password or jupyter_password
 
     do_start(
         transport=transport,
-        start_new_runtime=parse_bool_option(start_new_runtime, "--start-new-runtime"),
-        runtime_url=resolved_runtime_url,
-        runtime_id=runtime_id,
-        runtime_token=resolved_runtime_token,
-        runtime_password=resolved_runtime_password,
+        start_new_code_sandbox=parse_bool_option(start_new_code_sandbox, "--start-new-code-sandbox"),
+        code_sandbox_url=resolved_code_sandbox_url,
+        code_sandbox_id=code_sandbox_id,
+        code_sandbox_token=resolved_code_sandbox_token,
+        code_sandbox_password=resolved_code_sandbox_password,
         document_url=resolved_document_url,
         document_id=document_id,
         document_token=resolved_document_token,
@@ -98,8 +98,8 @@ def _resolve_and_start(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        runtime_proxy_token=runtime_proxy_token,
-        runtime_channels_url=runtime_channels_url,
+        code_sandbox_proxy_token=code_sandbox_proxy_token,
+        code_sandbox_channels_url=code_sandbox_channels_url,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )
@@ -115,12 +115,12 @@ def server_callback(
             help="The transport to use for the MCP server. Defaults to 'stdio'.",
         ),
     ] = Transport.stdio,
-    start_new_runtime: Annotated[
+    start_new_code_sandbox: Annotated[
         str,
         typer.Option(
-            "--start-new-runtime",
-            envvar="START_NEW_RUNTIME",
-            help="Start a new runtime or use an existing one.",
+            "--start-new-code-sandbox",
+            envvar="START_NEW_CODE_SANDBOX",
+            help="Start a new code sandbox or use an existing one.",
         ),
     ] = "True",
     port: Annotated[
@@ -144,7 +144,7 @@ def server_callback(
         typer.Option(
             "--provider",
             envvar="PROVIDER",
-            help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
+            help="The provider to use for the document and code sandbox. Defaults to 'jupyter'.",
         ),
     ] = Provider.jupyter,
     jupyterlab: Annotated[
@@ -163,36 +163,36 @@ def server_callback(
             help="Open the notebook in the JupyterLab UI when using it, which activates its tab. Defaults to False.",
         ),
     ] = "False",
-    runtime_url: Annotated[
+    code_sandbox_url: Annotated[
         str | None,
         typer.Option(
-            "--runtime-url",
-            envvar="RUNTIME_URL",
-            help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.",
+            "--code-sandbox-url",
+            envvar="CODE_SANDBOX_URL",
+            help="The code sandbox URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer code sandbox URL.",
         ),
     ] = None,
-    runtime_id: Annotated[
+    code_sandbox_id: Annotated[
         str | None,
         typer.Option(
-            "--runtime-id",
-            envvar="RUNTIME_ID",
+            "--code-sandbox-id",
+            envvar="CODE_SANDBOX_ID",
             help="The kernel ID to use. If not provided, a new kernel should be started.",
         ),
     ] = None,
-    runtime_token: Annotated[
+    code_sandbox_token: Annotated[
         str | None,
         typer.Option(
-            "--runtime-token",
-            envvar="RUNTIME_TOKEN",
-            help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+            "--code-sandbox-token",
+            envvar="CODE_SANDBOX_TOKEN",
+            help="The code sandbox token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
     ] = None,
-    runtime_password: Annotated[
+    code_sandbox_password: Annotated[
         str | None,
         typer.Option(
-            "--runtime-password",
-            envvar="RUNTIME_PASSWORD",
-            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
+            "--code-sandbox-password",
+            envvar="CODE_SANDBOX_PASSWORD",
+            help="Password for code sandbox Jupyter server authentication. Takes precedence over --code-sandbox-token if both are set.",
         ),
     ] = None,
     mcp_token: Annotated[
@@ -248,7 +248,7 @@ def server_callback(
         typer.Option(
             "--jupyter-url",
             envvar="JUPYTER_URL",
-            help="The Jupyter URL to use as default for both document and runtime URLs. If not provided, individual URL settings take precedence.",
+            help="The Jupyter URL to use as default for both document and code sandbox URLs. If not provided, individual URL settings take precedence.",
         ),
     ] = None,
     jupyter_token: Annotated[
@@ -256,7 +256,7 @@ def server_callback(
         typer.Option(
             "--jupyter-token",
             envvar="JUPYTER_TOKEN",
-            help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
+            help="The Jupyter token to use as default for both document and code sandbox tokens. If not provided, individual token settings take precedence.",
         ),
     ] = None,
     jupyter_password: Annotated[
@@ -264,7 +264,7 @@ def server_callback(
         typer.Option(
             "--jupyter-password",
             envvar="JUPYTER_PASSWORD",
-            help="Shared password for both runtime and document servers (fallback if individual passwords not set). Takes precedence over --jupyter-token if both are set.",
+            help="Shared password for both code sandbox and document servers (fallback if individual passwords not set). Takes precedence over --jupyter-token if both are set.",
         ),
     ] = None,
     allowed_jupyter_mcp_tools: Annotated[
@@ -310,20 +310,20 @@ def server_callback(
             help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
-    runtime_proxy_token: Annotated[
+    code_sandbox_proxy_token: Annotated[
         str | None,
         typer.Option(
-            "--runtime-proxy-token",
-            envvar="RUNTIME_PROXY_TOKEN",
-            help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
+            "--code-sandbox-proxy-token",
+            envvar="CODE_SANDBOX_PROXY_TOKEN",
+            help="Proxy token used by the 'colab' sandbox variant (colab-code-sandbox-proxy-token).",
         ),
     ] = None,
-    runtime_channels_url: Annotated[
+    code_sandbox_channels_url: Annotated[
         str | None,
         typer.Option(
-            "--runtime-channels-url",
-            envvar="RUNTIME_CHANNELS_URL",
-            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
+            "--code-sandbox-channels-url",
+            envvar="CODE_SANDBOX_CHANNELS_URL",
+            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive code sandbox URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -353,11 +353,11 @@ def server_callback(
 
     _resolve_and_start(
         transport=transport.value,
-        start_new_runtime=start_new_runtime,
-        runtime_url=runtime_url,
-        runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        runtime_password=runtime_password,
+        start_new_code_sandbox=start_new_code_sandbox,
+        code_sandbox_url=code_sandbox_url,
+        code_sandbox_id=code_sandbox_id,
+        code_sandbox_token=code_sandbox_token,
+        code_sandbox_password=code_sandbox_password,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
         document_url=document_url,
@@ -377,8 +377,8 @@ def server_callback(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        runtime_proxy_token=runtime_proxy_token,
-        runtime_channels_url=runtime_channels_url,
+        code_sandbox_proxy_token=code_sandbox_proxy_token,
+        code_sandbox_channels_url=code_sandbox_channels_url,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )
@@ -393,12 +393,12 @@ def start_command(
             help="The transport to use for the MCP server. Defaults to 'stdio'.",
         ),
     ] = Transport.stdio,
-    start_new_runtime: Annotated[
+    start_new_code_sandbox: Annotated[
         str,
         typer.Option(
-            "--start-new-runtime",
-            envvar="START_NEW_RUNTIME",
-            help="Start a new runtime or use an existing one.",
+            "--start-new-code-sandbox",
+            envvar="START_NEW_CODE_SANDBOX",
+            help="Start a new code sandbox or use an existing one.",
         ),
     ] = "True",
     port: Annotated[
@@ -422,7 +422,7 @@ def start_command(
         typer.Option(
             "--provider",
             envvar="PROVIDER",
-            help="The provider to use for the document and runtime. Defaults to 'jupyter'.",
+            help="The provider to use for the document and code sandbox. Defaults to 'jupyter'.",
         ),
     ] = Provider.jupyter,
     jupyterlab: Annotated[
@@ -441,36 +441,36 @@ def start_command(
             help="Open the notebook in the JupyterLab UI when using it, which activates its tab. Defaults to False.",
         ),
     ] = "False",
-    runtime_url: Annotated[
+    code_sandbox_url: Annotated[
         str | None,
         typer.Option(
-            "--runtime-url",
-            envvar="RUNTIME_URL",
-            help="The runtime URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer runtime URL.",
+            "--code-sandbox-url",
+            envvar="CODE_SANDBOX_URL",
+            help="The code sandbox URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer code sandbox URL.",
         ),
     ] = None,
-    runtime_id: Annotated[
+    code_sandbox_id: Annotated[
         str | None,
         typer.Option(
-            "--runtime-id",
-            envvar="RUNTIME_ID",
+            "--code-sandbox-id",
+            envvar="CODE_SANDBOX_ID",
             help="The kernel ID to use. If not provided, a new kernel should be started.",
         ),
     ] = None,
-    runtime_token: Annotated[
+    code_sandbox_token: Annotated[
         str | None,
         typer.Option(
-            "--runtime-token",
-            envvar="RUNTIME_TOKEN",
-            help="The runtime token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+            "--code-sandbox-token",
+            envvar="CODE_SANDBOX_TOKEN",
+            help="The code sandbox token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
         ),
     ] = None,
-    runtime_password: Annotated[
+    code_sandbox_password: Annotated[
         str | None,
         typer.Option(
-            "--runtime-password",
-            envvar="RUNTIME_PASSWORD",
-            help="Password for runtime Jupyter server authentication. Takes precedence over --runtime-token if both are set.",
+            "--code-sandbox-password",
+            envvar="CODE_SANDBOX_PASSWORD",
+            help="Password for code sandbox Jupyter server authentication. Takes precedence over --code-sandbox-token if both are set.",
         ),
     ] = None,
     mcp_token: Annotated[
@@ -526,7 +526,7 @@ def start_command(
         typer.Option(
             "--jupyter-url",
             envvar="JUPYTER_URL",
-            help="The Jupyter URL to use as default for both document and runtime URLs. If not provided, individual URL settings take precedence.",
+            help="The Jupyter URL to use as default for both document and code sandbox URLs. If not provided, individual URL settings take precedence.",
         ),
     ] = None,
     jupyter_token: Annotated[
@@ -534,7 +534,7 @@ def start_command(
         typer.Option(
             "--jupyter-token",
             envvar="JUPYTER_TOKEN",
-            help="The Jupyter token to use as default for both document and runtime tokens. If not provided, individual token settings take precedence.",
+            help="The Jupyter token to use as default for both document and code sandbox tokens. If not provided, individual token settings take precedence.",
         ),
     ] = None,
     jupyter_password: Annotated[
@@ -542,7 +542,7 @@ def start_command(
         typer.Option(
             "--jupyter-password",
             envvar="JUPYTER_PASSWORD",
-            help="Shared password for both runtime and document servers (fallback if individual passwords not set). Takes precedence over --jupyter-token if both are set.",
+            help="Shared password for both code sandbox and document servers (fallback if individual passwords not set). Takes precedence over --jupyter-token if both are set.",
         ),
     ] = None,
     allowed_jupyter_mcp_tools: Annotated[
@@ -588,20 +588,20 @@ def start_command(
             help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
-    runtime_proxy_token: Annotated[
+    code_sandbox_proxy_token: Annotated[
         str | None,
         typer.Option(
-            "--runtime-proxy-token",
-            envvar="RUNTIME_PROXY_TOKEN",
-            help="Proxy token used by the 'colab' sandbox variant (colab-runtime-proxy-token).",
+            "--code-sandbox-proxy-token",
+            envvar="CODE_SANDBOX_PROXY_TOKEN",
+            help="Proxy token used by the 'colab' sandbox variant (colab-code-sandbox-proxy-token).",
         ),
     ] = None,
-    runtime_channels_url: Annotated[
+    code_sandbox_channels_url: Annotated[
         str | None,
         typer.Option(
-            "--runtime-channels-url",
-            envvar="RUNTIME_CHANNELS_URL",
-            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive runtime URL and kernel id.",
+            "--code-sandbox-channels-url",
+            envvar="CODE_SANDBOX_CHANNELS_URL",
+            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive code sandbox URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -628,11 +628,11 @@ def start_command(
     """Start the Jupyter MCP Server with a transport."""
     _resolve_and_start(
         transport=transport.value,
-        start_new_runtime=start_new_runtime,
-        runtime_url=runtime_url,
-        runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        runtime_password=runtime_password,
+        start_new_code_sandbox=start_new_code_sandbox,
+        code_sandbox_url=code_sandbox_url,
+        code_sandbox_id=code_sandbox_id,
+        code_sandbox_token=code_sandbox_token,
+        code_sandbox_password=code_sandbox_password,
         mcp_token=mcp_token,
         insecure_mcp_noauth=insecure_mcp_noauth,
         document_url=document_url,
@@ -652,8 +652,8 @@ def start_command(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        runtime_proxy_token=runtime_proxy_token,
-        runtime_channels_url=runtime_channels_url,
+        code_sandbox_proxy_token=code_sandbox_proxy_token,
+        code_sandbox_channels_url=code_sandbox_channels_url,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )

@@ -106,9 +106,9 @@ jupyter-mcp-server start \
   --document-url http://localhost:8888 \
   --document-id notebook.ipynb \
   --document-token MY_TOKEN \
-  --runtime-url http://localhost:8888 \
-  --start-new-runtime true \
-  --runtime-token MY_TOKEN \
+  --code-sandbox-url http://localhost:8888 \
+  --start-new-code-sandbox true \
+  --code-sandbox-token MY_TOKEN \
   --port 4040
 ```
 
@@ -140,9 +140,9 @@ docker run -i --rm \
   -e DOCUMENT_URL=http://localhost:8888 \
   -e DOCUMENT_ID=notebook.ipynb \
   -e DOCUMENT_TOKEN=MY_TOKEN \
-  -e RUNTIME_URL=http://localhost:8888 \
-  -e START_NEW_RUNTIME=true \
-  -e RUNTIME_TOKEN=MY_TOKEN \
+  -e CODE_SANDBOX_URL=http://localhost:8888 \
+  -e START_NEW_CODE_SANDBOX=true \
+  -e CODE_SANDBOX_TOKEN=MY_TOKEN \
   --network=host \
   datalayer/jupyter-mcp-server:latest
 ```
@@ -185,7 +185,7 @@ docker run -i --rm \
 
 - **`jupyter_mcp_server/`**: Main Python package
   - `server.py`: Core MCP server implementation with FastMCP integration
-  - `models.py`: Pydantic data models for document and runtime handling
+  - `models.py`: Pydantic data models for document and code sandbox handling
   - `utils.py`: Utility functions for output extraction and processing
   - `tests/`: Unit tests (internal package tests)
 - **`tests/`**: Integration tests using pytest-asyncio
@@ -236,8 +236,8 @@ docker run -i --rm \
 export DOCUMENT_URL="http://localhost:8888"
 export DOCUMENT_TOKEN="MY_TOKEN"
 export DOCUMENT_ID="notebook.ipynb"
-export RUNTIME_URL="http://localhost:8888"
-export RUNTIME_TOKEN="MY_TOKEN"
+export CODE_SANDBOX_URL="http://localhost:8888"
+export CODE_SANDBOX_TOKEN="MY_TOKEN"
 ```
 
 ## Network Limitations and Workarounds

@@ -8,7 +8,7 @@ imports directly from the server module.
 
 Launch the tests:
 ```
-$ pytest tests/test_runtime_token_verifier.py -v
+$ pytest tests/test_code_sandbox_token_verifier.py -v
 ```
 """
 

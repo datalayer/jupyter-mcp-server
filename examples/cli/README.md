@@ -86,7 +86,7 @@ Security note: `start-noauth` disables MCP client authentication and should not 
 
 ## Configuration
 
-You can override settings at runtime:
+You can override settings at code sandbox:
 
 ```bash
 MCP_TOKEN=my-mcp-token \
@@ -110,10 +110,10 @@ SANDBOX_VARIANT=monty make start
 Variant-specific required environment variables:
 
 - `jupyter` / `eval` / `docker` / `monty`: no extra variables required.
-- `jupyterhub`: requires `RUNTIME_URL` and `RUNTIME_TOKEN`.
-- `datalayer`: requires `RUNTIME_URL` and `RUNTIME_TOKEN`.
-- `colab`: requires either `RUNTIME_CHANNELS_URL`, or `RUNTIME_URL` + `RUNTIME_ID` + `RUNTIME_PROXY_TOKEN`.
-- `kaggle`: defaults to batch mode (for example `KAGGLE_API_TOKEN` or Kaggle credentials). For interactive mode, set `RUNTIME_URL` and either `KAGGLE_API_TOKEN`/`RUNTIME_TOKEN` (create a new kernel) or `RUNTIME_ID`/`RUNTIME_CHANNELS_URL` (connect existing kernel). Optional accelerator: `SANDBOX_GPU` (for example `T4`, `P100`, `NvidiaTeslaT4`).
+- `jupyterhub`: requires `CODE_SANDBOX_URL` and `CODE_SANDBOX_TOKEN`.
+- `datalayer`: requires `CODE_SANDBOX_URL` and `CODE_SANDBOX_TOKEN`.
+- `colab`: requires either `CODE_SANDBOX_CHANNELS_URL`, or `CODE_SANDBOX_URL` + `CODE_SANDBOX_ID` + `CODE_SANDBOX_PROXY_TOKEN`.
+- `kaggle`: defaults to batch mode (for example `KAGGLE_API_TOKEN` or Kaggle credentials). For interactive mode, set `CODE_SANDBOX_URL` and either `KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` (create a new kernel) or `CODE_SANDBOX_ID`/`CODE_SANDBOX_CHANNELS_URL` (connect existing kernel). Optional accelerator: `SANDBOX_GPU` (for example `T4`, `P100`, `NvidiaTeslaT4`).
 - `modal`: requires either (`MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET`) or a local
   Modal login in `~/.modal.toml` (for example after `modal token new`).
 
@@ -130,7 +130,7 @@ Supported variables:
 - `MCP_TOKEN` (default: `MY_MCP_TOKEN`)
 - `DOCUMENT_ID` (default: `notebook.ipynb`)
 - `SANDBOX_VARIANT` (optional; when unset, `make start` prompts and defaults to `none` = Jupyter kernels)
-- `RUNTIME_URL`, `RUNTIME_TOKEN`, `RUNTIME_ID`, `RUNTIME_PROXY_TOKEN`, `RUNTIME_CHANNELS_URL`, `KAGGLE_API_TOKEN`, `SANDBOX_GPU` (required for some variants)
+- `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`, `CODE_SANDBOX_CHANNELS_URL`, `KAGGLE_API_TOKEN`, `SANDBOX_GPU` (required for some variants)
 - `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` (required for Modal unless `~/.modal.toml` exists)
 
 The CLI targets export Bedrock credentials from these environment variables:

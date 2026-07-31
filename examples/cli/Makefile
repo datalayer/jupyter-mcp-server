@@ -160,47 +160,47 @@ start:
 	elif [[ "$$VARIANT" == "jupyterhub" ]]; then \
 		ENGINE="jupyter"; \
 		VARIANT_LABEL="jupyterhub"; \
-		VARIANT_DESC="Additional JupyterHub-backed runtime."; \
+		VARIANT_DESC="Additional JupyterHub-backed code sandbox."; \
 	else \
 		ENGINE="$$VARIANT"; \
 		VARIANT_LABEL="$$VARIANT"; \
-		VARIANT_DESC="Additional sandbox runtime: $$VARIANT."; \
+		VARIANT_DESC="Additional code sandbox: $$VARIANT."; \
 	fi; \
 	check_variant_requirements() { \
 		case "$$VARIANT" in \
 			none) \
 				;; \
 			colab) \
-				if [[ -z "$${RUNTIME_CHANNELS_URL:-}" && ( -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ) ]]; then \
-					echo "Colab requires either RUNTIME_CHANNELS_URL, or RUNTIME_URL + RUNTIME_ID + RUNTIME_PROXY_TOKEN."; \
+				if [[ -z "$${CODE_SANDBOX_CHANNELS_URL:-}" && ( -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_ID:-}" || -z "$${CODE_SANDBOX_PROXY_TOKEN:-}" ) ]]; then \
+					echo "Colab requires either CODE_SANDBOX_CHANNELS_URL, or CODE_SANDBOX_URL + CODE_SANDBOX_ID + CODE_SANDBOX_PROXY_TOKEN."; \
 					echo "Examples:"; \
-					echo "  SANDBOX_VARIANT=colab RUNTIME_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start"; \
-					echo "  SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start"; \
+					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start"; \
+					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... CODE_SANDBOX_PROXY_TOKEN=... make start"; \
 					exit 1; \
 				fi; \
 				;; \
 			kaggle) \
-				if [[ -n "$${RUNTIME_URL:-}" && -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
-					echo "Kaggle interactive mode with RUNTIME_URL requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
+				if [[ -n "$${CODE_SANDBOX_URL:-}" && -z "$${CODE_SANDBOX_ID:-}" && -z "$${CODE_SANDBOX_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${CODE_SANDBOX_TOKEN:-}" ]]; then \
+					echo "Kaggle interactive mode with CODE_SANDBOX_URL requires one of: CODE_SANDBOX_ID, CODE_SANDBOX_CHANNELS_URL, KAGGLE_API_TOKEN, or CODE_SANDBOX_TOKEN."; \
 					echo "Examples:"; \
 					echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... make start                # default batch mode"; \
 					echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... SANDBOX_GPU=T4 make start # batch + accelerator"; \
-					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start # interactive create"; \
-					echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start       # interactive attach"; \
+					echo "  SANDBOX_VARIANT=kaggle CODE_SANDBOX_URL=... KAGGLE_API_TOKEN=... make start # interactive create"; \
+					echo "  SANDBOX_VARIANT=kaggle CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... make start       # interactive attach"; \
 					exit 1; \
 				fi; \
 				;; \
 			datalayer) \
-				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
-					echo "Datalayer requires RUNTIME_URL and RUNTIME_TOKEN."; \
-					echo "Example: SANDBOX_VARIANT=datalayer RUNTIME_URL=https://prod1.datalayer.run RUNTIME_TOKEN=... make start"; \
+				if [[ -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_TOKEN:-}" ]]; then \
+					echo "Datalayer requires CODE_SANDBOX_URL and CODE_SANDBOX_TOKEN."; \
+					echo "Example: SANDBOX_VARIANT=datalayer CODE_SANDBOX_URL=https://prod1.datalayer.run CODE_SANDBOX_TOKEN=... make start"; \
 					exit 1; \
 				fi; \
 				;; \
 			jupyterhub) \
-				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
-					echo "JupyterHub requires RUNTIME_URL and RUNTIME_TOKEN (single-user server URL + API token)."; \
-					echo "Example: SANDBOX_VARIANT=jupyterhub RUNTIME_URL=https://hub/user/<name> RUNTIME_TOKEN=... make start"; \
+				if [[ -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_TOKEN:-}" ]]; then \
+					echo "JupyterHub requires CODE_SANDBOX_URL and CODE_SANDBOX_TOKEN (single-user server URL + API token)."; \
+					echo "Example: SANDBOX_VARIANT=jupyterhub CODE_SANDBOX_URL=https://hub/user/<name> CODE_SANDBOX_TOKEN=... make start"; \
 					exit 1; \
 				fi; \
 				;; \
@@ -220,15 +220,15 @@ start:
 		log_warn "Could not find an available random Jupyter port after multiple attempts."; \
 		exit 1; \
 	fi; \
-	JUPYTER_URL_RUNTIME="http://127.0.0.1:$$JUPYTER_PORT_SELECTED"; \
+	JUPYTER_URL_CODE_SANDBOX="http://127.0.0.1:$$JUPYTER_PORT_SELECTED"; \
 	MCP_PORT_SELECTED="$$(pick_random_free_port 200)"; \
 	if [[ -z "$$MCP_PORT_SELECTED" ]]; then \
 		log_warn "Could not find an available random MCP port after multiple attempts."; \
 		exit 1; \
 	fi; \
-	MCP_URL_RUNTIME="http://127.0.0.1:$$MCP_PORT_SELECTED/mcp"; \
-	MCP_HEALTH_URL_RUNTIME="http://127.0.0.1:$$MCP_PORT_SELECTED/api/healthz"; \
-	log_ok "Base runtime: Jupyter server (always on)"; \
+	MCP_URL_CODE_SANDBOX="http://127.0.0.1:$$MCP_PORT_SELECTED/mcp"; \
+	MCP_HEALTH_URL_CODE_SANDBOX="http://127.0.0.1:$$MCP_PORT_SELECTED/api/healthz"; \
+	log_ok "Base code sandbox: Jupyter server (always on)"; \
 	log_ok "Additional sandbox: $$VARIANT_LABEL"; \
 	log_info "$$VARIANT_DESC"; \
 	log_info "Selected random Jupyter port: $$JUPYTER_PORT_SELECTED"; \
@@ -236,7 +236,7 @@ start:
 	if [[ "$$VARIANT" != "none" ]]; then \
 		log_info "MCP --sandbox-variant will be set to: $$ENGINE"; \
 	fi; \
-	log_step "Starting JupyterLab at $$JUPYTER_URL_RUNTIME/lab ..."; \
+	log_step "Starting JupyterLab at $$JUPYTER_URL_CODE_SANDBOX/lab ..."; \
 	jupyter lab \
 		--port "$$JUPYTER_PORT_SELECTED" \
 		--ip 0.0.0.0 \
@@ -246,32 +246,32 @@ start:
 		> .jupyter.log 2>&1 & \
 	JUPYTER_PID=$$!; \
 	log_step "Waiting for JupyterLab health endpoint..."; \
-	wait_for_health "JupyterLab" "$$JUPYTER_URL_RUNTIME/api?token=$(JUPYTER_TOKEN)" "$$JUPYTER_PID" ".jupyter.log" 90; \
-	log_step "Starting Jupyter MCP Server at $$MCP_URL_RUNTIME ..."; \
+	wait_for_health "JupyterLab" "$$JUPYTER_URL_CODE_SANDBOX/api?token=$(JUPYTER_TOKEN)" "$$JUPYTER_PID" ".jupyter.log" 90; \
+	log_step "Starting Jupyter MCP Server at $$MCP_URL_CODE_SANDBOX ..."; \
 	jupyter-mcp-server start \
 		--transport streamable-http \
 		--sandbox-variant "$$ENGINE" \
-		--jupyter-url "$$JUPYTER_URL_RUNTIME" \
+		--jupyter-url "$$JUPYTER_URL_CODE_SANDBOX" \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \
-		--start-new-runtime true \
+		--start-new-code-sandbox true \
 		--mcp-token $(MCP_TOKEN) \
 		--port "$$MCP_PORT_SELECTED" \
 		> .mcp.log 2>&1 & \
 	MCP_PID=$$!; \
 	log_step "Waiting for Jupyter MCP Server health endpoint..."; \
-	wait_for_health "Jupyter MCP Server" "$$MCP_HEALTH_URL_RUNTIME" "$$MCP_PID" ".mcp.log" 90; \
+	wait_for_health "Jupyter MCP Server" "$$MCP_HEALTH_URL_CODE_SANDBOX" "$$MCP_PID" ".mcp.log" 90; \
 	echo ""; \
-	log_ok "JupyterLab: $$JUPYTER_URL_RUNTIME/lab?token=$(JUPYTER_TOKEN)"; \
-	log_ok "MCP endpoint: $$MCP_URL_RUNTIME"; \
+	log_ok "JupyterLab: $$JUPYTER_URL_CODE_SANDBOX/lab?token=$(JUPYTER_TOKEN)"; \
+	log_ok "MCP endpoint: $$MCP_URL_CODE_SANDBOX"; \
 	log_ok "Additional sandbox: $$VARIANT_LABEL"; \
 	log_step "Running pydantic-ai CLI with model: $(MODEL)"; \
 	echo ""; \
 	$(BEDROCK_ENV) \
 	PYDANTIC_AI_MODEL="$(MODEL)" \
-	JUPYTER_MCP_URL="$$MCP_URL_RUNTIME" \
+	JUPYTER_MCP_URL="$$MCP_URL_CODE_SANDBOX" \
 	SANDBOX_VARIANT="$$VARIANT_LABEL" \
-	SANDBOX_ID="$${SANDBOX_ID:-$${RUNTIME_ID:-}}" \
+	SANDBOX_ID="$${SANDBOX_ID:-$${CODE_SANDBOX_ID:-}}" \
 	MCP_TOKEN="$(MCP_TOKEN)" \
 	python agent.py
 
@@ -384,47 +384,47 @@ start-noauth:
 	elif [[ "$$VARIANT" == "jupyterhub" ]]; then \
 		ENGINE="jupyter"; \
 		VARIANT_LABEL="jupyterhub"; \
-		VARIANT_DESC="Additional JupyterHub-backed runtime."; \
+		VARIANT_DESC="Additional JupyterHub-backed code sandbox."; \
 	else \
 		ENGINE="$$VARIANT"; \
 		VARIANT_LABEL="$$VARIANT"; \
-		VARIANT_DESC="Additional sandbox runtime: $$VARIANT."; \
+		VARIANT_DESC="Additional code sandbox: $$VARIANT."; \
 	fi; \
 	check_variant_requirements() { \
 		case "$$VARIANT" in \
 			none) \
 				;; \
 			colab) \
-				if [[ -z "$${RUNTIME_CHANNELS_URL:-}" && ( -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_ID:-}" || -z "$${RUNTIME_PROXY_TOKEN:-}" ) ]]; then \
-					echo "Colab requires either RUNTIME_CHANNELS_URL, or RUNTIME_URL + RUNTIME_ID + RUNTIME_PROXY_TOKEN."; \
+				if [[ -z "$${CODE_SANDBOX_CHANNELS_URL:-}" && ( -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_ID:-}" || -z "$${CODE_SANDBOX_PROXY_TOKEN:-}" ) ]]; then \
+					echo "Colab requires either CODE_SANDBOX_CHANNELS_URL, or CODE_SANDBOX_URL + CODE_SANDBOX_ID + CODE_SANDBOX_PROXY_TOKEN."; \
 					echo "Examples:"; \
-					echo "  SANDBOX_VARIANT=colab RUNTIME_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start-noauth"; \
-					echo "  SANDBOX_VARIANT=colab RUNTIME_URL=... RUNTIME_ID=... RUNTIME_PROXY_TOKEN=... make start-noauth"; \
+					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start-noauth"; \
+					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... CODE_SANDBOX_PROXY_TOKEN=... make start-noauth"; \
 					exit 1; \
 				fi; \
 				;; \
 				kaggle) \
-					if [[ -n "$${RUNTIME_URL:-}" && -z "$${RUNTIME_ID:-}" && -z "$${RUNTIME_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${RUNTIME_TOKEN:-}" ]]; then \
-						echo "Kaggle interactive mode with RUNTIME_URL requires one of: RUNTIME_ID, RUNTIME_CHANNELS_URL, KAGGLE_API_TOKEN, or RUNTIME_TOKEN."; \
+					if [[ -n "$${CODE_SANDBOX_URL:-}" && -z "$${CODE_SANDBOX_ID:-}" && -z "$${CODE_SANDBOX_CHANNELS_URL:-}" && -z "$${KAGGLE_API_TOKEN:-}" && -z "$${CODE_SANDBOX_TOKEN:-}" ]]; then \
+						echo "Kaggle interactive mode with CODE_SANDBOX_URL requires one of: CODE_SANDBOX_ID, CODE_SANDBOX_CHANNELS_URL, KAGGLE_API_TOKEN, or CODE_SANDBOX_TOKEN."; \
 						echo "Examples:"; \
 						echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... make start-noauth                # default batch mode"; \
 						echo "  SANDBOX_VARIANT=kaggle KAGGLE_API_TOKEN=... SANDBOX_GPU=T4 make start-noauth # batch + accelerator"; \
-						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... KAGGLE_API_TOKEN=... make start-noauth # interactive create"; \
-						echo "  SANDBOX_VARIANT=kaggle RUNTIME_URL=... RUNTIME_ID=... make start-noauth       # interactive attach"; \
+						echo "  SANDBOX_VARIANT=kaggle CODE_SANDBOX_URL=... KAGGLE_API_TOKEN=... make start-noauth # interactive create"; \
+						echo "  SANDBOX_VARIANT=kaggle CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... make start-noauth       # interactive attach"; \
 						exit 1; \
 					fi; \
 					;; \
 			datalayer) \
-				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
-					echo "Datalayer requires RUNTIME_URL and RUNTIME_TOKEN."; \
-					echo "Example: SANDBOX_VARIANT=datalayer RUNTIME_URL=https://prod1.datalayer.run RUNTIME_TOKEN=... make start-noauth"; \
+				if [[ -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_TOKEN:-}" ]]; then \
+					echo "Datalayer requires CODE_SANDBOX_URL and CODE_SANDBOX_TOKEN."; \
+					echo "Example: SANDBOX_VARIANT=datalayer CODE_SANDBOX_URL=https://prod1.datalayer.run CODE_SANDBOX_TOKEN=... make start-noauth"; \
 					exit 1; \
 				fi; \
 				;; \
 			jupyterhub) \
-				if [[ -z "$${RUNTIME_URL:-}" || -z "$${RUNTIME_TOKEN:-}" ]]; then \
-					echo "JupyterHub requires RUNTIME_URL and RUNTIME_TOKEN (single-user server URL + API token)."; \
-					echo "Example: SANDBOX_VARIANT=jupyterhub RUNTIME_URL=https://hub/user/<name> RUNTIME_TOKEN=... make start-noauth"; \
+				if [[ -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_TOKEN:-}" ]]; then \
+					echo "JupyterHub requires CODE_SANDBOX_URL and CODE_SANDBOX_TOKEN (single-user server URL + API token)."; \
+					echo "Example: SANDBOX_VARIANT=jupyterhub CODE_SANDBOX_URL=https://hub/user/<name> CODE_SANDBOX_TOKEN=... make start-noauth"; \
 					exit 1; \
 				fi; \
 				;; \
@@ -444,15 +444,15 @@ start-noauth:
 		log_warn "Could not find an available random Jupyter port after multiple attempts."; \
 		exit 1; \
 	fi; \
-	JUPYTER_URL_RUNTIME="http://127.0.0.1:$$JUPYTER_PORT_SELECTED"; \
+	JUPYTER_URL_CODE_SANDBOX="http://127.0.0.1:$$JUPYTER_PORT_SELECTED"; \
 	MCP_PORT_SELECTED="$$(pick_random_free_port 200)"; \
 	if [[ -z "$$MCP_PORT_SELECTED" ]]; then \
 		log_warn "Could not find an available random MCP port after multiple attempts."; \
 		exit 1; \
 	fi; \
-	MCP_URL_RUNTIME="http://127.0.0.1:$$MCP_PORT_SELECTED/mcp"; \
-	MCP_HEALTH_URL_RUNTIME="http://127.0.0.1:$$MCP_PORT_SELECTED/api/healthz"; \
-	log_ok "Base runtime: Jupyter server (always on)"; \
+	MCP_URL_CODE_SANDBOX="http://127.0.0.1:$$MCP_PORT_SELECTED/mcp"; \
+	MCP_HEALTH_URL_CODE_SANDBOX="http://127.0.0.1:$$MCP_PORT_SELECTED/api/healthz"; \
+	log_ok "Base code sandbox: Jupyter server (always on)"; \
 	log_ok "Additional sandbox: $$VARIANT_LABEL"; \
 	log_info "$$VARIANT_DESC"; \
 	log_info "Selected random Jupyter port: $$JUPYTER_PORT_SELECTED"; \
@@ -460,7 +460,7 @@ start-noauth:
 	if [[ "$$VARIANT" != "none" ]]; then \
 		log_info "MCP --sandbox-variant will be set to: $$ENGINE"; \
 	fi; \
-	log_step "Starting JupyterLab at $$JUPYTER_URL_RUNTIME/lab ..."; \
+	log_step "Starting JupyterLab at $$JUPYTER_URL_CODE_SANDBOX/lab ..."; \
 	jupyter lab \
 		--port "$$JUPYTER_PORT_SELECTED" \
 		--ip 0.0.0.0 \
@@ -470,33 +470,33 @@ start-noauth:
 		> .jupyter.log 2>&1 & \
 	JUPYTER_PID=$$!; \
 	log_step "Waiting for JupyterLab health endpoint..."; \
-	wait_for_health "JupyterLab" "$$JUPYTER_URL_RUNTIME/api?token=$(JUPYTER_TOKEN)" "$$JUPYTER_PID" ".jupyter.log" 90; \
-	log_step "Starting Jupyter MCP Server at $$MCP_URL_RUNTIME without MCP auth..."; \
+	wait_for_health "JupyterLab" "$$JUPYTER_URL_CODE_SANDBOX/api?token=$(JUPYTER_TOKEN)" "$$JUPYTER_PID" ".jupyter.log" 90; \
+	log_step "Starting Jupyter MCP Server at $$MCP_URL_CODE_SANDBOX without MCP auth..."; \
 	jupyter-mcp-server start \
 		--transport streamable-http \
 		--sandbox-variant "$$ENGINE" \
-		--jupyter-url "$$JUPYTER_URL_RUNTIME" \
+		--jupyter-url "$$JUPYTER_URL_CODE_SANDBOX" \
 		--jupyter-token $(JUPYTER_TOKEN) \
 		--document-id $(DOCUMENT_ID) \
-		--start-new-runtime true \
+		--start-new-code-sandbox true \
 		--insecure-mcp-noauth \
 		--port "$$MCP_PORT_SELECTED" \
 		> .mcp.log 2>&1 & \
 	MCP_PID=$$!; \
 	log_step "Waiting for Jupyter MCP Server health endpoint..."; \
-	wait_for_health "Jupyter MCP Server" "$$MCP_HEALTH_URL_RUNTIME" "$$MCP_PID" ".mcp.log" 90; \
+	wait_for_health "Jupyter MCP Server" "$$MCP_HEALTH_URL_CODE_SANDBOX" "$$MCP_PID" ".mcp.log" 90; \
 	echo ""; \
 	log_warn "MCP endpoint auth is disabled (local dev only)."; \
-	log_ok "JupyterLab: $$JUPYTER_URL_RUNTIME/lab?token=$(JUPYTER_TOKEN)"; \
-	log_ok "MCP endpoint: $$MCP_URL_RUNTIME"; \
+	log_ok "JupyterLab: $$JUPYTER_URL_CODE_SANDBOX/lab?token=$(JUPYTER_TOKEN)"; \
+	log_ok "MCP endpoint: $$MCP_URL_CODE_SANDBOX"; \
 	log_ok "Additional sandbox: $$VARIANT_LABEL"; \
 	log_step "Running pydantic-ai CLI with model: $(MODEL)"; \
 	echo ""; \
 	$(BEDROCK_ENV) \
 	PYDANTIC_AI_MODEL="$(MODEL)" \
-	JUPYTER_MCP_URL="$$MCP_URL_RUNTIME" \
+	JUPYTER_MCP_URL="$$MCP_URL_CODE_SANDBOX" \
 	SANDBOX_VARIANT="$$VARIANT_LABEL" \
-	SANDBOX_ID="$${SANDBOX_ID:-$${RUNTIME_ID:-}}" \
+	SANDBOX_ID="$${SANDBOX_ID:-$${CODE_SANDBOX_ID:-}}" \
 	MCP_TOKEN="" \
 	python agent.py
 
@@ -511,7 +511,7 @@ start-noauth-agent:
 	PYDANTIC_AI_MODEL="$(MODEL)" \
 	JUPYTER_MCP_URL="$(MCP_URL)" \
 	SANDBOX_VARIANT="$(SANDBOX_VARIANT)" \
-	SANDBOX_ID="$${SANDBOX_ID:-$${RUNTIME_ID:-}}" \
+	SANDBOX_ID="$${SANDBOX_ID:-$${CODE_SANDBOX_ID:-}}" \
 	MCP_TOKEN="" \
 	python agent.py
 

@@ -98,7 +98,7 @@ def get_current_notebook_context(notebook_manager=None):
         if not notebook_path:
             notebook_path = config.document_id
         if not kernel_id:
-            kernel_id = config.runtime_id
+            kernel_id = config.code_sandbox_id
 
     return notebook_path, kernel_id
 
@@ -158,8 +158,8 @@ def resolve_url_and_token_variables(
     jupyter_token,
     document_url,
     document_token,
-    runtime_url,
-    runtime_token,
+    code_sandbox_url,
+    code_sandbox_token,
 ) -> tuple[str, str | None, str, str | None]:
     """Resolve merged URL/token settings with per-field precedence."""
 
@@ -170,21 +170,21 @@ def resolve_url_and_token_variables(
     else:
         resolved_document_url = "http://localhost:8888"
 
-    if runtime_url is not None:
-        resolved_runtime_url = runtime_url
+    if code_sandbox_url is not None:
+        resolved_code_sandbox_url = code_sandbox_url
     elif jupyter_url is not None:
-        resolved_runtime_url = jupyter_url
+        resolved_code_sandbox_url = jupyter_url
     else:
-        resolved_runtime_url = "http://localhost:8888"
+        resolved_code_sandbox_url = "http://localhost:8888"
 
     resolved_document_token = document_token or jupyter_token
-    resolved_runtime_token = runtime_token or jupyter_token
+    resolved_code_sandbox_token = code_sandbox_token or jupyter_token
 
     return (
         resolved_document_url,
         resolved_document_token,
-        resolved_runtime_url,
-        resolved_runtime_token,
+        resolved_code_sandbox_url,
+        resolved_code_sandbox_token,
     )
 
 
@@ -213,10 +213,10 @@ def parse_bool_option(value, option_name: str) -> bool:
 
 def do_start(
     transport: str,
-    start_new_runtime: bool,
-    runtime_url: str,
-    runtime_id: str,
-    runtime_token: str,
+    start_new_code_sandbox: bool,
+    code_sandbox_url: str,
+    code_sandbox_id: str,
+    code_sandbox_token: str,
     document_url: str,
     document_id: str,
     document_token: str,
@@ -232,11 +232,11 @@ def do_start(
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
     sandbox_variant: str = "jupyter",
-    runtime_proxy_token: str | None = None,
-    runtime_channels_url: str | None = None,
+    code_sandbox_proxy_token: str | None = None,
+    code_sandbox_channels_url: str | None = None,
     sandbox_environment: str | None = None,
     sandbox_gpu: str | None = None,
-    runtime_password: str | None = None,
+    code_sandbox_password: str | None = None,
     document_password: str | None = None,
 ):
     """Shared startup routine used by Typer CLI surfaces."""
@@ -258,7 +258,7 @@ def do_start(
         )
 
     logger.info(
-        f"Start command received - runtime_url: {runtime_url!r}, "
+        f"Start command received - code_sandbox_url: {code_sandbox_url!r}, "
         f"document_url: {document_url!r}, provider: {provider}, "
         f"transport: {transport}"
     )
@@ -266,11 +266,11 @@ def do_start(
     config = set_config(
         transport=transport,
         provider=provider,
-        runtime_url=runtime_url,
-        start_new_runtime=start_new_runtime,
-        runtime_id=runtime_id,
-        runtime_token=runtime_token,
-        runtime_password=runtime_password,
+        code_sandbox_url=code_sandbox_url,
+        start_new_code_sandbox=start_new_code_sandbox,
+        code_sandbox_id=code_sandbox_id,
+        code_sandbox_token=code_sandbox_token,
+        code_sandbox_password=code_sandbox_password,
         document_url=document_url,
         document_id=document_id,
         document_token=document_token,
@@ -283,8 +283,8 @@ def do_start(
         execution_timeout=execution_timeout,
         max_execution_timeout=max_execution_timeout,
         sandbox_variant=sandbox_variant,
-        runtime_proxy_token=runtime_proxy_token,
-        runtime_channels_url=runtime_channels_url,
+        code_sandbox_proxy_token=code_sandbox_proxy_token,
+        code_sandbox_channels_url=code_sandbox_channels_url,
         sandbox_environment=sandbox_environment,
         sandbox_gpu=sandbox_gpu,
     )
@@ -299,7 +299,7 @@ def do_start(
             context_type="MCP_SERVER",
             serverapp=None,
             document_url=config.document_url,
-            runtime_url=config.runtime_url,
+            code_sandbox_url=config.code_sandbox_url,
             jupyterlab=config.jupyterlab,
         )
         logger.info(f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}")
@@ -311,12 +311,12 @@ def do_start(
             asyncio.run(__auto_enroll_document())
         except Exception as e:
             logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
-            if config.start_new_runtime or config.runtime_id:
+            if config.start_new_code_sandbox or config.code_sandbox_id:
                 try:
                     __start_kernel()
                 except Exception as e2:
                     logger.error(f"Failed to start kernel on startup: {e2}")
-    elif config.start_new_runtime or config.runtime_id:
+    elif config.start_new_code_sandbox or config.code_sandbox_id:
         try:
             __start_kernel()
         except Exception as e:
@@ -593,13 +593,13 @@ def create_kernel(config, logger) -> ISandboxClient:
 
     # Password auth carries credentials as cookie/XSRF headers; drop the token
     # when they are present so it cannot override them.
-    auth_headers = ServerContext.get_instance().runtime_auth_headers
+    auth_headers = ServerContext.get_instance().code_sandbox_auth_headers
 
     try:
         kernel = create_jupyter_sandbox_client(
-            server_url=config.runtime_url,
-            token=None if auth_headers else config.runtime_token,
-            kernel_id=config.runtime_id,
+            server_url=config.code_sandbox_url,
+            token=None if auth_headers else config.code_sandbox_token,
+            kernel_id=config.code_sandbox_id,
             timeout=getattr(config, "execution_timeout", None),
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
             headers=auth_headers or None,

@@ -204,7 +204,7 @@ class ListFilesTool(BaseTool):
             # Remote mode: use HTTP client
             config = get_config()
             server_client = JupyterServerClient(
-                base_url=config.runtime_url, token=config.runtime_token
+                base_url=config.code_sandbox_url, token=config.code_sandbox_token
             )
             all_files = _list_files_mcp(server_client, path, 0, None, max_depth)
         else:

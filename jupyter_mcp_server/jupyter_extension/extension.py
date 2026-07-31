@@ -34,10 +34,10 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
     Configuration:
         c.JupyterMCPServerExtensionApp.document_url = "local"  # or http://...
-        c.JupyterMCPServerExtensionApp.runtime_url = "local"   # or http://...
+        c.JupyterMCPServerExtensionApp.code_sandbox_url = "local"   # or http://...
         c.JupyterMCPServerExtensionApp.document_id = "notebook.ipynb"
-        c.JupyterMCPServerExtensionApp.start_new_runtime = True  # Start new kernel
-        c.JupyterMCPServerExtensionApp.runtime_id = "kernel-id"  # Or connect to existing
+        c.JupyterMCPServerExtensionApp.start_new_code_sandbox = True  # Start new kernel
+        c.JupyterMCPServerExtensionApp.code_sandbox_id = "kernel-id"  # Or connect to existing
     """
 
     # Extension metadata
@@ -52,7 +52,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         help='Document URL - use "local" for local serverapp access or http://... for remote',
     )
 
-    runtime_url = Unicode(
+    code_sandbox_url = Unicode(
         "local",
         config=True,
         help='Runtime URL - use "local" for local serverapp access or http://... for remote',
@@ -60,23 +60,23 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
     document_id = Unicode("notebook.ipynb", config=True, help="Default document ID (notebook path)")
 
-    start_new_runtime = Bool(
-        False, config=True, help="Whether to start a new kernel runtime on initialization"
+    start_new_code_sandbox = Bool(
+        False, config=True, help="Whether to start a new kernel code sandbox on initialization"
     )
 
-    runtime_id = Unicode(
-        "", config=True, help="Existing kernel ID to connect to (if not starting new runtime)"
+    code_sandbox_id = Unicode(
+        "", config=True, help="Existing kernel ID to connect to (if not starting new code sandbox)"
     )
 
     document_token = Unicode(
         "", config=True, help="Authentication token for document server (if remote)"
     )
 
-    runtime_token = Unicode(
-        "", config=True, help="Authentication token for runtime server (if remote)"
+    code_sandbox_token = Unicode(
+        "", config=True, help="Authentication token for code sandbox server (if remote)"
     )
 
-    provider = Unicode("jupyter", config=True, help="Provider type for document/runtime")
+    provider = Unicode("jupyter", config=True, help="Provider type for document/code sandbox")
 
     jupyterlab = Bool(True, config=True, help="Enable JupyterLab mode (defaults to True)")
 
@@ -116,13 +116,13 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
         logger.info("Initializing Jupyter MCP Server Extension")
         logger.info(f"  Document URL: {self.document_url}")
-        logger.info(f"  Runtime URL: {self.runtime_url}")
+        logger.info(f"  Runtime URL: {self.code_sandbox_url}")
         logger.info(f"  Document ID: {self.document_id}")
-        logger.info(f"  Start New Runtime: {self.start_new_runtime}")
+        logger.info(f"  Start New Runtime: {self.start_new_code_sandbox}")
         logger.info(f"  JupyterLab Mode: {self.jupyterlab}")
         logger.info(f"  Open Notebook in UI: {self.open_notebook_in_ui}")
-        if self.runtime_id:
-            logger.info(f"  Runtime ID: {self.runtime_id}")
+        if self.code_sandbox_id:
+            logger.info(f"  Runtime ID: {self.code_sandbox_id}")
 
         # Update the global server context
         context = get_server_context()
@@ -130,7 +130,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
             context_type="JUPYTER_SERVER",
             serverapp=self.serverapp,
             document_url=self.document_url,
-            runtime_url=self.runtime_url,
+            code_sandbox_url=self.code_sandbox_url,
             jupyterlab=self.jupyterlab,
         )
 
@@ -139,12 +139,12 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
         config = get_config()
         config.document_url = self.document_url
-        config.runtime_url = self.runtime_url
+        config.code_sandbox_url = self.code_sandbox_url
         config.document_id = self.document_id
         config.document_token = self.document_token if self.document_token else None
-        config.runtime_token = self.runtime_token if self.runtime_token else None
-        config.start_new_runtime = self.start_new_runtime
-        config.runtime_id = self.runtime_id if self.runtime_id else None
+        config.code_sandbox_token = self.code_sandbox_token if self.code_sandbox_token else None
+        config.start_new_code_sandbox = self.start_new_code_sandbox
+        config.code_sandbox_id = self.code_sandbox_id if self.code_sandbox_id else None
         config.provider = self.provider
         config.jupyterlab = self.jupyterlab
         config.open_notebook_in_ui = self.open_notebook_in_ui
@@ -154,12 +154,12 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         self.settings.update(
             {
                 "mcp_document_url": self.document_url,
-                "mcp_runtime_url": self.runtime_url,
+                "mcp_code_sandbox_url": self.code_sandbox_url,
                 "mcp_document_id": self.document_id,
                 "mcp_document_token": self.document_token,
-                "mcp_runtime_token": self.runtime_token,
-                "mcp_start_new_runtime": self.start_new_runtime,
-                "mcp_runtime_id": self.runtime_id,
+                "mcp_code_sandbox_token": self.code_sandbox_token,
+                "mcp_start_new_code_sandbox": self.start_new_code_sandbox,
+                "mcp_code_sandbox_id": self.code_sandbox_id,
                 "mcp_provider": self.provider,
                 "mcp_jupyterlab": self.jupyterlab,
                 "mcp_open_notebook_in_ui": self.open_notebook_in_ui,
@@ -170,8 +170,8 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
 
         # Trigger auto-enrollment if document_id is configured
         # Note: Auto-enrollment supports 3 modes:
-        # 1. With existing kernel (runtime_id set)
-        # 2. With new kernel (start_new_runtime=True)
+        # 1. With existing kernel (code_sandbox_id set)
+        # 2. With new kernel (start_new_code_sandbox=True)
         # 3. Without kernel - notebook-only mode (both False/None)
         if self.document_id:
             from jupyter_mcp_server.server import notebook_manager

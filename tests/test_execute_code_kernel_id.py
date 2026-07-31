@@ -47,7 +47,7 @@ def targeting_setup(jupyter_server):
     """Two live kernels, each holding a distinct MARKER, with the first bound to
     the current notebook. Yields (notebook_manager, server_client, raw_kernel_id).
     """
-    set_config(runtime_url=jupyter_server, runtime_token=JUPYTER_TOKEN)
+    set_config(code_sandbox_url=jupyter_server, code_sandbox_token=JUPYTER_TOKEN)
     server_client = JupyterServerClient(base_url=jupyter_server, token=JUPYTER_TOKEN)
 
     current_kernel = create_jupyter_sandbox_client(

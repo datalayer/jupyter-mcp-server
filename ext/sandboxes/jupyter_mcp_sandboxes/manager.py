@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""Lifecycle manager for code-sandboxes runtimes used by MCP tools.
+"""Lifecycle manager for code-sandboxes code sandboxes used by MCP tools.
 
 This manager is intentionally independent from notebook/kernel management so that
 agents can run code through sandbox backends as an alternative to Jupyter
@@ -41,7 +41,7 @@ class SandboxRuntimeManager:
         run_url: str | None = None,
         python_version: str | None = None,
     ) -> dict[str, Any]:
-        """Launch and register a new sandbox runtime."""
+        """Launch and register a new code sandbox."""
         if sandbox_name in self._sandboxes:
             raise ValueError(f"Sandbox '{sandbox_name}' already exists.")
 

@@ -85,7 +85,7 @@ Example usage:
 <details>
 <summary><b>Advanced Configuration (Optional)</b></summary>
 
-For deployments requiring separate document storage and runtime execution:
+For deployments requiring separate document storage and code sandbox execution:
 
 ```json
 {
@@ -97,8 +97,8 @@ For deployments requiring separate document storage and runtime execution:
         "DOCUMENT_URL": "http://localhost:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://localhost:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "CODE_SANDBOX_URL": "http://localhost:8888",
+        "CODE_SANDBOX_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }
@@ -140,7 +140,7 @@ Configuration varies by operating system. For complete configuration options, se
 <details>
 <summary><b>Advanced Configuration (Optional)</b></summary>
 
-For deployments requiring separate document storage and runtime execution:
+For deployments requiring separate document storage and code sandbox execution:
 
 ```json
 {
@@ -152,8 +152,8 @@ For deployments requiring separate document storage and runtime execution:
         "-e", "DOCUMENT_URL",
         "-e", "DOCUMENT_TOKEN",
         "-e", "DOCUMENT_ID",
-        "-e", "RUNTIME_URL",
-        "-e", "RUNTIME_TOKEN",
+        "-e", "CODE_SANDBOX_URL",
+        "-e", "CODE_SANDBOX_TOKEN",
         "-e", "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
       ],
@@ -161,8 +161,8 @@ For deployments requiring separate document storage and runtime execution:
         "DOCUMENT_URL": "http://host.docker.internal:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "CODE_SANDBOX_URL": "http://host.docker.internal:8888",
+        "CODE_SANDBOX_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }
@@ -201,7 +201,7 @@ For deployments requiring separate document storage and runtime execution:
 <details>
 <summary><b>Advanced Configuration (Optional)</b></summary>
 
-For deployments requiring separate document storage and runtime execution:
+For deployments requiring separate document storage and code sandbox execution:
 
 ```json
 {
@@ -213,8 +213,8 @@ For deployments requiring separate document storage and runtime execution:
         "-e", "DOCUMENT_URL",
         "-e", "DOCUMENT_TOKEN",
         "-e", "DOCUMENT_ID",
-        "-e", "RUNTIME_URL",
-        "-e", "RUNTIME_TOKEN",
+        "-e", "CODE_SANDBOX_URL",
+        "-e", "CODE_SANDBOX_TOKEN",
         "-e", "ALLOW_IMG_OUTPUT",
         "--network=host",
         "datalayer/jupyter-mcp-server:latest"
@@ -223,8 +223,8 @@ For deployments requiring separate document storage and runtime execution:
         "DOCUMENT_URL": "http://localhost:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://localhost:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "CODE_SANDBOX_URL": "http://localhost:8888",
+        "CODE_SANDBOX_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }
@@ -234,7 +234,7 @@ For deployments requiring separate document storage and runtime execution:
 
 </details>
 
-For advanced configurations with separate document storage and runtime execution, see the [complete configuration examples](/reference/configuration#configuration-examples).
+For advanced configurations with separate document storage and code sandbox execution, see the [complete configuration examples](/reference/configuration#configuration-examples).
 
 ## Troubleshooting
 

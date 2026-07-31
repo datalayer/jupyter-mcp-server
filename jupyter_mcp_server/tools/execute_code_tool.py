@@ -73,12 +73,12 @@ class ExecuteCodeTool(BaseTool):
         # Password auth carries credentials via cookie/XSRF headers; when present,
         # drop the token so it can't override them (mirrors create_kernel and
         # use_notebook). Without this, a borrowed cross-kernel connection under
-        # password auth would be unauthenticated, since runtime_token is typically
+        # password auth would be unauthenticated, since code_sandbox_token is typically
         # None in that mode.
-        auth_headers = ServerContext.get_instance().runtime_auth_headers
+        auth_headers = ServerContext.get_instance().code_sandbox_auth_headers
         sandbox_client = create_jupyter_sandbox_client(
-            server_url=config.runtime_url,
-            token=None if auth_headers else config.runtime_token,
+            server_url=config.code_sandbox_url,
+            token=None if auth_headers else config.code_sandbox_token,
             kernel_id=kernel_id,
             timeout=getattr(config, "execution_timeout", None),
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,

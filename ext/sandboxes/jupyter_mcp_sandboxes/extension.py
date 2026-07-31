@@ -47,7 +47,7 @@ class SandboxesExtension(JupyterMCPExtension):
             name="jupyter-mcp-sandboxes",
             version="0.1.0",
             description=(
-                "Launch and use code-sandboxes runtimes as an alternative to "
+                "Launch and use code-sandboxes code sandboxes as an alternative to "
                 "Jupyter kernels for code execution."
             ),
             author="Datalayer",
@@ -151,7 +151,7 @@ class SandboxesExtension(JupyterMCPExtension):
             ] = None,
             proxy_token: Annotated[
                 str | None,
-                Field(description="Colab runtime proxy token when using colab variant"),
+                Field(description="Colab code sandbox proxy token when using colab variant"),
             ] = None,
             channels_url: Annotated[
                 str | None,
@@ -170,8 +170,8 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(description="Modal Python version override (e.g. 3.12). Only used for modal variant."),
             ] = None,
-        ) -> Annotated[dict, Field(description="Launch status and sandbox metadata")]:
-            """Launch a code-sandboxes runtime that can be used instead of Jupyter kernels.
+        ) -> Annotated[dict, Field(description="Launch status and code sandbox metadata")]:
+            """Launch a code sandbox that can be used instead of Jupyter kernels.
 
             After launch, call use_sandbox to make execute_code run on this sandbox
             (as an alternative to notebook-bound kernel execution). Works in both
@@ -185,7 +185,7 @@ class SandboxesExtension(JupyterMCPExtension):
             return await safe_notebook_operation(
                 lambda: LaunchSandboxTool().execute(
                     mode=server_context.mode,
-                    sandbox_runtime_manager=manager,
+                    sandbox_code_sandbox_manager=manager,
                     sandbox_name=sandbox_name,
                     variant=resolved_variant,
                     timeout=timeout,
@@ -212,11 +212,11 @@ class SandboxesExtension(JupyterMCPExtension):
             list[dict],
             Field(description="All launched sandboxes with name, variant, status, and active flag"),
         ]:
-            """List launched sandbox runtimes that can be used as alternatives to kernels."""
+            """List launched code sandboxes that can be used as alternatives to kernels."""
             return await safe_notebook_operation(
                 lambda: ListSandboxesTool().execute(
                     mode=server_context.mode,
-                    sandbox_runtime_manager=manager,
+                    sandbox_code_sandbox_manager=manager,
                 )
             )
 
@@ -241,7 +241,7 @@ class SandboxesExtension(JupyterMCPExtension):
             return await safe_notebook_operation(
                 lambda: UseSandboxTool().execute(
                     mode=server_context.mode,
-                    sandbox_runtime_manager=manager,
+                    sandbox_code_sandbox_manager=manager,
                     sandbox_name=sandbox_name,
                 )
             )
@@ -256,11 +256,11 @@ class SandboxesExtension(JupyterMCPExtension):
         async def terminate_sandbox(
             sandbox_name: Annotated[str, Field(description="Sandbox name to terminate and unregister")],
         ) -> Annotated[str, Field(description="Termination status message")]:
-            """Terminate a launched sandbox runtime."""
+            """Terminate a launched code sandbox."""
             return await safe_notebook_operation(
                 lambda: TerminateSandboxTool().execute(
                     mode=server_context.mode,
-                    sandbox_runtime_manager=manager,
+                    sandbox_code_sandbox_manager=manager,
                     sandbox_name=sandbox_name,
                 )
             )

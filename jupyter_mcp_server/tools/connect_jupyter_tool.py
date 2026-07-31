@@ -45,8 +45,8 @@ class ConnectJupyterTool(BaseTool):
             # Update configuration with new connection parameters
             set_config(
                 provider=provider,
-                runtime_url=jupyter_url,
-                runtime_token=jupyter_token,
+                code_sandbox_url=jupyter_url,
+                code_sandbox_token=jupyter_token,
                 document_url=jupyter_url,
                 document_token=jupyter_token,
             )

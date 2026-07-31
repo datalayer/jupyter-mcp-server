@@ -64,7 +64,7 @@ def test_launch_modal_forwards_python_version(fake_sandbox: MagicMock):
     assert kwargs["python_version"] == "3.12"
 
 
-def test_launch_colab_forwards_runtime_fields(fake_sandbox: MagicMock):
+def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     manager = SandboxRuntimeManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
@@ -86,7 +86,7 @@ def test_launch_colab_forwards_runtime_fields(fake_sandbox: MagicMock):
     assert kwargs["channels_url"] == "wss://colab.example/channels"
 
 
-def test_launch_kaggle_forwards_runtime_fields(fake_sandbox: MagicMock):
+def test_launch_kaggle_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     manager = SandboxRuntimeManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
@@ -108,7 +108,7 @@ def test_launch_kaggle_forwards_runtime_fields(fake_sandbox: MagicMock):
     assert kwargs["token"] == "kaggle-token"
 
 
-def test_launch_jupyter_forwards_runtime_fields(fake_sandbox: MagicMock):
+def test_launch_jupyter_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     manager = SandboxRuntimeManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
@@ -118,14 +118,14 @@ def test_launch_jupyter_forwards_runtime_fields(fake_sandbox: MagicMock):
             timeout=45,
             server_url="https://jupyter.example",
             kernel_id="kernel-3",
-            token="runtime-token",
+            token="code-sandbox-token",
         )
 
     kwargs = mock_create.call_args.kwargs
     assert kwargs["variant"] == "jupyter"
     assert kwargs["server_url"] == "https://jupyter.example"
     assert kwargs["kernel_id"] == "kernel-3"
-    assert kwargs["token"] == "runtime-token"
+    assert kwargs["token"] == "code-sandbox-token"
     assert kwargs["reuse_kernel"] is False
 
 

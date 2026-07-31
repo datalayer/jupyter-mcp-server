@@ -39,13 +39,13 @@ def test_build_sandbox_variant_routing(engine, expected_variant):
         assert kwargs["timeout"] == float(config.execution_timeout)
 
 
-def test_build_sandbox_colab_forwards_runtime_connection():
-    """Colab engine forwards runtime URL, kernel id and proxy token."""
+def test_build_sandbox_colab_forwards_code_sandbox_connection():
+    """Colab engine forwards code sandbox URL, kernel id and proxy token."""
     config = JupyterMCPConfig(
         sandbox_variant="colab",
-        runtime_url="https://colab-host.example",
-        runtime_id="kernel-id",
-        runtime_proxy_token="proxy-token",
+        code_sandbox_url="https://colab-host.example",
+        code_sandbox_id="kernel-id",
+        code_sandbox_proxy_token="proxy-token",
     )
 
     with patch("code_sandboxes.Sandbox.create") as mock_create:
@@ -66,12 +66,12 @@ def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
     """Colab engine forwards channels_url when supplied and allows missing kernel_id."""
     config = JupyterMCPConfig(
         sandbox_variant="colab",
-        runtime_url="https://colab-host.example",
-        runtime_proxy_token="proxy-token",
-        runtime_channels_url=(
+        code_sandbox_url="https://colab-host.example",
+        code_sandbox_proxy_token="proxy-token",
+        code_sandbox_channels_url=(
             "wss://colab-host.example/api/kernels/"
             "11e073f0-e82d-4029-be8d-3918f7ed1a9e/channels"
-            "?session_id=abc&colab-runtime-proxy-token=proxy-token"
+            "?session_id=abc&colab-code-sandbox-proxy-token=proxy-token"
         ),
     )
 
@@ -88,13 +88,13 @@ def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
         assert kwargs["channels_url"].startswith("wss://colab-host.example")
 
 
-def test_build_sandbox_kaggle_forwards_runtime_connection_and_token():
-    """Kaggle engine forwards runtime URL, optional kernel id and token."""
+def test_build_sandbox_kaggle_forwards_code_sandbox_connection_and_token():
+    """Kaggle engine forwards code sandbox URL, optional kernel id and token."""
     config = JupyterMCPConfig(
         sandbox_variant="kaggle",
-        runtime_url="https://kaggle-host.example/proxy",
-        runtime_id="kernel-id",
-        runtime_token="kaggle-token",
+        code_sandbox_url="https://kaggle-host.example/proxy",
+        code_sandbox_id="kernel-id",
+        code_sandbox_token="kaggle-token",
     )
 
     with patch("code_sandboxes.Sandbox.create") as mock_create:
@@ -130,8 +130,8 @@ def test_build_sandbox_kaggle_forwards_channels_url_without_kernel_id():
     """Kaggle engine forwards channels_url when supplied and allows missing kernel_id."""
     config = JupyterMCPConfig(
         sandbox_variant="kaggle",
-        runtime_url="https://kaggle-host.example/proxy",
-        runtime_channels_url=(
+        code_sandbox_url="https://kaggle-host.example/proxy",
+        code_sandbox_channels_url=(
             "wss://kaggle-host.example/k/123/proxy/api/kernels/"
             "11e073f0-e82d-4029-be8d-3918f7ed1a9e/channels?session_id=abc"
         ),
@@ -149,8 +149,8 @@ def test_build_sandbox_kaggle_forwards_channels_url_without_kernel_id():
         assert kwargs["channels_url"].startswith("wss://kaggle-host.example")
 
 
-def test_build_sandbox_kaggle_defaults_to_batch_when_runtime_not_configured():
-    """Kaggle engine should prefer batch mode when runtime values are not explicitly set."""
+def test_build_sandbox_kaggle_defaults_to_batch_when_code_sandbox_not_configured():
+    """Kaggle engine should prefer batch mode when code sandbox values are not explicitly set."""
     config = JupyterMCPConfig(sandbox_variant="kaggle")
 
     with patch("code_sandboxes.Sandbox.create") as mock_create:
@@ -165,11 +165,11 @@ def test_build_sandbox_kaggle_defaults_to_batch_when_runtime_not_configured():
         assert "channels_url" not in kwargs
 
 
-def test_build_sandbox_kaggle_channels_url_ignores_default_runtime_url():
-    """When channels_url is set, default localhost runtime URL must not leak into Kaggle create args."""
+def test_build_sandbox_kaggle_channels_url_ignores_default_code_sandbox_url():
+    """When channels_url is set, default localhost code sandbox URL must not leak into Kaggle create args."""
     config = JupyterMCPConfig(
         sandbox_variant="kaggle",
-        runtime_channels_url=(
+        code_sandbox_channels_url=(
             "wss://kaggle-host.example/k/123/proxy/api/kernels/"
             "11e073f0-e82d-4029-be8d-3918f7ed1a9e/channels?session_id=abc"
         ),
@@ -187,11 +187,11 @@ def test_build_sandbox_kaggle_channels_url_ignores_default_runtime_url():
 
 
 def test_build_sandbox_datalayer_forwards_token_and_run_url():
-    """Datalayer engine forwards runtime auth/settings to code-sandboxes."""
+    """Datalayer engine forwards code sandbox auth/settings to code-sandboxes."""
     config = JupyterMCPConfig(
         sandbox_variant="datalayer",
-        runtime_url="https://run.example",
-        runtime_token="api-token",
+        code_sandbox_url="https://run.example",
+        code_sandbox_token="api-token",
         sandbox_environment="ai-agents-env",
     )
 
@@ -224,13 +224,13 @@ def test_build_sandbox_modal_forwards_gpu_flavor():
         assert kwargs["gpu"] == "A100"
 
 
-def test_build_sandbox_jupyter_forwards_runtime_and_reconnect():
-    """Jupyter engine forwards runtime connection settings and disables implicit reuse."""
+def test_build_sandbox_jupyter_forwards_code_sandbox_and_reconnect():
+    """Jupyter engine forwards code sandbox connection settings and disables implicit reuse."""
     config = JupyterMCPConfig(
         sandbox_variant="jupyter",
-        runtime_url="https://jupyter-host.example",
-        runtime_token="runtime-token",
-        runtime_id="kernel-id",
+        code_sandbox_url="https://jupyter-host.example",
+        code_sandbox_token="code-sandbox-token",
+        code_sandbox_id="kernel-id",
         reconnect_interval=5,
     )
 
@@ -243,7 +243,7 @@ def test_build_sandbox_jupyter_forwards_runtime_and_reconnect():
             variant="jupyter",
             timeout=float(config.execution_timeout),
             server_url="https://jupyter-host.example",
-            token="runtime-token",
+            token="code-sandbox-token",
             kernel_id="kernel-id",
             reuse_kernel=False,
             client_kwargs={"reconnect_interval": 5},
@@ -262,7 +262,7 @@ def test_extension_create_kernel_uses_plain_kernel_client_for_sandbox_engines():
     """Non-jupyter sandbox variants must return the sandbox's plain kernel client."""
     config = JupyterMCPConfig(
         sandbox_variant="docker",
-        runtime_url="http://localhost:8888",
+        code_sandbox_url="http://localhost:8888",
     )
     fake_kernel_client = MagicMock()
     extension = SandboxesExtension()
@@ -281,7 +281,7 @@ def test_extension_create_kernel_builds_and_starts_kernel_client():
     """create_kernel builds a sandbox and returns its kernel client."""
     config = JupyterMCPConfig(
         sandbox_variant="docker",
-        runtime_url="https://run.example",
+        code_sandbox_url="https://run.example",
     )
     fake_logger = MagicMock()
     fake_sandbox = MagicMock()
@@ -405,7 +405,7 @@ async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
 
 
 @pytest.mark.asyncio
-async def test_launch_sandbox_kaggle_variant_forwards_runtime_fields():
+async def test_launch_sandbox_kaggle_variant_forwards_code_sandbox_fields():
     extension = SandboxesExtension()
     mcp = _FakeMCP()
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
