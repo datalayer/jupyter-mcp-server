@@ -18,7 +18,7 @@ class JupyterMCPConfig(BaseModel):
         default="jupyter", description="The provider to use for the document and code sandbox"
     )
 
-    # Runtime configuration
+    # Code Sandbox configuration
     code_sandbox_url: str = Field(
         default="http://localhost:8888",
         description="The code sandbox URL to use, or 'local' for direct serverapp access",

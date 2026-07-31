@@ -18,7 +18,7 @@ from jupyter_mcp_server.utils import safe_extract_outputs
 from jupyter_mcp_sandboxes.kernel import _execution_result_to_reply
 
 
-class SandboxRuntimeManager:
+class CodeSandboxManager:
     """Track launched sandboxes and optional active sandbox selection."""
 
     def __init__(self):

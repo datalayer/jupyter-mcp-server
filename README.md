@@ -65,7 +65,7 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows.
 For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
 
-#### Server and Runtime Management Tools
+#### Server and Code Sandbox Management Tools
 
 | Name                 | Description                                                                                                                                                                                                                                                                                              |
 | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

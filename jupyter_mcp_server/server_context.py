@@ -96,7 +96,7 @@ class ServerContext:
         from jupyter_mcp_server.auth import JupyterPasswordAuth
 
         try:
-            # Runtime auth — password takes precedence over token
+            # Code Sandbox auth — password takes precedence over token
             if config.code_sandbox_password:
                 self._code_sandbox_password_auth = JupyterPasswordAuth(code_sandbox_url, config.code_sandbox_password)
                 self._code_sandbox_password_auth.login()

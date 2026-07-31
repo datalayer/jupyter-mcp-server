@@ -46,9 +46,9 @@ This tool is only available when the `jupyter_mcp_sandboxes` extension is instal
   - `sandbox_name`(string): Unique sandbox identifier
   - `variant`(string, optional): Sandbox variant (`eval`, `docker`, `jupyter`, `datalayer`, `kaggle`, `colab`, `monty`, `modal`, default: `eval`)
   - `timeout`(int, optional): Default execution timeout in seconds for this sandbox (default: 60)
-  - `environment`(string, optional): Runtime environment name (common for datalayer/modal)
+  - `environment`(string, optional): Code sandbox environment name (common for datalayer/modal)
   - `gpu`(string, optional): GPU flavor for supported variants (for example `T4`, `A10G`, `A100`, `H100`)
-  - `server_url`(string, optional): Runtime proxy URL (kaggle or colab variant)
+  - `server_url`(string, optional): Code Sandbox proxy URL (kaggle or colab variant)
   - `kernel_id`(string, optional): Kernel ID (kaggle or colab variant; omit for kaggle to create a new kernel)
   - `channels_url`(string, optional): Notebook session channels URL to derive `server_url`/`kernel_id` (kaggle or colab variant)
   - `proxy_token`(string, optional): Colab code sandbox proxy token (colab variant)

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from jupyter_mcp_server.utils import normalize_cell_source, safe_extract_outputs
 
 
-class DocumentRuntime(BaseModel):
+class DocumentCodeSandbox(BaseModel):
     provider: str
     document_url: str
     document_id: str

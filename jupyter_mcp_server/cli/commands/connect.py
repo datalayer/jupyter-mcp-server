@@ -12,7 +12,7 @@ import typer
 
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.log import logger
-from jupyter_mcp_server.models import DocumentRuntime
+from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.utils import (
     mcp_auth_headers,
     parse_bool_option,
@@ -162,7 +162,7 @@ def connect_command(
     _update_extension_server_context(config)
 
     config = get_config()
-    document_code_sandbox = DocumentRuntime(
+    document_code_sandbox = DocumentCodeSandbox(
         provider=config.provider,
         code_sandbox_url=config.code_sandbox_url,
         code_sandbox_id=config.code_sandbox_id,

@@ -25,7 +25,7 @@ from jupyter_mcp_server.utils import safe_notebook_operation
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from jupyter_mcp_sandboxes.manager import SandboxRuntimeManager
+from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 from jupyter_mcp_sandboxes.tools import (
     LaunchSandboxTool,
     ListSandboxesTool,
@@ -40,7 +40,7 @@ class SandboxesExtension(JupyterMCPExtension):
     """Sandboxes extension for Jupyter MCP Server."""
 
     def __init__(self) -> None:
-        self._manager = SandboxRuntimeManager()
+        self._manager = CodeSandboxManager()
 
     def manifest(self) -> PluginManifest:
         return PluginManifest(
@@ -143,7 +143,7 @@ class SandboxesExtension(JupyterMCPExtension):
             ] = None,
             server_url: Annotated[
                 str | None,
-                Field(description="Runtime proxy URL when using colab or kaggle variant"),
+                Field(description="Code Sandbox proxy URL when using colab or kaggle variant"),
             ] = None,
             kernel_id: Annotated[
                 str | None,

@@ -27,7 +27,7 @@ from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
 from jupyter_mcp_server.log import logger
-from jupyter_mcp_server.models import DocumentRuntime
+from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.tools import (
@@ -239,7 +239,7 @@ async def connect(request: Request):
         f"provider: {data.get('provider')}"
     )
 
-    document_code_sandbox = DocumentRuntime(**data)
+    document_code_sandbox = DocumentCodeSandbox(**data)
 
     # Clean up existing default notebook if any
     if "default" in notebook_manager:

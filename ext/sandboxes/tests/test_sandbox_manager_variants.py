@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""Variant coverage tests for SandboxRuntimeManager launch routing."""
+"""Variant coverage tests for CodeSandboxManager launch routing."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from jupyter_mcp_sandboxes.manager import SandboxRuntimeManager
+from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def fake_sandbox() -> MagicMock:
 
 @pytest.mark.parametrize("variant", ["eval", "docker", "monty"])
 def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
@@ -46,7 +46,7 @@ def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: Magi
 
 
 def test_launch_modal_forwards_python_version(fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
@@ -65,7 +65,7 @@ def test_launch_modal_forwards_python_version(fake_sandbox: MagicMock):
 
 
 def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
@@ -87,7 +87,7 @@ def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
 
 
 def test_launch_kaggle_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
@@ -109,7 +109,7 @@ def test_launch_kaggle_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
 
 
 def test_launch_jupyter_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
@@ -130,7 +130,7 @@ def test_launch_jupyter_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
 
 
 def test_launch_datalayer_forwards_token_and_run_url(fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
@@ -148,7 +148,7 @@ def test_launch_datalayer_forwards_token_and_run_url(fake_sandbox: MagicMock):
 
 
 def test_launch_sets_active_and_prevents_duplicates(fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
 
     with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox):
         first = manager.launch(sandbox_name="dup", variant="eval", timeout=10)
@@ -161,7 +161,7 @@ def test_launch_sets_active_and_prevents_duplicates(fake_sandbox: MagicMock):
 
 
 def test_use_terminate_and_terminate_all(fake_sandbox: MagicMock):
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
     fake_sandbox_2 = MagicMock()
     fake_sandbox_2.sandbox_id = "sandbox-2"
     fake_sandbox_2.info = SimpleNamespace(variant="docker", status="running")
