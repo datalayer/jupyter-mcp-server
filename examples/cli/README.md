@@ -86,7 +86,7 @@ Security note: `start-noauth` disables MCP client authentication and should not 
 
 ## Configuration
 
-You can override settings at code sandbox:
+You can override settings at runtime:
 
 ```bash
 MCP_TOKEN=my-mcp-token \

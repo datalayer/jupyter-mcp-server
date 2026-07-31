@@ -157,8 +157,8 @@ class UseNotebookTool(BaseTool):
             notebook_path: Path to the notebook file (optional, if not provided switches to existing notebook)
             use_mode: "connect" or "create"
             kernel_id: Optional specific kernel ID
-            code_sandbox_url: Runtime URL for HTTP mode
-            code_sandbox_token: Runtime token for HTTP mode
+            code_sandbox_url: Code sandbox URL for HTTP mode
+            code_sandbox_token: Code sandbox token for HTTP mode
             **kwargs: Additional parameters
 
         Returns:

@@ -328,9 +328,9 @@ def do_start(
 
     if transport == "streamable-http":
         if mcp_token:
-            from jupyter_mcp_server.server import RuntimeTokenVerifier
+            from jupyter_mcp_server.server import CodeSandboxTokenVerifier
 
-            mcp._token_verifier = RuntimeTokenVerifier(mcp_token)
+            mcp._token_verifier = CodeSandboxTokenVerifier(mcp_token)
             logger.info("MCP endpoint token authentication enabled (using MCP_TOKEN)")
         elif insecure_mcp_noauth:
             logger.warning(

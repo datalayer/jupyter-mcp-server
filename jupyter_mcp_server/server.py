@@ -71,7 +71,7 @@ from jupyter_mcp_server.utils import (
 # Globals.
 
 
-class RuntimeTokenVerifier:
+class CodeSandboxTokenVerifier:
     """Verify MCP client requests against the configured code sandbox token."""
 
     def __init__(self, token: str):

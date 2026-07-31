@@ -27,7 +27,7 @@
 
 </div>
 
-> **Breaking change in v2.0.0:** "Runtime", aka name "Jupyter Kernel", is now called "Code Sandbox", see the [migration guide](https://jupyter-mcp-server.datalayer.tech/releases).
+> **Breaking change in v1.2.0:** "Runtime", aka name "Jupyter Kernel", is now called "Code Sandbox", see the [migration guide](https://jupyter-mcp-server.datalayer.tech/releases/#migration-guide-to-120).
 >
 > **New in v1.1.0:** We are not supporting external `Sandboxes` (Datalayer, Kaggle, Monty, Google Colab, Modal...).
 >

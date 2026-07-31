@@ -12,7 +12,7 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 
 # A non-default binding, as use_notebook records in MCP_SERVER mode. Held in
 # constants (not call-site literals) so the "token" argument reads as data.
-CODE_SANDBOX_URL = "https://code sandbox.example/"
+CODE_SANDBOX_URL = "https://code-sandbox.example/"
 CODE_SANDBOX_AUTH = "code-sandbox-token"
 NB_PATH = "work/analysis.ipynb"
 

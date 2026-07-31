@@ -272,7 +272,7 @@ class ServerContext:
             self._code_sandbox_password_auth.inject_into_session(
                 self._server_client.http_client.session
             )
-        logger.info("Runtime session re-authenticated after cookie expiry.")
+        logger.info("Code sandbox session re-authenticated after cookie expiry.")
 
     def relogin_document(self, timeout: float = 10.0) -> None:
         """Re-authenticate the document server session after cookie expiry.

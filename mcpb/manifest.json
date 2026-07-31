@@ -106,7 +106,7 @@
   },
   "compatibility": {
     "platforms": ["darwin", "win32", "linux"],
-    "code sandboxes": {
+    "runtimes": {
       "python": ">=3.10"
     }
   },

@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jupyter_mcp_server.server import RuntimeTokenVerifier
+from jupyter_mcp_server.server import CodeSandboxTokenVerifier
 
 
 class TestRuntimeTokenVerifier:
@@ -26,7 +26,7 @@ class TestRuntimeTokenVerifier:
 
     @pytest.mark.asyncio
     async def test_accepts_matching_token(self):
-        verifier = RuntimeTokenVerifier("secret-token")
+        verifier = CodeSandboxTokenVerifier("secret-token")
 
         access_token = await verifier.verify_token("secret-token")
 
@@ -35,13 +35,13 @@ class TestRuntimeTokenVerifier:
 
     @pytest.mark.asyncio
     async def test_rejects_mismatched_token(self):
-        verifier = RuntimeTokenVerifier("secret-token")
+        verifier = CodeSandboxTokenVerifier("secret-token")
 
         assert await verifier.verify_token("wrong-token") is None
 
     @pytest.mark.asyncio
     async def test_rejects_wrong_length_token(self):
-        verifier = RuntimeTokenVerifier("secret-token")
+        verifier = CodeSandboxTokenVerifier("secret-token")
 
         assert await verifier.verify_token("s") is None
 
@@ -49,7 +49,7 @@ class TestRuntimeTokenVerifier:
     async def test_comparison_is_constant_time(self):
         """Guards against regressing to a plain `!=`, which leaks byte-position
         timing information on the configured token (CWE-208)."""
-        verifier = RuntimeTokenVerifier("secret-token")
+        verifier = CodeSandboxTokenVerifier("secret-token")
 
         target = "jupyter_mcp_server.server.hmac.compare_digest"
         with patch(target, wraps=hmac.compare_digest) as spy:
