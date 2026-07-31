@@ -22,8 +22,8 @@ async def auto_enroll_document(
     """Automatically enroll the configured document_id as a managed notebook.
 
     Handles kernel creation/connection based on configuration:
-    - If runtime_id is provided: Connect to that specific kernel
-    - If start_new_runtime is True: Create a new kernel
+    - If code_sandbox_id is provided: Connect to that specific kernel
+    - If start_new_code_sandbox is True: Create a new kernel
     - If both are False/None: Enroll notebook WITHOUT kernel (notebook-only mode)
 
     Args:
@@ -42,7 +42,7 @@ async def auto_enroll_document(
         return
 
     # Check if we should skip kernel creation entirely
-    if not config.runtime_id and not config.start_new_runtime:
+    if not config.code_sandbox_id and not config.start_new_code_sandbox:
         # Enroll notebook without kernel - just register the notebook path
         try:
             logger.info(
@@ -69,13 +69,13 @@ async def auto_enroll_document(
     try:
         # Determine kernel_id based on configuration
         kernel_id_to_use = None
-        if config.runtime_id:
+        if config.code_sandbox_id:
             # User explicitly provided a kernel ID to connect to
-            kernel_id_to_use = config.runtime_id
+            kernel_id_to_use = config.code_sandbox_id
             logger.info(
                 f"Auto-enrolling document '{config.document_id}' with existing kernel '{kernel_id_to_use}'"
             )
-        elif config.start_new_runtime:
+        elif config.start_new_code_sandbox:
             # User wants a new kernel created
             kernel_id_to_use = None  # Will trigger new kernel creation in use_notebook_tool
             logger.info(f"Auto-enrolling document '{config.document_id}' with new kernel")
@@ -92,9 +92,9 @@ async def auto_enroll_document(
             kernel_manager=server_context.kernel_manager,
             session_manager=server_context.session_manager,
             notebook_manager=notebook_manager,
-            runtime_url=config.runtime_url if config.runtime_url != "local" else None,
-            runtime_token=config.runtime_token,
-            auth_headers=server_context.runtime_auth_headers or None,
+            code_sandbox_url=config.code_sandbox_url if config.code_sandbox_url != "local" else None,
+            code_sandbox_token=config.code_sandbox_token,
+            auth_headers=server_context.code_sandbox_auth_headers or None,
         )
         logger.info(f"Auto-enrollment result: {result}")
     except Exception as e:

@@ -18,17 +18,17 @@
         "-e",
         "DOCUMENT_ID",
         "-e",
-        "RUNTIME_URL",
+        "CODE_SANDBOX_URL",
         "-e",
-        "RUNTIME_TOKEN",
+        "CODE_SANDBOX_TOKEN",
         "datalayer/jupyter-mcp-server:latest"
       ],
       "env": {
         "DOCUMENT_URL": "http://host.docker.internal:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN"
+        "CODE_SANDBOX_URL": "http://host.docker.internal:8888",
+        "CODE_SANDBOX_TOKEN": "MY_TOKEN"
       }
     }
   }

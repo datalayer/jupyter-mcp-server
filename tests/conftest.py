@@ -216,14 +216,14 @@ def _mcp_server_command(jupyter_url, port, otel_file=""):
         "notebook.ipynb",
         "--document-token",
         JUPYTER_TOKEN,
-        "--runtime-url",
+        "--code-sandbox-url",
         jupyter_url,
-        "--start-new-runtime",
+        "--start-new-code-sandbox",
         "True",
-        "--runtime-token",
+        "--code-sandbox-token",
         JUPYTER_TOKEN,
         # Below we use the same token for simplicity in tests.
-        # The separation tested in test_mcp_token_rejects_runtime_token()
+        # The separation tested in test_mcp_token_rejects_code_sandbox_token()
         "--mcp-token",
         JUPYTER_TOKEN,
         "--port",
@@ -306,16 +306,16 @@ def jupyter_mcp_server(request, jupyter_server):
     """Start the Jupyter MCP server and returns its URL
 
     This fixture starts a standalone MCP server that communicates with Jupyter
-    via HTTP (MCP_SERVER mode). It can be parametrized to control runtime startup.
+    via HTTP (MCP_SERVER mode). It can be parametrized to control code sandbox startup.
 
     Parameters:
-        request.param (bool): Whether to start a new kernel runtime (default: True)
+        request.param (bool): Whether to start a new kernel code sandbox (default: True)
     """
     host = "localhost"
     port = _find_free_port()
-    start_new_runtime = True
+    start_new_code_sandbox = True
     try:
-        start_new_runtime = request.param
+        start_new_code_sandbox = request.param
     except AttributeError:
         pass
 
@@ -335,14 +335,14 @@ def jupyter_mcp_server(request, jupyter_server):
             "notebook.ipynb",
             "--document-token",
             JUPYTER_TOKEN,
-            "--runtime-url",
+            "--code-sandbox-url",
             jupyter_server,
-            "--start-new-runtime",
-            str(start_new_runtime),
-            "--runtime-token",
+            "--start-new-code-sandbox",
+            str(start_new_code_sandbox),
+            "--code-sandbox-token",
             JUPYTER_TOKEN,
             # Below we use the same token for simplicity in tests.
-            # The separation tested in test_mcp_token_rejects_runtime_token()
+            # The separation tested in test_mcp_token_rejects_code_sandbox_token()
             "--mcp-token",
             JUPYTER_TOKEN,
             "--port",
@@ -543,8 +543,8 @@ def jupyter_mcp_server_password(jupyter_server_password, password_notebook):
             "--transport", "streamable-http",
             "--document-url", jupyter_server_password,
             "--document-id", password_notebook,
-            "--runtime-url", jupyter_server_password,
-            "--start-new-runtime", "True",
+            "--code-sandbox-url", jupyter_server_password,
+            "--start-new-code-sandbox", "True",
             "--jupyter-password", JUPYTER_PASSWORD,
             "--insecure-mcp-noauth",
             "--port", str(port),

@@ -26,7 +26,7 @@ sandbox-backed code execution. It is discovered automatically through the
 
 Installing this extension exposes four additional MCP tools:
 
-- `launch_sandbox` — launch a sandbox runtime (`eval`, `docker`, `jupyter`,
+- `launch_sandbox` — launch a code sandbox (`eval`, `docker`, `jupyter`,
   `datalayer`, `colab`, `kaggle`, `monty`, `modal`).
 - `list_sandboxes` — list launched sandboxes and their state.
 - `use_sandbox` — select (or clear) the active sandbox used by `execute_code`.

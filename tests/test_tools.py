@@ -51,7 +51,7 @@ def test_jupyter_health(jupyter_server):
     "jupyter_mcp_server,kernel_expected_status",
     [(True, "alive"), (False, "not_initialized")],
     indirect=["jupyter_mcp_server"],
-    ids=["start_runtime", "no_runtime"],
+    ids=["start_code_sandbox", "no_code_sandbox"],
 )
 def test_mcp_health(jupyter_mcp_server, kernel_expected_status):
     """Test the MCP Jupyter server health"""
@@ -133,7 +133,7 @@ MCP_TOKEN = "MY_MCP_TOKEN"
 
 
 def _mcp_server_command_with_mcp_token(jupyter_url, port):
-    """Build standalone MCP server command with both --mcp-token and --runtime-token."""
+    """Build standalone MCP server command with both --mcp-token and --code-sandbox-token."""
     return [
         "python",
         "-m",
@@ -146,11 +146,11 @@ def _mcp_server_command_with_mcp_token(jupyter_url, port):
         "notebook.ipynb",
         "--document-token",
         JUPYTER_TOKEN,
-        "--runtime-url",
+        "--code-sandbox-url",
         jupyter_url,
-        "--start-new-runtime",
+        "--start-new-code-sandbox",
         "True",
-        "--runtime-token",
+        "--code-sandbox-token",
         JUPYTER_TOKEN,
         "--mcp-token",
         MCP_TOKEN,
@@ -161,7 +161,7 @@ def _mcp_server_command_with_mcp_token(jupyter_url, port):
 
 @pytest.fixture(scope="function")
 def mcp_server_with_mcp_token(jupyter_server):
-    """Standalone MCP server with --mcp-token set (separate from --runtime-token)."""
+    """Standalone MCP server with --mcp-token set (separate from --code-sandbox-token)."""
     from .conftest import _find_free_port, _start_server
 
     host = "localhost"
@@ -183,8 +183,8 @@ def test_mcp_token_accepted(mcp_server_with_mcp_token):
 
 
 @pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
-def test_mcp_token_rejects_runtime_token(mcp_server_with_mcp_token):
-    """When --mcp-token is set, clients using RUNTIME_TOKEN should be rejected."""
+def test_mcp_token_rejects_code_sandbox_token(mcp_server_with_mcp_token):
+    """When --mcp-token is set, clients using CODE_SANDBOX_TOKEN should be rejected."""
     r = _post_mcp_init(mcp_server_with_mcp_token, token=JUPYTER_TOKEN)
     assert r.status_code in (HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED)
 
@@ -235,8 +235,8 @@ def test_management_routes_require_mcp_token(mcp_server_with_mcp_token):
 
 
 @pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
-def test_management_routes_reject_runtime_token(mcp_server_with_mcp_token):
-    """State-changing management routes reject the Jupyter runtime token."""
+def test_management_routes_reject_code_sandbox_token(mcp_server_with_mcp_token):
+    """State-changing management routes reject the Jupyter code sandbox token."""
     import httpx
 
     r = httpx.delete(
@@ -285,11 +285,11 @@ def _mcp_server_command_insecure_noauth(jupyter_url, port):
         "notebook.ipynb",
         "--document-token",
         JUPYTER_TOKEN,
-        "--runtime-url",
+        "--code-sandbox-url",
         jupyter_url,
-        "--start-new-runtime",
+        "--start-new-code-sandbox",
         "True",
-        "--runtime-token",
+        "--code-sandbox-token",
         JUPYTER_TOKEN,
         "--insecure-mcp-noauth",
         "--port",
@@ -340,11 +340,11 @@ def test_server_refuses_start_without_auth(jupyter_server):
         "notebook.ipynb",
         "--document-token",
         JUPYTER_TOKEN,
-        "--runtime-url",
+        "--code-sandbox-url",
         jupyter_server,
-        "--start-new-runtime",
+        "--start-new-code-sandbox",
         "True",
-        "--runtime-token",
+        "--code-sandbox-token",
         JUPYTER_TOKEN,
         "--port",
         str(port),

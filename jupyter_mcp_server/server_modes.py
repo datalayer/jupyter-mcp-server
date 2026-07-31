@@ -46,7 +46,7 @@ def get_server_mode_and_clients() -> (
         pass
 
     # MCP_SERVER mode with HTTP clients
-    server_client = JupyterServerClient(base_url=config.runtime_url, token=config.runtime_token)
+    server_client = JupyterServerClient(base_url=config.code_sandbox_url, token=config.code_sandbox_token)
 
     return ("http", server_client, None, None, None)
 

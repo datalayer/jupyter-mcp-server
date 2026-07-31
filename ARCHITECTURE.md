@@ -235,7 +235,7 @@ class JupyterMCPServerExtensionApp(ExtensionApp):
 
     # Configuration traits
     document_url = Unicode("local", config=True)
-    runtime_url = Unicode("local", config=True)
+    code_sandbox_url = Unicode("local", config=True)
     document_id = Unicode("notebook.ipynb", config=True)
 
     def initialize_settings(self):
@@ -334,9 +334,9 @@ class HookEvent(str, Enum):
 jupyter-mcp-server start \
   --transport streamable-http \
   --document-url http://localhost:8888 \
-  --runtime-url http://localhost:8888 \
+  --code-sandbox-url http://localhost:8888 \
   --document-token MY_TOKEN \
-  --runtime-token MY_TOKEN \
+  --code-sandbox-token MY_TOKEN \
   --port 4040
 ```
 
@@ -354,7 +354,7 @@ jupyter-mcp-server start \
 ```bash
 jupyter server \
   --JupyterMCPServerExtensionApp.document_url=local \
-  --JupyterMCPServerExtensionApp.runtime_url=local \
+  --JupyterMCPServerExtensionApp.code_sandbox_url=local \
   --JupyterMCPServerExtensionApp.document_id=notebook.ipynb
 ```
 
@@ -363,12 +363,12 @@ jupyter server \
 ```python
 c.ServerApp.jpserver_extensions = {"jupyter_mcp_server": True}
 c.JupyterMCPServerExtensionApp.document_url = "local"
-c.JupyterMCPServerExtensionApp.runtime_url = "local"
+c.JupyterMCPServerExtensionApp.code_sandbox_url = "local"
 ```
 
 **Backend Selection**:
 
-- **LocalBackend**: Used when `document_url="local"` or `runtime_url="local"`
+- **LocalBackend**: Used when `document_url="local"` or `code_sandbox_url="local"`
   - Direct access to `serverapp.contents_manager`, `serverapp.kernel_manager`
   - No network overhead, maximum performance
   - Supports both file-based and YDoc collaborative editing

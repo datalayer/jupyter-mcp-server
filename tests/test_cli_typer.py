@@ -35,9 +35,9 @@ def test_typer_connect_command_sends_mcp_token():
             provider=Provider.jupyter,
             jupyterlab=True,
             open_notebook_in_ui=False,
-            runtime_url=None,
-            runtime_id="kernel-id",
-            runtime_token=None,
+            code_sandbox_url=None,
+            code_sandbox_id="kernel-id",
+            code_sandbox_token=None,
             mcp_token="client-token",
             document_url=None,
             document_id="notebook.ipynb",
@@ -82,8 +82,8 @@ def test_typer_start_streamable_http_requires_auth_token():
     assert "requires MCP client authentication" in message
 
 
-def test_typer_root_accepts_explicit_start_new_runtime_bool_value():
-    """Root callback accepts an explicit '--start-new-runtime False' value."""
+def test_typer_root_accepts_explicit_start_new_code_sandbox_bool_value():
+    """Root callback accepts an explicit '--start-new-code-sandbox False' value."""
     seen = {}
 
     def fake_do_start(**kwargs):
@@ -95,10 +95,10 @@ def test_typer_root_accepts_explicit_start_new_runtime_bool_value():
             [
                 "--transport",
                 "stdio",
-                "--start-new-runtime",
+                "--start-new-code-sandbox",
                 "False",
             ],
         )
 
     assert result.exit_code == 0, result.output
-    assert seen["start_new_runtime"] is False
+    assert seen["start_new_code_sandbox"] is False

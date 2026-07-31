@@ -19,7 +19,7 @@ class _FakeKernelClient:
 
 
 def test_create_jupyter_sandbox_client_stop_releases_backing_sandbox():
-    """Normal client.stop() must release the backing sandbox runtime."""
+    """Normal client.stop() must release the backing code sandbox."""
     fake_client = _FakeKernelClient()
     fake_sandbox = MagicMock()
     fake_sandbox.kernel_client = fake_client
@@ -38,7 +38,7 @@ def test_create_jupyter_sandbox_client_stop_releases_backing_sandbox():
 
 
 def test_create_jupyter_sandbox_client_stop_shutdown_false_keeps_kernel_only():
-    """Borrowed-kernel cleanup must not stop the backing sandbox runtime."""
+    """Borrowed-kernel cleanup must not stop the backing code sandbox."""
     fake_client = _FakeKernelClient()
     fake_sandbox = MagicMock()
     fake_sandbox.kernel_client = fake_client

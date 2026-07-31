@@ -65,7 +65,7 @@ Then add the following configuration:
 <details>
 <summary><b>Advanced Configuration (Optional)</b></summary>
 
-For advanced deployments with separate document and runtime servers:
+For advanced deployments with separate document and code sandbox servers:
 
 ```jsonc
 {
@@ -84,9 +84,9 @@ For advanced deployments with separate document and runtime servers:
         "-e",
         "DOCUMENT_ID",
         "-e",
-        "RUNTIME_URL",
+        "CODE_SANDBOX_URL",
         "-e",
-        "RUNTIME_TOKEN",
+        "CODE_SANDBOX_TOKEN",
         "-e",
         "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
@@ -95,8 +95,8 @@ For advanced deployments with separate document and runtime servers:
         "DOCUMENT_URL": "http://host.docker.internal:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "CODE_SANDBOX_URL": "http://host.docker.internal:8888",
+        "CODE_SANDBOX_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }
@@ -146,7 +146,7 @@ Open or create a `.vscode/mcp.json` file in your workspace root directory. Then 
 <details>
 <summary><b>Advanced Configuration (Optional)</b></summary>
 
-For advanced deployments with separate document and runtime servers:
+For advanced deployments with separate document and code sandbox servers:
 
 ```jsonc
 {
@@ -164,9 +164,9 @@ For advanced deployments with separate document and runtime servers:
         "-e",
         "DOCUMENT_ID",
         "-e",
-        "RUNTIME_URL",
+        "CODE_SANDBOX_URL",
         "-e",
-        "RUNTIME_TOKEN",
+        "CODE_SANDBOX_TOKEN",
         "-e",
         "ALLOW_IMG_OUTPUT",
         "datalayer/jupyter-mcp-server:latest"
@@ -175,8 +175,8 @@ For advanced deployments with separate document and runtime servers:
         "DOCUMENT_URL": "http://host.docker.internal:8888",
         "DOCUMENT_TOKEN": "MY_TOKEN",
         "DOCUMENT_ID": "notebook.ipynb",
-        "RUNTIME_URL": "http://host.docker.internal:8888",
-        "RUNTIME_TOKEN": "MY_TOKEN",
+        "CODE_SANDBOX_URL": "http://host.docker.internal:8888",
+        "CODE_SANDBOX_TOKEN": "MY_TOKEN",
         "ALLOW_IMG_OUTPUT": "true"
       }
     }

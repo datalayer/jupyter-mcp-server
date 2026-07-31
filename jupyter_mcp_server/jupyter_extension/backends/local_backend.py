@@ -32,7 +32,7 @@ class LocalBackend(Backend):
     - serverapp.kernel_spec_manager for kernel specs
 
     This backend is only available when running as a Jupyter Server extension
-    with document_url="local" or runtime_url="local".
+    with document_url="local" or code_sandbox_url="local".
     """
 
     def __init__(self, serverapp: "ServerApp"):

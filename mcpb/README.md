@@ -44,7 +44,7 @@ This directory contains the source files for building an MCPB (MCP Bundle) / DXT
 
 ## How It Works
 
-This bundle uses the **UV runtime** type, which means:
+This bundle uses the **UV code sandbox** type, which means:
 
 - Claude Desktop automatically manages the Python environment
 - Dependencies (`jupyter-mcp-server` and its transitive dependencies) are installed via `uv` into an isolated virtual environment
@@ -56,7 +56,7 @@ This bundle uses the **UV runtime** type, which means:
 ```
 mcpb/
 ├── manifest.json      # Extension metadata, tools, and user configuration
-├── pyproject.toml     # Python dependencies for UV runtime
+├── pyproject.toml     # Python dependencies for UV code sandbox
 ├── .mcpbignore        # Files to exclude from the bundle
 ├── README.md          # This file
 └── src/

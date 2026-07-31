@@ -7,6 +7,7 @@ Jupyter MCP Server Layer
 """
 
 import hmac
+import re
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -26,7 +27,7 @@ from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
 from jupyter_mcp_server.log import logger
-from jupyter_mcp_server.models import DocumentRuntime
+from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.tools import (
@@ -70,8 +71,8 @@ from jupyter_mcp_server.utils import (
 # Globals.
 
 
-class RuntimeTokenVerifier:
-    """Verify MCP client requests against the configured runtime token."""
+class CodeSandboxTokenVerifier:
+    """Verify MCP client requests against the configured code sandbox token."""
 
     def __init__(self, token: str):
         self._token = token
@@ -226,19 +227,19 @@ def __ensure_kernel_alive() -> ISandboxClient:
 
 @mcp.custom_route("/api/connect", ["PUT"])
 async def connect(request: Request):
-    """Connect to a document and a runtime from the Jupyter MCP Server."""
+    """Connect to a document and a code sandbox from the Jupyter MCP Server."""
 
     data = await request.json()
 
     # Log the received data for diagnostics
     # Note: set_config() will automatically normalize string "None" values
     logger.info(
-        f"Connect endpoint received - runtime_url: {data.get('runtime_url')!r}, "
+        f"Connect endpoint received - code_sandbox_url: {data.get('code_sandbox_url')!r}, "
         f"document_url: {data.get('document_url')!r}, "
         f"provider: {data.get('provider')}"
     )
 
-    document_runtime = DocumentRuntime(**data)
+    document_code_sandbox = DocumentCodeSandbox(**data)
 
     # Clean up existing default notebook if any
     if "default" in notebook_manager:
@@ -250,14 +251,14 @@ async def connect(request: Request):
     # Update configuration with new values
     # String "None" values will be automatically normalized by set_config()
     set_config(
-        provider=document_runtime.provider,
-        runtime_url=document_runtime.runtime_url,
-        runtime_id=document_runtime.runtime_id,
-        runtime_token=document_runtime.runtime_token,
-        document_url=document_runtime.document_url,
-        document_id=document_runtime.document_id,
-        document_token=document_runtime.document_token,
-        allowed_jupyter_tools=document_runtime.allowed_jupyter_tools
+        provider=document_code_sandbox.provider,
+        code_sandbox_url=document_code_sandbox.code_sandbox_url,
+        code_sandbox_id=document_code_sandbox.code_sandbox_id,
+        code_sandbox_token=document_code_sandbox.code_sandbox_token,
+        document_url=document_code_sandbox.document_url,
+        document_id=document_code_sandbox.document_id,
+        document_token=document_code_sandbox.document_token,
+        allowed_jupyter_tools=document_code_sandbox.allowed_jupyter_tools
         or "notebook_run-all-cells,notebook_get-selected-cell",
     )
 
@@ -442,9 +443,9 @@ async def use_notebook(
             kernel_manager=server_context.kernel_manager,
             session_manager=server_context.session_manager,
             notebook_manager=notebook_manager,
-            runtime_url=config.runtime_url if config.runtime_url != "local" else None,
-            runtime_token=config.runtime_token,
-            auth_headers=server_context.runtime_auth_headers or None,
+            code_sandbox_url=config.code_sandbox_url if config.code_sandbox_url != "local" else None,
+            code_sandbox_token=config.code_sandbox_token,
+            auth_headers=server_context.code_sandbox_auth_headers or None,
         )
     )
     kid = notebook_manager.get_kernel_id(notebook_name) or "unknown"
@@ -771,7 +772,7 @@ async def insert_execute_code_cell(
         config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
     )
 
-    await safe_notebook_operation(
+    insert_result = await safe_notebook_operation(
         lambda: InsertCellTool().execute(
             mode=server_context.mode,
             server_client=server_context.server_client,
@@ -784,6 +785,15 @@ async def insert_execute_code_cell(
         )
     )
 
+    # Execute exactly the cell that was inserted. This avoids races where an
+    # append operation (-1) could execute a previously last cell if notebook
+    # state visibility lags briefly between insert and execute paths.
+    execute_index = cell_index
+    if isinstance(insert_result, str):
+        match = re.search(r"Cell inserted successfully at index (-?\d+)", insert_result)
+        if match:
+            execute_index = int(match.group(1))
+
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
@@ -791,7 +801,7 @@ async def insert_execute_code_cell(
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
-            cell_index=cell_index,
+            cell_index=execute_index,
             timeout_seconds=effective_timeout,
             stream=False,
             progress_interval=0,
@@ -1154,9 +1164,9 @@ async def get_registered_tools():
                 else:
                     # Fallback to configuration (for remote scenarios)
                     config = get_config()
-                    base_url = config.runtime_url if config.runtime_url else "http://localhost:8888"
-                    token = config.runtime_token
-                    logger.info(f"Using config runtime URL: {base_url}")
+                    base_url = config.code_sandbox_url if config.code_sandbox_url else "http://localhost:8888"
+                    token = config.code_sandbox_token
+                    logger.info(f"Using config code sandbox URL: {base_url}")
 
                 logger.info(f"Querying jupyter-mcp-tools at {base_url}")
 

@@ -188,7 +188,7 @@ class JupyterPasswordAuth:
         Deliberately does NOT set `X-XSRFToken` as a default header — if the
         server ever rotates the `_xsrf` cookie, a frozen header value would go
         stale. Callers that need the XSRF token per-request must read it from
-        the live cookie jar (see `ServerContext.runtime_auth_headers`) or call
+        the live cookie jar (see `ServerContext.code_sandbox_auth_headers`) or call
         `get_headers()` on this auth.
         """
         if not self._authenticated:

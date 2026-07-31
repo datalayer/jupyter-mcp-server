@@ -61,7 +61,7 @@ start-docker: ## start the jupyter mcp server in docker
 	docker run -i --rm \
 	  -e JUPYTER_URL=http://localhost:8888 \
 	  -e JUPYTER_TOKEN=MY_TOKEN \
-	  -e START_NEW_RUNTIME=true \
+	  -e START_NEW_CODE_SANDBOX=true \
 	  --network=host \
 	  datalayer/jupyter-mcp-server:latest
 
@@ -89,10 +89,10 @@ start: ## start the jupyter mcp server with streamable-http transport
 	  --transport streamable-http \
 	  --jupyter-url http://localhost:8888 \
 	  --jupyter-token MY_TOKEN \
-	  --start-new-runtime true \
+	  --start-new-code-sandbox true \
 	  --port 4040
 
-start-empty: ## start the jupyter mcp server with streamable-http transport and no document nor runtime
+start-empty: ## start the jupyter mcp server with streamable-http transport and no document nor code sandbox
 	@exec echo
 	@exec echo curl http://localhost:4040/api/healthz
 	@exec echo
@@ -102,13 +102,13 @@ start-empty: ## start the jupyter mcp server with streamable-http transport and 
 	  --transport streamable-http \
 	  --jupyter-url http://localhost:8888 \
 	  --jupyter-token MY_TOKEN \
-	  --start-new-runtime false \
+	  --start-new-code-sandbox false \
 	  --port 4040
 
 start-jupyter-server-extension: ## start jupyter server with MCP extension
 	@exec echo
 	@exec echo 🚀 Starting Jupyter Server with MCP Extension
-	@exec echo 📍 Using local serverapp access - document_url=local, runtime_url=local
+	@exec echo 📍 Using local serverapp access - document_url=local, code_sandbox_url=local
 	@exec echo
 	@exec echo 🔗 JupyterLab will be available at http://localhost:4040/lab
 	@exec echo 🔗 MCP endpoints will be available at http://localhost:4040/mcp
@@ -117,9 +117,9 @@ start-jupyter-server-extension: ## start jupyter server with MCP extension
 	@exec echo
 	jupyter lab \
 	  --JupyterMCPServerExtensionApp.document_url local \
-	  --JupyterMCPServerExtensionApp.runtime_url local \
+	  --JupyterMCPServerExtensionApp.code_sandbox_url local \
 	  --JupyterMCPServerExtensionApp.document_id notebook.ipynb \
-	  --JupyterMCPServerExtensionApp.start_new_runtime True \
+	  --JupyterMCPServerExtensionApp.start_new_code_sandbox True \
 	  --ServerApp.disable_check_xsrf True \
 	  --IdentityProvider.token MY_TOKEN \
 	  --ServerApp.root_dir ./dev/content \

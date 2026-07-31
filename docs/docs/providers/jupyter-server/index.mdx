@@ -32,7 +32,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `JUPYTER_URL` | Jupyter Server URL (used for both document and runtime) | `http://localhost:8888` |
+| `JUPYTER_URL` | Jupyter Server URL (used for both document and code sandbox) | `http://localhost:8888` |
 | `JUPYTER_TOKEN` | Jupyter Server authentication token | `None` |
 | `DOCUMENT_ID` | Default notebook path (optional) | `None` |
 
@@ -54,6 +54,6 @@ MCP client configuration:
 ```
 
 For advanced deployments that separate notebook storage from kernel execution,
-use `DOCUMENT_URL` / `DOCUMENT_TOKEN` and `RUNTIME_URL` / `RUNTIME_TOKEN`
+use `DOCUMENT_URL` / `DOCUMENT_TOKEN` and `CODE_SANDBOX_URL` / `CODE_SANDBOX_TOKEN`
 individually. See the [Configuration reference](/reference/configuration) for the
 full list of variables.

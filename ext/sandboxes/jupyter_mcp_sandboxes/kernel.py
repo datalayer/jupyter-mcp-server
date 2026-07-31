@@ -10,7 +10,7 @@ This module exposes:
 - :func:`create_sandbox_kernel_client`: direct kernel-client creation from a
     sandbox when the variant exposes one.
 - :func:`_execution_result_to_reply`: shared output conversion helper used by
-    sandbox runtime tooling.
+    code sandbox tooling.
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ from types import MethodType
 from typing import Any
 
 
-def _is_default_runtime_url(runtime_url: str | None) -> bool:
-    if not runtime_url:
+def _is_default_code_sandbox_url(code_sandbox_url: str | None) -> bool:
+    if not code_sandbox_url:
         return True
-    normalized = runtime_url.strip().lower()
+    normalized = code_sandbox_url.strip().lower()
     return normalized in {"http://localhost:8888", "http://127.0.0.1:8888", "local"}
 
 
@@ -110,33 +110,33 @@ def build_sandbox(config, logger):
         create_kwargs: dict[str, Any] = {
             "variant": "colab",
             "timeout": timeout,
-            "server_url": config.runtime_url,
-            "proxy_token": config.runtime_proxy_token,
+            "server_url": config.code_sandbox_url,
+            "proxy_token": config.code_sandbox_proxy_token,
         }
-        if config.runtime_id:
-            create_kwargs["kernel_id"] = config.runtime_id
-        if getattr(config, "runtime_channels_url", None):
-            create_kwargs["channels_url"] = config.runtime_channels_url
+        if config.code_sandbox_id:
+            create_kwargs["kernel_id"] = config.code_sandbox_id
+        if getattr(config, "code_sandbox_channels_url", None):
+            create_kwargs["channels_url"] = config.code_sandbox_channels_url
         return Sandbox.create(**create_kwargs)
     if engine == "kaggle":
-        runtime_url = getattr(config, "runtime_url", None)
-        channels_url = getattr(config, "runtime_channels_url", None)
-        has_explicit_runtime_url = not _is_default_runtime_url(runtime_url)
+        code_sandbox_url = getattr(config, "code_sandbox_url", None)
+        channels_url = getattr(config, "code_sandbox_channels_url", None)
+        has_explicit_code_sandbox_url = not _is_default_code_sandbox_url(code_sandbox_url)
 
         create_kwargs: dict[str, Any] = {
             "variant": "kaggle",
             "timeout": timeout,
         }
-        # If runtime values are not explicitly configured, prefer the
+        # If code sandbox values are not explicitly configured, prefer the
         # transparent batch path in code-sandboxes.
-        if has_explicit_runtime_url and not channels_url:
-            create_kwargs["server_url"] = runtime_url
-        if config.runtime_id:
-            create_kwargs["kernel_id"] = config.runtime_id
+        if has_explicit_code_sandbox_url and not channels_url:
+            create_kwargs["server_url"] = code_sandbox_url
+        if config.code_sandbox_id:
+            create_kwargs["kernel_id"] = config.code_sandbox_id
         if channels_url:
             create_kwargs["channels_url"] = channels_url
-        if config.runtime_token:
-            create_kwargs["token"] = config.runtime_token
+        if config.code_sandbox_token:
+            create_kwargs["token"] = config.code_sandbox_token
         if getattr(config, "sandbox_gpu", None):
             create_kwargs["gpu"] = config.sandbox_gpu
         return Sandbox.create(**create_kwargs)
@@ -144,10 +144,10 @@ def build_sandbox(config, logger):
         create_kwargs: dict[str, Any] = {
             "variant": "jupyter",
             "timeout": timeout,
-            "server_url": config.runtime_url,
-            "token": config.runtime_token,
-            "kernel_id": config.runtime_id,
-            # Keep parity with the core jupyter sandbox path: no runtime_id
+            "server_url": config.code_sandbox_url,
+            "token": config.code_sandbox_token,
+            "kernel_id": config.code_sandbox_id,
+            # Keep parity with the core jupyter sandbox path: no code_sandbox_id
             # means create a fresh kernel rather than reusing an arbitrary one.
             "reuse_kernel": False,
         }
@@ -160,10 +160,10 @@ def build_sandbox(config, logger):
         if engine in ("modal", "datalayer") and getattr(config, "sandbox_gpu", None):
             create_kwargs["gpu"] = config.sandbox_gpu
         if engine == "datalayer":
-            if config.runtime_token:
-                create_kwargs["token"] = config.runtime_token
-            if config.runtime_url:
-                create_kwargs["run_url"] = config.runtime_url
+            if config.code_sandbox_token:
+                create_kwargs["token"] = config.code_sandbox_token
+            if config.code_sandbox_url:
+                create_kwargs["run_url"] = config.code_sandbox_url
         if config.sandbox_environment:
             create_kwargs["environment"] = config.sandbox_environment
         return Sandbox.create(**create_kwargs)

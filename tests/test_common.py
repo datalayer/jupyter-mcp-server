@@ -443,7 +443,7 @@ class MCPClient:
         run_url: str | None = None,
         python_version: str | None = None,
     ):
-        """Launch a sandbox runtime through MCP."""
+        """Launch a code sandbox through MCP."""
         arguments = {
             "sandbox_name": sandbox_name,
             "variant": variant,

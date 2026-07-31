@@ -2,13 +2,13 @@
 #
 # BSD 3-Clause License
 
-"""Tests for streaming execution routing in SandboxRuntimeManager."""
+"""Tests for streaming execution routing in CodeSandboxManager."""
 
 from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jupyter_mcp_sandboxes.manager import SandboxRuntimeManager
+from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 
 
 class _FakeStreamingSandbox:
@@ -40,7 +40,7 @@ class _FakeFallbackSandbox:
 
 
 def test_execute_on_active_prefers_streaming_path():
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
     manager._active_name = "k1"
     manager._sandboxes["k1"] = _FakeStreamingSandbox()
 
@@ -53,7 +53,7 @@ def test_execute_on_active_prefers_streaming_path():
 
 
 def test_execute_on_active_falls_back_to_run_code_when_no_streaming():
-    manager = SandboxRuntimeManager()
+    manager = CodeSandboxManager()
     manager._active_name = "k1"
     manager._sandboxes["k1"] = _FakeFallbackSandbox()
 

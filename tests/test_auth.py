@@ -395,24 +395,24 @@ class TestPasswordConfig:
 
     def test_password_fields_default_none(self):
         config = get_config()
-        assert config.runtime_password is None
+        assert config.code_sandbox_password is None
         assert config.document_password is None
 
     def test_set_password(self):
-        config = set_config(runtime_password="secret", document_password="other")
-        assert config.runtime_password == "secret"
+        config = set_config(code_sandbox_password="secret", document_password="other")
+        assert config.code_sandbox_password == "secret"
         assert config.document_password == "other"
 
     def test_password_normalization_none_string(self):
         """String 'None' is normalized to actual None."""
-        config = set_config(runtime_password="None", document_password="null")
-        assert config.runtime_password is None
+        config = set_config(code_sandbox_password="None", document_password="null")
+        assert config.code_sandbox_password is None
         assert config.document_password is None
 
     def test_password_normalization_empty_string(self):
         """Empty string is normalized to actual None."""
-        config = set_config(runtime_password="", document_password="")
-        assert config.runtime_password is None
+        config = set_config(code_sandbox_password="", document_password="")
+        assert config.code_sandbox_password is None
         assert config.document_password is None
 
 
@@ -437,12 +437,12 @@ class TestServerContextAuthHeaders:
 
     def test_auth_headers_empty_without_password(self):
         """auth_headers returns {} when no password is configured."""
-        set_config(runtime_url="http://localhost:8888", runtime_token="mytoken")
+        set_config(code_sandbox_url="http://localhost:8888", code_sandbox_token="mytoken")
         context = ServerContext.get_instance()
         # Manually set up MCP_SERVER mode without password
         from jupyter_mcp_server.tools import ServerMode
         context._mode = ServerMode.MCP_SERVER
-        context._runtime_password_auth = None
+        context._code_sandbox_password_auth = None
         context._server_client = MagicMock()
         context._initialized = True
 
@@ -459,7 +459,7 @@ class TestServerContextAuthHeaders:
         # Set up a mock password auth and server client
         mock_auth = MagicMock()
         mock_auth.get_headers.return_value = {"Cookie": "old=stale", "X-XSRFToken": "old"}
-        context._runtime_password_auth = mock_auth
+        context._code_sandbox_password_auth = mock_auth
 
         mock_client = MagicMock()
         mock_session = MagicMock()
@@ -485,7 +485,7 @@ class TestServerContextAuthHeaders:
 
         mock_auth = MagicMock()
         mock_auth.get_headers.return_value = {"Cookie": "login=cookie", "X-XSRFToken": "login_xsrf"}
-        context._runtime_password_auth = mock_auth
+        context._code_sandbox_password_auth = mock_auth
 
         mock_client = MagicMock()
         mock_session = MagicMock()
@@ -498,7 +498,7 @@ class TestServerContextAuthHeaders:
 
     def test_auth_headers_triggers_initialize(self):
         """auth_headers triggers initialize() when not yet initialized (the bug we fixed)."""
-        set_config(runtime_url="http://localhost:8888")
+        set_config(code_sandbox_url="http://localhost:8888")
         context = ServerContext.get_instance()
         assert context._initialized is False
 
@@ -508,20 +508,20 @@ class TestServerContextAuthHeaders:
             mock_init.assert_called_once()
 
     def test_reset_clears_password_auth(self):
-        """ServerContext.reset() clears both runtime and document password auth."""
+        """ServerContext.reset() clears both code sandbox and document password auth."""
         context = ServerContext.get_instance()
-        context._runtime_password_auth = MagicMock()
+        context._code_sandbox_password_auth = MagicMock()
         context._document_password_auth = MagicMock()
         context._initialized = True
 
         ServerContext.reset()
 
-        assert context._runtime_password_auth is None
+        assert context._code_sandbox_password_auth is None
         assert context._document_password_auth is None
         assert context._initialized is False
 
-    def test_document_auth_headers_shares_runtime_when_urls_match(self):
-        """When document and runtime URLs match, document auth reuses runtime session."""
+    def test_document_auth_headers_shares_code_sandbox_when_urls_match(self):
+        """When document and code sandbox URLs match, document auth reuses code sandbox session."""
         from jupyter_mcp_server.tools import ServerMode
 
         context = ServerContext.get_instance()
@@ -530,7 +530,7 @@ class TestServerContextAuthHeaders:
 
         shared_auth = MagicMock()
         shared_auth.get_headers.return_value = {"Cookie": "stale", "X-XSRFToken": "stale"}
-        context._runtime_password_auth = shared_auth
+        context._code_sandbox_password_auth = shared_auth
         context._document_password_auth = shared_auth  # same instance → shared
 
         mock_client = MagicMock()
@@ -540,33 +540,33 @@ class TestServerContextAuthHeaders:
         mock_client.http_client.session.cookies = jar
         context._server_client = mock_client
 
-        # document_auth_headers should return the FRESH runtime cookies,
+        # document_auth_headers should return the FRESH code sandbox cookies,
         # not the stale login-time snapshot
         headers = context.document_auth_headers
         assert headers["X-XSRFToken"] == "fresh"
         assert "_xsrf=fresh" in headers["Cookie"]
 
     def test_document_auth_headers_separate_when_urls_differ(self):
-        """When document and runtime URLs differ, document auth uses its own session."""
+        """When document and code sandbox URLs differ, document auth uses its own session."""
         from jupyter_mcp_server.tools import ServerMode
 
         context = ServerContext.get_instance()
         context._mode = ServerMode.MCP_SERVER
         context._initialized = True
 
-        runtime_auth = MagicMock()
-        runtime_auth.get_headers.return_value = {"Cookie": "runtime=cookie"}
+        code_sandbox_auth = MagicMock()
+        code_sandbox_auth.get_headers.return_value = {"Cookie": "code sandbox=cookie"}
         document_auth = MagicMock()
         document_auth.get_headers.return_value = {"Cookie": "doc=cookie", "X-XSRFToken": "doc-xsrf"}
 
-        context._runtime_password_auth = runtime_auth
+        context._code_sandbox_password_auth = code_sandbox_auth
         context._document_password_auth = document_auth  # different instance
 
         mock_client = MagicMock()
         mock_client.http_client.session.cookies = RequestsCookieJar()
         context._server_client = mock_client
 
-        # document_auth_headers should come from document_auth, not runtime
+        # document_auth_headers should come from document_auth, not code sandbox
         headers = context.document_auth_headers
         assert headers == {"Cookie": "doc=cookie", "X-XSRFToken": "doc-xsrf"}
 
@@ -577,7 +577,7 @@ class TestServerContextAuthHeaders:
         context = ServerContext.get_instance()
         context._mode = ServerMode.MCP_SERVER
         context._initialized = True
-        context._runtime_password_auth = None
+        context._code_sandbox_password_auth = None
         context._document_password_auth = None
 
         assert context.document_auth_headers == {}
@@ -602,15 +602,15 @@ class TestNotebookConnectionAuth:
         ServerContext._instance = None
 
     def _make_password_auth_connection(self):
-        """Set up MCP_SERVER mode with shared runtime/document password auth and
+        """Set up MCP_SERVER mode with shared code sandbox/document password auth and
         return a NotebookConnection whose document_auth_headers resolve to the
         fresh session cookies (Cookie: ``_xsrf=tok; session=abc``)."""
         from jupyter_mcp_server.notebook_manager import NotebookConnection
 
         set_config(
-            runtime_url="http://localhost:8888",
+            code_sandbox_url="http://localhost:8888",
             document_url="http://localhost:8888",
-            runtime_password="secret",
+            code_sandbox_password="secret",
             provider="jupyter",
         )
 
@@ -619,8 +619,8 @@ class TestNotebookConnectionAuth:
         context._mode = ServerMode.MCP_SERVER
         context._initialized = True
         mock_auth = MagicMock()
-        context._runtime_password_auth = mock_auth
-        # Share runtime auth with document since URLs match in this test
+        context._code_sandbox_password_auth = mock_auth
+        # Share code sandbox auth with document since URLs match in this test
         context._document_password_auth = mock_auth
         context._server_client = MagicMock()
         mock_session = MagicMock()
@@ -950,8 +950,8 @@ class TestSessionExpiry:
                 "--transport", "streamable-http",
                 "--document-url", jupyter_server_short_cookie,
                 "--document-id", notebook_name,
-                "--runtime-url", jupyter_server_short_cookie,
-                "--start-new-runtime", "True",
+                "--code-sandbox-url", jupyter_server_short_cookie,
+                "--start-new-code-sandbox", "True",
                 "--jupyter-password", JUPYTER_PASSWORD,
                 "--insecure-mcp-noauth",
                 "--port", str(port),

@@ -12,8 +12,8 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 
 # A non-default binding, as use_notebook records in MCP_SERVER mode. Held in
 # constants (not call-site literals) so the "token" argument reads as data.
-RUNTIME_URL = "https://runtime.example/"
-RUNTIME_AUTH = "runtime-token"
+CODE_SANDBOX_URL = "https://code-sandbox.example/"
+CODE_SANDBOX_AUTH = "code-sandbox-token"
 NB_PATH = "work/analysis.ipynb"
 
 
@@ -36,8 +36,8 @@ def _manager_with_bound_notebook():
     nm.add_notebook(
         "nb",
         FakeKernel("dead-kernel", alive=False),
-        server_url=RUNTIME_URL,
-        token=RUNTIME_AUTH,
+        server_url=CODE_SANDBOX_URL,
+        token=CODE_SANDBOX_AUTH,
         path=NB_PATH,
     )
     return nm
@@ -57,8 +57,8 @@ def test_ensure_kernel_alive_preserves_binding_on_restart():
     # The binding survives the restart (this is what regressed): it must NOT
     # fall back to the config defaults.
     info = nm.get_notebook_connection("nb").notebook_info
-    assert info["server_url"] == RUNTIME_URL
-    assert info["token"] == RUNTIME_AUTH
+    assert info["server_url"] == CODE_SANDBOX_URL
+    assert info["token"] == CODE_SANDBOX_AUTH
     assert info["path"] == NB_PATH
     assert nm.get_notebook_path("nb") == NB_PATH
 
@@ -70,8 +70,8 @@ def test_ensure_kernel_alive_keeps_live_kernel():
     nm.add_notebook(
         "nb",
         live,
-        server_url=RUNTIME_URL,
-        token=RUNTIME_AUTH,
+        server_url=CODE_SANDBOX_URL,
+        token=CODE_SANDBOX_AUTH,
         path=NB_PATH,
     )
 

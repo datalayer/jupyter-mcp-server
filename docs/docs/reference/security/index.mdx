@@ -26,7 +26,7 @@ Starting with version 1.0.0, MCP client authentication is **required** for the `
 
 :::
 
-The standalone MCP server requires `MCP_TOKEN` for client authentication, independently from `RUNTIME_TOKEN` used to authenticate with Jupyter.
+The standalone MCP server requires `MCP_TOKEN` for client authentication, independently from `CODE_SANDBOX_TOKEN` used to authenticate with Jupyter.
 This allows you to use a different token for MCP client authentication than the one used for Jupyter API access.
 
 ### Management Routes Security (Standalone `streamable-http`)
@@ -99,7 +99,7 @@ Tokens are required for:
 
 #### Simplified Configuration (Recommended)
 
-Use `JUPYTER_TOKEN` when your document storage and runtime execution are on the same Jupyter server:
+Use `JUPYTER_TOKEN` when your document storage and code sandbox execution are on the same Jupyter server:
 
 ```json
 {
@@ -119,8 +119,8 @@ For deployments where notebook storage and kernel execution are separate:
   "env": {
     "DOCUMENT_URL": "http://storage-server:8888",
     "DOCUMENT_TOKEN": "storage-token",
-    "RUNTIME_URL": "http://compute-server:8888",
-    "RUNTIME_TOKEN": "compute-token"
+    "CODE_SANDBOX_URL": "http://compute-server:8888",
+    "CODE_SANDBOX_TOKEN": "compute-token"
   }
 }
 ```
@@ -186,7 +186,7 @@ This is useful when:
 
 #### Simplified (Same Password for Both Servers)
 
-When document storage and runtime execution use the same Jupyter server:
+When document storage and code sandbox execution use the same Jupyter server:
 
 ```json
 {
@@ -207,15 +207,15 @@ jupyter-mcp-server start \
 
 #### Advanced (Separate Passwords)
 
-For deployments where document and runtime servers have different passwords:
+For deployments where document and code sandbox servers have different passwords:
 
 ```json
 {
   "env": {
     "DOCUMENT_URL": "http://storage-server:8888",
     "DOCUMENT_PASSWORD": "storage-password",
-    "RUNTIME_URL": "http://compute-server:8888",
-    "RUNTIME_PASSWORD": "compute-password"
+    "CODE_SANDBOX_URL": "http://compute-server:8888",
+    "CODE_SANDBOX_PASSWORD": "compute-password"
   }
 }
 ```

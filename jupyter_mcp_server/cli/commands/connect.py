@@ -12,7 +12,7 @@ import typer
 
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.log import logger
-from jupyter_mcp_server.models import DocumentRuntime
+from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.utils import (
     mcp_auth_headers,
     parse_bool_option,
@@ -34,7 +34,7 @@ def _update_extension_server_context(config) -> None:
             context_type="MCP_SERVER",
             serverapp=None,
             document_url=config.document_url,
-            runtime_url=config.runtime_url,
+            code_sandbox_url=config.code_sandbox_url,
             jupyterlab=config.jupyterlab,
         )
         logger.info(f"Updated jupyter_extension ServerContext with jupyterlab={config.jupyterlab}")
@@ -63,17 +63,17 @@ def connect_command(
         str,
         typer.Option("--open-notebook-in-ui", envvar="OPEN_NOTEBOOK_IN_UI"),
     ] = "False",
-    runtime_url: Annotated[
+    code_sandbox_url: Annotated[
         str | None,
-        typer.Option("--runtime-url", envvar="RUNTIME_URL"),
+        typer.Option("--code-sandbox-url", envvar="CODE_SANDBOX_URL"),
     ] = None,
-    runtime_id: Annotated[
+    code_sandbox_id: Annotated[
         str | None,
-        typer.Option("--runtime-id", envvar="RUNTIME_ID"),
+        typer.Option("--code-sandbox-id", envvar="CODE_SANDBOX_ID"),
     ] = None,
-    runtime_token: Annotated[
+    code_sandbox_token: Annotated[
         str | None,
-        typer.Option("--runtime-token", envvar="RUNTIME_TOKEN"),
+        typer.Option("--code-sandbox-token", envvar="CODE_SANDBOX_TOKEN"),
     ] = None,
     mcp_token: Annotated[
         str | None,
@@ -131,27 +131,27 @@ def connect_command(
         ),
     ] = 3600,
 ) -> None:
-    """Command to connect a Jupyter MCP Server to a document and a runtime."""
+    """Command to connect a Jupyter MCP Server to a document and a code sandbox."""
 
     (
         resolved_document_url,
         resolved_document_token,
-        resolved_runtime_url,
-        resolved_runtime_token,
+        resolved_code_sandbox_url,
+        resolved_code_sandbox_token,
     ) = resolve_url_and_token_variables(
         jupyter_url=jupyter_url,
         jupyter_token=jupyter_token,
         document_url=document_url,
         document_token=document_token,
-        runtime_url=runtime_url,
-        runtime_token=runtime_token,
+        code_sandbox_url=code_sandbox_url,
+        code_sandbox_token=code_sandbox_token,
     )
 
     config = set_config(
         provider=provider.value,
-        runtime_url=resolved_runtime_url,
-        runtime_id=runtime_id,
-        runtime_token=resolved_runtime_token,
+        code_sandbox_url=resolved_code_sandbox_url,
+        code_sandbox_id=code_sandbox_id,
+        code_sandbox_token=resolved_code_sandbox_token,
         document_url=resolved_document_url,
         document_id=document_id,
         document_token=resolved_document_token,
@@ -162,11 +162,11 @@ def connect_command(
     _update_extension_server_context(config)
 
     config = get_config()
-    document_runtime = DocumentRuntime(
+    document_code_sandbox = DocumentCodeSandbox(
         provider=config.provider,
-        runtime_url=config.runtime_url,
-        runtime_id=config.runtime_id,
-        runtime_token=config.runtime_token,
+        code_sandbox_url=config.code_sandbox_url,
+        code_sandbox_id=config.code_sandbox_id,
+        code_sandbox_token=config.code_sandbox_token,
         document_url=config.document_url,
         document_id=config.document_id,
         document_token=config.document_token,
@@ -179,6 +179,6 @@ def connect_command(
             "Accept": "application/json",
             **mcp_auth_headers(mcp_token),
         },
-        content=document_runtime.model_dump_json(),
+        content=document_code_sandbox.model_dump_json(),
     )
     response.raise_for_status()

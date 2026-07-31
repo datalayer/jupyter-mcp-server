@@ -497,20 +497,20 @@ class MCPHandler(JupyterHandler):
         context = get_server_context()
 
         # Check if we should use local backend
-        if context.is_local_document() or context.is_local_runtime():
+        if context.is_local_document() or context.is_local_code_sandbox():
             return LocalBackend(context.serverapp)
         else:
             # Use remote backend
             document_url = self.settings.get("mcp_document_url")
             document_token = self.settings.get("mcp_document_token", "")
-            runtime_url = self.settings.get("mcp_runtime_url")
-            runtime_token = self.settings.get("mcp_runtime_token", "")
+            code_sandbox_url = self.settings.get("mcp_code_sandbox_url")
+            code_sandbox_token = self.settings.get("mcp_code_sandbox_token", "")
 
             return RemoteBackend(
                 document_url=document_url,
                 document_token=document_token,
-                runtime_url=runtime_url,
-                runtime_token=runtime_token,
+                code_sandbox_url=code_sandbox_url,
+                code_sandbox_token=code_sandbox_token,
             )
 
     def set_default_headers(self):
@@ -533,7 +533,7 @@ class MCPHealthHandler(MCPHandler):
             "status": "healthy",
             "context_type": context.context_type,
             "document_url": context.document_url or self.settings.get("mcp_document_url"),
-            "runtime_url": context.runtime_url or self.settings.get("mcp_runtime_url"),
+            "code_sandbox_url": context.code_sandbox_url or self.settings.get("mcp_code_sandbox_url"),
             "extension": "jupyter_mcp_server",
             "version": "0.20.0",
         }

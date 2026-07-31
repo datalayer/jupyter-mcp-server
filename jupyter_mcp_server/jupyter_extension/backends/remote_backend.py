@@ -5,11 +5,7 @@
 """
 Remote Backend Implementation
 
-This backend uses the existing jupyter_nbmodel_client and
-jupyter_server_client packages, plus kernel client adapters, to connect to
-remote Jupyter servers.
-
-For MCP_SERVER mode, this maintains 100% backward compatibility with the existing implementation.
+Note: This is a placeholder.
 """
 
 from typing import Any, Literal
@@ -17,11 +13,6 @@ from typing import Any, Literal
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.jupyter_extension.backends.base import Backend
-
-# Note: This is a placeholder that delegates to existing server.py logic
-# The actual implementation will be refactored from server.py in a later step
-# For now, this establishes the pattern
-
 
 class RemoteBackend(Backend):
     """
@@ -34,7 +25,7 @@ class RemoteBackend(Backend):
     """
 
     def __init__(
-        self, document_url: str, document_token: str, runtime_url: str, runtime_token: str
+        self, document_url: str, document_token: str, code_sandbox_url: str, code_sandbox_token: str
     ):
         """
         Initialize remote backend.
@@ -42,13 +33,13 @@ class RemoteBackend(Backend):
         Args:
             document_url: URL of Jupyter server for document operations
             document_token: Authentication token for document server
-            runtime_url: URL of Jupyter server for runtime operations
-            runtime_token: Authentication token for runtime server
+            code_sandbox_url: URL of Jupyter server for code sandbox operations
+            code_sandbox_token: Authentication token for code sandbox server
         """
         self.document_url = document_url
         self.document_token = document_token
-        self.runtime_url = runtime_url
-        self.runtime_token = runtime_token
+        self.code_sandbox_url = code_sandbox_url
+        self.code_sandbox_token = code_sandbox_token
 
     # Notebook operations
 
