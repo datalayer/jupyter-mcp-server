@@ -66,6 +66,29 @@ class ServerContext:
         if document is not None and document is not code_sandbox:
             document.close()
 
+    @staticmethod
+    def _try_anonymous_auth(code_sandbox_url):
+        """Fetch the anonymous `_xsrf` cookie.
+
+        Unlike explicit password auth, nobody configured this deployment to
+        expect a cookie, so a server that isn't reachable yet must not block
+        startup: on failure this returns the (unauthenticated) auth object
+        rather than raising. `inject_into_session`/`get_headers` already
+        no-op when `_authenticated` is False, so callers can use the result
+        unconditionally, same as before this class existed.
+        """
+        from jupyter_mcp_server.auth import JupyterAnonymousAuth
+
+        auth = JupyterAnonymousAuth(code_sandbox_url)
+        try:
+            auth.login()
+        except RuntimeError as error:
+            logger.warning(
+                f"Anonymous XSRF cookie fetch failed for {code_sandbox_url}, "
+                f"continuing without it: {error}"
+            )
+        return auth
+
     def _init_mcp_server_mode(self):
         """Initialize MCP_SERVER mode with HTTP client and optional password auth.
 
@@ -93,7 +116,7 @@ class ServerContext:
 
         logger.info(f"Initializing MCP_SERVER mode with code_sandbox_url: {code_sandbox_url}")
 
-        from jupyter_mcp_server.auth import JupyterAnonymousAuth, JupyterPasswordAuth
+        from jupyter_mcp_server.auth import JupyterPasswordAuth
 
         try:
             # Code Sandbox auth — password takes precedence over token
@@ -111,8 +134,7 @@ class ServerContext:
                     # No password and no token, but the server may still require the
                     # anonymous `_xsrf` cookie on state-changing requests (SSO/reverse-proxy
                     # auth, JupyterHub single-user servers, --IdentityProvider.token='').
-                    self._code_sandbox_password_auth = JupyterAnonymousAuth(code_sandbox_url)
-                    self._code_sandbox_password_auth.login()
+                    self._code_sandbox_password_auth = self._try_anonymous_auth(code_sandbox_url)
                     self._code_sandbox_password_auth.inject_into_session(self._server_client.http_client.session)
 
             # Document auth — only needed when the document server is explicitly

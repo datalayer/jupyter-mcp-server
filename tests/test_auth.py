@@ -802,6 +802,35 @@ class TestInitMcpServerModeAnonymousXsrf:
         mock_session_cls.assert_not_called()
         mock_client_cls.assert_called_once_with(base_url="http://localhost:8888", token="mytoken")
 
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    @patch("jupyter_mcp_server.server_context.JupyterServerClient")
+    def test_unreachable_server_does_not_abort_init(self, mock_client_cls, mock_session_cls):
+        """A connection error during the anonymous XSRF fetch must not raise out of
+        _init_mcp_server_mode: this path runs for every no-token, no-password config,
+        including ones where the code sandbox server isn't up yet (or isn't real, as
+        in most of this repo's own unit tests), and previously that case did no
+        network I/O at all.
+        """
+        mock_client = MagicMock()
+        mock_client.http_client.session = requests.Session()
+        mock_client_cls.return_value = mock_client
+
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.request.side_effect = requests.exceptions.ConnectionError("refused")
+
+        set_config(
+            code_sandbox_url="http://localhost:8888",
+            code_sandbox_token=None,
+            code_sandbox_password=None,
+        )
+        context = ServerContext.get_instance()
+        context._init_mcp_server_mode()  # must not raise
+        context._initialized = True
+
+        assert context._code_sandbox_password_auth is not None
+        assert context.code_sandbox_auth_headers == {}
+
 
 # ---------------------------------------------------------------------------
 # NotebookConnection auth headers tests
