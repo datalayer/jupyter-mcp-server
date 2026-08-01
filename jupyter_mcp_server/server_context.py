@@ -93,7 +93,7 @@ class ServerContext:
 
         logger.info(f"Initializing MCP_SERVER mode with code_sandbox_url: {code_sandbox_url}")
 
-        from jupyter_mcp_server.auth import JupyterPasswordAuth
+        from jupyter_mcp_server.auth import JupyterAnonymousAuth, JupyterPasswordAuth
 
         try:
             # Code Sandbox auth — password takes precedence over token
@@ -107,6 +107,13 @@ class ServerContext:
                 self._install_code_sandbox_auth_retry(self._server_client)
             else:
                 self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=config.code_sandbox_token)
+                if not config.code_sandbox_token:
+                    # No password and no token, but the server may still require the
+                    # anonymous `_xsrf` cookie on state-changing requests (SSO/reverse-proxy
+                    # auth, JupyterHub single-user servers, --IdentityProvider.token='').
+                    self._code_sandbox_password_auth = JupyterAnonymousAuth(code_sandbox_url)
+                    self._code_sandbox_password_auth.login()
+                    self._code_sandbox_password_auth.inject_into_session(self._server_client.http_client.session)
 
             # Document auth — only needed when the document server is explicitly
             # different from the code sandbox server. When URLs match (or document_url
