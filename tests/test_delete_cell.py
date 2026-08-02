@@ -60,10 +60,12 @@ class TestDeleteCellValidation:
             ([5], 5),  # index == total_cells
             ([999], 5),  # far out of range
             ([0, 5], 5),  # one valid, one out of range
+            ([1, 1], 5),  # duplicate: pops the same position twice
+            ([0, 2, 2], 5),  # duplicate mixed with distinct indices
         ],
     )
     def test_invalid_indices_raise_error(self, indices, total):
-        """Out-of-range indices (negative or too large) must be rejected."""
+        """Out-of-range or duplicate indices must be rejected."""
         with pytest.raises((ValueError, IndexError)):
             self.tool._validate_indices(indices, total)
 
@@ -139,3 +141,17 @@ class TestDeleteCellFileNegativeIndices:
 
         assert {d["index"] for d in deleted} == {1, 3}
         assert _read_sources(path) == ["cell 0", "cell 2", "cell 4"]
+
+    @pytest.mark.asyncio
+    async def test_duplicate_index_rejected_instead_of_deleting_neighbor(self, tmp_path):
+        """A repeated index pops the same position twice, so the second pop
+        removes whatever shifted into that slot: [1, 1] on a 4-cell notebook
+        silently deletes cells 1 AND 2 while reporting cell 1 deleted twice.
+        Must be rejected before either pop happens."""
+        path = str(tmp_path / "nb.ipynb")
+        original = _write_notebook(path, 4)
+
+        with pytest.raises(ValueError, match="duplicate"):
+            await self.tool._delete_cell_file(path, [1, 1])
+
+        assert _read_sources(path) == original  # cell 2 NOT silently dropped
