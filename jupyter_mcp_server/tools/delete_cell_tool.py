@@ -43,7 +43,13 @@ class DeleteCellTool(BaseTool):
                 each index (rather than only ``max(cell_indices)``) rejects
                 out-of-range negatives, which would otherwise raise a raw
                 IndexError or silently delete the wrong cell.
+            ValueError: When cell_indices contains a duplicate. A repeated
+                index pops the same position twice, deleting the neighboring
+                cell that shifted into that slot after the first pop while
+                the tool's own report still names only the intended index.
         """
+        if len(set(cell_indices)) != len(cell_indices):
+            raise ValueError(f"cell_indices contains duplicate values: {cell_indices}")
         for cell_index in cell_indices:
             if cell_index < 0 or cell_index >= total_cells:
                 raise ValueError(
