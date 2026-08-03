@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any, Literal
 
+import nbformat
 from jupyter_core.utils import ensure_async
 from jupyter_nbmodel_client import NbModelClient
 from jupyter_server_client import JupyterServerClient, NotFoundError
@@ -211,20 +212,22 @@ class UseNotebookTool(BaseTool):
             # This runs before the kernel and the Jupyter session below, which are
             # both pointed at notebook_path and so need the file to exist already.
             if use_mode == "create":
-                content = {
-                    "cells": [
-                        {
-                            "cell_type": "markdown",
-                            "metadata": {},
-                            "source": [
-                                "New Notebook Created by Jupyter MCP Server",
-                            ],
-                        }
-                    ],
-                    "metadata": {},
-                    "nbformat": 4,
-                    "nbformat_minor": 4,
-                }
+                # Build the notebook with nbformat's constructors rather than a
+                # raw dict so the format version and the per-cell `id` stay
+                # consistent: nbformat 4.5 requires a unique `id` on every cell,
+                # and new_markdown_cell()/new_notebook() assign the id and stamp
+                # the matching nbformat_minor for us. Hand-writing the dict is how
+                # a cell ended up without an `id` under nbformat_minor 5 (see #338)
+                # and, on main, a downgrade to nbformat_minor 4 that drops cell ids
+                # entirely. This also matches insert_cell, which already uses
+                # nbformat.v4.new_code_cell().
+                content = nbformat.v4.new_notebook(
+                    cells=[
+                        nbformat.v4.new_markdown_cell(
+                            "New Notebook Created by Jupyter MCP Server"
+                        )
+                    ]
+                )
                 if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
                     # Use local API to create notebook
                     await ensure_async(
