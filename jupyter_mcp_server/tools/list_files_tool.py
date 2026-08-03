@@ -10,7 +10,6 @@ from typing import Any
 from jupyter_core.utils import ensure_async
 from jupyter_server_client import JupyterServerClient
 
-from jupyter_mcp_server.config import get_config
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import format_TSV
 
@@ -200,12 +199,9 @@ class ListFilesTool(BaseTool):
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # Local mode: use contents_manager directly
             all_files = await _list_files_local(contents_manager, path, max_depth)
-        elif mode == ServerMode.MCP_SERVER:
-            # Remote mode: use HTTP client
-            config = get_config()
-            server_client = JupyterServerClient(
-                base_url=config.code_sandbox_url, token=config.code_sandbox_token
-            )
+        elif mode == ServerMode.MCP_SERVER and server_client is not None:
+            # Remote mode: reuse the shared, authenticated HTTP client
+            # (a client built fresh here carries no session cookies).
             all_files = _list_files_mcp(server_client, path, 0, None, max_depth)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
