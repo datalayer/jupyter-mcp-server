@@ -751,6 +751,16 @@ class TestPasswordAuthE2E:
         assert "use_notebook" in tool_names
 
     @pytest.mark.asyncio
+    async def test_password_auth_list_files(self, mcp_client_password, password_notebook):
+        """list_files works with password auth."""
+        async with mcp_client_password:
+            raw_result = await mcp_client_password._session.call_tool("list_files", {})
+        result = mcp_client_password._extract_text_content(raw_result)
+        assert result is not None
+        assert password_notebook in result, f"list_files did not list {password_notebook}: {result}"
+        assert "error" not in result.lower(), f"list_files returned an error entry: {result}"
+
+    @pytest.mark.asyncio
     async def test_password_auth_execute_code(self, mcp_client_password):
         """KernelClient works with password cookie/XSRF auth."""
         # Multiply two large ints so the expected value can't appear incidentally
