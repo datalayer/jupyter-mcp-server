@@ -182,6 +182,10 @@ This is useful when:
 3. These cookies are injected into all HTTP requests (API calls, kernel operations) and WebSocket connections (notebook collaboration)
 4. The `X-XSRFToken` header is automatically included in requests that require XSRF protection
 
+### Session Expiry Recovery
+
+Password-authenticated sessions can expire or be invalidated while the MCP server is running (server restart, cookie TTL, etc). When a request to the code sandbox server returns 401 or 403, the MCP server performs the `/login` flow again to obtain a fresh session, then retries the original request once. This only re-runs the login (a new session, not the old expired one), so it recovers automatically instead of surfacing an auth error on every subsequent tool call. The document/collaboration path has the equivalent behavior on its own WebSocket connection.
+
 ### Configuration
 
 #### Simplified (Same Password for Both Servers)
