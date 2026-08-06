@@ -1,0 +1,45 @@
+---
+title: "read_cell"
+description: "Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)"
+---
+
+# read_cell
+
+Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
+
+> read-only: **yes**
+
+## Parameters
+
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `cell_index` | integer | yes | — | Index of the cell to read (0-based) |
+| `include_outputs` | boolean | no | `true` | Include outputs in the response (only for code cells) |
+| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
+
+## Call it
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "read_cell",
+    "arguments": {
+      "cell_index": 0,
+      "include_outputs": true,
+      "notebook_name": null
+    }
+  }
+}
+```
+
+```python
+result = await session.call_tool("read_cell", arguments={"cell_index": 0, "include_outputs": True, "notebook_name": None})
+```
+
+## Source
+
+Registered by the `@mcp.tool` decorator at [`jupyter_mcp_server/server.py:814`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/server.py#L814) (commit `c132b061240d`).
+

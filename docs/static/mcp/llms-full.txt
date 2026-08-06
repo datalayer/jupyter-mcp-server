@@ -1,0 +1,822 @@
+# Jupyter MCP Server
+
+MCP reference for Jupyter MCP Server 1.2.0: 22 tools and 1 prompt, generated from a live protocol snapshot at a pinned commit.
+
+## Reference
+
+### Overview
+
+Path: `/mcp/`
+
+MCP reference for Jupyter MCP Server 1.2.0: 22 tools and 1 prompt, generated from a live protocol snapshot at a pinned commit.
+
+Jupyter MCP Server — MCP reference Jupyter MCP Server v1.2.0 is a Model Context Protocol server that lets AI agents operate Jupyter notebooks: managing notebooks and cells, executing code on live kernels, and provisioning code sandboxes. This reference documents the server's complete MCP surface — 22 tools and 1 prompt (protocol revision 2025-11-25 ) — captured from a running server built at commit c132b061240d . Each page shows the exact schema the server advertises plus a link to the decorator that registers it. The MCP Reference tab renders the same snapshot as a single interactive page, and Configuration covers every runtime setting and both transports. Connection & server Tool Summary connect_to_jupyter Connect to a Jupyter server dynamically with URL and token. list_files List all files and directories recursively in the Jupyter server's file system. list_kernels List all available kernels in the Jupyter server. Notebooks Tool Summary use_notebook Use a notebook and activate it for following cell operations. list_notebooks List all notebooks that have been used via use_notebook tool read_notebook Read a notebook and return index, source content, type, execution count of each cell. restart_notebook Restart the kernel for a specific notebook. unuse_notebook Unuse from a specific notebook and release its resources. Cells Tool Summary insert_cell Insert a cell to specified position from the currently activated notebook. read_cell Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells) edit_cell_source Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool). overwrite_cell_source Replace the entire source of a cell in the currently activated notebook. move_cell Move a cell from source_index to target_index within the currently activated notebook. delete_cell Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True). clear_cell_output Clear the outputs and execution count of a single code cell in the currently Execution Tool Summary execute_cell Execute a cell from the currently activated notebook with timeout and return it's outputs insert_execute_code_cell Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs execute_code Execute code directly in a kernel (not saved to notebook). Sandboxes (extension) Tool Summary launch_sandbox Launch a code sandbox that can be used instead of Jupyter kernels. list_sandboxes List launched code sandboxes that can be used as alternatives to kernels. use_sandbox Select which launched sandbox execute_code should use instead of kernels. terminate_sandbox Terminate a launched code sandbox. Prompts Prompt Summary jupyter_cite Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt. About these docs Generated with Sourcey 3.6.5 from an mcp-parser stdio snapshot of the server ( jupyter-mcp-server --transport stdio --start-new-code-sandbox false ) installed from commit c132b061240d . The snapshot, source map, and page generator are checked in next to the site so the docs can be regenerated from any commit.
+
+### Configuration
+
+Path: `/mcp/configuration/`
+
+Every setting of JupyterMCPConfig, generated from the pydantic model at the pinned commit.
+
+All runtime settings live on the JupyterMCPConfig pydantic model ( jupyter_mcp_server/config.py ). Most map 1:1 to jupyter-mcp-server CLI options (kebab-case) and environment variables (upper snake-case). Setting Type Default Description transport str "stdio" The transport to use for the MCP server provider str "jupyter" The provider to use for the document and code sandbox code_sandbox_url str "http://localhost:8888" The code sandbox URL to use, or 'local' for direct serverapp access start_new_code_sandbox bool false Start a new code sandbox or use an existing one code_sandbox_id str | None None The kernel ID to use code_sandbox_token str | None None The code sandbox token to use for authentication code_sandbox_password str | None None Password for Jupyter server authentication (alternative to token) sandbox_variant str "jupyter" Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') routes execution through the code-sandboxes package. code_sandbox_proxy_token str | None None Proxy token for the Colab sandbox variant (colab-code-sandbox-proxy-token). code_sandbox_channels_url str | None None For the 'colab' and 'kaggle' sandbox variants, the WebSocket channels URL of a running notebook session. When set, server_url and kernel_id are parsed from it. sandbox_environment str | None None Environment name for cloud sandboxes (e.g. Datalayer/Modal). sandbox_gpu str | None None GPU flavor / accelerator for sandbox engines that support it. Examples: Modal/Datalayer -> T4, A10G, A100, H100; Kaggle batch -> NvidiaTeslaT4, NvidiaTeslaP100 (aliases T4/P100). document_url str "http://localhost:8888" The document URL to use, or 'local' for direct serverapp access document_id str | None None The document id to use. Optional - if omitted, can list and select notebooks interactively document_token str | None None The document token to use for authentication document_password str | None None Password for Jupyter document server authentication (alternative to token) port int 4040 The port to use for the Streamable HTTP transport jupyterlab bool true Enable JupyterLab mode (defaults to True) open_notebook_in_ui bool false Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False) allowed_jupyter_mcp_tools str "notebook_run-all-cells,notebook_get-selected-cell" Comma-separated list of jupyter-mcp-tools to enable reconnect_interval int 0 Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect. execution_timeout int 120 Default timeout in seconds for code execution. max_execution_timeout int 3600 Maximum allowed timeout in seconds for code execution. Transports The server speaks MCP over two transports, selected with --transport ( jupyter_mcp_server/cli/commands/serve.py:20 ): stdio (default) — the server is spawned by the MCP client and framed over stdin/stdout ( jupyter_mcp_server/utils.py:345 ). streamable-http — served by uvicorn on --port ; requires --mcp-token unless --insecure-mcp-noauth is passed ( jupyter_mcp_server/utils.py:253 ). Serving modes Beyond the standalone MCP_SERVER mode documented here, the package also runs embedded inside a Jupyter Server as an extension ( JUPYTER_SERVER mode) — see jupyter_mcp_server/server_modes.py and jupyter_mcp_server/jupyter_extension/ .
+
+### connect_to_jupyter
+
+Path: `/mcp/tools/connect-to-jupyter/`
+
+Connect to a Jupyter server dynamically with URL and token.
+
+Connect to a Jupyter server dynamically with URL and token. Copy This tool allows you to connect to different Jupyter servers without needing to restart the MCP server or modify configuration files. Particularly useful when: - Working with multiple Jupyter servers with different ports/tokens - Jupyter server token changes dynamically - Need to switch between different Jupyter instances Example usage: - "Connect to http://localhost:8888 with token abc123" - "Connect to http://localhost:8889 without authentication" destructive: yes Parameters Parameter Type Required Default Description jupyter_url string yes — Jupyter server URL to connect to (e.g., ' http://localhost:8888 ') jupyter_token string | null no null Jupyter server authentication token provider string no "jupyter" Provider type Output Copy { "properties" : { "result" : { "description" : "Connection status message" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "connect_to_jupyterOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "connect_to_jupyter" , "arguments" : { "jupyter_url" : " " , "jupyter_token" : null , "provider" : "jupyter" } } } Copy result = await session.call_tool( "connect_to_jupyter" , arguments = { "jupyter_url" : " " , "jupyter_token" : None , "provider" : "jupyter" }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:1048 (commit c132b061240d ).
+
+### list_files
+
+Path: `/mcp/tools/list-files/`
+
+List all files and directories recursively in the Jupyter server's file system.
+
+List all files and directories recursively in the Jupyter server's file system. Used to explore the file system structure of the Jupyter server or to find specific files or directories. read-only: yes Parameters Parameter Type Required Default Description path string no "" The starting path to list from (empty string means root directory) max_depth integer no 1 Maximum depth to recurse into subdirectories start_index integer no 0 Starting index for pagination (0-based) limit integer no 25 Maximum number of items to return (0 means no limit) pattern string no "" Glob pattern to filter file paths Output Copy { "properties" : { "result" : { "description" : "Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header." , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "list_filesOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "list_files" , "arguments" : { "path" : "" , "max_depth" : 1 , "start_index" : 0 , "limit" : 25 , "pattern" : "" } } } Copy result = await session.call_tool( "list_files" , arguments = { "path" : "" , "max_depth" : 1 , "start_index" : 0 , "limit" : 25 , "pattern" : "" }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:321 (commit c132b061240d ).
+
+### list_kernels
+
+Path: `/mcp/tools/list-kernels/`
+
+List all available kernels in the Jupyter server.
+
+List all available kernels in the Jupyter server. Copy This tool shows all running and available kernel sessions on the Jupyter server, including their IDs, names, states, connection information, and kernel specifications. Useful for monitoring kernel resources and identifying specific kernels for connection. read-only: yes Parameters This tool takes no parameters. Output Copy { "properties" : { "result" : { "description" : "Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "list_kernelsOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "list_kernels" , "arguments" : {} } } Copy result = await session.call_tool( "list_kernels" , arguments = {}) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:367 (commit c132b061240d ).
+
+### use_notebook
+
+Path: `/mcp/tools/use-notebook/`
+
+Use a notebook and activate it for following cell operations.
+
+Use a notebook and activate it for following cell operations. All cell operations will be performed on the currently activated notebook. Activate new notebook will deactivate the previously activated notebook. Reactivate previously activated notebook using same notebook_name and notebook_path. destructive: yes Parameters Parameter Type Required Default Description notebook_name string yes — Unique identifier for the notebook notebook_path string yes — Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb') mode connect · create no "connect" Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it kernel_id string no null Specific kernel ID to use (will create new if skipped) Output Copy { "properties" : { "result" : { "description" : "Success message with notebook information" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "use_notebookOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "use_notebook" , "arguments" : { "notebook_name" : " " , "notebook_path" : " " , "mode" : "connect" , "kernel_id" : null } } } Copy result = await session.call_tool( "use_notebook" , arguments = { "notebook_name" : " " , "notebook_path" : " " , "mode" : "connect" , "kernel_id" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:402 (commit c132b061240d ).
+
+### list_notebooks
+
+Path: `/mcp/tools/list-notebooks/`
+
+List all notebooks that have been used via use_notebook tool
+
+List all notebooks that have been used via use_notebook tool read-only: yes Parameters This tool takes no parameters. Output Copy { "properties" : { "result" : { "description" : "TSV formatted table with notebook information" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "list_notebooksOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "list_notebooks" , "arguments" : {} } } Copy result = await session.call_tool( "list_notebooks" , arguments = {}) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:461 (commit c132b061240d ).
+
+### read_notebook
+
+Path: `/mcp/tools/read-notebook/`
+
+Read a notebook and return index, source content, type, execution count of each cell.
+
+Read a notebook and return index, source content, type, execution count of each cell. Copy Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert. Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis. It is recommended to use brief format with larger limit to get a overview of the notebook structure, then use detailed format with exact index and limit to get the detailed information of some specific cells. read-only: yes Parameters Parameter Type Required Default Description notebook_name string yes — Notebook identifier to read response_format brief · detailed no "brief" Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source start_index integer no 0 Starting index for pagination (0-based) limit integer no 20 Maximum number of items to return (0 means no limit) Output Copy { "properties" : { "result" : { "description" : "Notebook content in the requested format" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "read_notebookOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "read_notebook" , "arguments" : { "notebook_name" : " " , "response_format" : "brief" , "start_index" : 0 , "limit" : 20 } } } Copy result = await session.call_tool( "read_notebook" , arguments = { "notebook_name" : " " , "response_format" : "brief" , "start_index" : 0 , "limit" : 20 }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:533 (commit c132b061240d ).
+
+### restart_notebook
+
+Path: `/mcp/tools/restart-notebook/`
+
+Restart the kernel for a specific notebook.
+
+Restart the kernel for a specific notebook. destructive: yes Parameters Parameter Type Required Default Description notebook_name string yes — Notebook identifier to restart Output Copy { "properties" : { "result" : { "description" : "Success message" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "restart_notebookOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "restart_notebook" , "arguments" : { "notebook_name" : " " } } } Copy result = await session.call_tool( "restart_notebook" , arguments = { "notebook_name" : " " }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:479 (commit c132b061240d ).
+
+### unuse_notebook
+
+Path: `/mcp/tools/unuse-notebook/`
+
+Unuse from a specific notebook and release its resources.
+
+Unuse from a specific notebook and release its resources. destructive: yes Parameters Parameter Type Required Default Description notebook_name string yes — Notebook identifier to disconnect Output Copy { "properties" : { "result" : { "description" : "Success message" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "unuse_notebookOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "unuse_notebook" , "arguments" : { "notebook_name" : " " } } } Copy result = await session.call_tool( "unuse_notebook" , arguments = { "notebook_name" : " " }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:506 (commit c132b061240d ).
+
+### insert_cell
+
+Path: `/mcp/tools/insert-cell/`
+
+Insert a cell to specified position from the currently activated notebook.
+
+Insert a cell to specified position from the currently activated notebook. destructive: yes Parameters Parameter Type Required Default Description cell_index integer yes — Target index for insertion (0-based), use -1 to append at end cell_type code · markdown yes — Type of cell to insert cell_source string yes — Source content for the cell notebook_name string | null no null Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. Output Copy { "properties" : { "result" : { "description" : "Success message and the structure of its surrounding cells" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "insert_cellOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "insert_cell" , "arguments" : { "cell_index" : 0 , "cell_type" : " " , "cell_source" : " " , "notebook_name" : null } } } Copy result = await session.call_tool( "insert_cell" , arguments = { "cell_index" : 0 , "cell_type" : " " , "cell_source" : " " , "notebook_name" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:581 (commit c132b061240d ).
+
+### read_cell
+
+Path: `/mcp/tools/read-cell/`
+
+Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
+
+Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells) read-only: yes Parameters Parameter Type Required Default Description cell_index integer yes — Index of the cell to read (0-based) include_outputs boolean no true Include outputs in the response (only for code cells) notebook_name string | null no null Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "read_cell" , "arguments" : { "cell_index" : 0 , "include_outputs" : true , "notebook_name" : null } } } Copy result = await session.call_tool( "read_cell" , arguments = { "cell_index" : 0 , "include_outputs" : True , "notebook_name" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:814 (commit c132b061240d ).
+
+### edit_cell_source
+
+Path: `/mcp/tools/edit-cell-source/`
+
+Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
+
+Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool). Finds old_string in the cell and replaces it with new_string . Matching is literal (not regex) and may span multiple lines. By default, old_string must appear exactly once; set replace_all=True for multiple occurrences. Returns a diff of the changes made. Copy Prefer this over overwrite_cell_source for small, targeted edits — it is safer because unchanged parts of the cell are left untouched. Use read_cell first to see the current source and construct an accurate old_string. destructive: yes Parameters Parameter Type Required Default Description cell_index integer yes — Index of the cell to edit (0-based) old_string string yes — Exact string to find in cell source new_string string yes — Replacement string replace_all boolean no false Replace all occurrences (default: first only) notebook_name string | null no null Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. Output Copy { "properties" : { "result" : { "description" : "Success message with diff showing changes made" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "edit_cell_sourceOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "edit_cell_source" , "arguments" : { "cell_index" : 0 , "old_string" : " " , "new_string" : " " , "replace_all" : false , "notebook_name" : null } } } Copy result = await session.call_tool( "edit_cell_source" , arguments = { "cell_index" : 0 , "old_string" : " " , "new_string" : " " , "replace_all" : False , "notebook_name" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:656 (commit c132b061240d ).
+
+### overwrite_cell_source
+
+Path: `/mcp/tools/overwrite-cell-source/`
+
+Replace the entire source of a cell in the currently activated notebook.
+
+Replace the entire source of a cell in the currently activated notebook. Returns a diff showing the changes made. Copy Use this when rewriting a cell completely. For small, targeted changes, prefer edit_cell_source instead — it is safer for partial edits. destructive: yes Parameters Parameter Type Required Default Description cell_index integer yes — Index of the cell to overwrite (0-based) cell_source string yes — New complete cell source notebook_name string | null no null Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. Output Copy { "properties" : { "result" : { "description" : "Success message with diff showing changes made" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "overwrite_cell_sourceOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "overwrite_cell_source" , "arguments" : { "cell_index" : 0 , "cell_source" : " " , "notebook_name" : null } } } Copy result = await session.call_tool( "overwrite_cell_source" , arguments = { "cell_index" : 0 , "cell_source" : " " , "notebook_name" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:620 (commit c132b061240d ).
+
+### move_cell
+
+Path: `/mcp/tools/move-cell/`
+
+Move a cell from source_index to target_index within the currently activated notebook.
+
+Move a cell from source_index to target_index within the currently activated notebook. Copy The cell is removed from source_index and placed at target_index. Cells in between shift to fill the gap. The cell's type, source, and outputs are preserved. Example: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B]. Use this tool instead of manually deleting and re-inserting a cell — it is atomic and preserves cell metadata. Use read_notebook first to see cell indices if needed. destructive: yes Parameters Parameter Type Required Default Description source_index integer yes — Index of the cell to move (0-based) target_index integer yes — Destination index where the cell will end up (0-based) notebook_name string | null no null Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. Output Copy { "properties" : { "result" : { "description" : "Success message with moved cell info and surrounding context" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "move_cellOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "move_cell" , "arguments" : { "source_index" : 0 , "target_index" : 0 , "notebook_name" : null } } } Copy result = await session.call_tool( "move_cell" , arguments = { "source_index" : 0 , "target_index" : 0 , "notebook_name" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:927 (commit c132b061240d ).
+
+### delete_cell
+
+Path: `/mcp/tools/delete-cell/`
+
+Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
+
+Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True). destructive: yes Parameters Parameter Type Required Default Description cell_indices array yes — List of cell indices to delete (0-based) include_source boolean no true Whether to include the source of deleted cells notebook_name string | null no null Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. Output Copy { "properties" : { "result" : { "description" : "Success message with list of deleted cells and their source (if include_source=True)" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "delete_cellOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "delete_cell" , "arguments" : { "cell_indices" : " " , "include_source" : true , "notebook_name" : null } } } Copy result = await session.call_tool( "delete_cell" , arguments = { "cell_indices" : " " , "include_source" : True , "notebook_name" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:853 (commit c132b061240d ).
+
+### clear_cell_output
+
+Path: `/mcp/tools/clear-cell-output/`
+
+Clear the outputs and execution count of a single code cell in the currently
+
+Clear the outputs and execution count of a single code cell in the currently activated notebook, without deleting the cell itself. destructive: yes Parameters Parameter Type Required Default Description cell_index integer yes — Index of the code cell to clear (0-based) notebook_name string | null no null Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. Output Copy { "properties" : { "result" : { "description" : "Success message with the number of outputs removed" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "clear_cell_outputOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "clear_cell_output" , "arguments" : { "cell_index" : 0 , "notebook_name" : null } } } Copy result = await session.call_tool( "clear_cell_output" , arguments = { "cell_index" : 0 , "notebook_name" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:894 (commit c132b061240d ).
+
+### execute_cell
+
+Path: `/mcp/tools/execute-cell/`
+
+Execute a cell from the currently activated notebook with timeout and return it's outputs
+
+Execute a cell from the currently activated notebook with timeout and return it's outputs destructive: yes Parameters Parameter Type Required Default Description cell_index integer yes — Index of the cell to execute (0-based) timeout integer no 0 Maximum seconds to wait for execution (0 = use config default) stream boolean no false Enable streaming progress (including time indicator) updates for long-running cells progress_interval integer no 5 Seconds between progress updates when stream=True Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "execute_cell" , "arguments" : { "cell_index" : 0 , "timeout" : 0 , "stream" : false , "progress_interval" : 5 } } } Copy result = await session.call_tool( "execute_cell" , arguments = { "cell_index" : 0 , "timeout" : 0 , "stream" : False , "progress_interval" : 5 }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:700 (commit c132b061240d ).
+
+### insert_execute_code_cell
+
+Path: `/mcp/tools/insert-execute-code-cell/`
+
+Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
+
+Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time destructive: yes Parameters Parameter Type Required Default Description cell_index integer yes — Index of the cell to insert and execute (0-based) cell_source string yes — Code source for the cell timeout integer no 0 Maximum seconds to wait for execution (0 = use config default) Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "insert_execute_code_cell" , "arguments" : { "cell_index" : 0 , "cell_source" : " " , "timeout" : 0 } } } Copy result = await session.call_tool( "insert_execute_code_cell" , arguments = { "cell_index" : 0 , "cell_source" : " " , "timeout" : 0 }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:749 (commit c132b061240d ).
+
+### execute_code
+
+Path: `/mcp/tools/execute-code/`
+
+Execute code directly in a kernel (not saved to notebook).
+
+Execute code directly in a kernel (not saved to notebook). Copy If `use_sandbox` selected an active sandbox, this tool executes on that sandbox instead of a Jupyter kernel. This allows agents to switch between kernel-backed and sandbox-backed execution using the same execute_code API. Targets the current activated notebook's kernel by default. Pass kernel_id to execute in a specific kernel directly — including raw kernels with no notebook attached. Recommended to use in following cases: 1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`) 2. Performance profiling and debugging. 3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`) 4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`) 5. Execute Shell commands in Jupyter server(e.g., `!git xxx`) Under no circumstances should you use this tool to: 1. Import new modules or perform variable assignments that affect subsequent Notebook execution 2. Execute dangerous code that may harm the Jupyter server or the user's data without permission destructive: yes Parameters Parameter Type Required Default Description code string yes — Code to execute (supports magic commands with %, shell commands with !) timeout integer no 30 Maximum seconds to wait for execution (0 = use config default) kernel_id string | null no null Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel. Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "execute_code" , "arguments" : { "code" : " " , "timeout" : 30 , "kernel_id" : null } } } Copy result = await session.call_tool( "execute_code" , arguments = { "code" : " " , "timeout" : 30 , "kernel_id" : None }) Source Registered by the @mcp.tool decorator at jupyter_mcp_server/server.py:969 (commit c132b061240d ).
+
+### launch_sandbox
+
+Path: `/mcp/tools/launch-sandbox/`
+
+Launch a code sandbox that can be used instead of Jupyter kernels.
+
+Launch a code sandbox that can be used instead of Jupyter kernels. Copy After launch, call use_sandbox to make execute_code run on this sandbox (as an alternative to notebook-bound kernel execution). Works in both MCP_SERVER and JUPYTER_SERVER modes. destructive: yes Parameters Parameter Type Required Default Description sandbox_name string yes — Unique sandbox identifier used by list/use/terminate tools variant eval · docker · jupyter · datalayer · colab · kaggle · monty · modal | null no null Sandbox variant to launch. If omitted, defaults to configured SANDBOX_VARIANT when it is non-jupyter; otherwise falls back to eval. timeout integer no 60 Default execution timeout in seconds for this sandbox environment string | null no null Optional sandbox environment name (common for datalayer/modal variants) gpu string | null no null Optional GPU flavor / accelerator for supported variants (modal/datalayer examples: T4, A10G, A100, H100; kaggle examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100). server_url string | null no null Code Sandbox proxy URL when using colab or kaggle variant kernel_id string | null no null Kernel ID when using colab or kaggle variant proxy_token string | null no null Colab code sandbox proxy token when using colab variant channels_url string | null no null Notebook session WebSocket channels URL to derive server_url/kernel_id (colab or kaggle variant) token string | null no null Datalayer API token override, or Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN) run_url string | null no null Datalayer run URL override python_version string | null no null Modal Python version override (e.g. 3.12). Only used for modal variant. Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "launch_sandbox" , "arguments" : { "sandbox_name" : " " , "variant" : null , "timeout" : 60 , "environment" : null , "gpu" : null , "server_url" : null , "kernel_id" : null , "proxy_token" : null , "channels_url" : null , "token" : null , "run_url" : null , "python_version" : null } } } Copy result = await session.call_tool( "launch_sandbox" , arguments = { "sandbox_name" : " " , "variant" : None , "timeout" : 60 , "environment" : None , "gpu" : None , "server_url" : None , "kernel_id" : None , "proxy_token" : None , "channels_url" : None , "token" : None , "run_url" : None , "python_version" : None }) Source Registered by the @mcp.tool decorator at ext/sandboxes/jupyter_mcp_sandboxes/extension.py:106 (commit c132b061240d ).
+
+### list_sandboxes
+
+Path: `/mcp/tools/list-sandboxes/`
+
+List launched code sandboxes that can be used as alternatives to kernels.
+
+List launched code sandboxes that can be used as alternatives to kernels. read-only: yes Parameters This tool takes no parameters. Output Copy { "properties" : { "result" : { "description" : "All launched sandboxes with name, variant, status, and active flag" , "items" : { "additionalProperties" : true , "type" : "object" }, "title" : "Result" , "type" : "array" } }, "required" : [ "result" ], "title" : "list_sandboxesOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "list_sandboxes" , "arguments" : {} } } Copy result = await session.call_tool( "list_sandboxes" , arguments = {}) Source Registered by the @mcp.tool decorator at ext/sandboxes/jupyter_mcp_sandboxes/extension.py:204 (commit c132b061240d ).
+
+### use_sandbox
+
+Path: `/mcp/tools/use-sandbox/`
+
+Select which launched sandbox execute_code should use instead of kernels.
+
+Select which launched sandbox execute_code should use instead of kernels. destructive: yes Parameters Parameter Type Required Default Description sandbox_name string | null no null Sandbox name to activate for execute_code. Pass null/empty to disable sandbox routing and return to Jupyter kernels. Output Copy { "properties" : { "result" : { "description" : "Sandbox routing status" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "use_sandboxOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "use_sandbox" , "arguments" : { "sandbox_name" : null } } } Copy result = await session.call_tool( "use_sandbox" , arguments = { "sandbox_name" : None }) Source Registered by the @mcp.tool decorator at ext/sandboxes/jupyter_mcp_sandboxes/extension.py:223 (commit c132b061240d ).
+
+### terminate_sandbox
+
+Path: `/mcp/tools/terminate-sandbox/`
+
+Terminate a launched code sandbox.
+
+Terminate a launched code sandbox. destructive: yes Parameters Parameter Type Required Default Description sandbox_name string yes — Sandbox name to terminate and unregister Output Copy { "properties" : { "result" : { "description" : "Termination status message" , "title" : "Result" , "type" : "string" } }, "required" : [ "result" ], "title" : "terminate_sandboxOutput" , "type" : "object" } Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "tools/call" , "params" : { "name" : "terminate_sandbox" , "arguments" : { "sandbox_name" : " " } } } Copy result = await session.call_tool( "terminate_sandbox" , arguments = { "sandbox_name" : " " }) Source Registered by the @mcp.tool decorator at ext/sandboxes/jupyter_mcp_sandboxes/extension.py:249 (commit c132b061240d ).
+
+### jupyter_cite
+
+Path: `/mcp/prompts/jupyter-cite/`
+
+Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.
+
+Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt. Arguments Argument Required Description prompt yes User prompt for the cited cells cell_indices yes Cell indices to cite (0-based),supporting flexible range format, e.g., '0,1,2', '0-2' or '0-2,4' notebook_name no Name of the notebook to cite cells from, default (empty) to current activated notebook Call it Copy { "jsonrpc" : "2.0" , "id" : 1 , "method" : "prompts/get" , "params" : { "name" : "jupyter_cite" , "arguments" : { "prompt" : " " , "cell_indices" : " " , "notebook_name" : " " } } } Source Registered by the @mcp.prompt decorator at jupyter_mcp_server/server.py:1090 (commit c132b061240d ).
+
+## MCP Explorer
+
+### Jupyter MCP Server
+
+Path: `/mcp/reference/`
+Version: 1.29.0
+
+#### Operations
+
+##### TOOL list_files
+
+Summary: list_files
+
+
+    List all files and directories recursively in the Jupyter server's file system.
+    Used to explore the file system structure of the Jupyter server or to find specific files or directories.
+    
+
+Parameters:
+- `path` (argument, string, optional) - The starting path to list from (empty string means root directory)
+- `max_depth` (argument, integer, optional) - Maximum depth to recurse into subdirectories
+- `start_index` (argument, integer, optional) - Starting index for pagination (0-based)
+- `limit` (argument, integer, optional) - Maximum number of items to return (0 means no limit)
+- `pattern` (argument, string, optional) - Glob pattern to filter file paths
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "list_filesOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header."
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL list_kernels
+
+Summary: list_kernels
+
+List all available kernels in the Jupyter server.
+
+    This tool shows all running and available kernel sessions on the Jupyter server,
+    including their IDs, names, states, connection information, and kernel specifications.
+    Useful for monitoring kernel resources and identifying specific kernels for connection.
+    
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "list_kernelsOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL use_notebook
+
+Summary: use_notebook
+
+Use a notebook and activate it for following cell operations.
+    All cell operations will be performed on the currently activated notebook.
+    Activate new notebook will deactivate the previously activated notebook.
+    Reactivate previously activated notebook using same notebook_name and notebook_path.
+    
+
+Parameters:
+- `notebook_name` (argument, string, required) - Unique identifier for the notebook
+- `notebook_path` (argument, string, required) - Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')
+- `mode` (argument, string, optional) - Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it
+- `kernel_id` (argument, string, optional) - Specific kernel ID to use (will create new if skipped)
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "use_notebookOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message with notebook information"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL list_notebooks
+
+Summary: list_notebooks
+
+List all notebooks that have been used via use_notebook tool
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "list_notebooksOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "TSV formatted table with notebook information"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL restart_notebook
+
+Summary: restart_notebook
+
+Restart the kernel for a specific notebook.
+
+Parameters:
+- `notebook_name` (argument, string, required) - Notebook identifier to restart
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "restart_notebookOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL unuse_notebook
+
+Summary: unuse_notebook
+
+Unuse from a specific notebook and release its resources.
+
+Parameters:
+- `notebook_name` (argument, string, required) - Notebook identifier to disconnect
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "unuse_notebookOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL read_notebook
+
+Summary: read_notebook
+
+Read a notebook and return index, source content, type, execution count of each cell.
+
+    Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
+    Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.
+
+    It is recommended to use brief format with larger limit to get a overview of the notebook structure,
+    then use detailed format with exact index and limit to get the detailed information of some specific cells.
+    
+
+Parameters:
+- `notebook_name` (argument, string, required) - Notebook identifier to read
+- `response_format` (argument, string, optional) - Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source
+- `start_index` (argument, integer, optional) - Starting index for pagination (0-based)
+- `limit` (argument, integer, optional) - Maximum number of items to return (0 means no limit)
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "read_notebookOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Notebook content in the requested format"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL insert_cell
+
+Summary: insert_cell
+
+Insert a cell to specified position from the currently activated notebook.
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "insert_cellOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message and the structure of its surrounding cells"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL overwrite_cell_source
+
+Summary: overwrite_cell_source
+
+Replace the entire source of a cell in the currently activated notebook.
+    Returns a diff showing the changes made.
+
+    Use this when rewriting a cell completely. For small, targeted changes,
+    prefer edit_cell_source instead — it is safer for partial edits.
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "overwrite_cell_sourceOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message with diff showing changes made"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL edit_cell_source
+
+Summary: edit_cell_source
+
+Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
+    Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
+    (not regex) and may span multiple lines. By default, `old_string` must appear exactly once;
+    set `replace_all=True` for multiple occurrences. Returns a diff of the changes made.
+
+    Prefer this over overwrite_cell_source for small, targeted edits — it is safer because
+    unchanged parts of the cell are left untouched. Use read_cell first to see the current
+    source and construct an accurate old_string.
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "edit_cell_sourceOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message with diff showing changes made"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL execute_cell
+
+Summary: execute_cell
+
+Execute a cell from the currently activated notebook with timeout and return it's outputs
+
+Parameters:
+- `cell_index` (argument, integer, required) - Index of the cell to execute (0-based)
+- `timeout` (argument, integer, optional) - Maximum seconds to wait for execution (0 = use config default)
+- `stream` (argument, boolean, optional) - Enable streaming progress (including time indicator) updates for long-running cells
+- `progress_interval` (argument, integer, optional) - Seconds between progress updates when stream=True
+
+##### TOOL insert_execute_code_cell
+
+Summary: insert_execute_code_cell
+
+Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
+    It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time
+
+Parameters:
+- `cell_index` (argument, integer, required) - Index of the cell to insert and execute (0-based)
+- `cell_source` (argument, string, required) - Code source for the cell
+- `timeout` (argument, integer, optional) - Maximum seconds to wait for execution (0 = use config default)
+
+##### TOOL read_cell
+
+Summary: read_cell
+
+Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
+
+Request body: application/json
+
+##### TOOL delete_cell
+
+Summary: delete_cell
+
+Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "delete_cellOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message with list of deleted cells and their source (if include_source=True)"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL clear_cell_output
+
+Summary: clear_cell_output
+
+Clear the outputs and execution count of a single code cell in the currently
+    activated notebook, without deleting the cell itself.
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "clear_cell_outputOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message with the number of outputs removed"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL move_cell
+
+Summary: move_cell
+
+Move a cell from source_index to target_index within the currently activated notebook.
+
+    The cell is removed from source_index and placed at target_index. Cells in between shift
+    to fill the gap. The cell's type, source, and outputs are preserved.
+    Example: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].
+
+    Use this tool instead of manually deleting and re-inserting a cell — it is atomic and
+    preserves cell metadata. Use read_notebook first to see cell indices if needed.
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "move_cellOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Success message with moved cell info and surrounding context"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL execute_code
+
+Summary: execute_code
+
+Execute code directly in a kernel (not saved to notebook).
+
+    If `use_sandbox` selected an active sandbox, this tool executes on that
+    sandbox instead of a Jupyter kernel. This allows agents to switch between
+    kernel-backed and sandbox-backed execution using the same execute_code API.
+
+    Targets the current activated notebook's kernel by default. Pass kernel_id
+    to execute in a specific kernel directly — including raw kernels with no
+    notebook attached.
+
+    Recommended to use in following cases:
+    1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)
+    2. Performance profiling and debugging.
+    3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)
+    4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)
+    5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)
+
+    Under no circumstances should you use this tool to:
+    1. Import new modules or perform variable assignments that affect subsequent Notebook execution
+    2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
+    
+
+Request body: application/json
+
+##### TOOL connect_to_jupyter
+
+Summary: connect_to_jupyter
+
+Connect to a Jupyter server dynamically with URL and token.
+
+    This tool allows you to connect to different Jupyter servers without needing to
+    restart the MCP server or modify configuration files. Particularly useful when:
+    - Working with multiple Jupyter servers with different ports/tokens
+    - Jupyter server token changes dynamically
+    - Need to switch between different Jupyter instances
+
+    Example usage:
+    - "Connect to http://localhost:8888 with token abc123"
+    - "Connect to http://localhost:8889 without authentication"
+    
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "connect_to_jupyterOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Connection status message"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL launch_sandbox
+
+Summary: launch_sandbox
+
+Launch a code sandbox that can be used instead of Jupyter kernels.
+
+            After launch, call use_sandbox to make execute_code run on this sandbox
+            (as an alternative to notebook-bound kernel execution). Works in both
+            MCP_SERVER and JUPYTER_SERVER modes.
+            
+
+Request body: application/json
+
+##### TOOL list_sandboxes
+
+Summary: list_sandboxes
+
+List launched code sandboxes that can be used as alternatives to kernels.
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "list_sandboxesOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "array",
+      "title": "Result",
+      "description": "All launched sandboxes with name, variant, status, and active flag",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL use_sandbox
+
+Summary: use_sandbox
+
+Select which launched sandbox execute_code should use instead of kernels.
+
+Request body: application/json
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "use_sandboxOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Sandbox routing status"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### TOOL terminate_sandbox
+
+Summary: terminate_sandbox
+
+Terminate a launched code sandbox.
+
+Parameters:
+- `sandbox_name` (argument, string, required) - Sandbox name to terminate and unregister
+
+Returns:
+```json
+{
+  "type": "object",
+  "title": "terminate_sandboxOutput",
+  "properties": {
+    "result": {
+      "name": "result",
+      "type": "string",
+      "title": "Result",
+      "description": "Termination status message"
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+##### PROMPT jupyter_cite
+
+Summary: jupyter_cite
+
+
+    Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.
+    
+
+Parameters:
+- `prompt` (argument, string, required) - User prompt for the cited cells
+- `cell_indices` (argument, string, required) - Cell indices to cite (0-based),supporting flexible range format, e.g., '0,1,2', '0-2' or '0-2,4'
+- `notebook_name` (argument, string, optional) - Name of the notebook to cite cells from, default (empty) to current activated notebook

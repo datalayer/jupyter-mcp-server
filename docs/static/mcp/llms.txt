@@ -1,0 +1,58 @@
+# Jupyter MCP Server
+
+> MCP reference for Jupyter MCP Server 1.2.0: 22 tools and 1 prompt, generated from a live protocol snapshot at a pinned commit.
+
+## Reference
+
+- [Overview](/mcp/): MCP reference for Jupyter MCP Server 1.2.0: 22 tools and 1 prompt, generated from a live protocol snapshot at a pinned commit.
+- [Configuration](/mcp/configuration/): Every setting of JupyterMCPConfig, generated from the pydantic model at the pinned commit.
+- [connect_to_jupyter](/mcp/tools/connect-to-jupyter/): Connect to a Jupyter server dynamically with URL and token.
+- [list_files](/mcp/tools/list-files/): List all files and directories recursively in the Jupyter server's file system.
+- [list_kernels](/mcp/tools/list-kernels/): List all available kernels in the Jupyter server.
+- [use_notebook](/mcp/tools/use-notebook/): Use a notebook and activate it for following cell operations.
+- [list_notebooks](/mcp/tools/list-notebooks/): List all notebooks that have been used via use_notebook tool
+- [read_notebook](/mcp/tools/read-notebook/): Read a notebook and return index, source content, type, execution count of each cell.
+- [restart_notebook](/mcp/tools/restart-notebook/): Restart the kernel for a specific notebook.
+- [unuse_notebook](/mcp/tools/unuse-notebook/): Unuse from a specific notebook and release its resources.
+- [insert_cell](/mcp/tools/insert-cell/): Insert a cell to specified position from the currently activated notebook.
+- [read_cell](/mcp/tools/read-cell/): Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
+- [edit_cell_source](/mcp/tools/edit-cell-source/): Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
+- [overwrite_cell_source](/mcp/tools/overwrite-cell-source/): Replace the entire source of a cell in the currently activated notebook.
+- [move_cell](/mcp/tools/move-cell/): Move a cell from source_index to target_index within the currently activated notebook.
+- [delete_cell](/mcp/tools/delete-cell/): Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
+- [clear_cell_output](/mcp/tools/clear-cell-output/): Clear the outputs and execution count of a single code cell in the currently
+- [execute_cell](/mcp/tools/execute-cell/): Execute a cell from the currently activated notebook with timeout and return it's outputs
+- [insert_execute_code_cell](/mcp/tools/insert-execute-code-cell/): Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
+- [execute_code](/mcp/tools/execute-code/): Execute code directly in a kernel (not saved to notebook).
+- [launch_sandbox](/mcp/tools/launch-sandbox/): Launch a code sandbox that can be used instead of Jupyter kernels.
+- [list_sandboxes](/mcp/tools/list-sandboxes/): List launched code sandboxes that can be used as alternatives to kernels.
+- [use_sandbox](/mcp/tools/use-sandbox/): Select which launched sandbox execute_code should use instead of kernels.
+- [terminate_sandbox](/mcp/tools/terminate-sandbox/): Terminate a launched code sandbox.
+- [jupyter_cite](/mcp/prompts/jupyter-cite/): Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.
+
+## MCP Explorer
+
+- [Jupyter MCP Server](/mcp/reference/): 23 documented operations
+- [list_files](/mcp/reference/#operation-list-files-tool): tool - List all files and directories recursively in the Jupyter server's file system.
+- [list_kernels](/mcp/reference/#operation-list-kernels-tool): tool - List all available kernels in the Jupyter server.
+- [use_notebook](/mcp/reference/#operation-use-notebook-tool): tool - Use a notebook and activate it for following cell operations.
+- [list_notebooks](/mcp/reference/#operation-list-notebooks-tool): tool - List all notebooks that have been used via use_notebook tool
+- [restart_notebook](/mcp/reference/#operation-restart-notebook-tool): tool - Restart the kernel for a specific notebook.
+- [unuse_notebook](/mcp/reference/#operation-unuse-notebook-tool): tool - Unuse from a specific notebook and release its resources.
+- [read_notebook](/mcp/reference/#operation-read-notebook-tool): tool - Read a notebook and return index, source content, type, execution count of each cell.
+- [insert_cell](/mcp/reference/#operation-insert-cell-tool): tool - Insert a cell to specified position from the currently activated notebook.
+- [overwrite_cell_source](/mcp/reference/#operation-overwrite-cell-source-tool): tool - Replace the entire source of a cell in the currently activated notebook.
+- [edit_cell_source](/mcp/reference/#operation-edit-cell-source-tool): tool - Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
+- [execute_cell](/mcp/reference/#operation-execute-cell-tool): tool - Execute a cell from the currently activated notebook with timeout and return it's outputs
+- [insert_execute_code_cell](/mcp/reference/#operation-insert-execute-code-cell-tool): tool - Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
+- [read_cell](/mcp/reference/#operation-read-cell-tool): tool - Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
+- [delete_cell](/mcp/reference/#operation-delete-cell-tool): tool - Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
+- [clear_cell_output](/mcp/reference/#operation-clear-cell-output-tool): tool - Clear the outputs and execution count of a single code cell in the currently
+- [move_cell](/mcp/reference/#operation-move-cell-tool): tool - Move a cell from source_index to target_index within the currently activated notebook.
+- [execute_code](/mcp/reference/#operation-execute-code-tool): tool - Execute code directly in a kernel (not saved to notebook).
+- [connect_to_jupyter](/mcp/reference/#operation-connect-to-jupyter-tool): tool - Connect to a Jupyter server dynamically with URL and token.
+- [launch_sandbox](/mcp/reference/#operation-launch-sandbox-tool): tool - Launch a code sandbox that can be used instead of Jupyter kernels.
+- [list_sandboxes](/mcp/reference/#operation-list-sandboxes-tool): tool - List launched code sandboxes that can be used as alternatives to kernels.
+- [use_sandbox](/mcp/reference/#operation-use-sandbox-tool): tool - Select which launched sandbox execute_code should use instead of kernels.
+- [terminate_sandbox](/mcp/reference/#operation-terminate-sandbox-tool): tool - Terminate a launched code sandbox.
+- [jupyter_cite](/mcp/reference/#operation-jupyter-cite-prompt): prompt - Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.
