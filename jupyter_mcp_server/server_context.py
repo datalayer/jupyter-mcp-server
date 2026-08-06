@@ -104,6 +104,7 @@ class ServerContext:
                     logger.warning("Both code_sandbox_password and code_sandbox_token are set. Password auth takes precedence.")
                 self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=None)
                 self._code_sandbox_password_auth.inject_into_session(self._server_client.http_client.session)
+                self._install_code_sandbox_auth_retry(self._server_client)
             else:
                 self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=config.code_sandbox_token)
 
@@ -255,6 +256,34 @@ class ServerContext:
         if self._document_password_auth is self._code_sandbox_password_auth:
             return self.code_sandbox_auth_headers
         return self._document_password_auth.get_headers()
+
+    def _install_code_sandbox_auth_retry(self, server_client: JupyterServerClient) -> None:
+        """Make every request through `server_client` retry once on a 401/403.
+
+        The collaboration/document path already survives a cookie expiry via
+        `NotebookConnection._get_ws_url`, which catches the error, calls
+        `relogin_document()`, and retries. Every kernel/contents/kernelspec
+        call from the tools goes through `JupyterServerClient`'s single
+        `http_client.request()` instead, so wrapping that one method gives all
+        of them the same protection without touching each call site.
+        """
+        from jupyter_server_client.exceptions import AuthenticationError, ForbiddenError
+
+        original_request = server_client.http_client.request
+
+        def request_with_relogin(*args, **kwargs):
+            try:
+                return original_request(*args, **kwargs)
+            except (AuthenticationError, ForbiddenError) as error:
+                logger.warning(
+                    "Code sandbox request returned %s, session cookie likely "
+                    "expired. Re-authenticating and retrying.",
+                    error.status_code,
+                )
+                self.relogin_code_sandbox()
+                return original_request(*args, **kwargs)
+
+        server_client.http_client.request = request_with_relogin
 
     def relogin_code_sandbox(self, timeout: float = 10.0) -> None:
         """Re-authenticate the code sandbox server session after cookie expiry.

@@ -584,6 +584,88 @@ class TestServerContextAuthHeaders:
 
 
 # ---------------------------------------------------------------------------
+# Code sandbox retry-on-expiry tests
+# ---------------------------------------------------------------------------
+
+
+class TestCodeSandboxAuthRetry:
+    """Tests for ServerContext._install_code_sandbox_auth_retry.
+
+    Covers the retry wrapper in isolation, at the single `http_client.request`
+    choke point every `kernels`/`contents`/`kernelspecs` call goes through, so
+    they cover `list_kernels`, `list_files`, `create_notebook`, etc. without
+    a case per call site.
+    """
+
+    def setup_method(self):
+        reset_config()
+        ServerContext.reset()
+        ServerContext._instance = None
+
+    def teardown_method(self):
+        reset_config()
+        ServerContext.reset()
+        ServerContext._instance = None
+
+    def test_retries_once_after_401_then_succeeds(self):
+        """A 401 from the wrapped request triggers one relogin and retry."""
+        from jupyter_server_client.exceptions import AuthenticationError
+
+        context = ServerContext.get_instance()
+        context.relogin_code_sandbox = MagicMock()
+
+        mock_client = MagicMock()
+        calls = {"n": 0}
+
+        def flaky_request(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise AuthenticationError("expired", status_code=401)
+            return {"ok": True}
+
+        mock_client.http_client.request = flaky_request
+        context._install_code_sandbox_auth_retry(mock_client)
+
+        result = mock_client.http_client.request("GET", "/api/kernels")
+
+        assert result == {"ok": True}
+        assert calls["n"] == 2
+        context.relogin_code_sandbox.assert_called_once()
+
+    def test_propagates_persistent_failure(self):
+        """A 403 that survives the relogin still surfaces to the caller."""
+        from jupyter_server_client.exceptions import ForbiddenError
+
+        context = ServerContext.get_instance()
+        context.relogin_code_sandbox = MagicMock()
+
+        mock_client = MagicMock()
+        mock_client.http_client.request = MagicMock(
+            side_effect=ForbiddenError("nope", status_code=403)
+        )
+        context._install_code_sandbox_auth_retry(mock_client)
+
+        with pytest.raises(ForbiddenError):
+            mock_client.http_client.request("GET", "/api/kernels")
+
+        context.relogin_code_sandbox.assert_called_once()
+
+    def test_success_without_expiry_does_not_relogin(self):
+        """A request that succeeds on the first try never triggers relogin."""
+        context = ServerContext.get_instance()
+        context.relogin_code_sandbox = MagicMock()
+
+        mock_client = MagicMock()
+        mock_client.http_client.request = MagicMock(return_value={"ok": True})
+        context._install_code_sandbox_auth_retry(mock_client)
+
+        result = mock_client.http_client.request("GET", "/api/kernels")
+
+        assert result == {"ok": True}
+        context.relogin_code_sandbox.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # NotebookConnection auth headers tests
 # ---------------------------------------------------------------------------
 
