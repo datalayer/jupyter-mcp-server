@@ -80,12 +80,18 @@ class UseNotebookTool(BaseTool):
             else:
                 dir_contents = server_client.contents.list_directory("")
 
+            file_exists = any(file.name == path.name for file in dir_contents)
             if mode == "connect":
-                file_exists = any(file.name == path.name for file in dir_contents)
                 if not file_exists:
                     return (
                         False,
                         f"'{notebook_path}' not found in jupyter server, please check the notebook already exists.",
+                    )
+            elif mode == "create":
+                if file_exists:
+                    return (
+                        False,
+                        f"'{notebook_path}' already exists in jupyter server, please use a different path or use_mode='connect' to open it.",
                     )
 
             return True, None
@@ -113,12 +119,18 @@ class UseNotebookTool(BaseTool):
                 contents_manager.get(parent_path, content=True, type="directory")
             )
 
+            file_exists = any(item["name"] == path.name for item in model.get("content", []))
             if mode == "connect":
-                file_exists = any(item["name"] == path.name for item in model.get("content", []))
                 if not file_exists:
                     return (
                         False,
                         f"'{notebook_path}' not found in jupyter server, please check the notebook already exists.",
+                    )
+            elif mode == "create":
+                if file_exists:
+                    return (
+                        False,
+                        f"'{notebook_path}' already exists in jupyter server, please use a different path or use_mode='connect' to open it.",
                     )
 
             return True, None
