@@ -32,9 +32,11 @@ class FakeKernel:
 
     def __init__(self):
         self.interrupted = False
+        self.interrupt_count = 0
 
     def interrupt(self):
         self.interrupted = True
+        self.interrupt_count += 1
 
 
 class FakeNotebook:
@@ -93,12 +95,13 @@ async def _run_stream(cell, execute_impl, timeout_seconds, kernel):
 # The monitoring loops in execute_cell_tool.py and execute_cell_with_forced_sync
 # poll in whole-second (`await asyncio.sleep(1)`) increments, so a timed-out
 # call can easily burn a real second or more of wall clock before the tool
-# returns control to us. The background execute_impl below must sleep long
-# enough to still be running after that overhead on a slow/loaded CI runner,
-# or the orphaned task looks finished by the time we make our first
+# returns control to us. After timeout we also briefly settle (about 1s) so
+# notebook outputs can catch up. The background execute_impl below must sleep
+# long enough to still be running after that overhead on a slow/loaded CI
+# runner, or the orphaned task looks finished by the time we make our first
 # assertion (observed on a macOS runner: elapsed 2e-5s against a 0.3s sleep,
 # https://github.com/datalayer/jupyter-mcp-server/actions/runs/30021842755).
-_ORPHANED_TASK_SLEEP = 2.0
+_ORPHANED_TASK_SLEEP = 3.0
 
 
 @pytest.mark.asyncio
@@ -139,6 +142,50 @@ async def test_wait_for_kernel_idle_blocks_until_orphaned_stream_task_finishes()
 
     assert elapsed >= 0.5
     assert is_kernel_busy(kernel) is False
+
+
+@pytest.mark.asyncio
+async def test_non_stream_timeout_interrupts_kernel_once():
+    """execute_cell_with_forced_sync interrupts the kernel and awaits the settle
+    window itself before raising TimeoutError. The tool's except block used to
+    repeat both, so a timed-out call interrupted twice and waited two settle
+    windows instead of the single one TIMEOUT_OUTPUT_SETTLE_SECONDS implies.
+    Reported by @AmirF194 in review of #309."""
+    cell = {"source": "time.sleep(60)", "outputs": []}
+    kernel = FakeKernel()
+    manager = FakeNotebookManager(
+        FakeNotebook(cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP))
+    )
+
+    result = await ExecuteCellTool().execute(
+        mode=ServerMode.MCP_SERVER,
+        notebook_manager=manager,
+        cell_index=0,
+        timeout_seconds=0,
+        stream=False,
+        progress_interval=1,
+        ensure_kernel_alive_fn=lambda: kernel,
+    )
+
+    assert kernel.interrupt_count == 1, (
+        f"timeout path should interrupt once, got {kernel.interrupt_count}"
+    )
+    assert any(
+        isinstance(entry, str) and "[TIMEOUT ERROR" in entry for entry in result
+    ), f"expected a timeout marker in the result, got {result!r}"
+
+
+@pytest.mark.asyncio
+async def test_stream_timeout_interrupts_kernel_once():
+    """The streaming branch owns its own interrupt; it must not double up either."""
+    cell = {"source": "time.sleep(60)", "outputs": []}
+    kernel = FakeKernel()
+
+    await _run_stream(
+        cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP), timeout_seconds=0, kernel=kernel
+    )
+
+    assert kernel.interrupt_count == 1
 
 
 @pytest.mark.asyncio
