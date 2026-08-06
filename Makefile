@@ -126,8 +126,6 @@ start-jupyter-server-extension: ## start jupyter server with MCP extension
 	  --port 4040
 
 jupyterlab: ## start jupyterlab for the mcp server
-	pip uninstall -y pycrdt datalayer_pycrdt
-	pip install datalayer_pycrdt
 	@exec echo
 	@exec echo curl http://localhost:8888/lab?token=MY_TOKEN
 	@exec echo

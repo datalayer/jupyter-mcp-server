@@ -45,8 +45,6 @@ jobs:
           python -m pip install ".[test]"
           # Optional extension used by sandbox-related tests.
           python -m pip install ./ext/sandboxes
-          pip uninstall -y pycrdt datalayer_pycrdt
-          pip install datalayer_pycrdt==0.12.17
 
       - name: Test the extension
         run: |

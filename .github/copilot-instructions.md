@@ -118,8 +118,6 @@ jupyter-mcp-server start \
 # Start JupyterLab server for MCP integration
 make jupyterlab
 # Equivalent to:
-pip uninstall -y pycrdt datalayer_pycrdt
-pip install datalayer_pycrdt
 jupyter lab \
   --port 8888 \
   --ip 0.0.0.0 \
@@ -221,7 +219,6 @@ docker run -i --rm \
 
 - **Core deps**: Defined in `pyproject.toml` dependencies section
 - **Dev deps**: Use `[test,lint,typing]` optional dependencies
-- **Special handling**: `datalayer_pycrdt` has specific version requirements (0.12.17)
 
 ### CI/CD Pipeline Expectations
 

@@ -101,9 +101,7 @@ When adding tests for new features or modifying existing tools, ensure your test
 1. **Set Up Your Environment:**
 
    ```bash
-   pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel
-   pip uninstall -y pycrdt datalayer_pycrdt
-   pip install datalayer_pycrdt==0.12.17
+   pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel pycrdt
    ```
 
 1. **Start Jupyter Server:**
