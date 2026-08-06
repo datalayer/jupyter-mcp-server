@@ -380,6 +380,71 @@ class TestJupyterPasswordAuth:
 
 
 # ---------------------------------------------------------------------------
+# JupyterAnonymousAuth unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestJupyterAnonymousAuth:
+    """Tests for the no-password, no-token anonymous XSRF fetch (#183)."""
+
+    def _make_auth(self, url="http://localhost:8888"):
+        from jupyter_mcp_server.auth import JupyterAnonymousAuth
+        return JupyterAnonymousAuth(url)
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_fetches_xsrf_without_posting_credentials(self, mock_session_cls):
+        """login() issues one GET /login and never a POST, unlike password auth."""
+        session = _patch_session(mock_session_cls)
+        jar = RequestsCookieJar()
+        jar.set("_xsrf", "2|anon123")
+        session.cookies = jar
+        session.request.side_effect = _request_responses(MagicMock())  # GET /login only
+
+        auth = self._make_auth()
+        auth.login()
+
+        assert auth._authenticated is True
+        assert auth._xsrf_token == "2|anon123"
+        assert session.request.call_count == 1
+        get_call = session.request.call_args_list[0]
+        assert get_call.args[0] == "GET"
+        assert get_call.args[1] == "http://localhost:8888/login"
+        assert get_call.kwargs["allow_redirects"] is False
+
+        headers = auth.get_headers()
+        assert headers["X-XSRFToken"] == "2|anon123"
+        assert "_xsrf=2|anon123" in headers["Cookie"]
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_succeeds_even_without_xsrf_cookie(self, mock_session_cls):
+        """Unlike JupyterPasswordAuth, a missing _xsrf cookie is not fatal here:
+
+        a deployment with XSRF protection disabled is not an error for the
+        anonymous case, it just means no header is needed.
+        """
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()  # no _xsrf set
+        session.request.side_effect = _request_responses(MagicMock())
+
+        auth = self._make_auth()
+        auth.login()  # must not raise
+
+        assert auth._authenticated is True
+        assert auth.get_headers() == {}
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    def test_login_translates_connection_error(self, mock_session_cls):
+        """Connection failures during the anonymous GET surface as RuntimeError."""
+        session = _patch_session(mock_session_cls)
+        session.request.side_effect = requests.exceptions.ConnectionError("refused")
+
+        auth = self._make_auth()
+        with pytest.raises(RuntimeError, match="Connection error"):
+            auth.login()
+        session.close.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # Config password fields
 # ---------------------------------------------------------------------------
 
@@ -663,6 +728,108 @@ class TestCodeSandboxAuthRetry:
 
         assert result == {"ok": True}
         context.relogin_code_sandbox.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _init_mcp_server_mode anonymous XSRF wiring tests (#183)
+# ---------------------------------------------------------------------------
+
+
+class TestInitMcpServerModeAnonymousXsrf:
+    """Tests that _init_mcp_server_mode fetches an anonymous _xsrf cookie when
+    neither a password nor a token is configured (issue #183)."""
+
+    def setup_method(self):
+        reset_config()
+        ServerContext.reset()
+        ServerContext._instance = None
+
+    def teardown_method(self):
+        reset_config()
+        ServerContext.reset()
+        ServerContext._instance = None
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    @patch("jupyter_mcp_server.server_context.JupyterServerClient")
+    def test_no_password_no_token_fetches_xsrf(self, mock_client_cls, mock_session_cls):
+        """With no code_sandbox_password and no code_sandbox_token, the code
+        sandbox session still ends up carrying an X-XSRFToken header.
+
+        This is the exact deployment shape from #183 (--IdentityProvider.token='',
+        no password): before this fix, code_sandbox_auth_headers was permanently
+        {} in this configuration.
+        """
+        mock_client = MagicMock()
+        mock_client.http_client.session = requests.Session()
+        mock_client_cls.return_value = mock_client
+
+        session = _patch_session(mock_session_cls)
+        jar = RequestsCookieJar()
+        jar.set("_xsrf", "2|nocred")
+        session.cookies = jar
+        session.request.side_effect = _request_responses(MagicMock())  # GET /login only
+
+        set_config(
+            code_sandbox_url="http://localhost:8888",
+            code_sandbox_token=None,
+            code_sandbox_password=None,
+        )
+        context = ServerContext.get_instance()
+        context._init_mcp_server_mode()
+        context._initialized = True  # bypass initialize()'s extension-detection path
+
+        assert context._code_sandbox_password_auth is not None
+        headers = context.code_sandbox_auth_headers
+        assert headers.get("X-XSRFToken") == "2|nocred"
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    @patch("jupyter_mcp_server.server_context.JupyterServerClient")
+    def test_token_set_skips_anonymous_auth(self, mock_client_cls, mock_session_cls):
+        """A configured code_sandbox_token still bypasses the anonymous XSRF path
+        entirely (backward compatible, no new HTTP call for the token case)."""
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+
+        set_config(
+            code_sandbox_url="http://localhost:8888",
+            code_sandbox_token="mytoken",
+            code_sandbox_password=None,
+        )
+        context = ServerContext.get_instance()
+        context._init_mcp_server_mode()
+
+        assert context._code_sandbox_password_auth is None
+        mock_session_cls.assert_not_called()
+        mock_client_cls.assert_called_once_with(base_url="http://localhost:8888", token="mytoken")
+
+    @patch("jupyter_mcp_server.auth.requests.Session")
+    @patch("jupyter_mcp_server.server_context.JupyterServerClient")
+    def test_unreachable_server_does_not_abort_init(self, mock_client_cls, mock_session_cls):
+        """A connection error during the anonymous XSRF fetch must not raise out of
+        _init_mcp_server_mode: this path runs for every no-token, no-password config,
+        including ones where the code sandbox server isn't up yet (or isn't real, as
+        in most of this repo's own unit tests), and previously that case did no
+        network I/O at all.
+        """
+        mock_client = MagicMock()
+        mock_client.http_client.session = requests.Session()
+        mock_client_cls.return_value = mock_client
+
+        session = _patch_session(mock_session_cls)
+        session.cookies = RequestsCookieJar()
+        session.request.side_effect = requests.exceptions.ConnectionError("refused")
+
+        set_config(
+            code_sandbox_url="http://localhost:8888",
+            code_sandbox_token=None,
+            code_sandbox_password=None,
+        )
+        context = ServerContext.get_instance()
+        context._init_mcp_server_mode()  # must not raise
+        context._initialized = True
+
+        assert context._code_sandbox_password_auth is not None
+        assert context.code_sandbox_auth_headers == {}
 
 
 # ---------------------------------------------------------------------------

@@ -195,3 +195,36 @@ class JupyterPasswordAuth:
             return
         for name, value in self._live_cookies().items():
             session.cookies.set(name, value)
+
+
+class JupyterAnonymousAuth(JupyterPasswordAuth):
+    """Obtains only the anonymous `_xsrf` cookie, for deployments with no
+    password and no bearer token (SSO/reverse-proxy auth, JupyterHub
+    single-user servers, `--IdentityProvider.token=''`).
+
+    XSRF-protected POST/PUT/DELETE requests need the `_xsrf` cookie Tornado's
+    login handler sets on any GET, even with no credentials being presented,
+    so this performs that GET and skips the password POST and verification
+    entirely. If the server does not enforce XSRF, no cookie is set and
+    `get_headers()` returns an empty dict, same as before this class existed.
+    """
+
+    def __init__(self, server_url: str):
+        super().__init__(server_url, password="")
+
+    def login(self, timeout: float = 10.0) -> None:
+        session = requests.Session()
+        self._session = session
+        try:
+            self._do_request(
+                "GET", f"{self.server_url}/login",
+                stage="anonymous XSRF fetch", timeout=timeout,
+                allow_redirects=False,
+            )
+            self._xsrf_token = session.cookies.get("_xsrf", "")
+            self._authenticated = True
+            logger.info(f"Anonymous XSRF cookie fetch complete for {self.server_url}")
+        except BaseException:
+            session.close()
+            self._session = None
+            raise
