@@ -184,13 +184,30 @@ class UseNotebookTool(BaseTool):
             except Exception as e:
                 return f"Failed to connect the Jupyter server: {e}"
 
+        # In split setups, contents operations use the document server and its auth.
+        # When the URLs match, server_client already targets the document server.
+        document_client = server_client
+        document_auth_headers = auth_headers
+        if mode == ServerMode.MCP_SERVER and server_client is not None:
+            from jupyter_mcp_server.config import get_config
+
+            config = get_config()
+            if config.document_url and config.document_url != config.code_sandbox_url:
+                from jupyter_mcp_server.server_context import ServerContext
+
+                context = ServerContext.get_instance()
+                document_client = context.document_client
+                document_auth_headers = context.document_auth_headers
+
         # Check the path exists
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             path_ok, error_msg = await self._check_path_local(
                 contents_manager, notebook_path, use_mode
             )
         elif mode == ServerMode.MCP_SERVER and server_client is not None:
-            path_ok, error_msg = await self._check_path_http(server_client, notebook_path, use_mode)
+            path_ok, error_msg = await self._check_path_http(
+                document_client, notebook_path, use_mode
+            )
         else:
             return f"Invalid mode or missing required clients: mode={mode}"
 
@@ -257,11 +274,13 @@ class UseNotebookTool(BaseTool):
                     # caller just read from the live cookie jar, so a rotated cookie
                     # cannot go stale. Token auth has no _xsrf cookie and satisfies
                     # XSRF via its own header, so nothing happens there.
-                    xsrf_token = (auth_headers or {}).get("X-XSRFToken")
-                    session = getattr(getattr(server_client, "http_client", None), "session", None)
+                    xsrf_token = (document_auth_headers or {}).get("X-XSRFToken")
+                    session = getattr(
+                        getattr(document_client, "http_client", None), "session", None
+                    )
                     if xsrf_token and session is not None:
                         session.headers["X-XSRFToken"] = xsrf_token
-                    server_client.contents.create_notebook(notebook_path, content=content)
+                    document_client.contents.create_notebook(notebook_path, content=content)
 
             # # Create/connect to kernel based on mode
             if mode == ServerMode.MCP_SERVER and server_client is not None:
@@ -327,11 +346,16 @@ class UseNotebookTool(BaseTool):
 
             # Add notebook to notebook_manager
             if mode == ServerMode.MCP_SERVER and code_sandbox_url:
+                from jupyter_mcp_server.config import get_config
+
+                # The notebook and its collaboration session live on the
+                # document server.
+                config = get_config()
                 notebook_manager.add_notebook(
                     notebook_name,
                     kernel,
-                    server_url=code_sandbox_url,
-                    token=code_sandbox_token,
+                    server_url=config.document_url,
+                    token=config.document_token,
                     path=notebook_path,
                 )
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
@@ -399,10 +423,16 @@ class UseNotebookTool(BaseTool):
                     # JUPYTER_SERVER mode: Use ServerApp connection details
                     base_url = context.serverapp.connection_url
                     token = context.serverapp.token
-                elif mode == ServerMode.MCP_SERVER and code_sandbox_url:
-                    # MCP_SERVER mode: Use code_sandbox_url and code_sandbox_token
-                    base_url = code_sandbox_url
-                    token = code_sandbox_token
+                elif mode == ServerMode.MCP_SERVER:
+                    # In split setups, open the file in the document server's
+                    # JupyterLab, where the notebook is stored.
+                    config = get_config()
+                    if config.document_url and config.document_url != config.code_sandbox_url:
+                        base_url = config.document_url
+                        token = config.document_token
+                    elif code_sandbox_url:
+                        base_url = code_sandbox_url
+                        token = code_sandbox_token
 
                 if base_url and token:
                     try:
