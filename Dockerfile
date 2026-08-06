@@ -15,9 +15,7 @@ ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN python -m pip install --upgrade pip wheel setuptools && pip --version
 
-RUN pip install --no-cache-dir -e . && \
-    pip uninstall -y pycrdt datalayer_pycrdt && \
-    pip install --no-cache-dir datalayer_pycrdt==0.12.17
+RUN pip install --no-cache-dir -e .
 
 EXPOSE 4040
 

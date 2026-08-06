@@ -31,7 +31,7 @@ dependencies = [
     "jupyter-server-nbmodel",
     "jupyter-server-client",
     "jupyter_server>=1.6,<3",
-    "jupyter-collaboration<5",
+    "jupyter-collaboration",
     "tornado>=6.1",
     "traitlets>=5.0",
     "mcp[cli]>=1.10.1,<2",
