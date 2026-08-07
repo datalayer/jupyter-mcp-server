@@ -7,9 +7,9 @@ description: "List all available kernels in the Jupyter server."
 
 List all available kernels in the Jupyter server.
 
-    This tool shows all running and available kernel sessions on the Jupyter server,
-    including their IDs, names, states, connection information, and kernel specifications.
-    Useful for monitoring kernel resources and identifying specific kernels for connection.
+This tool shows all running and available kernel sessions on the Jupyter server,
+including their IDs, names, states, connection information, and kernel specifications.
+Useful for monitoring kernel resources and identifying specific kernels for connection.
 
 > read-only: **yes**
 

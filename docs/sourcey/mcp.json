@@ -31,7 +31,7 @@
   "tools": [
     {
       "name": "list_files",
-      "description": "\n    List all files and directories recursively in the Jupyter server's file system.\n    Used to explore the file system structure of the Jupyter server or to find specific files or directories.\n    ",
+      "description": "\nList all files and directories recursively in the Jupyter server's file system.\nUsed to explore the file system structure of the Jupyter server or to find specific files or directories.\n",
       "inputSchema": {
         "properties": {
           "path": {
@@ -93,7 +93,7 @@
     },
     {
       "name": "list_kernels",
-      "description": "List all available kernels in the Jupyter server.\n\n    This tool shows all running and available kernel sessions on the Jupyter server,\n    including their IDs, names, states, connection information, and kernel specifications.\n    Useful for monitoring kernel resources and identifying specific kernels for connection.\n    ",
+      "description": "List all available kernels in the Jupyter server.\n\nThis tool shows all running and available kernel sessions on the Jupyter server,\nincluding their IDs, names, states, connection information, and kernel specifications.\nUseful for monitoring kernel resources and identifying specific kernels for connection.\n",
       "inputSchema": {
         "properties": {},
         "title": "list_kernelsArguments",
@@ -120,7 +120,7 @@
     },
     {
       "name": "use_notebook",
-      "description": "Use a notebook and activate it for following cell operations.\n    All cell operations will be performed on the currently activated notebook.\n    Activate new notebook will deactivate the previously activated notebook.\n    Reactivate previously activated notebook using same notebook_name and notebook_path.\n    ",
+      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n",
       "inputSchema": {
         "properties": {
           "notebook_name": {
@@ -277,7 +277,7 @@
     },
     {
       "name": "read_notebook",
-      "description": "Read a notebook and return index, source content, type, execution count of each cell.\n\n    Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.\n    Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.\n\n    It is recommended to use brief format with larger limit to get a overview of the notebook structure,\n    then use detailed format with exact index and limit to get the detailed information of some specific cells.\n    ",
+      "description": "Read a notebook and return index, source content, type, execution count of each cell.\n\nUsing brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.\nUsing detailed format to get detailed information of the notebook and it's useful for debugging and analysis.\n\nIt is recommended to use brief format with larger limit to get a overview of the notebook structure,\nthen use detailed format with exact index and limit to get the detailed information of some specific cells.\n",
       "inputSchema": {
         "properties": {
           "notebook_name": {
@@ -403,7 +403,7 @@
     },
     {
       "name": "overwrite_cell_source",
-      "description": "Replace the entire source of a cell in the currently activated notebook.\n    Returns a diff showing the changes made.\n\n    Use this when rewriting a cell completely. For small, targeted changes,\n    prefer edit_cell_source instead — it is safer for partial edits.",
+      "description": "Replace the entire source of a cell in the currently activated notebook.\nReturns a diff showing the changes made.\n\nUse this when rewriting a cell completely. For small, targeted changes,\nprefer edit_cell_source instead — it is safer for partial edits.",
       "inputSchema": {
         "properties": {
           "cell_index": {
@@ -459,7 +459,7 @@
     },
     {
       "name": "edit_cell_source",
-      "description": "Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).\n    Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal\n    (not regex) and may span multiple lines. By default, `old_string` must appear exactly once;\n    set `replace_all=True` for multiple occurrences. Returns a diff of the changes made.\n\n    Prefer this over overwrite_cell_source for small, targeted edits — it is safer because\n    unchanged parts of the cell are left untouched. Use read_cell first to see the current\n    source and construct an accurate old_string.",
+      "description": "Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).\nFinds `old_string` in the cell and replaces it with `new_string`. Matching is literal\n(not regex) and may span multiple lines. By default, `old_string` must appear exactly once;\nset `replace_all=True` for multiple occurrences. Returns a diff of the changes made.\n\nPrefer this over overwrite_cell_source for small, targeted edits — it is safer because\nunchanged parts of the cell are left untouched. Use read_cell first to see the current\nsource and construct an accurate old_string.",
       "inputSchema": {
         "properties": {
           "cell_index": {
@@ -568,7 +568,7 @@
     },
     {
       "name": "insert_execute_code_cell",
-      "description": "Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs\n    It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time",
+      "description": "Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs\nIt is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time",
       "inputSchema": {
         "properties": {
           "cell_index": {
@@ -716,7 +716,7 @@
     },
     {
       "name": "clear_cell_output",
-      "description": "Clear the outputs and execution count of a single code cell in the currently\n    activated notebook, without deleting the cell itself.",
+      "description": "Clear the outputs and execution count of a single code cell in the currently\nactivated notebook, without deleting the cell itself.",
       "inputSchema": {
         "properties": {
           "cell_index": {
@@ -766,7 +766,7 @@
     },
     {
       "name": "move_cell",
-      "description": "Move a cell from source_index to target_index within the currently activated notebook.\n\n    The cell is removed from source_index and placed at target_index. Cells in between shift\n    to fill the gap. The cell's type, source, and outputs are preserved.\n    Example: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].\n\n    Use this tool instead of manually deleting and re-inserting a cell — it is atomic and\n    preserves cell metadata. Use read_notebook first to see cell indices if needed.",
+      "description": "Move a cell from source_index to target_index within the currently activated notebook.\n\nThe cell is removed from source_index and placed at target_index. Cells in between shift\nto fill the gap. The cell's type, source, and outputs are preserved.\nExample: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].\n\nUse this tool instead of manually deleting and re-inserting a cell — it is atomic and\npreserves cell metadata. Use read_notebook first to see cell indices if needed.",
       "inputSchema": {
         "properties": {
           "source_index": {
@@ -823,7 +823,7 @@
     },
     {
       "name": "execute_code",
-      "description": "Execute code directly in a kernel (not saved to notebook).\n\n    If `use_sandbox` selected an active sandbox, this tool executes on that\n    sandbox instead of a Jupyter kernel. This allows agents to switch between\n    kernel-backed and sandbox-backed execution using the same execute_code API.\n\n    Targets the current activated notebook's kernel by default. Pass kernel_id\n    to execute in a specific kernel directly — including raw kernels with no\n    notebook attached.\n\n    Recommended to use in following cases:\n    1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)\n    2. Performance profiling and debugging.\n    3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)\n    4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)\n    5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)\n\n    Under no circumstances should you use this tool to:\n    1. Import new modules or perform variable assignments that affect subsequent Notebook execution\n    2. Execute dangerous code that may harm the Jupyter server or the user's data without permission\n    ",
+      "description": "Execute code directly in a kernel (not saved to notebook).\n\nIf `use_sandbox` selected an active sandbox, this tool executes on that\nsandbox instead of a Jupyter kernel. This allows agents to switch between\nkernel-backed and sandbox-backed execution using the same execute_code API.\n\nTargets the current activated notebook's kernel by default. Pass kernel_id\nto execute in a specific kernel directly — including raw kernels with no\nnotebook attached.\n\nRecommended to use in following cases:\n1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)\n2. Performance profiling and debugging.\n3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)\n4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)\n5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)\n\nUnder no circumstances should you use this tool to:\n1. Import new modules or perform variable assignments that affect subsequent Notebook execution\n2. Execute dangerous code that may harm the Jupyter server or the user's data without permission\n",
       "inputSchema": {
         "properties": {
           "code": {
@@ -870,7 +870,7 @@
     },
     {
       "name": "connect_to_jupyter",
-      "description": "Connect to a Jupyter server dynamically with URL and token.\n\n    This tool allows you to connect to different Jupyter servers without needing to\n    restart the MCP server or modify configuration files. Particularly useful when:\n    - Working with multiple Jupyter servers with different ports/tokens\n    - Jupyter server token changes dynamically\n    - Need to switch between different Jupyter instances\n\n    Example usage:\n    - \"Connect to http://localhost:8888 with token abc123\"\n    - \"Connect to http://localhost:8889 without authentication\"\n    ",
+      "description": "Connect to a Jupyter server dynamically with URL and token.\n\nThis tool allows you to connect to different Jupyter servers without needing to\nrestart the MCP server or modify configuration files. Particularly useful when:\n- Working with multiple Jupyter servers with different ports/tokens\n- Jupyter server token changes dynamically\n- Need to switch between different Jupyter instances\n\nExample usage:\n- \"Connect to http://localhost:8888 with token abc123\"\n- \"Connect to http://localhost:8889 without authentication\"\n",
       "inputSchema": {
         "properties": {
           "jupyter_url": {
@@ -925,7 +925,7 @@
     },
     {
       "name": "launch_sandbox",
-      "description": "Launch a code sandbox that can be used instead of Jupyter kernels.\n\n            After launch, call use_sandbox to make execute_code run on this sandbox\n            (as an alternative to notebook-bound kernel execution). Works in both\n            MCP_SERVER and JUPYTER_SERVER modes.\n            ",
+      "description": "Launch a code sandbox that can be used instead of Jupyter kernels.\n\nAfter launch, call use_sandbox to make execute_code run on this sandbox\n(as an alternative to notebook-bound kernel execution). Works in both\nMCP_SERVER and JUPYTER_SERVER modes.\n",
       "inputSchema": {
         "properties": {
           "sandbox_name": {
@@ -1204,7 +1204,7 @@
   "prompts": [
     {
       "name": "jupyter_cite",
-      "description": "\n    Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.\n    ",
+      "description": "\nLike @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.\n",
       "arguments": [
         {
           "name": "prompt",

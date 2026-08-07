@@ -7,11 +7,11 @@ description: "Read a notebook and return index, source content, type, execution 
 
 Read a notebook and return index, source content, type, execution count of each cell.
 
-    Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
-    Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.
+Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
+Using detailed format to get detailed information of the notebook and it's useful for debugging and analysis.
 
-    It is recommended to use brief format with larger limit to get a overview of the notebook structure,
-    then use detailed format with exact index and limit to get the detailed information of some specific cells.
+It is recommended to use brief format with larger limit to get a overview of the notebook structure,
+then use detailed format with exact index and limit to get the detailed information of some specific cells.
 
 > read-only: **yes**
 

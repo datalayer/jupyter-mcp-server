@@ -6,10 +6,10 @@ description: "Replace the entire source of a cell in the currently activated not
 # overwrite_cell_source
 
 Replace the entire source of a cell in the currently activated notebook.
-    Returns a diff showing the changes made.
+Returns a diff showing the changes made.
 
-    Use this when rewriting a cell completely. For small, targeted changes,
-    prefer edit_cell_source instead — it is safer for partial edits.
+Use this when rewriting a cell completely. For small, targeted changes,
+prefer edit_cell_source instead — it is safer for partial edits.
 
 > destructive: **yes**
 

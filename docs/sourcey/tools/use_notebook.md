@@ -6,9 +6,9 @@ description: "Use a notebook and activate it for following cell operations."
 # use_notebook
 
 Use a notebook and activate it for following cell operations.
-    All cell operations will be performed on the currently activated notebook.
-    Activate new notebook will deactivate the previously activated notebook.
-    Reactivate previously activated notebook using same notebook_name and notebook_path.
+All cell operations will be performed on the currently activated notebook.
+Activate new notebook will deactivate the previously activated notebook.
+Reactivate previously activated notebook using same notebook_name and notebook_path.
 
 > destructive: **yes**
 

@@ -6,13 +6,13 @@ description: "Perform a surgical find-and-replace within a cell's source (like a
 # edit_cell_source
 
 Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
-    Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
-    (not regex) and may span multiple lines. By default, `old_string` must appear exactly once;
-    set `replace_all=True` for multiple occurrences. Returns a diff of the changes made.
+Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
+(not regex) and may span multiple lines. By default, `old_string` must appear exactly once;
+set `replace_all=True` for multiple occurrences. Returns a diff of the changes made.
 
-    Prefer this over overwrite_cell_source for small, targeted edits — it is safer because
-    unchanged parts of the cell are left untouched. Use read_cell first to see the current
-    source and construct an accurate old_string.
+Prefer this over overwrite_cell_source for small, targeted edits — it is safer because
+unchanged parts of the cell are left untouched. Use read_cell first to see the current
+source and construct an accurate old_string.
 
 > destructive: **yes**
 

@@ -7,12 +7,12 @@ description: "Move a cell from source_index to target_index within the currently
 
 Move a cell from source_index to target_index within the currently activated notebook.
 
-    The cell is removed from source_index and placed at target_index. Cells in between shift
-    to fill the gap. The cell's type, source, and outputs are preserved.
-    Example: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].
+The cell is removed from source_index and placed at target_index. Cells in between shift
+to fill the gap. The cell's type, source, and outputs are preserved.
+Example: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].
 
-    Use this tool instead of manually deleting and re-inserting a cell — it is atomic and
-    preserves cell metadata. Use read_notebook first to see cell indices if needed.
+Use this tool instead of manually deleting and re-inserting a cell — it is atomic and
+preserves cell metadata. Use read_notebook first to see cell indices if needed.
 
 > destructive: **yes**
 

@@ -6,7 +6,7 @@ description: "Clear the outputs and execution count of a single code cell in the
 # clear_cell_output
 
 Clear the outputs and execution count of a single code cell in the currently
-    activated notebook, without deleting the cell itself.
+activated notebook, without deleting the cell itself.
 
 > destructive: **yes**
 

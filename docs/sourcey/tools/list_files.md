@@ -6,7 +6,7 @@ description: "List all files and directories recursively in the Jupyter server's
 # list_files
 
 List all files and directories recursively in the Jupyter server's file system.
-    Used to explore the file system structure of the Jupyter server or to find specific files or directories.
+Used to explore the file system structure of the Jupyter server or to find specific files or directories.
 
 > read-only: **yes**
 

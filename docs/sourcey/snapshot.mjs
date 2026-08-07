@@ -25,6 +25,41 @@ const spec = await snapshot({
 // with the installed console-script name so no machine-specific path is published.
 if (spec.transport?.command) spec.transport.command = "jupyter-mcp-server";
 
+// Descriptions come straight from Python docstrings, and CPython 3.13 dedents
+// docstrings at compile time while 3.12 and earlier keep the source indentation
+// (gh.io/cpython#81283). Without normalising, the same server yields a different
+// snapshot on different interpreters and the CI drift check in
+// .github/workflows/docs.yml fails for no real reason. Reproduce the 3.13 form
+// everywhere: strip the common indent from every line after the first and blank
+// out whitespace-only lines.
+const dedent = (text) => {
+  const lines = String(text).split("\n");
+  if (lines.length < 2) return text;
+  const rest = lines.slice(1);
+  let margin = null;
+  for (const line of rest) {
+    if (!line.trim()) continue;
+    const indent = line.match(/^[ \t]*/)[0];
+    if (margin === null || indent.length < margin.length) margin = indent;
+  }
+  if (!margin) return lines[0] + "\n" + rest.map((l) => (l.trim() ? l : "")).join("\n");
+  return (
+    lines[0] +
+    "\n" +
+    rest.map((l) => (l.trim() ? l.slice(margin.length) : "")).join("\n")
+  );
+};
+
+const normalize = (node) => {
+  if (Array.isArray(node)) return node.forEach(normalize);
+  if (!node || typeof node !== "object") return;
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "description" && typeof value === "string") node[key] = dedent(value);
+    else normalize(value);
+  }
+};
+normalize(spec);
+
 const result = validate(spec);
 for (const d of result.diagnostics ?? []) {
   console.error(`${d.severity}: ${d.path} - ${d.message}`);

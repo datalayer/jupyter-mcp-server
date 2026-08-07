@@ -7,24 +7,24 @@ description: "Execute code directly in a kernel (not saved to notebook)."
 
 Execute code directly in a kernel (not saved to notebook).
 
-    If `use_sandbox` selected an active sandbox, this tool executes on that
-    sandbox instead of a Jupyter kernel. This allows agents to switch between
-    kernel-backed and sandbox-backed execution using the same execute_code API.
+If `use_sandbox` selected an active sandbox, this tool executes on that
+sandbox instead of a Jupyter kernel. This allows agents to switch between
+kernel-backed and sandbox-backed execution using the same execute_code API.
 
-    Targets the current activated notebook's kernel by default. Pass kernel_id
-    to execute in a specific kernel directly — including raw kernels with no
-    notebook attached.
+Targets the current activated notebook's kernel by default. Pass kernel_id
+to execute in a specific kernel directly — including raw kernels with no
+notebook attached.
 
-    Recommended to use in following cases:
-    1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)
-    2. Performance profiling and debugging.
-    3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)
-    4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)
-    5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)
+Recommended to use in following cases:
+1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)
+2. Performance profiling and debugging.
+3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)
+4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)
+5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)
 
-    Under no circumstances should you use this tool to:
-    1. Import new modules or perform variable assignments that affect subsequent Notebook execution
-    2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
+Under no circumstances should you use this tool to:
+1. Import new modules or perform variable assignments that affect subsequent Notebook execution
+2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
 
 > destructive: **yes**
 

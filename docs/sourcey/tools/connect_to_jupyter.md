@@ -7,15 +7,15 @@ description: "Connect to a Jupyter server dynamically with URL and token."
 
 Connect to a Jupyter server dynamically with URL and token.
 
-    This tool allows you to connect to different Jupyter servers without needing to
-    restart the MCP server or modify configuration files. Particularly useful when:
-    - Working with multiple Jupyter servers with different ports/tokens
-    - Jupyter server token changes dynamically
-    - Need to switch between different Jupyter instances
+This tool allows you to connect to different Jupyter servers without needing to
+restart the MCP server or modify configuration files. Particularly useful when:
+- Working with multiple Jupyter servers with different ports/tokens
+- Jupyter server token changes dynamically
+- Need to switch between different Jupyter instances
 
-    Example usage:
-    - "Connect to http://localhost:8888 with token abc123"
-    - "Connect to http://localhost:8889 without authentication"
+Example usage:
+- "Connect to http://localhost:8888 with token abc123"
+- "Connect to http://localhost:8889 without authentication"
 
 > destructive: **yes**
 
