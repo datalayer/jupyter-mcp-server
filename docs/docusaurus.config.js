@@ -38,6 +38,11 @@ module.exports = {
       },
       items: [
         {
+          href: 'pathname:///mcp/',
+          label: 'MCP Reference',
+          position: 'left',
+        },
+        {
           href: 'https://discord.gg/YQFwvmSSuR',
           position: 'right',
           className: 'header-discord-link',

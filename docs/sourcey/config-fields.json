@@ -1,0 +1,144 @@
+{
+ "model": "JupyterMCPConfig",
+ "source_file": "jupyter_mcp_server/config.py",
+ "fields": [
+  {
+   "name": "transport",
+   "type": "<class 'str'>",
+   "default": "stdio",
+   "description": "The transport to use for the MCP server"
+  },
+  {
+   "name": "provider",
+   "type": "<class 'str'>",
+   "default": "jupyter",
+   "description": "The provider to use for the document and code sandbox"
+  },
+  {
+   "name": "code_sandbox_url",
+   "type": "<class 'str'>",
+   "default": "http://localhost:8888",
+   "description": "The code sandbox URL to use, or 'local' for direct serverapp access"
+  },
+  {
+   "name": "start_new_code_sandbox",
+   "type": "<class 'bool'>",
+   "default": false,
+   "description": "Start a new code sandbox or use an existing one"
+  },
+  {
+   "name": "code_sandbox_id",
+   "type": "str | None",
+   "default": null,
+   "description": "The kernel ID to use"
+  },
+  {
+   "name": "code_sandbox_token",
+   "type": "str | None",
+   "default": null,
+   "description": "The code sandbox token to use for authentication"
+  },
+  {
+   "name": "code_sandbox_password",
+   "type": "str | None",
+   "default": null,
+   "description": "Password for Jupyter server authentication (alternative to token)"
+  },
+  {
+   "name": "sandbox_variant",
+   "type": "<class 'str'>",
+   "default": "jupyter",
+   "description": "Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') routes execution through the code-sandboxes package."
+  },
+  {
+   "name": "code_sandbox_proxy_token",
+   "type": "str | None",
+   "default": null,
+   "description": "Proxy token for the Colab sandbox variant (colab-code-sandbox-proxy-token)."
+  },
+  {
+   "name": "code_sandbox_channels_url",
+   "type": "str | None",
+   "default": null,
+   "description": "For the 'colab' and 'kaggle' sandbox variants, the WebSocket channels URL of a running notebook session. When set, server_url and kernel_id are parsed from it."
+  },
+  {
+   "name": "sandbox_environment",
+   "type": "str | None",
+   "default": null,
+   "description": "Environment name for cloud sandboxes (e.g. Datalayer/Modal)."
+  },
+  {
+   "name": "sandbox_gpu",
+   "type": "str | None",
+   "default": null,
+   "description": "GPU flavor / accelerator for sandbox engines that support it. Examples: Modal/Datalayer -> T4, A10G, A100, H100; Kaggle batch -> NvidiaTeslaT4, NvidiaTeslaP100 (aliases T4/P100)."
+  },
+  {
+   "name": "document_url",
+   "type": "<class 'str'>",
+   "default": "http://localhost:8888",
+   "description": "The document URL to use, or 'local' for direct serverapp access"
+  },
+  {
+   "name": "document_id",
+   "type": "str | None",
+   "default": null,
+   "description": "The document id to use. Optional - if omitted, can list and select notebooks interactively"
+  },
+  {
+   "name": "document_token",
+   "type": "str | None",
+   "default": null,
+   "description": "The document token to use for authentication"
+  },
+  {
+   "name": "document_password",
+   "type": "str | None",
+   "default": null,
+   "description": "Password for Jupyter document server authentication (alternative to token)"
+  },
+  {
+   "name": "port",
+   "type": "<class 'int'>",
+   "default": 4040,
+   "description": "The port to use for the Streamable HTTP transport"
+  },
+  {
+   "name": "jupyterlab",
+   "type": "<class 'bool'>",
+   "default": true,
+   "description": "Enable JupyterLab mode (defaults to True)"
+  },
+  {
+   "name": "open_notebook_in_ui",
+   "type": "<class 'bool'>",
+   "default": false,
+   "description": "Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False)"
+  },
+  {
+   "name": "allowed_jupyter_mcp_tools",
+   "type": "<class 'str'>",
+   "default": "notebook_run-all-cells,notebook_get-selected-cell",
+   "description": "Comma-separated list of jupyter-mcp-tools to enable"
+  },
+  {
+   "name": "reconnect_interval",
+   "type": "<class 'int'>",
+   "default": 0,
+   "description": "Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect."
+  },
+  {
+   "name": "execution_timeout",
+   "type": "<class 'int'>",
+   "default": 120,
+   "description": "Default timeout in seconds for code execution."
+  },
+  {
+   "name": "max_execution_timeout",
+   "type": "<class 'int'>",
+   "default": 3600,
+   "description": "Maximum allowed timeout in seconds for code execution."
+  }
+ ]
+}
