@@ -49,7 +49,7 @@ help:
 
 install:
 	pip install -e ../..
-	pip install 'pydantic-ai[mcp]' jupyterlab==4.4.1 jupyter-collaboration==4.0.2 'jupyter-mcp-tools>=0.1.4' ipykernel pycrdt
+	pip install 'pydantic-ai[mcp]' jupyterlab jupyter-collaboration 'jupyter-mcp-tools' ipykernel
 
 start:
 	@set -euo pipefail; \

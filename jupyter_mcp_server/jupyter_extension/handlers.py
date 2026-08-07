@@ -145,7 +145,7 @@ class MCPSSEHandler(JupyterHandler):
                             # jupyter-mcp-tools exposes JupyterLab commands as MCP tools.
                             # Only tools listed here will be available to MCP clients.
                             # To add new tools, also update the list in server.py and
-                            # see docs/docs/reference/tools-additional/index.mdx for documentation.
+                            # see docs/docs/reference/tools-jupyterlab/index.mdx for documentation.
                             from jupyter_mcp_server.config import get_config
 
                             config = get_config()

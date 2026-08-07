@@ -2,21 +2,21 @@
 
 To use Jupyter MCP Server, you first need to decide which setup fits your needs:
 
-- **MCP Server Location** - It can be running as a [**Standalone MCP Server**](/transports/streamable-http) or inside the Jupyter Server [**as a Jupyter Server Extension**](/transports/streamable-http-extension) - The last one has for advantage to avoid running 2 separate servers (Jupyter server + MCP server) but only supports Streamable HTTP transport.
-- **MCP Transport** - It supports both [**STDIO Transport**](/transports/stdio) and **Streamable HTTP Transport**
-- **Jupyter Provider** - It can connect to [**Jupyter Server**](/providers/jupyter-server) (local or remote), [**JupyterHub**](/providers/jupyterhub), [**Datalayer**](/providers/datalayer), [**Kaggle**](/providers/kaggle), [**Monty**](/providers/monty), [**Google Colab**](/providers/google-colab), and [**Modal**](/providers/modal).
+- **MCP Server Location** - It can be running as a [**Standalone MCP Server**](/mcp-transports/streamable-http) or inside the Jupyter Server [**as a Jupyter Server Extension**](/mcp-transports/streamable-http-extension) - The last one has for advantage to avoid running 2 separate servers (Jupyter server + MCP server) but only supports Streamable HTTP transport.
+- **MCP Transport** - It supports both [**STDIO Transport**](/mcp-transports/stdio) and **Streamable HTTP Transport**
+- **Jupyter Provider** - It can connect to [**Jupyter Server**](/code-sandboxes/jupyter-server) (local or remote), [**JupyterHub**](/code-sandboxes/jupyterhub), [**Datalayer**](/code-sandboxes/datalayer), [**Kaggle**](/code-sandboxes/kaggle), [**Monty**](/code-sandboxes/monty), [**Google Colab**](/code-sandboxes/google-colab), and [**Modal**](/code-sandboxes/modal).
 
 This guide will help you set up a Jupyter MCP Server to connect your preferred MCP client to a JupyterLab instance.
 
 The Jupyter MCP Server acts as a bridge between the MCP client and the JupyterLab server, allowing you to interact with Jupyter notebooks seamlessly.
 
-You can customize the setup further based on your requirements. Refer to the [server configuration](/reference/configuration) for more details on the possible configurations.
+You can customize the setup further based on your requirements. Refer to the [server configuration](/features/configuration) for more details on the possible configurations.
 
 ## Choosing Your Transport
 
 Jupyter MCP Server supports two types of transport to connect to your MCP client: **STDIO** and **Streamable HTTP**. Choose the one that best fits your needs.
 
-For more details on the different transports, refer to the official MCP documentation [here](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports).
+For more details on the different transports, refer to the official MCP documentation [here](https://modelcontextprotocol.io/specification/2025-06-18/basic/mcp-transports).
 
 ### STDIO Transport
 
@@ -27,7 +27,7 @@ For more details on the different transports, refer to the official MCP document
 - ✅ No additional server ports needed
 - ❌ One client connection at a time
 
-👉 [Get started with STDIO Transport](/transports/stdio)
+👉 [Get started with STDIO Transport](/mcp-transports/stdio)
 
 ### Streamable HTTP Transport
 
@@ -40,8 +40,8 @@ For more details on the different transports, refer to the official MCP document
 
 If you choose Streamable HTTP transport, you can also choose to run the MCP server:
 
-- [**As a Jupyter Server Extension**](/transports/streamable-http-extension) - MCP server runs inside Jupyter (recommended, simpler setup)
-- [**As a Standalone Server**](/transports/streamable-http) - MCP server runs as a separate process
+- [**As a Jupyter Server Extension**](/mcp-transports/streamable-http-extension) - MCP server runs inside Jupyter (recommended, simpler setup)
+- [**As a Standalone Server**](/mcp-transports/streamable-http) - MCP server runs as a separate process
 
 ## Provider Options
 
@@ -49,77 +49,77 @@ If you choose Streamable HTTP transport, you can also choose to run the MCP serv
 
 Connect to any standard JupyterLab or Jupyter Notebook server.
 
-👉 [Jupyter Server Provider Documentation](/providers/jupyter-server)
+👉 [Jupyter Server Provider Documentation](/code-sandboxes/jupyter-server)
 
 👉 Choose your transport:
-- [STDIO Transport](/transports/stdio)
-- [Streamable HTTP (Standalone)](/transports/streamable-http)
-- [Streamable HTTP (Extension)](/transports/streamable-http-extension)
+- [STDIO Transport](/mcp-transports/stdio)
+- [Streamable HTTP (Standalone)](/mcp-transports/streamable-http)
+- [Streamable HTTP (Extension)](/mcp-transports/streamable-http-extension)
 
 ### JupyterHub
 
 Multi-user deployments with authentication and resource management.
 
-👉 [JupyterHub Setup Guide](/providers/jupyterhub)
+👉 [JupyterHub Setup Guide](/code-sandboxes/jupyterhub)
 
 :::tip Multi-User Deployments
-If you're deploying for multiple users, see the [Multi-User Documentation](/reference/multi-users) for architecture patterns and best practices.
+If you're deploying for multiple users, see the [Multi-User Documentation](/features/multi-users) for architecture patterns and best practices.
 :::
 
 ### Datalayer Platform
 
 Enterprise-grade hosted Jupyter with built-in collaboration and security features.
 
-👉 [Datalayer Provider Documentation](/providers/datalayer)
+👉 [Datalayer Provider Documentation](/code-sandboxes/datalayer)
 
 ### Kaggle
 
 Connect to Kaggle interactive notebook code sandboxes.
 
-👉 [Kaggle Provider Documentation](/providers/kaggle)
+👉 [Kaggle Provider Documentation](/code-sandboxes/kaggle)
 
 ### Monty
 
 Run code with Monty, a secure in-process interpreter for lightweight Python snippets.
 
-👉 [Monty Provider Documentation](/providers/monty)
+👉 [Monty Provider Documentation](/code-sandboxes/monty)
 
 ### Google Colab
 
 Connect to Google Colab notebooks (experimental).
 
-👉 [Google Colab Provider Documentation](/providers/google-colab)
+👉 [Google Colab Provider Documentation](/code-sandboxes/google-colab)
 
 ### Modal
 
 Run code in Modal cloud sandboxes for isolated, on-demand execution.
 
-👉 [Modal Provider Documentation](/providers/modal)
+👉 [Modal Provider Documentation](/code-sandboxes/modal)
 
 ## MCP Client Configuration
 
 Once you've set up your MCP server, you need to configure your MCP client. Choose your client:
 
-- [Claude Desktop](/clients/claude_desktop) - Anthropic's desktop app
-- [VS Code](/clients/vscode) - GitHub Copilot integration
-- [Cursor](/clients/cursor) - AI-first code editor
-- [Cline](/clients/cline) - VS Code extension
-- [Windsurf](/clients/windsurf) - Collaborative coding environment
+- [Claude Desktop](/mcp-clients/claude_desktop) - Anthropic's desktop app
+- [VS Code](/mcp-clients/vscode) - GitHub Copilot integration
+- [Cursor](/mcp-clients/cursor) - AI-first code editor
+- [Cline](/mcp-clients/cline) - VS Code extension
+- [Windsurf](/mcp-clients/windsurf) - Collaborative coding environment
 
 ## Next Steps
 
 After setting up your MCP server and client:
 
-🔧 **Explore Available Tools** - Learn about the [MCP tools](/reference/tools) for interacting with notebooks
+🔧 **Explore Available Tools** - Learn about the [MCP tools](pathname:///mcp/features/) for interacting with notebooks
 
-📝 **Use Prompts** - Discover [prompt features](/reference/prompts) for citing and referencing notebooks
+📝 **Use Prompts** - Discover [prompt features](/features/prompts) for citing and referencing notebooks
 
-🔒 **Secure Your Deployment** - Review [security best practices](/reference/security) for token management and authentication
+🔒 **Secure Your Deployment** - Review [security best practices](/features/security) for token management and authentication
 
 📚 **Learn More** - Check out the [Resources](/resources) section for tutorials, videos, and community content
 
 ## Additional Resources
 
-- [Configuration Reference](/reference/configuration) - Complete environment variable and CLI option documentation
+- [Configuration Reference](/features/configuration) - Complete environment variable and CLI option documentation
 - [Community](/community) - Join discussions, get help, and connect with other users
 - [Releases](/releases) - See what's new in each version
