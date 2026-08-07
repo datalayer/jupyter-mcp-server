@@ -63,7 +63,7 @@ Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datala
 ### 🔧 Tools Overview
 
 The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows.
-For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/tools).
+For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/mcp).
 
 #### Server and Code Sandbox Management Tools
 
@@ -123,7 +123,7 @@ You can now customize which tools from `jupyter-mcp-tools` are available using t
 jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN --JupyterMCPServerExtensionApp.allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute,console_create"
 ```
 
-For the complete list of available tools and detailed configuration instructions, please refer to the [Additional Tools documentation](https://jupyter-mcp-server.datalayer.tech/reference/tools-jupyterlab).
+For the complete list of available tools and detailed configuration instructions, please refer to the [Additional Tools documentation](https://jupyter-mcp-server.datalayer.tech/features/tools-jupyterlab).
 
 </details>
 
@@ -135,11 +135,11 @@ The server also supports [prompt feature](https://modelcontextprotocol.io/specif
 | :------------- | :-------------------------------------------------------------------------- |
 | `jupyter-cite` | Cite specific cells from specified notebook (like `@` in Coding IDE or CLI) |
 
-For more details on each prompt, their input parameters, and return content, please refer to the [official Prompt documentation](https://jupyter-mcp-server.datalayer.tech/reference/prompts).
+For more details on each prompt, their input parameters, and return content, please refer to the [official Prompt documentation](https://jupyter-mcp-server.datalayer.tech/features/prompts).
 
 ## 🏁 Getting Started
 
-For comprehensive setup instructions—including `Streamable HTTP` transport, running as a Jupyter Server extension and advanced configuration—check out [our documentation](https://jupyter-mcp-server.datalayer.tech/). Or, get started quickly with `JupyterLab` and `STDIO` transport here below.
+For comprehensive setup instructions—including `Streamable HTTP` transport, running as a Jupyter Server extension and advanced configuration—check out [our documentation](https://jupyter-mcp-server.datalayer.tech). Or, get started quickly with `JupyterLab` and `STDIO` transport here below.
 
 ### 1. Set Up Your Environment
 
@@ -165,7 +165,7 @@ jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
 > [!NOTE]
-> If you are running notebooks through JupyterHub instead of JupyterLab as above, refer to our [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech//providers/jupyterhub-streamable-http/).
+> If you are running notebooks through JupyterHub instead of JupyterLab as above, refer to our [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyterhub).
 
 ### 3. Configure Your Preferred MCP Client
 
@@ -323,7 +323,7 @@ Authenticate with a JupyterHub API token that has the `access:servers` scope:
 }
 ```
 
-See the [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/providers/jupyterhub-streamable-http/) for full details.
+See the [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyterhub) for full details.
 
 ### 3. Datalayer
 
@@ -527,6 +527,6 @@ ______________________________________________________________________
 
 **If this project is helpful to you, please give us a ⭐️**
 
-Made with ❤️ by [Datalayer](https://github.com/datalayer)
+Made with ❤️ by [Datalayer](https://datalayer.ai)
 
 </div>
