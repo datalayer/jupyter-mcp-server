@@ -20,10 +20,20 @@ SRC, OUT = sys.argv[1], sys.argv[2]
 DECOR = re.compile(r"@mcp\.(tool|prompt)\b")
 DEF = re.compile(r"\s*(?:async\s+)?def\s+(\w+)")
 
+# Directories that never hold canonical sources. "build" and "dist" matter in
+# particular: `pip install ./ext/sandboxes` leaves a setuptools copy of the
+# extension at ext/sandboxes/build/lib/..., and scanning it would map the
+# sandbox tools to a build artifact instead of the real file.
+SKIP_DIRS = {
+    ".git", ".tox", ".venv", ".eggs", "__pycache__", "build", "dist",
+    "node_modules", "site-packages", "tests", "venv",
+}
+
 entries = {}
-for base, _dirs, files in os.walk(SRC):
-    if any(seg in base for seg in (".git", "node_modules", "__pycache__", "tests")):
-        continue
+for base, dirs, files in os.walk(SRC):
+    # Prune in place so os.walk never descends into them.
+    dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.endswith(".egg-info"))
+    files = sorted(files)
     for fn in files:
         if not fn.endswith(".py"):
             continue
@@ -40,6 +50,13 @@ for base, _dirs, files in os.walk(SRC):
                 d = DEF.match(lines[j])
                 if d:
                     name = d.group(1)
+                    prev = entries.get(name)
+                    if prev and prev["file"] != rel:
+                        # Fail loudly rather than let os.walk order pick a winner.
+                        raise SystemExit(
+                            f"{name} is registered in two files: {prev['file']} and {rel}. "
+                            "Remove the stray copy (a stale build/ tree?) and re-run."
+                        )
                     entries[name] = {"kind": kind, "file": rel}
                     break
 
