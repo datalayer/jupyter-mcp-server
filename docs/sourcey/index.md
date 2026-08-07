@@ -1,13 +1,13 @@
 ---
 title: "Overview"
-description: "MCP reference for Jupyter MCP Server 1.2.0: 22 tools and 1 prompt, generated from a live protocol snapshot at a pinned commit."
+description: "MCP reference for Jupyter MCP Server: 22 tools and 1 prompt, generated from a live protocol snapshot of the server."
 ---
 
 # Jupyter MCP Server — MCP reference
 
-[Jupyter MCP Server](https://github.com/datalayer/jupyter-mcp-server) v1.2.0 is a [Model Context Protocol](https://modelcontextprotocol.io) server that lets AI agents operate Jupyter notebooks: managing notebooks and cells, executing code on live kernels, and provisioning code sandboxes.
+[Jupyter MCP Server](https://github.com/datalayer/jupyter-mcp-server) is a [Model Context Protocol](https://modelcontextprotocol.io) server that lets AI agents operate Jupyter notebooks: managing notebooks and cells, executing code on live kernels, and provisioning code sandboxes.
 
-This reference documents the server's complete MCP surface — **22 tools** and **1 prompt** (protocol revision `2025-11-25`) — captured from a running server built at commit [`c132b061240d`](https://github.com/datalayer/jupyter-mcp-server/tree/c132b061240dbe53d83290bff3007f43fc01ea6b). Each page shows the exact schema the server advertises plus a link to the decorator that registers it. The [MCP Reference tab](/mcp/reference/) renders the same snapshot as a single interactive page, and [Configuration](/mcp/configuration/) covers every runtime setting and both transports.
+This reference documents the server's complete MCP surface — **22 tools** and **1 prompt** (protocol revision `2025-11-25`) — captured from a running server built from [this repository](https://github.com/datalayer/jupyter-mcp-server/tree/main). Each page shows the exact schema the server advertises plus a link to the decorator that registers it. The [MCP Reference tab](/mcp/reference/) renders the same snapshot as a single interactive page, and [Configuration](/mcp/configuration/) covers every runtime setting and both transports.
 
 ## Connection & server
 
@@ -64,5 +64,5 @@ This reference documents the server's complete MCP surface — **22 tools** and 
 
 ## About these docs
 
-Generated with [Sourcey](https://www.npmjs.com/package/sourcey) 3.6.5 from an [mcp-parser](https://www.npmjs.com/package/mcp-parser) stdio snapshot of the server (`jupyter-mcp-server --transport stdio --start-new-code-sandbox false`) installed from commit `c132b061240d`. The snapshot, source map, and page generator are checked in next to the site so the docs can be regenerated from any commit.
+Generated with [Sourcey](https://www.npmjs.com/package/sourcey) from an [mcp-parser](https://www.npmjs.com/package/mcp-parser) stdio snapshot of the server (`jupyter-mcp-server --transport stdio --start-new-code-sandbox false`). The snapshot, source map, and page generator are checked in under `docs/sourcey/`, and CI regenerates them on every pull request and fails on any difference, so this page cannot drift from the code.
 

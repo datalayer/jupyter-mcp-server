@@ -1,8 +1,8 @@
-"""Dump jupyter_mcp_server's configuration surface from the installed pinned
-package (pydantic model fields with descriptions/defaults) to JSON for the
-generated configuration page.
+"""Dump jupyter_mcp_server's configuration surface from the installed package
+(pydantic model fields with descriptions/defaults) to JSON for the generated
+configuration page.
 
-    <venv-python> dump_config.py <out.json>
+    python dump_config.py <out.json>
 """
 import json
 import sys
@@ -31,5 +31,8 @@ for name, f in model.model_fields.items():
     })
 
 out = {"model": model.__name__, "source_file": "jupyter_mcp_server/config.py", "fields": fields}
-json.dump(out, open(sys.argv[1], "w", encoding="utf-8"), indent=1)
+# newline="\n" so regenerating on Windows produces the same bytes as CI does.
+with open(sys.argv[1], "w", encoding="utf-8", newline="\n") as fh:
+    json.dump(out, fh, indent=1)
+    fh.write("\n")
 print(model.__name__, len(fields), "fields ->", sys.argv[1])

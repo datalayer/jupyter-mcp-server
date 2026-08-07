@@ -1,0 +1,63 @@
+name: Docs
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+defaults:
+  run:
+    shell: bash -eux {0}
+
+jobs:
+  mcp_reference:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install the extension
+        run: |
+          python -m pip install .
+          python -m pip install ./ext/sandboxes
+
+      - name: Install the docs dependencies
+        working-directory: docs
+        run: |
+          npm install
+
+      - name: Regenerate the MCP reference
+        working-directory: docs/sourcey
+        run: |
+          node snapshot.mjs jupyter-mcp-server mcp.json
+          python gen_sourcemap.py ../.. sourcemap.json
+          python dump_config.py config-fields.json
+          node build_pages.mjs
+
+      - name: Fail if the checked-in reference is out of date
+        run: |
+          git add -AN docs/sourcey
+          git diff --exit-code -- docs/sourcey \
+            || (echo "::error::docs/sourcey is stale; re-run the generation (docs/sourcey/README.md) and commit the result" && exit 1)
+
+      - name: Build the docs
+        working-directory: docs
+        run: |
+          npm run build
+
+      - name: Fail if the reference adds images or is checked in
+        run: |
+          test -z "$(git ls-files docs/static/mcp)"
+          test -z "$(find docs/static/mcp -type f \
+            \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' \
+               -o -name '*.webp' -o -name '*.svg' -o -name '*.ico' \) -print)"

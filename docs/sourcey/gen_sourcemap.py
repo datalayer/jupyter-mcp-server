@@ -1,9 +1,13 @@
-"""Map every MCP-registered name in the pinned checkout to its file:line.
+"""Map every MCP-registered name in the checkout to the file that defines it.
 
 Scans for @mcp.tool / @mcp.prompt decorators and takes the name of the first
 `def`/`async def` after each decorator (FastMCP registers under the function
 name when no name= override is given; this repo uses none). Output feeds
-build_pages.mjs so each generated page carries an exact source link.
+build_pages.mjs so each generated page carries a source link.
+
+Deliberately records the file but not the line number: line numbers move on
+every unrelated edit, and .github/workflows/docs.yml fails the build on any
+difference between the checked-in generation and a fresh one.
 
     python gen_sourcemap.py <src-root> <out.json>
 """
@@ -36,10 +40,14 @@ for base, _dirs, files in os.walk(SRC):
                 d = DEF.match(lines[j])
                 if d:
                     name = d.group(1)
-                    entries[name] = {"kind": kind, "file": rel, "line": i + 1}
+                    entries[name] = {"kind": kind, "file": rel}
                     break
 
-json.dump(entries, open(OUT, "w", encoding="utf-8"), indent=1)
+# Sorted so the output is byte-stable whatever order os.walk yields.
+entries = dict(sorted(entries.items()))
+with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
+    json.dump(entries, fh, indent=1)
+    fh.write("\n")
 print(f"{len(entries)} entries -> {OUT}")
-for name, e in sorted(entries.items(), key=lambda kv: (kv[1]["file"], kv[1]["line"])):
-    print(f"  {e['kind']:6} {name:28} {e['file']}:{e['line']}")
+for name, e in entries.items():
+    print(f"  {e['kind']:6} {name:28} {e['file']}")

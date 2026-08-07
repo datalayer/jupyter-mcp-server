@@ -35,5 +35,5 @@ Like @ or # in Coding IDE or CLI, cite specific cells from specified notebook an
 
 ## Source
 
-Registered by the `@mcp.prompt` decorator at [`jupyter_mcp_server/server.py:1090`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/server.py#L1090) (commit `c132b061240d`).
+Registered by the `@mcp.prompt` decorator on `jupyter_cite` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
 

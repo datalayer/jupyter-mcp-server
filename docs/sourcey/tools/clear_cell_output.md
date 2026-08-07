@@ -59,5 +59,5 @@ result = await session.call_tool("clear_cell_output", arguments={"cell_index": 0
 
 ## Source
 
-Registered by the `@mcp.tool` decorator at [`jupyter_mcp_server/server.py:894`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/server.py#L894) (commit `c132b061240d`).
+Registered by the `@mcp.tool` decorator on `clear_cell_output` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
 

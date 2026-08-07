@@ -29,7 +29,7 @@ const result = validate(spec);
 for (const d of result.diagnostics ?? []) {
   console.error(`${d.severity}: ${d.path} - ${d.message}`);
 }
-await writeFile(out, JSON.stringify(spec, null, 2));
+await writeFile(out, JSON.stringify(spec, null, 2) + "\n");
 console.log(
   JSON.stringify({
     valid: result.valid,

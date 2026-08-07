@@ -35,6 +35,7 @@ Execute code directly in a kernel (not saved to notebook).
 | `code` | string | yes | — | Code to execute (supports magic commands with %, shell commands with !) |
 | `timeout` | integer | no | `30` | Maximum seconds to wait for execution (0 = use config default) |
 | `kernel_id` | string \| null | no | `null` | Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel. |
+| `progress_interval` | integer | no | `5` | Seconds between MCP progress keepalive updates during long-running execution |
 
 ## Call it
 
@@ -48,17 +49,18 @@ Execute code directly in a kernel (not saved to notebook).
     "arguments": {
       "code": "<code>",
       "timeout": 30,
-      "kernel_id": null
+      "kernel_id": null,
+      "progress_interval": 5
     }
   }
 }
 ```
 
 ```python
-result = await session.call_tool("execute_code", arguments={"code": "<code>", "timeout": 30, "kernel_id": None})
+result = await session.call_tool("execute_code", arguments={"code": "<code>", "timeout": 30, "kernel_id": None, "progress_interval": 5})
 ```
 
 ## Source
 
-Registered by the `@mcp.tool` decorator at [`jupyter_mcp_server/server.py:969`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/server.py#L969) (commit `c132b061240d`).
+Registered by the `@mcp.tool` decorator on `execute_code` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
 

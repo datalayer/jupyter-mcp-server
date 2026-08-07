@@ -1,11 +1,11 @@
 ---
 title: "Configuration"
-description: "Every setting of JupyterMCPConfig, generated from the pydantic model at the pinned commit."
+description: "Every setting of JupyterMCPConfig, generated from the pydantic model in the source tree."
 ---
 
 # Configuration
 
-All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mcp_server/config.py`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/config.py)). Most map 1:1 to `jupyter-mcp-server` CLI options (kebab-case) and environment variables (upper snake-case).
+All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mcp_server/config.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/config.py)). Most map 1:1 to `jupyter-mcp-server` CLI options (kebab-case) and environment variables (upper snake-case).
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -35,12 +35,14 @@ All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mc
 
 ## Transports
 
-The server speaks MCP over two transports, selected with `--transport` ([`jupyter_mcp_server/cli/commands/serve.py:20`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/cli/commands/serve.py#L20)):
+The server speaks MCP over two transports, selected with `--transport` ([`jupyter_mcp_server/cli/commands/serve.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/cli/commands/serve.py)):
 
-- `stdio` (default) — the server is spawned by the MCP client and framed over stdin/stdout ([`jupyter_mcp_server/utils.py:345`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/utils.py#L345)).
-- `streamable-http` — served by uvicorn on `--port`; requires `--mcp-token` unless `--insecure-mcp-noauth` is passed ([`jupyter_mcp_server/utils.py:253`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/utils.py#L253)).
+- `stdio` (default) — the server is spawned by the MCP client and framed over stdin/stdout.
+- `streamable-http` — served by uvicorn on `--port`; requires `--mcp-token` unless `--insecure-mcp-noauth` is passed.
+
+Both are started from [`jupyter_mcp_server/utils.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/utils.py).
 
 ## Serving modes
 
-Beyond the standalone `MCP_SERVER` mode documented here, the package also runs embedded inside a Jupyter Server as an extension (`JUPYTER_SERVER` mode) — see [`jupyter_mcp_server/server_modes.py`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/server_modes.py) and [`jupyter_mcp_server/jupyter_extension/`](https://github.com/datalayer/jupyter-mcp-server/tree/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/jupyter_extension).
+Beyond the standalone `MCP_SERVER` mode documented here, the package also runs embedded inside a Jupyter Server as an extension (`JUPYTER_SERVER` mode) — see [`jupyter_mcp_server/server_modes.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server_modes.py) and [`jupyter_mcp_server/jupyter_extension/`](https://github.com/datalayer/jupyter-mcp-server/tree/main/jupyter_mcp_server/jupyter_extension).
 

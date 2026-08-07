@@ -56,5 +56,5 @@ result = await session.call_tool("restart_notebook", arguments={"notebook_name":
 
 ## Source
 
-Registered by the `@mcp.tool` decorator at [`jupyter_mcp_server/server.py:479`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/server.py#L479) (commit `c132b061240d`).
+Registered by the `@mcp.tool` decorator on `restart_notebook` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
 

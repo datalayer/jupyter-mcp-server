@@ -1,13 +1,13 @@
 import { defineConfig } from "sourcey";
 
-// Sourcey 3.6.5 build for datalayer/jupyter-mcp-server, pinned to commit
-// c132b061240dbe53d83290bff3007f43fc01ea6b.
+// Sourcey build for datalayer/jupyter-mcp-server. Rendered into ../static/mcp by
+// build_site.mjs on `npm run build`; the output is git-ignored, not checked in.
 //
 // Two tabs over one machine-produced input:
 //  - "Reference": one generated page per MCP tool/prompt plus configuration,
 //    built by build_pages.mjs from mcp.json (a live mcp-parser stdio snapshot
-//    of the server installed from the pin) and sourcemap.json (decorator
-//    file:line at the pin). Every page links back to its source.
+//    of the installed server) and sourcemap.json (the file whose decorator
+//    registers each name). Every page links back to its source.
 //  - "MCP Explorer": Sourcey's native MCP adapter rendering the same mcp.json
 //    as a single interactive spec page.
 export default defineConfig({

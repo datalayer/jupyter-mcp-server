@@ -56,5 +56,5 @@ result = await session.call_tool("use_sandbox", arguments={"sandbox_name": None}
 
 ## Source
 
-Registered by the `@mcp.tool` decorator at [`ext/sandboxes/jupyter_mcp_sandboxes/extension.py:223`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/ext/sandboxes/jupyter_mcp_sandboxes/extension.py#L223) (commit `c132b061240d`).
+Registered by the `@mcp.tool` decorator on `use_sandbox` in [`ext/sandboxes/jupyter_mcp_sandboxes/extension.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/ext/sandboxes/jupyter_mcp_sandboxes/extension.py).
 

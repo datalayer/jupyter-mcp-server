@@ -543,14 +543,14 @@
             "type": "integer"
           },
           "stream": {
-            "default": false,
+            "default": true,
             "description": "Enable streaming progress (including time indicator) updates for long-running cells",
             "title": "Stream",
             "type": "boolean"
           },
           "progress_interval": {
             "default": 5,
-            "description": "Seconds between progress updates when stream=True",
+            "description": "Seconds between progress updates (MCP keepalive + optional stream log)",
             "title": "Progress Interval",
             "type": "integer"
           }
@@ -586,6 +586,18 @@
             "default": 0,
             "description": "Maximum seconds to wait for execution (0 = use config default)",
             "title": "Timeout",
+            "type": "integer"
+          },
+          "stream": {
+            "default": true,
+            "description": "Enable streaming progress (including time indicator) updates for long-running cells",
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "progress_interval": {
+            "default": 5,
+            "description": "Seconds between progress updates (MCP keepalive + optional stream log)",
+            "title": "Progress Interval",
             "type": "integer"
           }
         },
@@ -837,6 +849,12 @@
             "default": null,
             "description": "Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.",
             "title": "Kernel Id"
+          },
+          "progress_interval": {
+            "default": 5,
+            "description": "Seconds between MCP progress keepalive updates during long-running execution",
+            "title": "Progress Interval",
+            "type": "integer"
           }
         },
         "required": [

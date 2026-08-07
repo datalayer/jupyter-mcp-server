@@ -1,13 +1,13 @@
 // Generate per-tool / per-prompt / configuration markdown pages for the
 // Sourcey site from the live MCP snapshot (mcp.json), the source map
-// (sourcemap.json, tool -> file:line at the pinned commit) and the pydantic
+// (sourcemap.json, registered name -> defining file) and the pydantic
 // configuration dump (config-fields.json). Nothing on any page is hand-typed
 // per-tool: every fact comes from one of those three machine-produced inputs.
 //
-//   node build_pages.mjs
+//   node build_pages.mjs [--manifest <path>]
 //
-// Outputs pages/ next to this script plus pages-manifest.json (consumed by the
-// packet builder so page counts are computed, not asserted).
+// Output is a pure function of those three inputs, so `.github/workflows/docs.yml`
+// can regenerate them and fail the build on any diff.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,9 +15,15 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OWNER = "datalayer";
 const REPO = "jupyter-mcp-server";
-const COMMIT = "c132b061240dbe53d83290bff3007f43fc01ea6b";
-const PKG_VERSION = "1.2.0"; // src/jupyter_mcp_server/__version__.py at the pin
-const BLOB = `https://github.com/${OWNER}/${REPO}/blob/${COMMIT}`;
+// Source links target the default branch rather than a pinned SHA: CI regenerates
+// this directory on every pull request and fails on any diff, so what is checked in
+// always describes the tip of `main`.
+const REF = "main";
+const BLOB = `https://github.com/${OWNER}/${REPO}/blob/${REF}`;
+const TREE = `https://github.com/${OWNER}/${REPO}/tree/${REF}`;
+
+const manifestFlag = process.argv.indexOf("--manifest");
+const MANIFEST = manifestFlag === -1 ? null : process.argv[manifestFlag + 1];
 
 const spec = JSON.parse(await readFile(join(HERE, "mcp.json"), "utf8"));
 const srcmap = JSON.parse(await readFile(join(HERE, "sourcemap.json"), "utf8"));
@@ -41,8 +47,24 @@ const phantom = grouped.filter((n) => !tools.has(n));
 if (missing.length || phantom.length) {
   throw new Error(`group mismatch: missing=${missing} phantom=${phantom}`);
 }
-for (const name of [...tools.keys(), ...prompts.map((p) => p.name)]) {
-  if (!srcmap[name]) throw new Error(`no source map entry for ${name}`);
+// -- integrity: the snapshot and the source map must describe the same surface.
+// Both directions matter: a name in the snapshot with no decorator means the
+// snapshot is ahead of the code, and a decorator with no snapshot entry means
+// mcp.json is stale and snapshot.mjs has to be re-run.
+const registered = new Set([...tools.keys(), ...prompts.map((p) => p.name)]);
+for (const name of registered) {
+  if (!srcmap[name]) {
+    throw new Error(
+      `no source map entry for ${name}: re-run gen_sourcemap.py (see README.md)`
+    );
+  }
+}
+const unsnapshotted = Object.keys(srcmap).filter((n) => !registered.has(n));
+if (unsnapshotted.length) {
+  throw new Error(
+    `mcp.json is stale: ${unsnapshotted.join(", ")} registered in the source but absent ` +
+      `from the snapshot. Re-run snapshot.mjs (see README.md)`
+  );
 }
 
 // -- helpers ----------------------------------------------------------------
@@ -79,7 +101,7 @@ const sourceSection = (name) => {
   return [
     "## Source",
     "",
-    `Registered by the \`@mcp.${e.kind}\` decorator at [\`${e.file}:${e.line}\`](${BLOB}/${e.file}#L${e.line}) (commit \`${COMMIT.slice(0, 12)}\`).`,
+    `Registered by the \`@mcp.${e.kind}\` decorator on \`${name}\` in [\`${e.file}\`](${BLOB}/${e.file}).`,
     "",
   ].join("\n");
 };
@@ -193,7 +215,7 @@ for (const prompt of prompts) {
 // -- configuration page -----------------------------------------------------
 {
   const lines = [];
-  lines.push("---", 'title: "Configuration"', `description: "Every setting of ${cfg.model}, generated from the pydantic model at the pinned commit."`, "---", "");
+  lines.push("---", 'title: "Configuration"', `description: "Every setting of ${cfg.model}, generated from the pydantic model in the source tree."`, "---", "");
   lines.push("# Configuration", "");
   lines.push(
     `All runtime settings live on the \`${cfg.model}\` pydantic model ` +
@@ -210,10 +232,12 @@ for (const prompt of prompts) {
   lines.push("## Transports", "");
   lines.push(
     `The server speaks MCP over two transports, selected with \`--transport\` ` +
-      `([\`jupyter_mcp_server/cli/commands/serve.py:20\`](${BLOB}/jupyter_mcp_server/cli/commands/serve.py#L20)):`,
+      `([\`jupyter_mcp_server/cli/commands/serve.py\`](${BLOB}/jupyter_mcp_server/cli/commands/serve.py)):`,
     "",
-    `- \`stdio\` (default) — the server is spawned by the MCP client and framed over stdin/stdout ([\`jupyter_mcp_server/utils.py:345\`](${BLOB}/jupyter_mcp_server/utils.py#L345)).`,
-    `- \`streamable-http\` — served by uvicorn on \`--port\`; requires \`--mcp-token\` unless \`--insecure-mcp-noauth\` is passed ([\`jupyter_mcp_server/utils.py:253\`](${BLOB}/jupyter_mcp_server/utils.py#L253)).`,
+    `- \`stdio\` (default) — the server is spawned by the MCP client and framed over stdin/stdout.`,
+    `- \`streamable-http\` — served by uvicorn on \`--port\`; requires \`--mcp-token\` unless \`--insecure-mcp-noauth\` is passed.`,
+    "",
+    `Both are started from [\`jupyter_mcp_server/utils.py\`](${BLOB}/jupyter_mcp_server/utils.py).`,
     ""
   );
   lines.push("## Serving modes", "");
@@ -221,7 +245,7 @@ for (const prompt of prompts) {
     `Beyond the standalone \`MCP_SERVER\` mode documented here, the package also runs embedded ` +
       `inside a Jupyter Server as an extension (\`JUPYTER_SERVER\` mode) — see ` +
       `[\`jupyter_mcp_server/server_modes.py\`](${BLOB}/jupyter_mcp_server/server_modes.py) and ` +
-      `[\`jupyter_mcp_server/jupyter_extension/\`](https://github.com/${OWNER}/${REPO}/tree/${COMMIT}/jupyter_mcp_server/jupyter_extension).`,
+      `[\`jupyter_mcp_server/jupyter_extension/\`](${TREE}/jupyter_mcp_server/jupyter_extension).`,
     ""
   );
   await emit("configuration.md", lines);
@@ -230,10 +254,10 @@ for (const prompt of prompts) {
 // -- index / overview -------------------------------------------------------
 {
   const lines = [];
-  lines.push("---", 'title: "Overview"', `description: "MCP reference for Jupyter MCP Server ${PKG_VERSION}: ${tools.size} tools and ${prompts.length} prompt, generated from a live protocol snapshot at a pinned commit."`, "---", "");
+  lines.push("---", 'title: "Overview"', `description: "MCP reference for Jupyter MCP Server: ${tools.size} tools and ${prompts.length} prompt, generated from a live protocol snapshot of the server."`, "---", "");
   lines.push("# Jupyter MCP Server — MCP reference", "");
   lines.push(
-    `[Jupyter MCP Server](https://github.com/${OWNER}/${REPO}) v${PKG_VERSION} is a ` +
+    `[Jupyter MCP Server](https://github.com/${OWNER}/${REPO}) is a ` +
       "[Model Context Protocol](https://modelcontextprotocol.io) server that lets AI agents " +
       "operate Jupyter notebooks: managing notebooks and cells, executing code on live kernels, " +
       "and provisioning code sandboxes.",
@@ -242,8 +266,7 @@ for (const prompt of prompts) {
   lines.push(
     `This reference documents the server's complete MCP surface — **${tools.size} tools** and ` +
       `**${prompts.length} prompt** (protocol revision \`${spec.mcpVersion}\`) — captured from a ` +
-      `running server built at commit ` +
-      `[\`${COMMIT.slice(0, 12)}\`](https://github.com/${OWNER}/${REPO}/tree/${COMMIT}). ` +
+      `running server built from [this repository](${TREE}). ` +
       "Each page shows the exact schema the server advertises plus a link to the decorator that registers it. " +
       "The [MCP Reference tab](/mcp/reference/) renders the same snapshot as a single interactive page, " +
       "and [Configuration](/mcp/configuration/) covers every runtime setting and both transports.",
@@ -265,31 +288,34 @@ for (const prompt of prompts) {
   lines.push("");
   lines.push("## About these docs", "");
   lines.push(
-    "Generated with [Sourcey](https://www.npmjs.com/package/sourcey) 3.6.5 from an " +
+    "Generated with [Sourcey](https://www.npmjs.com/package/sourcey) from an " +
       "[mcp-parser](https://www.npmjs.com/package/mcp-parser) stdio snapshot of the server " +
-      `(\`jupyter-mcp-server --transport stdio --start-new-code-sandbox false\`) installed from commit \`${COMMIT.slice(0, 12)}\`. ` +
-      "The snapshot, source map, and page generator are checked in next to the site so the docs can be " +
-      "regenerated from any commit.",
+      "(`jupyter-mcp-server --transport stdio --start-new-code-sandbox false`). " +
+      "The snapshot, source map, and page generator are checked in under `docs/sourcey/`, and CI " +
+      "regenerates them on every pull request and fails on any difference, so this page cannot " +
+      "drift from the code.",
     ""
   );
   await emit("index.md", lines);
 }
 
-await writeFile(
-  join(HERE, "pages-manifest.json"),
-  JSON.stringify(
-    {
-      commit: COMMIT,
-      package_version: PKG_VERSION,
-      mcp_version: spec.mcpVersion,
-      tool_pages: tools.size,
-      prompt_pages: prompts.length,
-      config_fields: cfg.fields.length,
-      markdown_pages: files.length,
-      files,
-    },
-    null,
-    2
-  ) + "\n"
-);
+// Optional build report, written only when --manifest is passed so a plain run
+// leaves nothing behind but the pages themselves.
+if (MANIFEST) {
+  await writeFile(
+    MANIFEST,
+    JSON.stringify(
+      {
+        mcp_version: spec.mcpVersion,
+        tool_pages: tools.size,
+        prompt_pages: prompts.length,
+        config_fields: cfg.fields.length,
+        markdown_pages: files.length,
+        files,
+      },
+      null,
+      2
+    ) + "\n"
+  );
+}
 console.log(`${files.length} markdown pages generated`);

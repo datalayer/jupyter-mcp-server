@@ -62,5 +62,5 @@ result = await session.call_tool("insert_cell", arguments={"cell_index": 0, "cel
 
 ## Source
 
-Registered by the `@mcp.tool` decorator at [`jupyter_mcp_server/server.py:581`](https://github.com/datalayer/jupyter-mcp-server/blob/c132b061240dbe53d83290bff3007f43fc01ea6b/jupyter_mcp_server/server.py#L581) (commit `c132b061240d`).
+Registered by the `@mcp.tool` decorator on `insert_cell` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
 
