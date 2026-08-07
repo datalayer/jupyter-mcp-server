@@ -152,10 +152,24 @@ class ExecuteCodeTool(BaseTool):
             )
         finally:
             if borrowed_sandbox is not None:
-                try:
-                    borrowed_sandbox.stop(shutdown_kernel=False)
-                except Exception as stop_err:
-                    logger.warning(f"Failed to release kernel {kid}: {stop_err}")
+                pending = getattr(borrowed_sandbox, "_mcp_pending_execution", None)
+                if pending is not None and not pending.done():
+                    # track_pending_execution's background thread is still using this
+                    # client's transport; releasing now would close it out from under
+                    # that thread, so defer until the thread actually finishes.
+                    def _release_when_done(_task, sandbox=borrowed_sandbox, kid=kid):
+                        self._release_borrowed_kernel(sandbox, kid)
+
+                    pending.add_done_callback(_release_when_done)
+                else:
+                    self._release_borrowed_kernel(borrowed_sandbox, kid)
+
+    def _release_borrowed_kernel(self, sandbox_client: ISandboxClient, kid: str) -> None:
+        """Stop a borrowed kernel connection without shutting the kernel down."""
+        try:
+            sandbox_client.stop(shutdown_kernel=False)
+        except Exception as stop_err:
+            logger.warning(f"Failed to release kernel {kid}: {stop_err}")
 
     async def _execute_on_kernel(
         self,
