@@ -1240,7 +1240,7 @@ async def get_registered_tools():
                 # jupyter-mcp-tools exposes JupyterLab commands as MCP tools.
                 # Only tools listed here will be available to MCP clients.
                 # To add new tools, also update the list in handlers.py and
-                # see docs/docs/reference/tools-additional/index.mdx for documentation.
+                # see docs/docs/reference/tools-jupyterlab/index.mdx for documentation.
                 config = get_config()
                 allowed_jupyter_mcp_tools = config.get_allowed_jupyter_mcp_tools()
 

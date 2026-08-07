@@ -101,7 +101,7 @@ When adding tests for new features or modifying existing tools, ensure your test
 1. **Set Up Your Environment:**
 
    ```bash
-   pip install jupyterlab==4.4.1 jupyter-collaboration==4.0.2 ipykernel pycrdt
+   pip install jupyterlab jupyter-collaboration ipykernel
    ```
 
 1. **Start Jupyter Server:**
