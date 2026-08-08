@@ -165,7 +165,7 @@ def test_create_kernel_passes_reconnect_interval():
         reconnect_interval=5,
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_sandbox = MagicMock()
         mock_create.return_value = mock_sandbox
 
@@ -195,7 +195,7 @@ def test_create_kernel_no_reconnect_by_default():
         reconnect_interval=0,
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_sandbox = MagicMock()
         mock_create.return_value = mock_sandbox
 
