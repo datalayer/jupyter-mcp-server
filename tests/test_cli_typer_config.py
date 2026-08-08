@@ -5,6 +5,7 @@
 
 """Typer-based config and option tests mirroring the Click config test suite."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,7 +14,7 @@ from typer.testing import CliRunner
 
 from jupyter_mcp_server.cli.cli import Provider, app, connect_command, stop_command
 from jupyter_mcp_server.config import JupyterMCPConfig, get_config, reset_config, set_config
-from jupyter_mcp_server.utils import mcp_auth_headers
+from jupyter_mcp_server.utils import mcp_auth_headers, resolve_url_and_token_variables
 
 
 class _Response:
@@ -31,6 +32,28 @@ def test_mcp_auth_headers_include_bearer_token():
 def test_mcp_auth_headers_empty_without_token():
     """Management CLI requests stay unauthenticated in explicit no-auth mode."""
     assert mcp_auth_headers(None) == {}
+
+
+def test_resolve_url_and_token_variables_document_url_none_when_all_unset():
+    """Resolve document_url to None (not localhost) when nothing is given."""
+    (
+        resolved_document_url,
+        resolved_document_token,
+        resolved_code_sandbox_url,
+        resolved_code_sandbox_token,
+    ) = resolve_url_and_token_variables(
+        jupyter_url=None,
+        jupyter_token=None,
+        document_url=None,
+        document_token=None,
+        code_sandbox_url=None,
+        code_sandbox_token=None,
+    )
+
+    assert resolved_document_url is None
+    assert resolved_document_token is None
+    assert resolved_code_sandbox_url == "http://localhost:8888"
+    assert resolved_code_sandbox_token is None
 
 
 def test_connect_command_sends_mcp_token():
@@ -60,6 +83,35 @@ def test_connect_command_sends_mcp_token():
         )
 
     assert seen["headers"]["Authorization"] == "Bearer client-token"
+
+
+def test_connect_command_accepts_unset_document_url():
+    """Sandbox-only connect (no document/jupyter URL) must reach the request."""
+    reset_config()
+    seen = {}
+
+    def fake_put(url, headers=None, content=None):
+        seen["content"] = content
+        return _Response()
+
+    with patch("jupyter_mcp_server.cli.commands.connect.httpx.put", fake_put):
+        connect_command(
+            jupyter_mcp_server_url="http://localhost:4040",
+            provider=Provider.jupyter,
+            jupyterlab=True,
+            open_notebook_in_ui=False,
+            code_sandbox_url="http://localhost:8888",
+            code_sandbox_id="kernel-id",
+            code_sandbox_token="sandbox-token",
+            mcp_token="client-token",
+            document_url=None,
+            document_id="notebook.ipynb",
+            document_token="doc-token",
+            jupyter_url=None,
+            jupyter_token=None,
+        )
+
+    assert json.loads(seen["content"])["document_url"] is None
 
 
 def test_stop_command_sends_mcp_token():
@@ -347,6 +399,6 @@ def test_jupyter_collaboration_is_a_required_dependency():
     matching = [Requirement(r) for r in requires if Requirement(r).name == "jupyter-collaboration"]
 
     assert matching, "jupyter-collaboration is missing from the distribution's requirements"
-    assert all(
-        r.marker is None or not r.marker.evaluate({"extra": "test"}) for r in matching
-    ), "jupyter-collaboration must not be gated behind the 'test' extra"
+    assert all(r.marker is None or not r.marker.evaluate({"extra": "test"}) for r in matching), (
+        "jupyter-collaboration must not be gated behind the 'test' extra"
+    )

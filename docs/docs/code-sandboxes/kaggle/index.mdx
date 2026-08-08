@@ -103,6 +103,48 @@ code sandbox values come from an active browser session:
 You can parse `CODE_SANDBOX_URL` and `CODE_SANDBOX_ID` from that URL automatically by
 setting `CODE_SANDBOX_CHANNELS_URL`.
 
+Alternatively, Kaggle's
+[external editor support](https://www.kaggle.com/product-announcements/567740)
+exposes the URL directly:
+
+1. Open your notebook on [kaggle.com](https://www.kaggle.com) and start an
+  interactive session.
+2. Open **Run** -> **Kaggle Jupyter Server**.
+3. Under **Manually Connect**, copy the **VS Code Compatible URL** — this is
+  your `CODE_SANDBOX_URL`.
+
+> The URL embeds a session JWT: treat it as a secret and don't commit it. It
+> stops working once the interactive session ends (Kaggle stops idle sessions
+> after a while).
+
+## Using it with a coding agent
+
+The interactive URL above is a standard token-authenticated Jupyter server
+endpoint, so it works as a plain `CODE_SANDBOX_URL` — no `SANDBOX_VARIANT`,
+sandbox extension, or `CODE_SANDBOX_TOKEN` required. Point `DOCUMENT_URL` at a
+local JupyterLab to keep the notebook on your machine while cells run on
+Kaggle:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "DOCUMENT_URL": "http://localhost:8888",
+        "DOCUMENT_TOKEN": "MY_TOKEN",
+        "CODE_SANDBOX_URL": "https://kkb-production.jupyter-proxy.kaggle.net/k/12345678/eyJ.../proxy"
+      }
+    }
+  }
+}
+```
+
+The local JupyterLab needs `jupyter-collaboration` installed; without it,
+notebook tools fail with a 404 on `/api/collaboration/session/...`. The JWT
+embedded in the Kaggle URL authenticates the requests.
+
 ## Configuration
 
 Default (batch mode):

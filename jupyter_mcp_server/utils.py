@@ -160,15 +160,20 @@ def resolve_url_and_token_variables(
     document_token,
     code_sandbox_url,
     code_sandbox_token,
-) -> tuple[str, str | None, str, str | None]:
-    """Resolve merged URL/token settings with per-field precedence."""
+) -> tuple[str | None, str | None, str, str | None]:
+    """Resolve merged URL/token settings with per-field precedence.
+
+    ``resolved_document_url`` may be ``None`` when neither ``document_url``
+    nor ``jupyter_url`` is given; callers (and JupyterMCPConfig) fall back to
+    the code sandbox URL in that case rather than hardcoding localhost.
+    """
 
     if document_url is not None:
         resolved_document_url = document_url
     elif jupyter_url is not None:
         resolved_document_url = jupyter_url
     else:
-        resolved_document_url = "http://localhost:8888"
+        resolved_document_url = None
 
     if code_sandbox_url is not None:
         resolved_code_sandbox_url = code_sandbox_url
@@ -217,7 +222,7 @@ def do_start(
     code_sandbox_url: str,
     code_sandbox_id: str,
     code_sandbox_token: str,
-    document_url: str,
+    document_url: str | None,
     document_id: str,
     document_token: str,
     port: int,
