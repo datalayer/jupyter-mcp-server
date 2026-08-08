@@ -16,15 +16,15 @@ from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     clean_notebook_outputs,
-    emit_execution_progress,
     execute_cell_with_forced_sync,
     execute_via_execution_stack,
     get_current_notebook_context,
     get_jupyter_ydoc,
     safe_extract_outputs,
-    settle_timed_out_execution,
-    track_pending_execution,
     wait_for_kernel_idle,
+    track_pending_execution,
+    settle_timed_out_execution,
+    emit_execution_progress,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,8 @@ class ExecuteCellTool(BaseTool):
                 last_error = error
                 error_text = str(error)
                 is_transient_parse_error = (
-                    "does not appear to be JSON" in error_text or "Expecting value" in error_text
+                    "does not appear to be JSON" in error_text
+                    or "Expecting value" in error_text
                 )
                 if not is_transient_parse_error or attempt >= retries:
                     raise
@@ -83,9 +84,7 @@ class ExecuteCellTool(BaseTool):
             logger.debug(f"Unable to check kernel liveness for '{kernel_id}': {error}")
             return True
 
-    async def _start_and_bind_kernel(
-        self, kernel_manager, notebook_manager, notebook_path: str
-    ) -> str:
+    async def _start_and_bind_kernel(self, kernel_manager, notebook_manager, notebook_path: str) -> str:
         """Start a kernel and rebind it to the current notebook in local mode."""
         kernel_id = await kernel_manager.start_kernel()
         await asyncio.sleep(1.0)

@@ -12,7 +12,9 @@ from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 def test_create_jupyter_sandbox_client_starts_managed_client():
     fake_client = MagicMock()
 
-    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_client) as create:
+    with patch(
+        "code_sandboxes.CodeSandboxClient.create", return_value=fake_client
+    ) as create:
         client = create_jupyter_sandbox_client(
             server_url="http://localhost:8888",
             token="MY_TOKEN",

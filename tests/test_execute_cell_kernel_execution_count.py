@@ -19,6 +19,7 @@ import pytest
 
 from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
 
+
 EXECUTE_RESULT_OUTPUT = {
     "output_type": "execute_result",
     "data": {"text/plain": "1"},
@@ -41,7 +42,7 @@ def _write_notebook_with_prior_execution_count(tmp_path, prior_count):
 
 
 def _read_notebook(path):
-    with open(path, encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         return nbformat.read(f, as_version=4)
 
 
@@ -78,7 +79,9 @@ async def test_file_scan_fallback_unchanged_without_kernel_count():
         path = _write_notebook_with_prior_execution_count(tmp_path, prior_count=5)
         tool = ExecuteCellTool()
 
-        await tool._write_outputs_to_cell(path, 1, [], raw_outputs=[EXECUTE_RESULT_OUTPUT])
+        await tool._write_outputs_to_cell(
+            path, 1, [], raw_outputs=[EXECUTE_RESULT_OUTPUT]
+        )
 
         cell = _read_notebook(path).cells[1]
         assert cell.execution_count == 6

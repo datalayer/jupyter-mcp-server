@@ -14,7 +14,6 @@ from mcp.types import ImageContent
 
 from jupyter_mcp_server.jupyter_extension.backends.base import Backend
 
-
 class RemoteBackend(Backend):
     """
     Backend that connects to remote Jupyter servers using HTTP/WebSocket APIs.

@@ -1,6 +1,6 @@
 ---
-title: list_notebooks
-description: List all notebooks that have been used via use_notebook tool
+title: "list_notebooks"
+description: "List all notebooks that have been used via use_notebook tool"
 ---
 
 # list_notebooks
@@ -53,3 +53,4 @@ result = await session.call_tool("list_notebooks", arguments={})
 ## Source
 
 Registered by the `@mcp.tool` decorator on `list_notebooks` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
+

@@ -1,6 +1,6 @@
 ---
-title: unuse_notebook
-description: Unuse from a specific notebook and release its resources.
+title: "unuse_notebook"
+description: "Unuse from a specific notebook and release its resources."
 ---
 
 # unuse_notebook
@@ -11,9 +11,9 @@ Unuse from a specific notebook and release its resources.
 
 ## Parameters
 
-| Parameter       | Type   | Required | Default | Description                       |
-| --------------- | ------ | -------- | ------- | --------------------------------- |
-| `notebook_name` | string | yes      | —       | Notebook identifier to disconnect |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `notebook_name` | string | yes | — | Notebook identifier to disconnect |
 
 ## Output
 
@@ -57,3 +57,4 @@ result = await session.call_tool("unuse_notebook", arguments={"notebook_name": "
 ## Source
 
 Registered by the `@mcp.tool` decorator on `unuse_notebook` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
+

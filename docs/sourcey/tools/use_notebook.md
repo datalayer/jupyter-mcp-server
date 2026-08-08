@@ -1,6 +1,6 @@
 ---
-title: use_notebook
-description: Use a notebook and activate it for following cell operations.
+title: "use_notebook"
+description: "Use a notebook and activate it for following cell operations."
 ---
 
 # use_notebook
@@ -14,12 +14,12 @@ Reactivate previously activated notebook using same notebook_name and notebook_p
 
 ## Parameters
 
-| Parameter       | Type                 | Required | Default     | Description                                                                                                       |
-| --------------- | -------------------- | -------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
-| `notebook_name` | string               | yes      | —           | Unique identifier for the notebook                                                                                |
-| `notebook_path` | string               | yes      | —           | Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')                            |
-| `mode`          | `connect` · `create` | no       | `"connect"` | Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it |
-| `kernel_id`     | string               | no       | `null`      | Specific kernel ID to use (will create new if skipped)                                                            |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `notebook_name` | string | yes | — | Unique identifier for the notebook |
+| `notebook_path` | string | yes | — | Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb') |
+| `mode` | `connect` · `create` | no | `"connect"` | Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it |
+| `kernel_id` | string | no | `null` | Specific kernel ID to use (will create new if skipped) |
 
 ## Output
 
@@ -66,3 +66,4 @@ result = await session.call_tool("use_notebook", arguments={"notebook_name": "<n
 ## Source
 
 Registered by the `@mcp.tool` decorator on `use_notebook` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
+

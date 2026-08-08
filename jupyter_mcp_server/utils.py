@@ -16,6 +16,7 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 
+
 #: MIME types that carry readable text, richest first. ``text/plain`` is the
 #: universal fallback. ``text/html`` is intentionally absent: it is markup
 #: rather than readable text, and results that emit both an ASCII ``text/plain``
@@ -66,6 +67,7 @@ def get_mimebundle_text(bundle: dict[str, Any] | None, default: str | None = Non
         return _coerce_bundle_text(value)
 
     return default
+
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -123,9 +125,7 @@ def resolve_notebook_path(notebook_manager=None, notebook_name: str | None = Non
     if notebook_manager is None or notebook_name not in notebook_manager:
         raise ValueError(f"Notebook '{notebook_name}' is not connected.")
 
-    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(
-        notebook_name
-    )
+    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(notebook_name)
 
 
 def resolve_notebook_connection(notebook_manager, notebook_name: str | None = None):
@@ -610,6 +610,7 @@ def create_kernel(config, logger) -> CodeSandboxClient:
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
         raise
+
 
 
 def start_kernel(notebook_manager, config, logger):

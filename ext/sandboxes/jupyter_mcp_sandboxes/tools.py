@@ -68,9 +68,7 @@ class LaunchSandboxTool(BaseTool):
 class ListSandboxesTool(BaseTool):
     """List all launched sandboxes."""
 
-    async def execute(
-        self, mode: ServerMode, sandbox_code_sandbox_manager=None, **kwargs
-    ) -> list[dict[str, Any]]:
+    async def execute(self, mode: ServerMode, sandbox_code_sandbox_manager=None, **kwargs) -> list[dict[str, Any]]:
         if sandbox_code_sandbox_manager is None:
             raise ValueError("sandbox_code_sandbox_manager is required")
         return sandbox_code_sandbox_manager.list()

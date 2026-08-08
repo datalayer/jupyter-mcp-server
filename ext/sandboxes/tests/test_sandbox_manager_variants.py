@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 
 
@@ -166,9 +167,7 @@ def test_use_terminate_and_terminate_all(fake_sandbox: MagicMock):
     fake_sandbox_2.info = SimpleNamespace(variant="docker", status="running")
     fake_sandbox_2.config = SimpleNamespace(environment=None, gpu=None)
 
-    with patch(
-        "code_sandboxes.CodeSandboxClient.create", side_effect=[fake_sandbox, fake_sandbox_2]
-    ):
+    with patch("code_sandboxes.CodeSandboxClient.create", side_effect=[fake_sandbox, fake_sandbox_2]):
         manager.launch(sandbox_name="a", variant="eval", timeout=10)
         manager.launch(sandbox_name="b", variant="docker", timeout=10)
 

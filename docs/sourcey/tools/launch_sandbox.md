@@ -1,6 +1,6 @@
 ---
-title: launch_sandbox
-description: Launch a code sandbox that can be used instead of Jupyter kernels.
+title: "launch_sandbox"
+description: "Launch a code sandbox that can be used instead of Jupyter kernels."
 ---
 
 # launch_sandbox
@@ -15,20 +15,20 @@ MCP_SERVER and JUPYTER_SERVER modes.
 
 ## Parameters
 
-| Parameter        | Type                                                                                         | Required | Default | Description                                                                                                                                                                     |
-| ---------------- | -------------------------------------------------------------------------------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sandbox_name`   | string                                                                                       | yes      | —       | Unique sandbox identifier used by list/use/terminate tools                                                                                                                      |
-| `variant`        | `eval` · `docker` · `jupyter` · `datalayer` · `colab` · `kaggle` · `monty` · `modal` \| null | no       | `null`  | Sandbox variant to launch. If omitted, defaults to configured SANDBOX_VARIANT when it is non-jupyter; otherwise falls back to eval.                                             |
-| `timeout`        | integer                                                                                      | no       | `60`    | Default execution timeout in seconds for this sandbox                                                                                                                           |
-| `environment`    | string \| null                                                                               | no       | `null`  | Optional sandbox environment name (common for datalayer/modal variants)                                                                                                         |
-| `gpu`            | string \| null                                                                               | no       | `null`  | Optional GPU flavor / accelerator for supported variants (modal/datalayer examples: T4, A10G, A100, H100; kaggle examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100). |
-| `server_url`     | string \| null                                                                               | no       | `null`  | Code Sandbox proxy URL when using colab or kaggle variant                                                                                                                       |
-| `kernel_id`      | string \| null                                                                               | no       | `null`  | Kernel ID when using colab or kaggle variant                                                                                                                                    |
-| `proxy_token`    | string \| null                                                                               | no       | `null`  | Colab code sandbox proxy token when using colab variant                                                                                                                         |
-| `channels_url`   | string \| null                                                                               | no       | `null`  | Notebook session WebSocket channels URL to derive server_url/kernel_id (colab or kaggle variant)                                                                                |
-| `token`          | string \| null                                                                               | no       | `null`  | Datalayer API token override, or Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN)                                                                       |
-| `run_url`        | string \| null                                                                               | no       | `null`  | Datalayer run URL override                                                                                                                                                      |
-| `python_version` | string \| null                                                                               | no       | `null`  | Modal Python version override (e.g. 3.12). Only used for modal variant.                                                                                                         |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `sandbox_name` | string | yes | — | Unique sandbox identifier used by list/use/terminate tools |
+| `variant` | `eval` · `docker` · `jupyter` · `datalayer` · `colab` · `kaggle` · `monty` · `modal` \| null | no | `null` | Sandbox variant to launch. If omitted, defaults to configured SANDBOX_VARIANT when it is non-jupyter; otherwise falls back to eval. |
+| `timeout` | integer | no | `60` | Default execution timeout in seconds for this sandbox |
+| `environment` | string \| null | no | `null` | Optional sandbox environment name (common for datalayer/modal variants) |
+| `gpu` | string \| null | no | `null` | Optional GPU flavor / accelerator for supported variants (modal/datalayer examples: T4, A10G, A100, H100; kaggle examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100). |
+| `server_url` | string \| null | no | `null` | Code Sandbox proxy URL when using colab or kaggle variant |
+| `kernel_id` | string \| null | no | `null` | Kernel ID when using colab or kaggle variant |
+| `proxy_token` | string \| null | no | `null` | Colab code sandbox proxy token when using colab variant |
+| `channels_url` | string \| null | no | `null` | Notebook session WebSocket channels URL to derive server_url/kernel_id (colab or kaggle variant) |
+| `token` | string \| null | no | `null` | Datalayer API token override, or Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN) |
+| `run_url` | string \| null | no | `null` | Datalayer run URL override |
+| `python_version` | string \| null | no | `null` | Modal Python version override (e.g. 3.12). Only used for modal variant. |
 
 ## Call it
 
@@ -64,3 +64,4 @@ result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<
 ## Source
 
 Registered by the `@mcp.tool` decorator on `launch_sandbox` in [`ext/sandboxes/jupyter_mcp_sandboxes/extension.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/ext/sandboxes/jupyter_mcp_sandboxes/extension.py).
+

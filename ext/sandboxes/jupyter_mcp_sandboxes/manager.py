@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import Any
 
 from code_sandboxes import CodeSandboxClient
-
 from jupyter_mcp_server.utils import safe_extract_outputs
 
 

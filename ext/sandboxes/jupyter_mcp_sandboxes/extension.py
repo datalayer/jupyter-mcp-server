@@ -13,11 +13,17 @@ non-``jupyter`` sandbox variants.
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Optional
 
+from reactor import PluginCompatibility, PluginManifest
+from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.extensions import JupyterMCPExtension
+from jupyter_mcp_server.hooks import with_hooks
+from jupyter_mcp_server.server_context import ServerContext
+from jupyter_mcp_server.tools._base import ServerMode
+from jupyter_mcp_server.utils import safe_notebook_operation
 from mcp.types import ToolAnnotations
 from pydantic import Field
-from reactor import PluginCompatibility, PluginManifest
 
 from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 from jupyter_mcp_sandboxes.tools import (
@@ -26,11 +32,6 @@ from jupyter_mcp_sandboxes.tools import (
     TerminateSandboxTool,
     UseSandboxTool,
 )
-from jupyter_mcp_server.config import get_config
-from jupyter_mcp_server.extensions import JupyterMCPExtension
-from jupyter_mcp_server.hooks import with_hooks
-from jupyter_mcp_server.server_context import ServerContext
-from jupyter_mcp_server.utils import safe_notebook_operation
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class SandboxesExtension(JupyterMCPExtension):
 
     # -- Kernel factory -----------------------------------------------------
 
-    def create_kernel(self, config: Any, log: logging.Logger) -> Any | None:
+    def create_kernel(self, config: Any, log: logging.Logger) -> Optional[Any]:
         """Build a sandbox-backed kernel when a non-jupyter variant is set."""
         uses_variant = getattr(config, "uses_sandbox_variant", None)
         if not (uses_variant and config.uses_sandbox_variant()):
@@ -79,7 +80,9 @@ class SandboxesExtension(JupyterMCPExtension):
 
     # -- execute_code interception -----------------------------------------
 
-    async def intercept_execute_code(self, code: str, timeout: int) -> list[Any] | None:
+    async def intercept_execute_code(
+        self, code: str, timeout: int
+    ) -> Optional[list[Any]]:
         """Route execute_code to the active sandbox when one is selected."""
         if not self._manager.get_active_name():
             return None
@@ -112,9 +115,7 @@ class SandboxesExtension(JupyterMCPExtension):
                 str, Field(description="Unique sandbox identifier used by list/use/terminate tools")
             ],
             variant: Annotated[
-                Literal[
-                    "eval", "docker", "jupyter", "datalayer", "colab", "kaggle", "monty", "modal"
-                ]
+                Literal["eval", "docker", "jupyter", "datalayer", "colab", "kaggle", "monty", "modal"]
                 | None,
                 Field(
                     description=(
@@ -124,14 +125,11 @@ class SandboxesExtension(JupyterMCPExtension):
                 ),
             ] = None,
             timeout: Annotated[
-                int,
-                Field(description="Default execution timeout in seconds for this sandbox", ge=1),
+                int, Field(description="Default execution timeout in seconds for this sandbox", ge=1)
             ] = 60,
             environment: Annotated[
                 str | None,
-                Field(
-                    description="Optional sandbox environment name (common for datalayer/modal variants)"
-                ),
+                Field(description="Optional sandbox environment name (common for datalayer/modal variants)"),
             ] = None,
             gpu: Annotated[
                 str | None,
@@ -170,9 +168,7 @@ class SandboxesExtension(JupyterMCPExtension):
             run_url: Annotated[str | None, Field(description="Datalayer run URL override")] = None,
             python_version: Annotated[
                 str | None,
-                Field(
-                    description="Modal Python version override (e.g. 3.12). Only used for modal variant."
-                ),
+                Field(description="Modal Python version override (e.g. 3.12). Only used for modal variant."),
             ] = None,
         ) -> Annotated[dict, Field(description="Launch status and code sandbox metadata")]:
             """Launch a code sandbox that can be used instead of Jupyter kernels.
@@ -212,14 +208,10 @@ class SandboxesExtension(JupyterMCPExtension):
             ),
         )
         @with_hooks("list_sandboxes")
-        async def list_sandboxes() -> (
-            Annotated[
-                list[dict],
-                Field(
-                    description="All launched sandboxes with name, variant, status, and active flag"
-                ),
-            ]
-        ):
+        async def list_sandboxes() -> Annotated[
+            list[dict],
+            Field(description="All launched sandboxes with name, variant, status, and active flag"),
+        ]:
             """List launched code sandboxes that can be used as alternatives to kernels."""
             return await safe_notebook_operation(
                 lambda: ListSandboxesTool().execute(
@@ -262,9 +254,7 @@ class SandboxesExtension(JupyterMCPExtension):
         )
         @with_hooks("terminate_sandbox")
         async def terminate_sandbox(
-            sandbox_name: Annotated[
-                str, Field(description="Sandbox name to terminate and unregister")
-            ],
+            sandbox_name: Annotated[str, Field(description="Sandbox name to terminate and unregister")],
         ) -> Annotated[str, Field(description="Termination status message")]:
             """Terminate a launched code sandbox."""
             return await safe_notebook_operation(

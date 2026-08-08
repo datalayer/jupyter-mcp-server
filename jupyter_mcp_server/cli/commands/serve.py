@@ -77,9 +77,7 @@ def _resolve_and_start(
 
     do_start(
         transport=transport,
-        start_new_code_sandbox=parse_bool_option(
-            start_new_code_sandbox, "--start-new-code-sandbox"
-        ),
+        start_new_code_sandbox=parse_bool_option(start_new_code_sandbox, "--start-new-code-sandbox"),
         code_sandbox_url=resolved_code_sandbox_url,
         code_sandbox_id=code_sandbox_id,
         code_sandbox_token=resolved_code_sandbox_token,

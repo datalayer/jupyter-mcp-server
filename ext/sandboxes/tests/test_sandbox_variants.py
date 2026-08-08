@@ -7,11 +7,12 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from jupyter_mcp_sandboxes.extension import SandboxesExtension
-from jupyter_mcp_sandboxes.kernel import build_sandbox_client
 
 from jupyter_mcp_server.config import JupyterMCPConfig
 from jupyter_mcp_server.tools._base import ServerMode
+
+from jupyter_mcp_sandboxes.extension import SandboxesExtension
+from jupyter_mcp_sandboxes.kernel import build_sandbox_client
 
 
 @pytest.mark.parametrize(
@@ -351,9 +352,7 @@ async def test_launch_sandbox_defaults_to_configured_non_jupyter_variant():
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
 
     with (
-        patch(
-            "jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context
-        ),
+        patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
         patch(
             "jupyter_mcp_sandboxes.extension.get_config",
             return_value=JupyterMCPConfig(sandbox_variant="monty"),
@@ -377,9 +376,7 @@ async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
 
     with (
-        patch(
-            "jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context
-        ),
+        patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
         patch(
             "jupyter_mcp_sandboxes.extension.get_config",
             return_value=JupyterMCPConfig(sandbox_variant="jupyter"),
@@ -403,9 +400,7 @@ async def test_launch_sandbox_kaggle_variant_forwards_code_sandbox_fields():
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
 
     with (
-        patch(
-            "jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context
-        ),
+        patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
         patch(
             "jupyter_mcp_sandboxes.extension.get_config",
             return_value=JupyterMCPConfig(sandbox_variant="jupyter"),

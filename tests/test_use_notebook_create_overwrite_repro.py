@@ -69,7 +69,9 @@ async def test_create_mode_overwrites_an_existing_notebook_on_real_contents_mana
             use_mode="create",
         )
 
-        on_disk = nbformat.reads((Path(root_dir) / "analysis.ipynb").read_text(), as_version=4)
+        on_disk = nbformat.reads(
+            (Path(root_dir) / "analysis.ipynb").read_text(), as_version=4
+        )
         assert on_disk.cells[0].source == "df = load_customer_data()  # 3 hours of work", (
             "use_notebook(create) silently overwrote an existing notebook: "
             f"cells on disk are now {[c.source for c in on_disk.cells]!r}"

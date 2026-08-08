@@ -4,7 +4,6 @@ configuration page.
 
     python dump_config.py <out.json>
 """
-
 import json
 import sys
 
@@ -24,14 +23,12 @@ for name, f in model.model_fields.items():
         json.dumps(default)
     except TypeError:
         default = repr(default)
-    fields.append(
-        {
-            "name": name,
-            "type": str(f.annotation).replace("typing.", ""),
-            "default": default,
-            "description": f.description or "",
-        }
-    )
+    fields.append({
+        "name": name,
+        "type": str(f.annotation).replace("typing.", ""),
+        "default": default,
+        "description": f.description or "",
+    })
 
 out = {"model": model.__name__, "source_file": "jupyter_mcp_server/config.py", "fields": fields}
 # newline="\n" so regenerating on Windows produces the same bytes as CI does.

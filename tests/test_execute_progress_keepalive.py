@@ -95,7 +95,9 @@ async def test_stream_path_emits_progress_callback_during_long_cell():
 
     def execute_impl():
         time.sleep(2.2)
-        cell["outputs"] = [{"output_type": "stream", "name": "stdout", "text": "hello\n"}]
+        cell["outputs"] = [
+            {"output_type": "stream", "name": "stdout", "text": "hello\n"}
+        ]
 
     manager = FakeNotebookManager(FakeNotebook(cell, execute_impl))
     result = await ExecuteCellTool().execute(
@@ -153,7 +155,9 @@ async def test_timeout_settle_includes_late_notebook_output_in_stream_result():
         # Land an output shortly after the tool hits timeout_seconds=0.
         # Must finish within TIMEOUT_OUTPUT_SETTLE_SECONDS (~1s).
         time.sleep(0.3)
-        cell["outputs"] = [{"output_type": "stream", "name": "stdout", "text": "late-output\n"}]
+        cell["outputs"] = [
+            {"output_type": "stream", "name": "stdout", "text": "late-output\n"}
+        ]
 
     manager = FakeNotebookManager(FakeNotebook(cell, execute_impl))
     result = await ExecuteCellTool().execute(
@@ -189,7 +193,9 @@ async def test_immediate_timeout_with_frozen_perf_counter(monkeypatch):
 
     def execute_impl():
         time.sleep(0.3)
-        cell["outputs"] = [{"output_type": "stream", "name": "stdout", "text": "late-output\n"}]
+        cell["outputs"] = [
+            {"output_type": "stream", "name": "stdout", "text": "late-output\n"}
+        ]
 
     manager = FakeNotebookManager(FakeNotebook(cell, execute_impl))
     result = await ExecuteCellTool().execute(
@@ -202,9 +208,9 @@ async def test_immediate_timeout_with_frozen_perf_counter(monkeypatch):
         ensure_kernel_alive_fn=lambda: kernel,
     )
 
-    assert any(
-        "[TIMEOUT at" in entry for entry in result if isinstance(entry, str)
-    ), f"expected TIMEOUT with frozen clock, got {result!r}"
+    assert any("[TIMEOUT at" in entry for entry in result if isinstance(entry, str)), (
+        f"expected TIMEOUT with frozen clock, got {result!r}"
+    )
     assert any(
         isinstance(entry, str) and "late-output" in entry for entry in result
     ), f"expected settled notebook output in tool result, got {result!r}"
@@ -215,9 +221,7 @@ async def test_execute_code_emits_progress_callback_during_long_run():
     """execute_code sibling path must emit keepalive progress too."""
     kernel = FakeKernel()
     progress = ProgressRecorder()
-    manager = FakeNotebookManager(
-        FakeNotebook({"source": "", "outputs": []}, lambda: None), kernel=kernel
-    )
+    manager = FakeNotebookManager(FakeNotebook({"source": "", "outputs": []}, lambda: None), kernel=kernel)
 
     async def wait_idle(kernel, max_wait_seconds=30):
         return None

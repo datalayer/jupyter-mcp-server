@@ -408,7 +408,9 @@ class MCPClient:
                 has_multimodal = any(isinstance(item, dict) for item in result_value)
                 if has_multimodal and result_value:
                     first = result_value[0]
-                    if isinstance(first, int) or (isinstance(first, str) and first.isdigit()):
+                    if isinstance(first, int) or (
+                        isinstance(first, str) and first.isdigit()
+                    ):
                         structured["result"] = result_value[1:]
         return structured
 

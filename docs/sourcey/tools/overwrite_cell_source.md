@@ -1,6 +1,6 @@
 ---
-title: overwrite_cell_source
-description: Replace the entire source of a cell in the currently activated notebook.
+title: "overwrite_cell_source"
+description: "Replace the entire source of a cell in the currently activated notebook."
 ---
 
 # overwrite_cell_source
@@ -15,11 +15,11 @@ prefer edit_cell_source instead — it is safer for partial edits.
 
 ## Parameters
 
-| Parameter       | Type           | Required | Default | Description                                                                                                                                                                                                                       |
-| --------------- | -------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cell_index`    | integer        | yes      | —       | Index of the cell to overwrite (0-based)                                                                                                                                                                                          |
-| `cell_source`   | string         | yes      | —       | New complete cell source                                                                                                                                                                                                          |
-| `notebook_name` | string \| null | no       | `null`  | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `cell_index` | integer | yes | — | Index of the cell to overwrite (0-based) |
+| `cell_source` | string | yes | — | New complete cell source |
+| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 
 ## Output
 
@@ -65,3 +65,4 @@ result = await session.call_tool("overwrite_cell_source", arguments={"cell_index
 ## Source
 
 Registered by the `@mcp.tool` decorator on `overwrite_cell_source` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
+

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 from importlib import metadata
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from reactor import PluginManifest
@@ -42,7 +42,7 @@ class JupyterMCPExtension:
     so an extension only implements what it needs.
     """
 
-    def manifest(self) -> PluginManifest:
+    def manifest(self) -> "PluginManifest":
         """Return the reactor manifest describing this extension.
 
         Subclasses must override this to provide at least a name and version.
@@ -55,7 +55,7 @@ class JupyterMCPExtension:
         Called once during server startup, after the core tools are registered.
         """
 
-    def create_kernel(self, config: Any, logger: logging.Logger) -> Any | None:
+    def create_kernel(self, config: Any, logger: logging.Logger) -> Optional[Any]:
         """Optionally build a kernel for the current configuration.
 
         Return a kernel-like object (exposing the ``JupyterKernelClient`` interface) to
@@ -64,7 +64,9 @@ class JupyterMCPExtension:
         """
         return None
 
-    async def intercept_execute_code(self, code: str, timeout: int) -> list[Any] | None:
+    async def intercept_execute_code(
+        self, code: str, timeout: int
+    ) -> Optional[list[Any]]:
         """Optionally handle an ``execute_code`` call.
 
         Return a list of outputs to short-circuit execution, or ``None`` to let
@@ -99,7 +101,9 @@ class ExtensionManager:
             try:
                 from reactor import PluginPlatform
             except ImportError:  # pragma: no cover - optional dependency
-                logger.warning("reactor is not installed; extension mechanism disabled.")
+                logger.warning(
+                    "reactor is not installed; extension mechanism disabled."
+                )
                 return None
             self._platform = PluginPlatform()
         return self._platform
@@ -133,7 +137,9 @@ class ExtensionManager:
                 extension = factory() if callable(factory) else factory
                 self.register(extension)
             except Exception:  # pragma: no cover - defensive
-                logger.exception("Failed to load Jupyter MCP extension '%s'", entry_point.name)
+                logger.exception(
+                    "Failed to load Jupyter MCP extension '%s'", entry_point.name
+                )
 
     def register_tools(self, mcp: Any) -> None:
         """Discover extensions (if needed) and register all their tools."""
@@ -177,7 +183,7 @@ class ExtensionManager:
                 logger.exception("Reactor platform failed to stop")
         self._started = False
 
-    def create_kernel(self, config: Any, log: logging.Logger) -> Any | None:
+    def create_kernel(self, config: Any, log: logging.Logger) -> Optional[Any]:
         """Ask extensions to build a kernel; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
@@ -187,7 +193,9 @@ class ExtensionManager:
                 return kernel
         return None
 
-    async def intercept_execute_code(self, code: str, timeout: int) -> list[Any] | None:
+    async def intercept_execute_code(
+        self, code: str, timeout: int
+    ) -> Optional[list[Any]]:
         """Give extensions a chance to handle ``execute_code``."""
         for extension in self._extensions.values():
             result = await extension.intercept_execute_code(code, timeout)
@@ -196,7 +204,7 @@ class ExtensionManager:
         return None
 
 
-_EXTENSION_MANAGER: ExtensionManager | None = None
+_EXTENSION_MANAGER: Optional[ExtensionManager] = None
 
 
 def get_extension_manager() -> ExtensionManager:

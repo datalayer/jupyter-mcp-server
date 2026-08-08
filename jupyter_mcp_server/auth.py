@@ -4,9 +4,12 @@
 
 """Authentication utilities for Jupyter server password login."""
 
+from typing import Optional
+
 import requests
 
 from jupyter_mcp_server.log import logger
+
 
 _BODY_PREVIEW_CHARS = 200
 
@@ -33,8 +36,8 @@ class JupyterPasswordAuth:
     def __init__(self, server_url: str, password: str):
         self.server_url = server_url.rstrip("/")
         self.password = password
-        self._session: requests.Session | None = None
-        self._xsrf_token: str | None = None
+        self._session: Optional[requests.Session] = None
+        self._xsrf_token: Optional[str] = None
         self._authenticated = False
 
     def _do_request(self, method: str, url: str, stage: str, timeout: float, **kwargs):
@@ -70,10 +73,8 @@ class JupyterPasswordAuth:
             # GET /login to obtain the initial _xsrf cookie. Disable redirects
             # so we don't silently follow to a different origin (e.g. JupyterHub).
             self._do_request(
-                "GET",
-                f"{self.server_url}/login",
-                stage="initial XSRF fetch",
-                timeout=timeout,
+                "GET", f"{self.server_url}/login",
+                stage="initial XSRF fetch", timeout=timeout,
                 allow_redirects=False,
             )
             xsrf = session.cookies.get("_xsrf", "")
@@ -83,12 +84,9 @@ class JupyterPasswordAuth:
             if xsrf:
                 post_data["_xsrf"] = xsrf
             response = self._do_request(
-                "POST",
-                f"{self.server_url}/login",
-                stage="login POST",
-                timeout=timeout,
-                data=post_data,
-                allow_redirects=False,
+                "POST", f"{self.server_url}/login",
+                stage="login POST", timeout=timeout,
+                data=post_data, allow_redirects=False,
             )
             if response.status_code >= 500:
                 raise RuntimeError(
@@ -106,10 +104,8 @@ class JupyterPasswordAuth:
             # Verify we actually got authenticated by testing the API.
             # Distinguish 401/403 (bad credentials) from other failure modes.
             verify = self._do_request(
-                "GET",
-                f"{self.server_url}/api/status",
-                stage="session verification",
-                timeout=timeout,
+                "GET", f"{self.server_url}/api/status",
+                stage="session verification", timeout=timeout,
             )
             if verify.status_code in (401, 403):
                 raise RuntimeError(
@@ -221,10 +217,8 @@ class JupyterAnonymousAuth(JupyterPasswordAuth):
         self._session = session
         try:
             self._do_request(
-                "GET",
-                f"{self.server_url}/login",
-                stage="anonymous XSRF fetch",
-                timeout=timeout,
+                "GET", f"{self.server_url}/login",
+                stage="anonymous XSRF fetch", timeout=timeout,
                 allow_redirects=False,
             )
             self._xsrf_token = session.cookies.get("_xsrf", "")
