@@ -15,7 +15,7 @@ from unittest.mock import patch
 import nbformat
 import pytest
 
-from jupyter_mcp_server.config import reset_config, set_config
+from jupyter_mcp_server.config import get_config, reset_config, set_config
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.server_context import ServerContext
@@ -136,6 +136,11 @@ async def test_split_create_does_not_inject_sandbox_xsrf(monkeypatch):
     assert "work/nb.ipynb" in document_client.contents.created
     assert "X-XSRFToken" not in document_client.http_client.session.headers
 
+    # The sandbox token must not leak to the (anonymous) document server.
+    notebook_info = nm.get_notebook_connection("nb").notebook_info
+    assert notebook_info["server_url"] == DOCUMENT_URL
+    assert notebook_info["token"] is None
+
 
 @pytest.mark.asyncio
 async def test_split_opens_ui_on_document_server(monkeypatch):
@@ -166,6 +171,11 @@ async def test_split_opens_ui_on_document_server(monkeypatch):
         ("docmanager_open", {"path": "work/nb.ipynb"}),
     ]
 
+    # The registered token is the explicit document_token, not the sandbox's.
+    notebook_info = nm.get_notebook_connection("nb").notebook_info
+    assert notebook_info["server_url"] == DOCUMENT_URL
+    assert notebook_info["token"] == DOCUMENT_TOKEN
+
 
 @pytest.mark.asyncio
 async def test_same_url_keeps_caller_client(monkeypatch):
@@ -190,6 +200,36 @@ async def test_same_url_keeps_caller_client(monkeypatch):
 
     assert "Successfully activate notebook 'nb'" in result
     assert client.contents.listed == ["work"]
+
+
+@pytest.mark.asyncio
+async def test_unset_document_url_keeps_caller_client(monkeypatch):
+    """Keep the caller's client and register the sandbox URL/token when
+    document_url is unset (the sandbox-only engine shape)."""
+    set_config(
+        code_sandbox_url=SANDBOX_URL,
+        code_sandbox_token=SANDBOX_TOKEN,
+    )
+    assert get_config().document_url is None
+
+    def _fail():
+        raise AssertionError("ServerContext.get_instance must not be called")
+
+    monkeypatch.setattr(ServerContext, "get_instance", _fail)
+    client = FakeServerClient(["nb.ipynb"])
+    nm = NotebookManager()
+
+    with patch.object(
+        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
+    ):
+        result = await _execute(client, nm)
+
+    assert "Successfully activate notebook 'nb'" in result
+    assert client.contents.listed == ["work"]
+
+    notebook_info = nm.get_notebook_connection("nb").notebook_info
+    assert notebook_info["server_url"] == SANDBOX_URL
+    assert notebook_info["token"] == SANDBOX_TOKEN
 
 
 @pytest.fixture(scope="module")

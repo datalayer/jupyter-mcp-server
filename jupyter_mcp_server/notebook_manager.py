@@ -59,8 +59,8 @@ class NotebookConnection:
             )
 
         config = get_config()
-        server_url = self.notebook_info.get("server_url", config.document_url)
-        token = self.notebook_info.get("token", config.document_token)
+        server_url = self.notebook_info.get("server_url") or config.resolved_document_url()
+        token = self.notebook_info.get("token") or config.resolved_document_token()
         path = self.notebook_info.get("path", config.document_id)
 
         from jupyter_mcp_server.server_context import ServerContext
@@ -184,8 +184,8 @@ class NotebookManager:
             "kernel": kernel,
             "is_local": is_local_mode,
             "notebook_info": {
-                "server_url": server_url or config.document_url,
-                "token": token or config.document_token,
+                "server_url": server_url or config.resolved_document_url(),
+                "token": token or config.resolved_document_token(),
                 "path": path or config.document_id,
             },
         }
@@ -411,8 +411,8 @@ class NotebookManager:
             config = get_config()
             return NotebookConnection(
                 {
-                    "server_url": config.document_url,
-                    "token": config.document_token,
+                    "server_url": config.resolved_document_url(),
+                    "token": config.resolved_document_token(),
                     "path": config.document_id,
                 }
             )
