@@ -17,7 +17,7 @@ from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 @pytest.fixture
 def fake_sandbox() -> MagicMock:
     sandbox = MagicMock()
-    sandbox.sandbox_id = "sandbox-id"
+    sandbox.id = "sandbox-id"
     sandbox.info = SimpleNamespace(variant="unknown", status="running")
     sandbox.config = SimpleNamespace(environment="env", gpu="gpu")
     return sandbox
@@ -27,7 +27,7 @@ def fake_sandbox() -> MagicMock:
 def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="s1",
             variant=variant,
@@ -48,7 +48,7 @@ def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: Magi
 def test_launch_modal_forwards_python_version(fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="modal-1",
             variant="modal",
@@ -67,7 +67,7 @@ def test_launch_modal_forwards_python_version(fake_sandbox: MagicMock):
 def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="colab-1",
             variant="colab",
@@ -89,7 +89,7 @@ def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
 def test_launch_kaggle_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="kaggle-1",
             variant="kaggle",
@@ -111,7 +111,7 @@ def test_launch_kaggle_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
 def test_launch_jupyter_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="jupyter-1",
             variant="jupyter",
@@ -132,7 +132,7 @@ def test_launch_jupyter_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
 def test_launch_datalayer_forwards_token_and_run_url(fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="d1",
             variant="datalayer",
@@ -150,7 +150,7 @@ def test_launch_datalayer_forwards_token_and_run_url(fake_sandbox: MagicMock):
 def test_launch_sets_active_and_prevents_duplicates(fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox):
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox):
         first = manager.launch(sandbox_name="dup", variant="eval", timeout=10)
 
     assert manager.get_active_name() == "dup"
@@ -163,11 +163,11 @@ def test_launch_sets_active_and_prevents_duplicates(fake_sandbox: MagicMock):
 def test_use_terminate_and_terminate_all(fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
     fake_sandbox_2 = MagicMock()
-    fake_sandbox_2.sandbox_id = "sandbox-2"
+    fake_sandbox_2.id = "sandbox-2"
     fake_sandbox_2.info = SimpleNamespace(variant="docker", status="running")
     fake_sandbox_2.config = SimpleNamespace(environment=None, gpu=None)
 
-    with patch("code_sandboxes.Sandbox.create", side_effect=[fake_sandbox, fake_sandbox_2]):
+    with patch("code_sandboxes.CodeSandboxClient.create", side_effect=[fake_sandbox, fake_sandbox_2]):
         manager.launch(sandbox_name="a", variant="eval", timeout=10)
         manager.launch(sandbox_name="b", variant="docker", timeout=10)
 

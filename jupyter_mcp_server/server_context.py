@@ -23,7 +23,6 @@ class ServerContext:
     _kernel_spec_manager = None
     _session_manager = None
     _server_client = None
-    _kernel_client = None
     _code_sandbox_password_auth = None
     _document_password_auth = None
     _initialized = False
@@ -235,12 +234,6 @@ class ServerContext:
         if not self._initialized:
             self.initialize()
         return self._server_client
-
-    @property
-    def kernel_client(self):
-        if not self._initialized:
-            self.initialize()
-        return self._kernel_client
 
     @property
     def code_sandbox_auth_headers(self) -> dict[str, str]:

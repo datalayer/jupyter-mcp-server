@@ -13,16 +13,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from code_sandboxes import CodeSandboxClient
 from jupyter_mcp_server.utils import safe_extract_outputs
-
-from jupyter_mcp_sandboxes.kernel import _execution_result_to_reply
 
 
 class CodeSandboxManager:
     """Track launched sandboxes and optional active sandbox selection."""
 
     def __init__(self):
-        self._sandboxes: dict[str, Any] = {}
+        self._sandboxes: dict[str, CodeSandboxClient] = {}
         self._active_name: str | None = None
 
     def launch(
@@ -44,8 +43,6 @@ class CodeSandboxManager:
         """Launch and register a new code sandbox."""
         if sandbox_name in self._sandboxes:
             raise ValueError(f"Sandbox '{sandbox_name}' already exists.")
-
-        from code_sandboxes import Sandbox
 
         create_kwargs: dict[str, Any] = {
             "variant": variant,
@@ -95,7 +92,7 @@ class CodeSandboxManager:
             if run_url:
                 create_kwargs["run_url"] = run_url
 
-        sandbox = Sandbox.create(**create_kwargs)
+        sandbox = CodeSandboxClient.create(**create_kwargs)
         sandbox.start()
 
         self._sandboxes[sandbox_name] = sandbox
@@ -152,54 +149,52 @@ class CodeSandboxManager:
 
         # Prefer streaming when available to surface provider progress updates
         # (for example Kaggle batch status transitions).
-        if hasattr(sandbox, "run_code_streaming"):
-            outputs: list[dict[str, Any]] = []
-            for event in sandbox.run_code_streaming(code, timeout=timeout):
-                if hasattr(event, "line"):
-                    outputs.append(
-                        {
-                            "output_type": "stream",
-                            "name": "stderr" if bool(getattr(event, "error", False)) else "stdout",
-                            "text": f"{getattr(event, 'line', '')}\n",
-                        }
-                    )
-                elif hasattr(event, "data"):
-                    outputs.append(
-                        {
-                            "output_type": "execute_result"
-                            if bool(getattr(event, "is_main_result", False))
-                            else "display_data",
-                            "data": getattr(event, "data", {}) or {},
-                            "metadata": getattr(event, "extra", {}) or {},
-                        }
-                    )
-                elif hasattr(event, "name") and hasattr(event, "value"):
-                    traceback = (getattr(event, "traceback", "") or "").split("\n")
-                    if traceback == [""]:
-                        traceback = []
-                    outputs.append(
-                        {
-                            "output_type": "error",
-                            "ename": getattr(event, "name", "Error"),
-                            "evalue": getattr(event, "value", ""),
-                            "traceback": traceback,
-                        }
-                    )
+        outputs: list[dict[str, Any]] = []
+        for event in sandbox.execute_code_streaming(code, timeout=timeout):
+            if hasattr(event, "line"):
+                outputs.append(
+                    {
+                        "output_type": "stream",
+                        "name": "stderr" if bool(getattr(event, "error", False)) else "stdout",
+                        "text": f"{getattr(event, 'line', '')}\n",
+                    }
+                )
+            elif hasattr(event, "data"):
+                outputs.append(
+                    {
+                        "output_type": "execute_result"
+                        if bool(getattr(event, "is_main_result", False))
+                        else "display_data",
+                        "data": getattr(event, "data", {}) or {},
+                        "metadata": getattr(event, "extra", {}) or {},
+                    }
+                )
+            elif hasattr(event, "name") and hasattr(event, "value"):
+                traceback = (getattr(event, "traceback", "") or "").split("\n")
+                if traceback == [""]:
+                    traceback = []
+                outputs.append(
+                    {
+                        "output_type": "error",
+                        "ename": getattr(event, "name", "Error"),
+                        "evalue": getattr(event, "value", ""),
+                        "traceback": traceback,
+                    }
+                )
 
-            if outputs:
-                return safe_extract_outputs(outputs)
+        if outputs:
+            return safe_extract_outputs(outputs)
 
-        result = sandbox.run_code(code, timeout=timeout)
-        reply = _execution_result_to_reply(result)
+        reply = sandbox.execute(code, timeout=timeout)
         return safe_extract_outputs(reply.get("outputs", []))
 
-    def _serialize(self, name: str, sandbox: Any) -> dict[str, Any]:
-        info = getattr(sandbox, "info", None)
-        config = getattr(sandbox, "config", None)
+    def _serialize(self, name: str, sandbox: CodeSandboxClient) -> dict[str, Any]:
+        info = sandbox.info
+        config = sandbox.config
         return {
             "name": name,
             "active": name == self._active_name,
-            "sandbox_id": getattr(sandbox, "sandbox_id", None),
+            "sandbox_id": sandbox.id,
             "variant": getattr(info, "variant", None),
             "status": getattr(info, "status", None),
             "environment": getattr(config, "environment", None) if config else None,

@@ -63,18 +63,18 @@ class SandboxesExtension(JupyterMCPExtension):
         if not (uses_variant and config.uses_sandbox_variant()):
             return None
 
-        from jupyter_mcp_sandboxes.kernel import create_sandbox_kernel_client
+        from jupyter_mcp_sandboxes.kernel import create_sandbox_client
 
         try:
-            kernel_client = create_sandbox_kernel_client(config, log)
+            sandbox_client = create_sandbox_client(config, log)
             log.info(
-                "Sandbox kernel client created and started (variant=%s)",
+                "Code sandbox client created and started (variant=%s)",
                 config.sandbox_variant,
             )
-            return kernel_client
+            return sandbox_client
         except Exception:
             log.exception(
-                "Failed to create sandbox kernel client (variant=%s)", config.sandbox_variant
+                "Failed to create code sandbox client (variant=%s)", config.sandbox_variant
             )
             raise
 

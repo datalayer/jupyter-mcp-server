@@ -11,7 +11,7 @@ import re
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from code_sandboxes.interfaces import ISandboxClient
+from code_sandboxes import CodeSandboxClient
 from fastapi import Request
 from mcp.server import FastMCP
 from mcp.server.auth.provider import AccessToken
@@ -210,10 +210,10 @@ async def __auto_enroll_document():
     )
 
 
-def __ensure_kernel_alive() -> ISandboxClient:
+def __ensure_kernel_alive() -> CodeSandboxClient:
     """Ensure kernel is running, restart if needed."""
 
-    def __create_kernel() -> ISandboxClient:
+    def __create_kernel() -> CodeSandboxClient:
         """Create a new kernel instance using current configuration."""
         config = get_config()
         return create_kernel(config, logger)
