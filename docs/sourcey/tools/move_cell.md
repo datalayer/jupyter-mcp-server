@@ -1,6 +1,6 @@
 ---
-title: "move_cell"
-description: "Move a cell from source_index to target_index within the currently activated notebook."
+title: move_cell
+description: Move a cell from source_index to target_index within the currently activated notebook.
 ---
 
 # move_cell
@@ -18,11 +18,11 @@ preserves cell metadata. Use read_notebook first to see cell indices if needed.
 
 ## Parameters
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `source_index` | integer | yes | — | Index of the cell to move (0-based) |
-| `target_index` | integer | yes | — | Destination index where the cell will end up (0-based) |
-| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
+| Parameter       | Type           | Required | Default | Description                                                                                                                                                                                                                       |
+| --------------- | -------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source_index`  | integer        | yes      | —       | Index of the cell to move (0-based)                                                                                                                                                                                               |
+| `target_index`  | integer        | yes      | —       | Destination index where the cell will end up (0-based)                                                                                                                                                                            |
+| `notebook_name` | string \| null | no       | `null`  | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 
 ## Output
 
@@ -68,4 +68,3 @@ result = await session.call_tool("move_cell", arguments={"source_index": 0, "tar
 ## Source
 
 Registered by the `@mcp.tool` decorator on `move_cell` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
-

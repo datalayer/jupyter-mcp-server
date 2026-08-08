@@ -202,7 +202,14 @@ def set_config(**kwargs) -> JupyterMCPConfig:
     for key, value in kwargs.items():
         if should_skip(value):
             # For optional fields, set to None; for required fields, skip (use default)
-            if key in ("code_sandbox_token", "document_token", "code_sandbox_id", "document_id", "code_sandbox_password", "document_password"):
+            if key in (
+                "code_sandbox_token",
+                "document_token",
+                "code_sandbox_id",
+                "document_id",
+                "code_sandbox_password",
+                "document_password",
+            ):
                 normalized_kwargs[key] = None
             # For required string fields like code_sandbox_url, document_url, skip the key
             # to let the default value be used

@@ -12,18 +12,18 @@ import os
 import sys
 
 import anyio
+from prompt_toolkit.formatted_text import ANSI
 from pydantic_ai import Agent
 from pydantic_ai._cli import (
-    CustomAutoSuggest,
-    FileHistory,
     PROMPT_HISTORY_FILENAME,
     PYDANTIC_AI_HOME,
+    CustomAutoSuggest,
+    FileHistory,
     PromptSession,
     ask_agent,
     handle_slash_command,
 )
 from pydantic_ai.mcp import MCPServerStreamableHTTP
-from prompt_toolkit.formatted_text import ANSI
 from rich.console import Console
 
 DEFAULT_MODEL = "bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0"
@@ -43,10 +43,7 @@ def build_cli_prog_name(
     def _fmt(base_text: str, sandbox_text: str) -> str:
         if not use_color:
             return f"{base_text}({sandbox_text})"
-        return (
-            f"{ANSI_BASE}{base_text}{ANSI_RESET}"
-            f"{ANSI_SANDBOX}({sandbox_text}){ANSI_RESET}"
-        )
+        return f"{ANSI_BASE}{base_text}{ANSI_RESET}" f"{ANSI_SANDBOX}({sandbox_text}){ANSI_RESET}"
 
     if variant in {"", "none", "jupyter"}:
         return _fmt(base, "none")
@@ -99,7 +96,9 @@ async def _run_colored_chat(agent: Agent, prog_name: str, prompt_label: str) -> 
     while True:
         try:
             auto_suggest = CustomAutoSuggest(["/markdown", "/multiline", "/exit", "/cp"])
-            text = await session.prompt_async(prompt, auto_suggest=auto_suggest, multiline=multiline)
+            text = await session.prompt_async(
+                prompt, auto_suggest=auto_suggest, multiline=multiline
+            )
         except (KeyboardInterrupt, EOFError):
             return 0
 

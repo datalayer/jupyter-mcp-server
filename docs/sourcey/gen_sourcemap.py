@@ -11,6 +11,7 @@ difference between the checked-in generation and a fresh one.
 
     python gen_sourcemap.py <src-root> <out.json>
 """
+
 import json
 import os
 import re
@@ -25,8 +26,17 @@ DEF = re.compile(r"\s*(?:async\s+)?def\s+(\w+)")
 # extension at ext/sandboxes/build/lib/..., and scanning it would map the
 # sandbox tools to a build artifact instead of the real file.
 SKIP_DIRS = {
-    ".git", ".tox", ".venv", ".eggs", "__pycache__", "build", "dist",
-    "node_modules", "site-packages", "tests", "venv",
+    ".git",
+    ".tox",
+    ".venv",
+    ".eggs",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "tests",
+    "venv",
 }
 
 entries = {}

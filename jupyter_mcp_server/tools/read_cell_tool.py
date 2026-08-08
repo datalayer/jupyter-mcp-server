@@ -88,7 +88,9 @@ class ReadCellTool(BaseTool):
             # resolve_notebook_connection() falls back to the default
             # pre-configured notebook (--document-id) when notebook_name is
             # None, so no explicit guard is needed here.
-            async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook_content:
+            async with resolve_notebook_connection(
+                notebook_manager, notebook_name
+            ) as notebook_content:
                 notebook = Notebook(**notebook_content.as_dict())
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

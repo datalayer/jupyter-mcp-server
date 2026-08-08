@@ -481,7 +481,9 @@ async def use_notebook(
             kernel_manager=server_context.kernel_manager,
             session_manager=server_context.session_manager,
             notebook_manager=notebook_manager,
-            code_sandbox_url=config.code_sandbox_url if config.code_sandbox_url != "local" else None,
+            code_sandbox_url=config.code_sandbox_url
+            if config.code_sandbox_url != "local"
+            else None,
             code_sandbox_token=config.code_sandbox_token,
             auth_headers=server_context.code_sandbox_auth_headers or None,
         )
@@ -1229,7 +1231,11 @@ async def get_registered_tools():
                 else:
                     # Fallback to configuration (for remote scenarios)
                     config = get_config()
-                    base_url = config.code_sandbox_url if config.code_sandbox_url else "http://localhost:8888"
+                    base_url = (
+                        config.code_sandbox_url
+                        if config.code_sandbox_url
+                        else "http://localhost:8888"
+                    )
                     token = config.code_sandbox_token
                     logger.info(f"Using config code sandbox URL: {base_url}")
 

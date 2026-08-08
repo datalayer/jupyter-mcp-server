@@ -1,6 +1,6 @@
 ---
-title: "restart_notebook"
-description: "Restart the kernel for a specific notebook."
+title: restart_notebook
+description: Restart the kernel for a specific notebook.
 ---
 
 # restart_notebook
@@ -11,9 +11,9 @@ Restart the kernel for a specific notebook.
 
 ## Parameters
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `notebook_name` | string | yes | — | Notebook identifier to restart |
+| Parameter       | Type   | Required | Default | Description                    |
+| --------------- | ------ | -------- | ------- | ------------------------------ |
+| `notebook_name` | string | yes      | —       | Notebook identifier to restart |
 
 ## Output
 
@@ -57,4 +57,3 @@ result = await session.call_tool("restart_notebook", arguments={"notebook_name":
 ## Source
 
 Registered by the `@mcp.tool` decorator on `restart_notebook` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
-

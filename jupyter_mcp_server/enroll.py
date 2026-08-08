@@ -92,7 +92,9 @@ async def auto_enroll_document(
             kernel_manager=server_context.kernel_manager,
             session_manager=server_context.session_manager,
             notebook_manager=notebook_manager,
-            code_sandbox_url=config.code_sandbox_url if config.code_sandbox_url != "local" else None,
+            code_sandbox_url=config.code_sandbox_url
+            if config.code_sandbox_url != "local"
+            else None,
             code_sandbox_token=config.code_sandbox_token,
             auth_headers=server_context.code_sandbox_auth_headers or None,
         )

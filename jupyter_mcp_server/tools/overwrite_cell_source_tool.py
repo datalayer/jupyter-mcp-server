@@ -232,7 +232,9 @@ class OverwriteCellSourceTool(BaseTool):
 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection with remote transaction management
-            diff = await self._overwrite_cell_websocket(notebook_manager, cell_index, cell_source, notebook_name)
+            diff = await self._overwrite_cell_websocket(
+                notebook_manager, cell_index, cell_source, notebook_name
+            )
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 

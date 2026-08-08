@@ -1,6 +1,6 @@
 ---
-title: "clear_cell_output"
-description: "Clear the outputs and execution count of a single code cell in the currently"
+title: clear_cell_output
+description: Clear the outputs and execution count of a single code cell in the currently
 ---
 
 # clear_cell_output
@@ -12,10 +12,10 @@ activated notebook, without deleting the cell itself.
 
 ## Parameters
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `cell_index` | integer | yes | — | Index of the code cell to clear (0-based) |
-| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
+| Parameter       | Type           | Required | Default | Description                                                                                                                                                                                                                       |
+| --------------- | -------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cell_index`    | integer        | yes      | —       | Index of the code cell to clear (0-based)                                                                                                                                                                                         |
+| `notebook_name` | string \| null | no       | `null`  | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 
 ## Output
 
@@ -60,4 +60,3 @@ result = await session.call_tool("clear_cell_output", arguments={"cell_index": 0
 ## Source
 
 Registered by the `@mcp.tool` decorator on `clear_cell_output` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
-

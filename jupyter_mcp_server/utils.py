@@ -16,7 +16,6 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 
-
 #: MIME types that carry readable text, richest first. ``text/plain`` is the
 #: universal fallback. ``text/html`` is intentionally absent: it is markup
 #: rather than readable text, and results that emit both an ASCII ``text/plain``
@@ -67,7 +66,6 @@ def get_mimebundle_text(bundle: dict[str, Any] | None, default: str | None = Non
         return _coerce_bundle_text(value)
 
     return default
-
 
 
 def get_current_notebook_context(notebook_manager=None):
@@ -125,7 +123,9 @@ def resolve_notebook_path(notebook_manager=None, notebook_name: str | None = Non
     if notebook_manager is None or notebook_name not in notebook_manager:
         raise ValueError(f"Notebook '{notebook_name}' is not connected.")
 
-    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(notebook_name)
+    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(
+        notebook_name
+    )
 
 
 def resolve_notebook_connection(notebook_manager, notebook_name: str | None = None):
@@ -576,8 +576,8 @@ def create_kernel(config, logger) -> CodeSandboxClient:
      1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
          over kernel creation for a non-'jupyter' sandbox variant.
      2. Otherwise the kernel is created through the ``code_sandboxes`` package
-         using the ``jupyter`` variant, and this function returns the plain
-         a variant-neutral ``CodeSandboxClient``.
+         using the ``jupyter`` variant, and this function returns a
+         variant-neutral ``CodeSandboxClient``.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
     calling a legacy direct kernel client package.
@@ -610,7 +610,6 @@ def create_kernel(config, logger) -> CodeSandboxClient:
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
         raise
-
 
 
 def start_kernel(notebook_manager, config, logger):

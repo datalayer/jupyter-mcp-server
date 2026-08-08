@@ -7,14 +7,14 @@
 import asyncio
 import time
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 from requests.cookies import RequestsCookieJar
 
 from jupyter_mcp_server.auth import JupyterPasswordAuth
-from jupyter_mcp_server.config import reset_config, set_config, get_config
+from jupyter_mcp_server.config import get_config, reset_config, set_config
 from jupyter_mcp_server.server_context import ServerContext
 
 
@@ -82,9 +82,9 @@ class TestJupyterPasswordAuth:
 
         # GET /login, POST /login (302), GET /api/status (200)
         session.request.side_effect = _request_responses(
-            MagicMock(),                      # GET /login
-            MagicMock(status_code=302),       # POST /login
-            MagicMock(status_code=200),       # GET /api/status
+            MagicMock(),  # GET /login
+            MagicMock(status_code=302),  # POST /login
+            MagicMock(status_code=200),  # GET /api/status
         )
 
         auth = self._make_auth()
@@ -193,7 +193,9 @@ class TestJupyterPasswordAuth:
         jar.set("_xsrf", "x")
         session.cookies = jar
         session.request.side_effect = _request_responses(
-            MagicMock(), MagicMock(status_code=302), MagicMock(status_code=200),
+            MagicMock(),
+            MagicMock(status_code=302),
+            MagicMock(status_code=200),
         )
 
         auth = self._make_auth()
@@ -389,6 +391,7 @@ class TestJupyterAnonymousAuth:
 
     def _make_auth(self, url="http://localhost:8888"):
         from jupyter_mcp_server.auth import JupyterAnonymousAuth
+
         return JupyterAnonymousAuth(url)
 
     @patch("jupyter_mcp_server.auth.requests.Session")
@@ -506,6 +509,7 @@ class TestServerContextAuthHeaders:
         context = ServerContext.get_instance()
         # Manually set up MCP_SERVER mode without password
         from jupyter_mcp_server.tools import ServerMode
+
         context._mode = ServerMode.MCP_SERVER
         context._code_sandbox_password_auth = None
         context._server_client = MagicMock()
@@ -864,6 +868,7 @@ class TestNotebookConnectionAuth:
         )
 
         from jupyter_mcp_server.tools import ServerMode
+
         context = ServerContext.get_instance()
         context._mode = ServerMode.MCP_SERVER
         context._initialized = True
@@ -898,12 +903,13 @@ class TestNotebookConnectionAuth:
         async def fake_aexit(self_, *args):
             return None
 
-        with patch(
-            "jupyter_mcp_server.notebook_manager.get_notebook_websocket_url",
-            return_value="ws://localhost:8888/api/collaboration/room/abc",
-        ), patch(
-            "jupyter_mcp_server.notebook_manager.NbModelClient"
-        ) as MockClient:
+        with (
+            patch(
+                "jupyter_mcp_server.notebook_manager.get_notebook_websocket_url",
+                return_value="ws://localhost:8888/api/collaboration/room/abc",
+            ),
+            patch("jupyter_mcp_server.notebook_manager.NbModelClient") as MockClient,
+        ):
             mock_notebook = MagicMock()
             mock_notebook.__aenter__ = fake_aenter
             mock_notebook.__aexit__ = fake_aexit
@@ -928,12 +934,13 @@ class TestNotebookConnectionAuth:
         async def fake_aexit(self_, *args):
             return None
 
-        with patch(
-            "jupyter_mcp_server.notebook_manager.get_notebook_websocket_url",
-            return_value="ws://localhost:8888/api/collaboration/room/abc",
-        ) as mock_ws_url, patch(
-            "jupyter_mcp_server.notebook_manager.NbModelClient"
-        ) as MockClient:
+        with (
+            patch(
+                "jupyter_mcp_server.notebook_manager.get_notebook_websocket_url",
+                return_value="ws://localhost:8888/api/collaboration/room/abc",
+            ) as mock_ws_url,
+            patch("jupyter_mcp_server.notebook_manager.NbModelClient") as MockClient,
+        ):
             mock_notebook = MagicMock()
             mock_notebook.__aenter__ = fake_aenter
             mock_notebook.__aexit__ = fake_aexit
@@ -985,6 +992,7 @@ class TestPasswordAuthE2E:
     async def test_password_auth_health(self, jupyter_mcp_server_password):
         """MCP server health endpoint works when authenticated via password."""
         import requests
+
         response = requests.get(f"{jupyter_mcp_server_password}/api/healthz")
         assert response.status_code == 200
         data = response.json()
@@ -1021,9 +1029,9 @@ class TestPasswordAuthE2E:
         assert result is not None
         assert "result" in result
         outputs = result["result"]
-        assert any(expected_product in str(output) for output in outputs), (
-            f"expected product {expected_product} not found in outputs: {outputs}"
-        )
+        assert any(
+            expected_product in str(output) for output in outputs
+        ), f"expected product {expected_product} not found in outputs: {outputs}"
 
     @pytest.mark.asyncio
     async def test_password_auth_create_notebook(
@@ -1048,27 +1056,23 @@ class TestPasswordAuthE2E:
                     mode="create",
                 )
                 assert isinstance(create_result, str)
-                assert "error" not in create_result.lower(), (
-                    f"use_notebook(mode='create') returned an error: {create_result}"
-                )
-                assert "_xsrf" not in create_result, (
-                    f"create hit the XSRF check: {create_result}"
-                )
+                assert (
+                    "error" not in create_result.lower()
+                ), f"use_notebook(mode='create') returned an error: {create_result}"
+                assert "_xsrf" not in create_result, f"create hit the XSRF check: {create_result}"
                 # The file must actually exist on the server's disk.
-                assert notebook_path.exists(), (
-                    f"notebook was not created on disk at {notebook_path}"
-                )
+                assert (
+                    notebook_path.exists()
+                ), f"notebook was not created on disk at {notebook_path}"
 
                 # A round-trip over the freshly-created notebook should work too.
                 factor_a, factor_b = 31337, 71993
                 expected_product = str(factor_a * factor_b)
-                await mcp_client_password.insert_execute_code_cell(
-                    0, f"{factor_a} * {factor_b}"
-                )
+                await mcp_client_password.insert_execute_code_cell(0, f"{factor_a} * {factor_b}")
                 cell = await _read_cell_until(mcp_client_password, 0, expected_product)
-                assert expected_product in str(cell), (
-                    f"expected product {expected_product} not found in cell: {cell}"
-                )
+                assert expected_product in str(
+                    cell
+                ), f"expected product {expected_product} not found in cell: {cell}"
         finally:
             notebook_path.unlink(missing_ok=True)
 
@@ -1092,7 +1096,9 @@ class TestPasswordAuthE2E:
                 mode="connect",
             )
             assert isinstance(use_result, str)
-            assert "error" not in use_result.lower(), f"use_notebook returned an error: {use_result}"
+            assert (
+                "error" not in use_result.lower()
+            ), f"use_notebook returned an error: {use_result}"
 
             # Insert + execute a cell over the WebSocket collaboration path...
             await mcp_client_password.insert_execute_code_cell(0, f"{factor_a} * {factor_b}")
@@ -1100,9 +1106,9 @@ class TestPasswordAuthE2E:
             # ...and read it back to confirm the round-trip produced the right output.
             cell = await _read_cell_until(mcp_client_password, 0, expected_product)
             assert cell is not None
-            assert expected_product in str(cell), (
-                f"expected product {expected_product} not found in cell: {cell}"
-            )
+            assert expected_product in str(
+                cell
+            ), f"expected product {expected_product} not found in cell: {cell}"
 
 
 # ---------------------------------------------------------------------------
@@ -1124,32 +1130,35 @@ class TestSessionExpiry:
         a prerequisite for any re-login logic being meaningful.
         """
         import time
-        from tests.conftest import JUPYTER_PASSWORD, _COOKIE_TTL_SECONDS
+
+        from tests.conftest import _COOKIE_TTL_SECONDS, JUPYTER_PASSWORD
 
         auth = JupyterPasswordAuth(jupyter_server_short_cookie, JUPYTER_PASSWORD)
         auth.login()
 
         # Sanity-check: session works immediately after login.
         initial = auth._session.get(f"{jupyter_server_short_cookie}/api/status")
-        assert initial.status_code == 200, (
-            f"Expected 200 right after login, got {initial.status_code}"
-        )
+        assert (
+            initial.status_code == 200
+        ), f"Expected 200 right after login, got {initial.status_code}"
 
         # Wait for the cookie to expire.
         time.sleep(_COOKIE_TTL_SECONDS + 1)
 
         # The session cookie has expired; the request should now be rejected.
         expired = auth._session.get(f"{jupyter_server_short_cookie}/api/status")
-        assert expired.status_code in (401, 403), (
-            f"Expected 401/403 after cookie expiry, got {expired.status_code}"
-        )
+        assert expired.status_code in (
+            401,
+            403,
+        ), f"Expected 401/403 after cookie expiry, got {expired.status_code}"
 
         auth.close()
 
     def test_relogin_restores_session_after_expiry(self, jupyter_server_short_cookie):
         """relogin() obtains a fresh session and subsequent requests succeed."""
         import time
-        from tests.conftest import JUPYTER_PASSWORD, _COOKIE_TTL_SECONDS
+
+        from tests.conftest import _COOKIE_TTL_SECONDS, JUPYTER_PASSWORD
 
         auth = JupyterPasswordAuth(jupyter_server_short_cookie, JUPYTER_PASSWORD)
         auth.login()
@@ -1157,16 +1166,17 @@ class TestSessionExpiry:
         time.sleep(_COOKIE_TTL_SECONDS + 1)
 
         # Confirm the session is stale.
-        assert auth._session.get(
-            f"{jupyter_server_short_cookie}/api/status"
-        ).status_code in (401, 403)
+        assert auth._session.get(f"{jupyter_server_short_cookie}/api/status").status_code in (
+            401,
+            403,
+        )
 
         # Re-login and verify the session is working again.
         auth.relogin()
         restored = auth._session.get(f"{jupyter_server_short_cookie}/api/status")
-        assert restored.status_code == 200, (
-            f"Expected 200 after relogin, got {restored.status_code}"
-        )
+        assert (
+            restored.status_code == 200
+        ), f"Expected 200 after relogin, got {restored.status_code}"
 
         auth.close()
 
@@ -1183,12 +1193,14 @@ class TestSessionExpiry:
         """
         import time
         import uuid
+
         import nbformat
+
         from tests.conftest import (
+            _COOKIE_TTL_SECONDS,
+            JUPYTER_PASSWORD,
             _find_free_port,
             _start_server,
-            JUPYTER_PASSWORD,
-            _COOKIE_TTL_SECONDS,
         )
         from tests.test_common import MCPClient
 
@@ -1205,15 +1217,24 @@ class TestSessionExpiry:
             host=host,
             port=port,
             command=[
-                "python", "-m", "jupyter_mcp_server",
-                "--transport", "streamable-http",
-                "--document-url", jupyter_server_short_cookie,
-                "--document-id", notebook_name,
-                "--code-sandbox-url", jupyter_server_short_cookie,
-                "--start-new-code-sandbox", "True",
-                "--jupyter-password", JUPYTER_PASSWORD,
+                "python",
+                "-m",
+                "jupyter_mcp_server",
+                "--transport",
+                "streamable-http",
+                "--document-url",
+                jupyter_server_short_cookie,
+                "--document-id",
+                notebook_name,
+                "--code-sandbox-url",
+                jupyter_server_short_cookie,
+                "--start-new-code-sandbox",
+                "True",
+                "--jupyter-password",
+                JUPYTER_PASSWORD,
                 "--insecure-mcp-noauth",
-                "--port", str(port),
+                "--port",
+                str(port),
             ],
             readiness_endpoint="/api/healthz",
         ):
@@ -1226,12 +1247,12 @@ class TestSessionExpiry:
                     notebook_path=notebook_name,
                     mode="connect",
                 )
-                assert "error" not in str(use_result).lower(), (
-                    f"use_notebook failed after session expiry: {use_result}"
-                )
+                assert (
+                    "error" not in str(use_result).lower()
+                ), f"use_notebook failed after session expiry: {use_result}"
                 await client.insert_execute_code_cell(0, f"{factor_a} * {factor_b}")
                 cell = await client.read_cell(cell_index=0)
-                assert expected_product in str(cell), (
-                    f"Expected product {expected_product} not found in cell: {cell}"
-                )
+                assert expected_product in str(
+                    cell
+                ), f"Expected product {expected_product} not found in cell: {cell}"
         notebook_path.unlink(missing_ok=True)

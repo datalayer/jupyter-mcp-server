@@ -533,7 +533,8 @@ class MCPHealthHandler(MCPHandler):
             "status": "healthy",
             "context_type": context.context_type,
             "document_url": context.document_url or self.settings.get("mcp_document_url"),
-            "code_sandbox_url": context.code_sandbox_url or self.settings.get("mcp_code_sandbox_url"),
+            "code_sandbox_url": context.code_sandbox_url
+            or self.settings.get("mcp_code_sandbox_url"),
             "extension": "jupyter_mcp_server",
             "version": "0.20.0",
         }

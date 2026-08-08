@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""Tests for managed Code Sandbox client creation."""
+"""Tests for managed Code Sandbox client creation and its borrowed-stop contract."""
 
 from unittest.mock import MagicMock, patch
 
@@ -12,9 +12,7 @@ from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 def test_create_jupyter_sandbox_client_starts_managed_client():
     fake_client = MagicMock()
 
-    with patch(
-        "code_sandboxes.CodeSandboxClient.create", return_value=fake_client
-    ) as create:
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_client) as create:
         client = create_jupyter_sandbox_client(
             server_url="http://localhost:8888",
             token="MY_TOKEN",

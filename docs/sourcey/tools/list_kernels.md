@@ -1,6 +1,6 @@
 ---
-title: "list_kernels"
-description: "List all available kernels in the Jupyter server."
+title: list_kernels
+description: List all available kernels in the Jupyter server.
 ---
 
 # list_kernels
@@ -57,4 +57,3 @@ result = await session.call_tool("list_kernels", arguments={})
 ## Source
 
 Registered by the `@mcp.tool` decorator on `list_kernels` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
-

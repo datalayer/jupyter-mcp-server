@@ -153,9 +153,7 @@ async def test_non_stream_timeout_interrupts_kernel_once():
     Reported by @AmirF194 in review of #309."""
     cell = {"source": "time.sleep(60)", "outputs": []}
     kernel = FakeKernel()
-    manager = FakeNotebookManager(
-        FakeNotebook(cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP))
-    )
+    manager = FakeNotebookManager(FakeNotebook(cell, lambda: time.sleep(_ORPHANED_TASK_SLEEP)))
 
     result = await ExecuteCellTool().execute(
         mode=ServerMode.MCP_SERVER,
@@ -167,9 +165,9 @@ async def test_non_stream_timeout_interrupts_kernel_once():
         ensure_kernel_alive_fn=lambda: kernel,
     )
 
-    assert kernel.interrupt_count == 1, (
-        f"timeout path should interrupt once, got {kernel.interrupt_count}"
-    )
+    assert (
+        kernel.interrupt_count == 1
+    ), f"timeout path should interrupt once, got {kernel.interrupt_count}"
     assert any(
         isinstance(entry, str) and "[TIMEOUT ERROR" in entry for entry in result
     ), f"expected a timeout marker in the result, got {result!r}"

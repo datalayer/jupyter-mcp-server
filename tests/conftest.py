@@ -493,6 +493,7 @@ def jupyter_server_password(jupyter_password_root_dir):
         pytest.skip("TEST_MCP_SERVER is disabled — password e2e tests only run in MCP_SERVER mode")
 
     from jupyter_server.auth import passwd
+
     password_hash = passwd(JUPYTER_PASSWORD)
 
     host = "localhost"
@@ -502,12 +503,18 @@ def jupyter_server_password(jupyter_password_root_dir):
         host=host,
         port=port,
         command=[
-            "jupyter", "lab",
-            "--port", str(port),
-            "--IdentityProvider.token", JUPYTER_TOKEN,
-            "--ServerApp.password", password_hash,
-            "--ip", host,
-            "--ServerApp.root_dir", str(jupyter_password_root_dir),
+            "jupyter",
+            "lab",
+            "--port",
+            str(port),
+            "--IdentityProvider.token",
+            JUPYTER_TOKEN,
+            "--ServerApp.password",
+            password_hash,
+            "--ip",
+            host,
+            "--ServerApp.root_dir",
+            str(jupyter_password_root_dir),
             "--no-browser",
         ],
         readiness_endpoint="/login",
@@ -539,15 +546,24 @@ def jupyter_mcp_server_password(jupyter_server_password, password_notebook):
         host=host,
         port=port,
         command=[
-            "python", "-m", "jupyter_mcp_server",
-            "--transport", "streamable-http",
-            "--document-url", jupyter_server_password,
-            "--document-id", password_notebook,
-            "--code-sandbox-url", jupyter_server_password,
-            "--start-new-code-sandbox", "True",
-            "--jupyter-password", JUPYTER_PASSWORD,
+            "python",
+            "-m",
+            "jupyter_mcp_server",
+            "--transport",
+            "streamable-http",
+            "--document-url",
+            jupyter_server_password,
+            "--document-id",
+            password_notebook,
+            "--code-sandbox-url",
+            jupyter_server_password,
+            "--start-new-code-sandbox",
+            "True",
+            "--jupyter-password",
+            JUPYTER_PASSWORD,
             "--insecure-mcp-noauth",
-            "--port", str(port),
+            "--port",
+            str(port),
         ],
         readiness_endpoint="/api/healthz",
     )
@@ -557,6 +573,7 @@ def jupyter_mcp_server_password(jupyter_server_password, password_notebook):
 def mcp_client_password(jupyter_mcp_server_password):
     """MCPClient connected to the password-auth MCP server (no Bearer token needed)."""
     from .test_common import MCPClient
+
     return MCPClient(jupyter_mcp_server_password, token=None)
 
 
@@ -594,6 +611,7 @@ def jupyter_server_short_cookie(jupyter_short_cookie_root_dir, tmp_path_factory)
     )
 
     from jupyter_server.auth import passwd
+
     password_hash = passwd(JUPYTER_PASSWORD)
 
     host = "localhost"
@@ -603,12 +621,18 @@ def jupyter_server_short_cookie(jupyter_short_cookie_root_dir, tmp_path_factory)
         host=host,
         port=port,
         command=[
-            "jupyter", "lab",
-            "--port", str(port),
-            "--IdentityProvider.token", JUPYTER_TOKEN,
-            "--ServerApp.password", password_hash,
-            "--ip", host,
-            "--ServerApp.root_dir", str(jupyter_short_cookie_root_dir),
+            "jupyter",
+            "lab",
+            "--port",
+            str(port),
+            "--IdentityProvider.token",
+            JUPYTER_TOKEN,
+            "--ServerApp.password",
+            password_hash,
+            "--ip",
+            host,
+            "--ServerApp.root_dir",
+            str(jupyter_short_cookie_root_dir),
             "--no-browser",
         ],
         readiness_endpoint="/login",

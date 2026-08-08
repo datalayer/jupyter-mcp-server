@@ -19,8 +19,8 @@ $ pytest tests/test_server.py -v
 ```
 """
 
-import logging
 import json
+import logging
 import uuid
 from http import HTTPStatus
 
@@ -660,7 +660,10 @@ async def test_sandbox_lifecycle_and_execute_code_routing(mcp_client_parametrize
             await mcp_client_parametrized.use_sandbox(None)
             terminate_result = await mcp_client_parametrized.terminate_sandbox(sandbox_name)
             if terminate_result:
-                assert "terminated" in terminate_result.lower() or "not found" in terminate_result.lower()
+                assert (
+                    "terminated" in terminate_result.lower()
+                    or "not found" in terminate_result.lower()
+                )
 
 
 @pytest.mark.asyncio

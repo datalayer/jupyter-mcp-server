@@ -164,9 +164,7 @@ class ExecuteCodeTool(BaseTool):
                 else:
                     self._release_borrowed_kernel(borrowed_sandbox, kid)
 
-    def _release_borrowed_kernel(
-        self, sandbox_client: CodeSandboxClient, kid: str
-    ) -> None:
+    def _release_borrowed_kernel(self, sandbox_client: CodeSandboxClient, kid: str) -> None:
         """Stop a borrowed kernel connection without shutting the kernel down."""
         try:
             sandbox_client.stop(shutdown_kernel=False)

@@ -36,14 +36,23 @@ def _notebook_model(cell_sources):
 
     nb = NotebookModel()
     nb._doc = YNotebook()
-    nb._doc.set({
-        "cells": [
-            {"cell_type": "code", "source": src, "metadata": {},
-             "outputs": [], "execution_count": None}
-            for src in cell_sources
-        ],
-        "metadata": {}, "nbformat": 4, "nbformat_minor": 5,
-    })
+    nb._doc.set(
+        {
+            "cells": [
+                {
+                    "cell_type": "code",
+                    "source": src,
+                    "metadata": {},
+                    "outputs": [],
+                    "execution_count": None,
+                }
+                for src in cell_sources
+            ],
+            "metadata": {},
+            "nbformat": 4,
+            "nbformat_minor": 5,
+        }
+    )
     return nb
 
 
@@ -74,10 +83,12 @@ class _FakeNotebookManager:
 @pytest.fixture
 def two_notebooks():
     """Notebook "A" (current) and "B" (not current), each with one cell."""
-    return _FakeNotebookManager({
-        "A": _notebook_model(["a_original"]),
-        "B": _notebook_model(["b_original"]),
-    })
+    return _FakeNotebookManager(
+        {
+            "A": _notebook_model(["a_original"]),
+            "B": _notebook_model(["b_original"]),
+        }
+    )
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 ---
-title: "edit_cell_source"
-description: "Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool)."
+title: edit_cell_source
+description: Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
 ---
 
 # edit_cell_source
@@ -18,13 +18,13 @@ source and construct an accurate old_string.
 
 ## Parameters
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `cell_index` | integer | yes | — | Index of the cell to edit (0-based) |
-| `old_string` | string | yes | — | Exact string to find in cell source |
-| `new_string` | string | yes | — | Replacement string |
-| `replace_all` | boolean | no | `false` | Replace all occurrences (default: first only) |
-| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
+| Parameter       | Type           | Required | Default | Description                                                                                                                                                                                                                       |
+| --------------- | -------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cell_index`    | integer        | yes      | —       | Index of the cell to edit (0-based)                                                                                                                                                                                               |
+| `old_string`    | string         | yes      | —       | Exact string to find in cell source                                                                                                                                                                                               |
+| `new_string`    | string         | yes      | —       | Replacement string                                                                                                                                                                                                                |
+| `replace_all`   | boolean        | no       | `false` | Replace all occurrences (default: first only)                                                                                                                                                                                     |
+| `notebook_name` | string \| null | no       | `null`  | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 
 ## Output
 
@@ -72,4 +72,3 @@ result = await session.call_tool("edit_cell_source", arguments={"cell_index": 0,
 ## Source
 
 Registered by the `@mcp.tool` decorator on `edit_cell_source` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
-

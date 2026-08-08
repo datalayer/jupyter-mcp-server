@@ -195,7 +195,9 @@ class ClearCellOutputTool(BaseTool):
 
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
             # MCP_SERVER mode: Use WebSocket connection
-            cleared_count = await self._clear_cell_output_websocket(notebook_manager, cell_index, notebook_name)
+            cleared_count = await self._clear_cell_output_websocket(
+                notebook_manager, cell_index, notebook_name
+            )
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 

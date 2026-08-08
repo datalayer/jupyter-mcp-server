@@ -1,6 +1,6 @@
 ---
-title: "execute_code"
-description: "Execute code directly in a kernel (not saved to notebook)."
+title: execute_code
+description: Execute code directly in a kernel (not saved to notebook).
 ---
 
 # execute_code
@@ -16,26 +16,28 @@ to execute in a specific kernel directly — including raw kernels with no
 notebook attached.
 
 Recommended to use in following cases:
+
 1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)
-2. Performance profiling and debugging.
-3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)
-4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)
-5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)
+1. Performance profiling and debugging.
+1. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)
+1. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)
+1. Execute Shell commands in Jupyter server(e.g., `!git xxx`)
 
 Under no circumstances should you use this tool to:
+
 1. Import new modules or perform variable assignments that affect subsequent Notebook execution
-2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
+1. Execute dangerous code that may harm the Jupyter server or the user's data without permission
 
 > destructive: **yes**
 
 ## Parameters
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `code` | string | yes | — | Code to execute (supports magic commands with %, shell commands with !) |
-| `timeout` | integer | no | `30` | Maximum seconds to wait for execution (0 = use config default) |
-| `kernel_id` | string \| null | no | `null` | Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel. |
-| `progress_interval` | integer | no | `5` | Seconds between MCP progress keepalive updates during long-running execution |
+| Parameter           | Type           | Required | Default | Description                                                                                                           |
+| ------------------- | -------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `code`              | string         | yes      | —       | Code to execute (supports magic commands with %, shell commands with !)                                               |
+| `timeout`           | integer        | no       | `30`    | Maximum seconds to wait for execution (0 = use config default)                                                        |
+| `kernel_id`         | string \| null | no       | `null`  | Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel. |
+| `progress_interval` | integer        | no       | `5`     | Seconds between MCP progress keepalive updates during long-running execution                                          |
 
 ## Call it
 
@@ -63,4 +65,3 @@ result = await session.call_tool("execute_code", arguments={"code": "<code>", "t
 ## Source
 
 Registered by the `@mcp.tool` decorator on `execute_code` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
-

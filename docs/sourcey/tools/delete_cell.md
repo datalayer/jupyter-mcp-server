@@ -1,6 +1,6 @@
 ---
-title: "delete_cell"
-description: "Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True)."
+title: delete_cell
+description: Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
 ---
 
 # delete_cell
@@ -11,11 +11,11 @@ Delete specific cells from the currently activated notebook and return the cell 
 
 ## Parameters
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `cell_indices` | array<integer> | yes | — | List of cell indices to delete (0-based) |
-| `include_source` | boolean | no | `true` | Whether to include the source of deleted cells |
-| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
+| Parameter        | Type           | Required | Default | Description                                                                                                                                                                                                                       |
+| ---------------- | -------------- | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cell_indices`   | array<integer> | yes      | —       | List of cell indices to delete (0-based)                                                                                                                                                                                          |
+| `include_source` | boolean        | no       | `true`  | Whether to include the source of deleted cells                                                                                                                                                                                    |
+| `notebook_name`  | string \| null | no       | `null`  | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 
 ## Output
 
@@ -61,4 +61,3 @@ result = await session.call_tool("delete_cell", arguments={"cell_indices": "<cel
 ## Source
 
 Registered by the `@mcp.tool` decorator on `delete_cell` in [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py).
-

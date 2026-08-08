@@ -11,14 +11,13 @@ replacing the scattered global variable approach with a unified architecture.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import asyncio
 import logging
+from collections.abc import Callable
 from types import TracebackType
-from typing import Any, Dict, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any
 
 import requests
-
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 
 from .config import get_config
@@ -64,6 +63,7 @@ class NotebookConnection:
         path = self.notebook_info.get("path", config.document_id)
 
         from jupyter_mcp_server.server_context import ServerContext
+
         server_context = ServerContext.get_instance()
         auth_headers = server_context.document_auth_headers
 
@@ -457,7 +457,9 @@ class NotebookManager:
                         kernel_status = "alive" if kernel.is_alive() else "dead"
                     elif isinstance(kernel, dict) and kernel_manager is not None:
                         kernel_id = kernel.get("id")
-                        kernel_status = "alive" if kernel_id and kernel_id in kernel_manager else "dead"
+                        kernel_status = (
+                            "alive" if kernel_id and kernel_id in kernel_manager else "dead"
+                        )
                 except Exception:
                     kernel_status = "error"
             else:

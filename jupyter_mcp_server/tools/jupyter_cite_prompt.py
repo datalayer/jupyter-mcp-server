@@ -180,7 +180,9 @@ class JupyterCitePrompt(BaseTool):
                     loaded_from_contents = False
 
             if not loaded_from_contents:
-                async with notebook_manager.get_notebook_connection(notebook_name) as notebook_content:
+                async with notebook_manager.get_notebook_connection(
+                    notebook_name
+                ) as notebook_content:
                     notebook = Notebook(**notebook_content.as_dict())
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")

@@ -235,9 +235,7 @@ class UseNotebookTool(BaseTool):
                 # nbformat.v4.new_code_cell().
                 content = nbformat.v4.new_notebook(
                     cells=[
-                        nbformat.v4.new_markdown_cell(
-                            "New Notebook Created by Jupyter MCP Server"
-                        )
+                        nbformat.v4.new_markdown_cell("New Notebook Created by Jupyter MCP Server")
                     ]
                 )
                 if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:

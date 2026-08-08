@@ -18,15 +18,15 @@ the code.
 
 ## Contents
 
-| File | Role |
-|---|---|
-| `mcp.json` | MCP server snapshot ([mcp-parser](https://www.npmjs.com/package/mcp-parser) format): 22 tools + 1 prompt |
-| `sourcemap.json` | tool/prompt name → the file whose `@mcp.tool` / `@mcp.prompt` decorator registers it |
-| `config-fields.json` | `JupyterMCPConfig` pydantic fields (name, type, default, description) |
-| `index.md`, `configuration.md`, `tools/*.md`, `prompts/*.md` | generated pages, rendered from the three files above |
-| `sourcey.config.ts` | [Sourcey](https://www.npmjs.com/package/sourcey) site config (two tabs: per-tool pages + interactive MCP explorer) |
-| `snapshot.mjs`, `gen_sourcemap.py`, `dump_config.py`, `build_pages.mjs` | the generation pipeline below |
-| `build_site.mjs` | renders the pages into `../static/mcp/`; run by `npm run build` / `npm start` |
+| File                                                                    | Role                                                                                                               |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `mcp.json`                                                              | MCP server snapshot ([mcp-parser](https://www.npmjs.com/package/mcp-parser) format): 22 tools + 1 prompt           |
+| `sourcemap.json`                                                        | tool/prompt name → the file whose `@mcp.tool` / `@mcp.prompt` decorator registers it                               |
+| `config-fields.json`                                                    | `JupyterMCPConfig` pydantic fields (name, type, default, description)                                              |
+| `index.md`, `configuration.md`, `tools/*.md`, `prompts/*.md`            | generated pages, rendered from the three files above                                                               |
+| `sourcey.config.ts`                                                     | [Sourcey](https://www.npmjs.com/package/sourcey) site config (two tabs: per-tool pages + interactive MCP explorer) |
+| `snapshot.mjs`, `gen_sourcemap.py`, `dump_config.py`, `build_pages.mjs` | the generation pipeline below                                                                                      |
+| `build_site.mjs`                                                        | renders the pages into `../static/mcp/`; run by `npm run build` / `npm start`                                      |
 
 ## Regenerating after the MCP surface changes
 

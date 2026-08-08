@@ -12,7 +12,9 @@ from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 
 
 class _FakeStreamingSandbox:
-    def run_code_streaming(self, code: str, timeout: int):
+    """Client that streams events, like CodeSandboxClient does."""
+
+    def execute_code_streaming(self, code: str, timeout: int):
         assert code == "print('hi')"
         assert timeout == 10
         yield SimpleNamespace(line="[kaggle] submitted job: me/demo", error=False)
@@ -25,18 +27,27 @@ class _FakeStreamingSandbox:
 
 
 class _FakeFallbackSandbox:
-    def run_code(self, code: str, timeout: int):
+    """Client whose stream is empty, so execute() supplies the outputs.
+
+    ``CodeSandboxClient.execute`` returns a Jupyter-shaped reply dict, not an
+    ExecutionResult.
+    """
+
+    def execute_code_streaming(self, code: str, timeout: int):
         assert code == "print('hi')"
         assert timeout == 10
-        return SimpleNamespace(
-            execution_count=1,
-            code_error=None,
-            logs=SimpleNamespace(
-                stdout=[SimpleNamespace(line="fallback")],
-                stderr=[],
-            ),
-            results=[],
-        )
+        return iter(())
+
+    def execute(self, code: str, timeout: int):
+        assert code == "print('hi')"
+        assert timeout == 10
+        return {
+            "execution_count": 1,
+            "status": "ok",
+            "outputs": [
+                {"output_type": "stream", "name": "stdout", "text": "fallback\n"},
+            ],
+        }
 
 
 def test_execute_on_active_prefers_streaming_path():
@@ -52,7 +63,7 @@ def test_execute_on_active_prefers_streaming_path():
     assert "42" in text
 
 
-def test_execute_on_active_falls_back_to_run_code_when_no_streaming():
+def test_execute_on_active_falls_back_to_execute_when_stream_is_empty():
     manager = CodeSandboxManager()
     manager._active_name = "k1"
     manager._sandboxes["k1"] = _FakeFallbackSandbox()
