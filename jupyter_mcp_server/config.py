@@ -70,9 +70,12 @@ class JupyterMCPConfig(BaseModel):
     )
 
     # Document configuration
-    document_url: str = Field(
-        default="http://localhost:8888",
-        description="The document URL to use, or 'local' for direct serverapp access",
+    document_url: str | None = Field(
+        default=None,
+        description=(
+            "The document URL to use, or 'local' for direct serverapp access. "
+            "Falls back to code_sandbox_url when unset."
+        ),
     )
     document_id: str | None = Field(
         default=None,
@@ -115,6 +118,18 @@ class JupyterMCPConfig(BaseModel):
     def is_local_document(self) -> bool:
         """Check if document URL is set to local."""
         return self.document_url == "local"
+
+    # When document_url is unset, the document server is the code sandbox server.
+    # These resolvers keep that fallback rule in one place; consumers that need an
+    # actual endpoint call them, while split decisions ("did the operator ask for a
+    # separate document server?") keep reading the raw fields.
+    def resolved_document_url(self) -> str:
+        """Document server URL, falling back to the code sandbox server when unset."""
+        return self.document_url or self.code_sandbox_url
+
+    def resolved_document_token(self) -> str | None:
+        """Document server token; follows code_sandbox_token when document_url is unset."""
+        return self.code_sandbox_token if not self.document_url else self.document_token
 
     def is_local_code_sandbox(self) -> bool:
         """Check if code sandbox URL is set to local."""
@@ -202,7 +217,14 @@ def set_config(**kwargs) -> JupyterMCPConfig:
     for key, value in kwargs.items():
         if should_skip(value):
             # For optional fields, set to None; for required fields, skip (use default)
-            if key in ("code_sandbox_token", "document_token", "code_sandbox_id", "document_id", "code_sandbox_password", "document_password"):
+            if key in (
+                "code_sandbox_token",
+                "document_token",
+                "code_sandbox_id",
+                "document_id",
+                "code_sandbox_password",
+                "document_password",
+            ):
                 normalized_kwargs[key] = None
             # For required string fields like code_sandbox_url, document_url, skip the key
             # to let the default value be used

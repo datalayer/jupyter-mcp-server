@@ -11,7 +11,7 @@ from jupyter_mcp_server.utils import normalize_cell_source, safe_extract_outputs
 
 class DocumentCodeSandbox(BaseModel):
     provider: str
-    document_url: str
+    document_url: str | None = None
     document_id: str
     document_token: str
     code_sandbox_url: str
