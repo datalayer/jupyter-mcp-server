@@ -123,7 +123,7 @@ lifecycle tools and use any non-`jupyter` sandbox variant.
 | `jupyter` (default) | Jupyter Server via `code-sandboxes` (`jupyter` engine) | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `CODE_SANDBOX_*` + `DOCUMENT_*`) |
 | `kaggle` | Kaggle notebook code sandbox | `jupyter-mcp-server[kaggle]` | Default batch mode: `KAGGLE_API_TOKEN` (or Kaggle credentials). Interactive mode: `CODE_SANDBOX_URL` (+ `KAGGLE_API_TOKEN`, or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
 | `monty` | In-process secure Python interpreter ([Monty](https://github.com/pydantic/monty)) | `jupyter-mcp-server[monty]` | — |
-| `colab` | Google Colab code sandbox | `jupyter-mcp-server[colab]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN` |
+| `colab` | Google Colab code sandbox | `jupyter-mcp-server` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN` |
 | `modal` | [Modal](https://modal.com/docs/guide) cloud sandbox | `jupyter-mcp-server[modal]` | Modal credentials |
 | `docker` | Local Docker container running Jupyter | `jupyter-mcp-server[sandboxes]` | — |
 | `eval` | In-process `exec()` (development only) | `jupyter-mcp-server[sandboxes]` | — |

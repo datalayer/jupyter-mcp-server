@@ -290,7 +290,7 @@ install it with `pip install jupyter_mcp_sandboxes`.
 | JupyterHub               | `jupyter`          | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                        |
 | Datalayer                | `datalayer`        | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT` |
 | Kaggle                   | `kaggle`           | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| Google Colab             | `colab`            | `jupyter-mcp-server[colab]`     | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`    |
+| Google Colab             | `colab`            | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`    |
 | Monty                    | `monty`            | `jupyter-mcp-server[monty]`     | —                                                     |
 | Modal                    | `modal`            | `jupyter-mcp-server[modal]`     | Modal credentials                                     |
 
@@ -377,11 +377,11 @@ Aliases such as `P100` and `T4` are accepted.
 
 ### 5. Google Colab
 
-Execute against a Google Colab code sandbox. Install the extra and provide the values
-from an active Colab notebook session:
+Execute against a Google Colab code sandbox. Install Jupyter MCP Server and provide the
+values from an active Colab notebook session:
 
 ```bash
-pip install "jupyter-mcp-server[colab]"
+pip install jupyter-mcp-server
 ```
 
 ```json

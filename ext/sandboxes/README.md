@@ -47,7 +47,7 @@ Backend-specific extras are provided by the underlying
 
 ```bash
 pip install "code-sandboxes[modal]"   # Modal
-pip install "code-sandboxes[colab]"   # Google Colab
+pip install "code-sandboxes"          # Google Colab (included in base)
 pip install "code-sandboxes[kaggle]"  # Kaggle
 ```
 

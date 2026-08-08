@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from typing import Any, cast
 
-from code_sandboxes.interfaces import ISandboxClient
+from code_sandboxes import CodeSandboxClient
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
@@ -568,7 +568,7 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_kernel(config, logger) -> ISandboxClient:
+def create_kernel(config, logger) -> CodeSandboxClient:
     """Create a new kernel instance using current configuration.
 
     Kernel creation is resolved in this order:
@@ -576,8 +576,8 @@ def create_kernel(config, logger) -> ISandboxClient:
      1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
          over kernel creation for a non-'jupyter' sandbox variant.
      2. Otherwise the kernel is created through the ``code_sandboxes`` package
-         using the ``jupyter`` variant, and this function returns the plain
-         ``sandbox.kernel_client`` exposed by that sandbox.
+         using the ``jupyter`` variant, and this function returns a
+         variant-neutral ``CodeSandboxClient``.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
     calling a legacy direct kernel client package.
@@ -606,7 +606,7 @@ def create_kernel(config, logger) -> ISandboxClient:
             logger=logger,
         )
         logger.info("Kernel created and started successfully")
-        return cast(ISandboxClient, kernel)
+        return cast(CodeSandboxClient, kernel)
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
         raise
@@ -630,11 +630,12 @@ def start_kernel(notebook_manager, config, logger):
 
 
 def ensure_kernel_alive(
-    notebook_manager, current_notebook, create_kernel_fn: Callable[[], ISandboxClient]
-) -> ISandboxClient:
+    notebook_manager, current_notebook, create_kernel_fn: Callable[[], CodeSandboxClient]
+) -> CodeSandboxClient:
     """Ensure kernel is running, restart if needed."""
     return cast(
-        ISandboxClient, notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn)
+        CodeSandboxClient,
+        notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn),
     )
 
 

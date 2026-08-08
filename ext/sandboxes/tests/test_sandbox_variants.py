@@ -12,7 +12,7 @@ from jupyter_mcp_server.config import JupyterMCPConfig
 from jupyter_mcp_server.tools._base import ServerMode
 
 from jupyter_mcp_sandboxes.extension import SandboxesExtension
-from jupyter_mcp_sandboxes.kernel import build_sandbox
+from jupyter_mcp_sandboxes.kernel import build_sandbox_client
 
 
 @pytest.mark.parametrize(
@@ -29,10 +29,10 @@ def test_build_sandbox_variant_routing(engine, expected_variant):
     """Generic sandbox engines are routed to Sandbox.create(variant=engine)."""
     config = JupyterMCPConfig(sandbox_variant=engine, sandbox_environment="ai-agents-env")
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == expected_variant
@@ -48,10 +48,10 @@ def test_build_sandbox_colab_forwards_code_sandbox_connection():
         code_sandbox_proxy_token="proxy-token",
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         mock_create.assert_called_once_with(
             variant="colab",
@@ -71,14 +71,14 @@ def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
         code_sandbox_channels_url=(
             "wss://colab-host.example/api/kernels/"
             "11e073f0-e82d-4029-be8d-3918f7ed1a9e/channels"
-            "?session_id=abc&colab-code-sandbox-proxy-token=proxy-token"
+            "?session_id=abc&colab-runtime-proxy-token=proxy-token"
         ),
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "colab"
@@ -97,10 +97,10 @@ def test_build_sandbox_kaggle_forwards_code_sandbox_connection_and_token():
         code_sandbox_token="kaggle-token",
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "kaggle"
@@ -116,10 +116,10 @@ def test_build_sandbox_kaggle_forwards_gpu_flavor():
         sandbox_gpu="T4",
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "kaggle"
@@ -137,10 +137,10 @@ def test_build_sandbox_kaggle_forwards_channels_url_without_kernel_id():
         ),
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "kaggle"
@@ -153,10 +153,10 @@ def test_build_sandbox_kaggle_defaults_to_batch_when_code_sandbox_not_configured
     """Kaggle engine should prefer batch mode when code sandbox values are not explicitly set."""
     config = JupyterMCPConfig(sandbox_variant="kaggle")
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "kaggle"
@@ -175,10 +175,10 @@ def test_build_sandbox_kaggle_channels_url_ignores_default_code_sandbox_url():
         ),
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "kaggle"
@@ -195,10 +195,10 @@ def test_build_sandbox_datalayer_forwards_token_and_run_url():
         sandbox_environment="ai-agents-env",
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "datalayer"
@@ -214,10 +214,10 @@ def test_build_sandbox_modal_forwards_gpu_flavor():
         sandbox_gpu="A100",
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "modal"
@@ -234,10 +234,10 @@ def test_build_sandbox_jupyter_forwards_code_sandbox_and_reconnect():
         reconnect_interval=5,
     )
 
-    with patch("code_sandboxes.Sandbox.create") as mock_create:
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
         mock_create.return_value = MagicMock()
 
-        build_sandbox(config, MagicMock())
+        build_sandbox_client(config, MagicMock())
 
         mock_create.assert_called_once_with(
             variant="jupyter",
@@ -258,90 +258,79 @@ def test_extension_create_kernel_returns_none_for_jupyter_variant():
     assert extension.create_kernel(config, MagicMock()) is None
 
 
-def test_extension_create_kernel_uses_plain_kernel_client_for_sandbox_engines():
-    """Non-jupyter sandbox variants must return the sandbox's plain kernel client."""
+def test_extension_create_kernel_uses_code_sandbox_client_for_sandbox_engines():
+    """Non-jupyter sandbox variants must return the sandbox's plain code sandbox client."""
     config = JupyterMCPConfig(
         sandbox_variant="docker",
         code_sandbox_url="http://localhost:8888",
     )
-    fake_kernel_client = MagicMock()
+    fake_sandbox_client = MagicMock()
     extension = SandboxesExtension()
 
     with patch(
-        "jupyter_mcp_sandboxes.kernel.create_sandbox_kernel_client",
-        return_value=fake_kernel_client,
+        "jupyter_mcp_sandboxes.kernel.create_sandbox_client",
+        return_value=fake_sandbox_client,
     ) as mock_create_client:
         kernel = extension.create_kernel(config, MagicMock())
 
-    assert kernel is fake_kernel_client
+    assert kernel is fake_sandbox_client
     mock_create_client.assert_called_once()
 
 
-def test_extension_create_kernel_builds_and_starts_kernel_client():
-    """create_kernel builds a sandbox and returns its kernel client."""
+def test_extension_create_kernel_builds_and_starts_sandbox_client():
+    """create_kernel builds, starts, and returns a CodeSandboxClient."""
     config = JupyterMCPConfig(
         sandbox_variant="docker",
         code_sandbox_url="https://run.example",
     )
     fake_logger = MagicMock()
-    fake_sandbox = MagicMock()
-    fake_kernel_client = MagicMock()
-    fake_sandbox.kernel_client = fake_kernel_client
+    fake_sandbox_client = MagicMock()
     extension = SandboxesExtension()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox) as mock_create:
+    with patch(
+        "code_sandboxes.CodeSandboxClient.create",
+        return_value=fake_sandbox_client,
+    ) as mock_create:
         kernel = extension.create_kernel(config, fake_logger)
 
-    assert kernel is fake_kernel_client
+    assert kernel is fake_sandbox_client
     mock_create.assert_called_once()
-    fake_sandbox.start.assert_called_once_with()
+    fake_sandbox_client.start.assert_called_once_with()
 
 
-def test_extension_create_kernel_client_stop_releases_backing_sandbox():
-    """Returned kernel client stop() should stop the backing sandbox by default."""
-
-    class _FakeKernelClient:
-        def __init__(self) -> None:
-            self.stop_calls: list[tuple[tuple, dict]] = []
-
-        def stop(self, *args, **kwargs):
-            self.stop_calls.append((args, kwargs))
-
+def test_extension_returns_managed_sandbox_client():
+    """The extension returns the managed client without exposing its backend."""
     config = JupyterMCPConfig(sandbox_variant="docker")
     fake_logger = MagicMock()
-    fake_sandbox = MagicMock()
-    fake_kernel_client = _FakeKernelClient()
-    fake_sandbox.kernel_client = fake_kernel_client
+    fake_sandbox_client = MagicMock()
     extension = SandboxesExtension()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox):
+    with patch(
+        "code_sandboxes.CodeSandboxClient.create",
+        return_value=fake_sandbox_client,
+    ):
         kernel = extension.create_kernel(config, fake_logger)
 
+    assert kernel is fake_sandbox_client
     kernel.stop()
-    fake_sandbox.stop.assert_called_once_with()
-
-    fake_sandbox.stop.reset_mock()
-
-    kernel.stop(shutdown_kernel=False)
-    fake_sandbox.stop.assert_not_called()
-    assert len(fake_kernel_client.stop_calls) == 1
-    assert fake_kernel_client.stop_calls[0][1]["shutdown_kernel"] is False
+    fake_sandbox_client.stop.assert_called_once_with()
 
 
-def test_extension_create_kernel_raises_for_non_kernel_client_variant():
-    """Notebook-bound kernel flow rejects variants without kernel_client exposure."""
+def test_extension_create_kernel_supports_non_kernel_variant():
+    """Notebook-bound execution accepts every CodeSandboxClient variant."""
     config = JupyterMCPConfig(sandbox_variant="eval")
     fake_logger = MagicMock()
-    fake_sandbox = MagicMock()
-    fake_sandbox.kernel_client = None
+    fake_sandbox_client = MagicMock()
     extension = SandboxesExtension()
 
-    with patch("code_sandboxes.Sandbox.create", return_value=fake_sandbox):
-        with pytest.raises(RuntimeError, match="does not expose a kernel client"):
-            extension.create_kernel(config, fake_logger)
+    with patch(
+        "code_sandboxes.CodeSandboxClient.create",
+        return_value=fake_sandbox_client,
+    ):
+        kernel = extension.create_kernel(config, fake_logger)
 
-    fake_sandbox.start.assert_called_once_with()
-    fake_sandbox.stop.assert_called_once_with()
+    assert kernel is fake_sandbox_client
+    fake_sandbox_client.start.assert_called_once_with()
 
 
 class _FakeMCP:

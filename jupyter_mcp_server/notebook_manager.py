@@ -24,7 +24,7 @@ from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from .config import get_config
 
 if TYPE_CHECKING:
-    from code_sandboxes.interfaces import ISandboxClient
+    from code_sandboxes import CodeSandboxClient
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,7 @@ class NotebookManager:
     def add_notebook(
         self,
         name: str,
-        kernel: ISandboxClient | dict[str, Any],  # Can be sandbox client or dict with kernel metadata
+        kernel: CodeSandboxClient | dict[str, Any],
         server_url: str | None = None,
         token: str | None = None,
         path: str | None = None,
@@ -235,7 +235,7 @@ class NotebookManager:
             return True
         return False
 
-    def get_kernel(self, name: str) -> ISandboxClient | dict[str, Any] | None:
+    def get_kernel(self, name: str) -> CodeSandboxClient | dict[str, Any] | None:
         """
         Get the kernel for a specific notebook.
 
@@ -339,8 +339,8 @@ class NotebookManager:
         return len(self._notebooks) == 0
 
     def ensure_kernel_alive(
-        self, name: str, kernel_factory: Callable[[], ISandboxClient]
-    ) -> ISandboxClient:
+        self, name: str, kernel_factory: Callable[[], CodeSandboxClient]
+    ) -> CodeSandboxClient:
         """
         Ensure a kernel is alive, create if necessary.
 
