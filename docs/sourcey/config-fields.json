@@ -76,9 +76,9 @@
   },
   {
    "name": "document_url",
-   "type": "<class 'str'>",
-   "default": "http://localhost:8888",
-   "description": "The document URL to use, or 'local' for direct serverapp access"
+   "type": "str | None",
+   "default": null,
+   "description": "The document URL to use, or 'local' for direct serverapp access. Falls back to code_sandbox_url when unset."
   },
   {
    "name": "document_id",

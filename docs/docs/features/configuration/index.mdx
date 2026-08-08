@@ -66,7 +66,7 @@ For deployments requiring granular control over document storage and code sandbo
 #### Document Storage Variables
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
-| `DOCUMENT_URL` | URL for notebook file operations | `http://notebook-storage:8888` | `http://localhost:8888` |
+| `DOCUMENT_URL` | URL for notebook file operations | `http://notebook-storage:8888` | `CODE_SANDBOX_URL` value (`http://localhost:8888` if both unset) |
 | `DOCUMENT_TOKEN` | Authentication for document operations | `storage-access-token` | `None` |
 | `DOCUMENT_PASSWORD` | Password for document server authentication (alternative to token) | `storage-password` | `None` |
 | `DOCUMENT_ID` | Notebook path/ID | `shared/analysis.ipynb` | `None` |

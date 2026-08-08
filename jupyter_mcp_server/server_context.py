@@ -23,6 +23,7 @@ class ServerContext:
     _kernel_spec_manager = None
     _session_manager = None
     _server_client = None
+    _document_client = None
     _code_sandbox_password_auth = None
     _document_password_auth = None
     _initialized = False
@@ -49,6 +50,7 @@ class ServerContext:
             cls._instance._kernel_spec_manager = None
             cls._instance._session_manager = None
             cls._instance._server_client = None
+            cls._instance._document_client = None
 
     def _close_auth(self):
         """Close auth sessions if present; safe to call multiple times.
@@ -236,6 +238,32 @@ class ServerContext:
         return self._server_client
 
     @property
+    def document_client(self):
+        """Return an HTTP client for document server operations.
+
+        Reuse the server client when ``document_url`` is unset or matches the
+        code sandbox URL; otherwise create a client with document auth.
+        """
+        if not self._initialized:
+            self.initialize()
+        if self._document_client is not None:
+            return self._document_client
+        config = get_config()
+        document_url = config.document_url
+        if (not document_url) or (document_url == config.code_sandbox_url):
+            return self._server_client
+        if (
+            self._document_password_auth is not None
+            and self._document_password_auth is not self._code_sandbox_password_auth
+        ):
+            client = JupyterServerClient(base_url=document_url, token=None)
+            self._document_password_auth.inject_into_session(client.http_client.session)
+        else:
+            client = JupyterServerClient(base_url=document_url, token=config.document_token)
+        self._document_client = client
+        return self._document_client
+
+    @property
     def code_sandbox_auth_headers(self) -> dict[str, str]:
         """Auth headers for the code sandbox server (kernel operations).
 
@@ -340,6 +368,10 @@ class ServerContext:
             self.relogin_code_sandbox(timeout=timeout)
             return
         self._document_password_auth.relogin(timeout=timeout)
+        if self._document_client is not None:
+            self._document_password_auth.inject_into_session(
+                self._document_client.http_client.session
+            )
         logger.info("Document session re-authenticated after cookie expiry.")
 
     @property

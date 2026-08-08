@@ -21,7 +21,7 @@ All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mc
 | `code_sandbox_channels_url` | str \| None | `None` | For the 'colab' and 'kaggle' sandbox variants, the WebSocket channels URL of a running notebook session. When set, server_url and kernel_id are parsed from it. |
 | `sandbox_environment` | str \| None | `None` | Environment name for cloud sandboxes (e.g. Datalayer/Modal). |
 | `sandbox_gpu` | str \| None | `None` | GPU flavor / accelerator for sandbox engines that support it. Examples: Modal/Datalayer -> T4, A10G, A100, H100; Kaggle batch -> NvidiaTeslaT4, NvidiaTeslaP100 (aliases T4/P100). |
-| `document_url` | str | `"http://localhost:8888"` | The document URL to use, or 'local' for direct serverapp access |
+| `document_url` | str \| None | `None` | The document URL to use, or 'local' for direct serverapp access. Falls back to code_sandbox_url when unset. |
 | `document_id` | str \| None | `None` | The document id to use. Optional - if omitted, can list and select notebooks interactively |
 | `document_token` | str \| None | `None` | The document token to use for authentication |
 | `document_password` | str \| None | `None` | Password for Jupyter document server authentication (alternative to token) |
