@@ -459,9 +459,15 @@ class ExecuteCellTool(BaseTool):
                     # kernel order), with these log lines appended after them.
                     timeline: list[str] = []
 
-                    # Start execution in background
+                    # Start execution in background. The notebook model feeds
+                    # its output_hook Jupyter-shaped messages, so adapt the Code
+                    # Sandbox client's message shape.
+                    from jupyter_mcp_server.sandbox_client import JupyterMessageShim
+
                     execution_task = asyncio.create_task(
-                        asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
+                        asyncio.to_thread(
+                            notebook.execute_cell, cell_index, JupyterMessageShim(kernel)
+                        )
                     )
                     track_pending_execution(kernel, execution_task)
 
