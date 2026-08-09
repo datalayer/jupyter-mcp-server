@@ -1118,6 +1118,8 @@ async def execute_code_local(
 
         logger = logging.getLogger(__name__)
 
+    client: Any = None
+
     try:
         # Get kernel manager
         kernel_manager = serverapp.kernel_manager
@@ -1308,6 +1310,12 @@ async def execute_code_local(
     except Exception as e:
         logger.error(f"Error executing code locally: {e}")
         return [f"[ERROR: {e!s}]"]
+
+    finally:
+        # lkm.client() hands back a fresh client per call, so channels left
+        # running here are never reclaimed.
+        if client is not None and client.channels_running:
+            client.stop_channels()
 
 
 async def execute_cell_local(
