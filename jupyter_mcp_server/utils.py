@@ -16,7 +16,6 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 
-
 #: MIME types that carry readable text, richest first. ``text/plain`` is the
 #: universal fallback. ``text/html`` is intentionally absent: it is markup
 #: rather than readable text, and results that emit both an ASCII ``text/plain``

@@ -108,7 +108,7 @@ class ServerContext:
         code_sandbox_url = config.code_sandbox_url
         if not code_sandbox_url or code_sandbox_url in ("None", "none", "null", ""):
             raise ValueError(
-                f"code_sandbox_url is not configured (current value: {repr(code_sandbox_url)}). "
+                f"code_sandbox_url is not configured (current value: {code_sandbox_url!r}). "
                 "Please check:\n"
                 "1. CODE_SANDBOX_URL environment variable is set correctly (not the string 'None')\n"
                 "2. --code-sandbox-url argument is provided when starting the server\n"
@@ -122,21 +122,31 @@ class ServerContext:
         try:
             # Code Sandbox auth — password takes precedence over token
             if config.code_sandbox_password:
-                self._code_sandbox_password_auth = JupyterPasswordAuth(code_sandbox_url, config.code_sandbox_password)
+                self._code_sandbox_password_auth = JupyterPasswordAuth(
+                    code_sandbox_url, config.code_sandbox_password
+                )
                 self._code_sandbox_password_auth.login()
                 if config.code_sandbox_token:
-                    logger.warning("Both code_sandbox_password and code_sandbox_token are set. Password auth takes precedence.")
+                    logger.warning(
+                        "Both code_sandbox_password and code_sandbox_token are set. Password auth takes precedence."
+                    )
                 self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=None)
-                self._code_sandbox_password_auth.inject_into_session(self._server_client.http_client.session)
+                self._code_sandbox_password_auth.inject_into_session(
+                    self._server_client.http_client.session
+                )
                 self._install_code_sandbox_auth_retry(self._server_client)
             else:
-                self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=config.code_sandbox_token)
+                self._server_client = JupyterServerClient(
+                    base_url=code_sandbox_url, token=config.code_sandbox_token
+                )
                 if not config.code_sandbox_token:
                     # No password and no token, but the server may still require the
                     # anonymous `_xsrf` cookie on state-changing requests (SSO/reverse-proxy
                     # auth, JupyterHub single-user servers, --IdentityProvider.token='').
                     self._code_sandbox_password_auth = self._try_anonymous_auth(code_sandbox_url)
-                    self._code_sandbox_password_auth.inject_into_session(self._server_client.http_client.session)
+                    self._code_sandbox_password_auth.inject_into_session(
+                        self._server_client.http_client.session
+                    )
 
             # Document auth — only needed when the document server is explicitly
             # different from the code sandbox server. When URLs match (or document_url
@@ -146,10 +156,14 @@ class ServerContext:
             if urls_match:
                 self._document_password_auth = self._code_sandbox_password_auth
             elif config.document_password:
-                self._document_password_auth = JupyterPasswordAuth(document_url, config.document_password)
+                self._document_password_auth = JupyterPasswordAuth(
+                    document_url, config.document_password
+                )
                 self._document_password_auth.login()
                 if config.document_token:
-                    logger.warning("Both document_password and document_token are set. Password auth takes precedence.")
+                    logger.warning(
+                        "Both document_password and document_token are set. Password auth takes precedence."
+                    )
             elif config.code_sandbox_password and not config.document_token:
                 # Document server is genuinely different but only code_sandbox_password is set —
                 # the code sandbox cookies won't authenticate there.
@@ -157,7 +171,8 @@ class ServerContext:
                     "document_url (%s) differs from code_sandbox_url (%s) but no document_password "
                     "is configured. Collaboration API requests will not be authenticated. "
                     "Set --document-password (or DOCUMENT_PASSWORD), or --document-token.",
-                    document_url, code_sandbox_url,
+                    document_url,
+                    code_sandbox_url,
                 )
         except BaseException:
             self._close_auth()
