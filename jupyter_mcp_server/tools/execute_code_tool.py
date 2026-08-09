@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import cast
 
-from code_sandboxes.interfaces import ISandboxClient
+from code_sandboxes import CodeSandboxClient
 from jupyter_server_client import JupyterServerClient
 from mcp.types import ImageContent
 
@@ -55,7 +55,7 @@ class ExecuteCodeTool(BaseTool):
 
     def _connect_to_kernel(
         self, kernel_id: str, server_client: JupyterServerClient | None
-    ) -> tuple[ISandboxClient | None, str | None]:
+    ) -> tuple[CodeSandboxClient | None, str | None]:
         """Connect to an existing kernel by ID (MCP_SERVER mode).
 
         Returns (kernel, None) on success, or (None, error_message) if the id
@@ -89,7 +89,7 @@ class ExecuteCodeTool(BaseTool):
             headers=auth_headers or None,
             logger=logger,
         )
-        return cast(ISandboxClient, sandbox_client), None
+        return cast(CodeSandboxClient, sandbox_client), None
 
     async def _execute_via_notebook_manager(
         self,
@@ -116,7 +116,7 @@ class ExecuteCodeTool(BaseTool):
 
         # A sandbox client we connect to here is borrowed, not owned: it must be released
         # in the finally below, and never shut down.
-        borrowed_sandbox: ISandboxClient | None = None
+        borrowed_sandbox: CodeSandboxClient | None = None
         if kernel_id is not None and kernel_id != current_kernel_id:
             sandbox_client, error = self._connect_to_kernel(kernel_id, server_client)
             if error is not None:
@@ -134,7 +134,7 @@ class ExecuteCodeTool(BaseTool):
 
             if isinstance(sandbox_client, dict):
                 return [
-                    "[ERROR: Kernel metadata found instead of active ISandboxClient in MCP_SERVER mode]"
+                    "[ERROR: Kernel metadata found instead of an active CodeSandboxClient in MCP_SERVER mode]"
                 ]
 
             kid = current_kernel_id or ""
@@ -164,7 +164,9 @@ class ExecuteCodeTool(BaseTool):
                 else:
                     self._release_borrowed_kernel(borrowed_sandbox, kid)
 
-    def _release_borrowed_kernel(self, sandbox_client: ISandboxClient, kid: str) -> None:
+    def _release_borrowed_kernel(
+        self, sandbox_client: CodeSandboxClient, kid: str
+    ) -> None:
         """Stop a borrowed kernel connection without shutting the kernel down."""
         try:
             sandbox_client.stop(shutdown_kernel=False)
@@ -173,7 +175,7 @@ class ExecuteCodeTool(BaseTool):
 
     async def _execute_on_kernel(
         self,
-        sandbox_client: ISandboxClient,
+        sandbox_client: CodeSandboxClient,
         kid: str,
         code: str,
         timeout: int,
