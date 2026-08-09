@@ -57,7 +57,7 @@ async def test_execute_code_timeout_leaves_kernel_marked_busy_until_thread_finis
     kernel = FakeKernel(lambda: time.sleep(_ORPHANED_TASK_SLEEP))
 
     result = await ExecuteCodeTool()._execute_on_kernel(
-        sandbox_client=kernel,
+        code_sandbox_client=kernel,
         kid="kernel-1",
         code="time.sleep(60)",
         timeout=0,
@@ -83,7 +83,7 @@ async def test_wait_for_kernel_idle_blocks_until_orphaned_execute_code_finishes(
     kernel = FakeKernel(lambda: time.sleep(_ORPHANED_TASK_SLEEP))
 
     await ExecuteCodeTool()._execute_on_kernel(
-        sandbox_client=kernel,
+        code_sandbox_client=kernel,
         kid="kernel-1",
         code="time.sleep(60)",
         timeout=0,

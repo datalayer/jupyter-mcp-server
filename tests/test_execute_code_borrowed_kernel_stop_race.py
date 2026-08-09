@@ -67,7 +67,7 @@ class BorrowedKernelExecuteCodeTool(ExecuteCodeTool):
     def __init__(self, fake_kernel):
         self._fake_kernel = fake_kernel
 
-    def _connect_to_kernel(self, kernel_id, code_sandbox_client):
+    def _connect_to_kernel(self, kernel_id, sandbox_server_client):
         return self._fake_kernel, None
 
 

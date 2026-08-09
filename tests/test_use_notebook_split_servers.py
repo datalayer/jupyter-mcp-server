@@ -96,10 +96,10 @@ def _reset_config():
     reset_config()
 
 
-async def _execute(sandbox_client, notebook_manager, use_mode="connect", auth_headers=None):
+async def _execute(sandbox_server_client, notebook_manager, use_mode="connect", auth_headers=None):
     return await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        code_sandbox_client=sandbox_client,
+        sandbox_server_client=sandbox_server_client,
         notebook_manager=notebook_manager,
         notebook_name="nb",
         notebook_path="work/nb.ipynb",
@@ -118,8 +118,8 @@ async def test_split_create_does_not_inject_sandbox_xsrf(monkeypatch):
         code_sandbox_url=SANDBOX_URL,
         code_sandbox_token=SANDBOX_TOKEN,
     )
-    document_client = FakeServerClient()
-    stub = SimpleNamespace(document_client=document_client, document_auth_headers={})
+    document_server_client = FakeServerClient()
+    stub = SimpleNamespace(document_server_client=document_server_client, document_auth_headers={})
     monkeypatch.setattr(ServerContext, "get_instance", lambda: stub)
     nm = NotebookManager()
 
@@ -133,8 +133,8 @@ async def test_split_create_does_not_inject_sandbox_xsrf(monkeypatch):
             auth_headers={"Cookie": "_xsrf=sandbox", "X-XSRFToken": "sandbox-xsrf"},
         )
 
-    assert "work/nb.ipynb" in document_client.contents.created
-    assert "X-XSRFToken" not in document_client.http_client.session.headers
+    assert "work/nb.ipynb" in document_server_client.contents.created
+    assert "X-XSRFToken" not in document_server_client.http_client.session.headers
 
     # The sandbox token must not leak to the (anonymous) document server.
     notebook_info = nm.get_notebook_connection("nb").notebook_info
@@ -153,8 +153,8 @@ async def test_split_opens_ui_on_document_server(monkeypatch):
         open_notebook_in_ui=True,
     )
     get_server_context().update(context_type="MCP_SERVER", jupyterlab=True)
-    document_client = FakeServerClient(["nb.ipynb"])
-    stub = SimpleNamespace(document_client=document_client, document_auth_headers={})
+    document_server_client = FakeServerClient(["nb.ipynb"])
+    stub = SimpleNamespace(document_server_client=document_server_client, document_auth_headers={})
     monkeypatch.setattr(ServerContext, "get_instance", lambda: stub)
     nm = NotebookManager()
 
@@ -283,11 +283,11 @@ async def test_create_writes_to_document_server_not_sandbox(
         code_sandbox_token=JUPYTER_TOKEN,
     )
     context = ServerContext.get_instance()
-    document_client = context.document_client
+    document_server_client = context.document_server_client
 
     await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        code_sandbox_client=context.code_sandbox_client,
+        sandbox_server_client=context.sandbox_server_client,
         notebook_manager=NotebookManager(),
         notebook_name="split",
         notebook_path="split_create.ipynb",
@@ -297,8 +297,8 @@ async def test_create_writes_to_document_server_not_sandbox(
         auth_headers=None,
     )
 
-    document_names = [f.name for f in document_client.contents.list_directory("")]
-    sandbox_names = [f.name for f in context.code_sandbox_client.contents.list_directory("")]
+    document_names = [f.name for f in document_server_client.contents.list_directory("")]
+    sandbox_names = [f.name for f in context.sandbox_server_client.contents.list_directory("")]
     assert "split_create.ipynb" in document_names
     assert "split_create.ipynb" not in sandbox_names
 
@@ -324,7 +324,7 @@ async def test_connect_to_notebook_only_on_the_document_server(
 
     result = await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        code_sandbox_client=context.code_sandbox_client,
+        sandbox_server_client=context.sandbox_server_client,
         notebook_manager=notebook_manager,
         notebook_name="connect",
         notebook_path="split_connect.ipynb",

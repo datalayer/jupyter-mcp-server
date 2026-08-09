@@ -17,9 +17,10 @@ def get_server_mode_and_clients() -> (
     """Determine server mode and get appropriate clients/managers.
 
     Returns:
-        Tuple of (mode, code_sandbox_client, contents_manager, kernel_manager, kernel_spec_manager)
+        Tuple of (mode, sandbox_server_client, contents_manager, kernel_manager,
+        kernel_spec_manager)
         - mode: "local" if using local API, "http" if using HTTP clients
-        - code_sandbox_client: JupyterServerClient or None
+        - sandbox_server_client: JupyterServerClient or None
         - contents_manager: Local contents manager or None
         - kernel_manager: Local kernel manager or None
         - kernel_spec_manager: Local kernel spec manager or None
@@ -46,11 +47,11 @@ def get_server_mode_and_clients() -> (
         pass
 
     # MCP_SERVER mode with HTTP clients
-    code_sandbox_client = JupyterServerClient(
+    sandbox_server_client = JupyterServerClient(
         base_url=config.code_sandbox_url, token=config.code_sandbox_token
     )
 
-    return ("http", code_sandbox_client, None, None, None)
+    return ("http", sandbox_server_client, None, None, None)
 
 
 def is_local_mode() -> bool:
