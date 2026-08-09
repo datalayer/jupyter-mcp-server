@@ -731,12 +731,11 @@ async def execute_cell_with_forced_sync(
     # High-res monotonic clock: see execute_cell_tool streaming monitor.
     start_time = time.perf_counter()
 
-    # Start execution. The notebook model feeds its output_hook Jupyter-shaped
-    # messages, so adapt the Code Sandbox client's message shape.
-    from jupyter_mcp_server.sandbox_client import JupyterMessageShim
-
+    # Start execution. The sandbox client emits Jupyter-shaped output-hook
+    # messages and reply envelopes directly, so the notebook model consumes it
+    # as-is.
     execution_future = asyncio.create_task(
-        asyncio.to_thread(notebook.execute_cell, cell_index, JupyterMessageShim(kernel))
+        asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
     )
     track_pending_execution(kernel, execution_future)
 

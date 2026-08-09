@@ -22,7 +22,13 @@ from pydantic_ai._cli import (
     ask_agent,
     handle_slash_command,
 )
-from pydantic_ai.mcp import MCPServerStreamableHTTP
+
+try:
+    # pydantic-ai >= 2.x MCP capability API
+    from pydantic_ai.capabilities.mcp import MCP as MCPCapability
+except ImportError:  # pragma: no cover - depends on installed pydantic-ai version
+    MCPCapability = None
+
 from prompt_toolkit.formatted_text import ANSI
 from rich.console import Console
 
@@ -62,19 +68,25 @@ def create_agent(model: str, mcp_url: str, mcp_token: str) -> Agent:
     if mcp_token:
         headers = {"Authorization": f"Bearer {mcp_token}"}
 
-    mcp_server = MCPServerStreamableHTTP(
-        url=mcp_url,
-        headers=headers,
-        timeout=300.0,
+    system_prompt = (
+        "You are a helpful assistant with access to Jupyter tools through MCP. "
+        "Use tools when notebook state, files, code execution, or cell operations are needed."
     )
 
-    return Agent(
-        model=model,
-        toolsets=[mcp_server],
-        system_prompt=(
-            "You are a helpful assistant with access to Jupyter tools through MCP. "
-            "Use tools when notebook state, files, code execution, or cell operations are needed."
-        ),
+    if MCPCapability is not None:
+        mcp_capability = MCPCapability(
+            url=mcp_url,
+            headers=headers,
+        )
+        return Agent(
+            model=model,
+            capabilities=[mcp_capability],
+            system_prompt=system_prompt,
+        )
+
+    raise ImportError(
+        "pydantic-ai 2.x MCP capability API not found. "
+        "Install/upgrade with MCP support, e.g. `pip install -U 'pydantic-ai[mcp]'`."
     )
 
 
