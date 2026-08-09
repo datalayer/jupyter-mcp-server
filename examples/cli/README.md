@@ -142,7 +142,7 @@ The CLI targets export Bedrock credentials from these environment variables:
 ## Files
 
 - `Makefile`: installs dependencies and orchestrates startup
-- `agent.py`: pydantic-ai CLI connected to Jupyter MCP Server via `MCPServerStreamableHTTP`
+- `agent.py`: pydantic-ai CLI connected to Jupyter MCP Server via `MCPToolset`
 
 ## Useful Commands
 
