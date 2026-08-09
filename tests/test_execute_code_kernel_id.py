@@ -23,7 +23,7 @@ from jupyter_mcp_server.utils import safe_extract_outputs, wait_for_kernel_idle
 from .conftest import JUPYTER_TOKEN
 
 
-def _seed(server_client, kernel, marker, timeout=60):
+def _seed(code_sandbox_client, kernel, marker, timeout=60):
     """Wait for a kernel to be ready, then give it its identity.
 
     A kernel is created asynchronously, so ``start()`` returns while the server may
@@ -33,7 +33,7 @@ def _seed(server_client, kernel, marker, timeout=60):
     here rather than as a puzzling timeout inside the assertion under test.
     """
     deadline = time.monotonic() + timeout
-    while server_client.kernels.get_kernel(kernel.id).execution_state != "idle":
+    while code_sandbox_client.kernels.get_kernel(kernel.id).execution_state != "idle":
         if time.monotonic() > deadline:
             raise AssertionError(f"kernel {kernel.id} was not ready within {timeout}s")
         time.sleep(0.1)
@@ -45,10 +45,10 @@ def _seed(server_client, kernel, marker, timeout=60):
 @pytest.fixture
 def targeting_setup(jupyter_server):
     """Two live kernels, each holding a distinct MARKER, with the first bound to
-    the current notebook. Yields (notebook_manager, server_client, raw_kernel_id).
+    the current notebook. Yields (notebook_manager, code_sandbox_client, raw_kernel_id).
     """
     set_config(code_sandbox_url=jupyter_server, code_sandbox_token=JUPYTER_TOKEN)
-    server_client = JupyterServerClient(base_url=jupyter_server, token=JUPYTER_TOKEN)
+    code_sandbox_client = JupyterServerClient(base_url=jupyter_server, token=JUPYTER_TOKEN)
 
     current_kernel = create_jupyter_sandbox_client(
         server_url=jupyter_server,
@@ -63,8 +63,8 @@ def targeting_setup(jupyter_server):
 
     try:
         # Give each kernel its own identity so the assertion cannot pass by luck.
-        _seed(server_client, current_kernel, "current-notebook-kernel")
-        _seed(server_client, raw_kernel, "raw-kernel")
+        _seed(code_sandbox_client, current_kernel, "current-notebook-kernel")
+        _seed(code_sandbox_client, raw_kernel, "raw-kernel")
 
         notebook_manager = NotebookManager()
         notebook_manager.add_notebook(
@@ -76,20 +76,20 @@ def targeting_setup(jupyter_server):
         )
         notebook_manager.set_current_notebook("nb")
 
-        yield notebook_manager, server_client, raw_kernel.id
+        yield notebook_manager, code_sandbox_client, raw_kernel.id
     finally:
         current_kernel.stop()
         raw_kernel.stop()
         reset_config()
 
 
-async def _execute(notebook_manager, server_client, code, kernel_id=None):
+async def _execute(notebook_manager, code_sandbox_client, code, kernel_id=None):
     def _no_kernel_expected():
         raise AssertionError("the current notebook already has a kernel")
 
     return await ExecuteCodeTool().execute(
         mode=ServerMode.MCP_SERVER,
-        server_client=server_client,
+        code_sandbox_client=code_sandbox_client,
         notebook_manager=notebook_manager,
         code=code,
         timeout=30,
@@ -103,10 +103,10 @@ async def _execute(notebook_manager, server_client, code, kernel_id=None):
 @pytest.mark.asyncio
 async def test_execute_code_runs_in_the_requested_kernel(targeting_setup):
     """kernel_id must select the kernel the code runs in, not be discarded."""
-    notebook_manager, server_client, raw_kernel_id = targeting_setup
+    notebook_manager, code_sandbox_client, raw_kernel_id = targeting_setup
 
     outputs = await _execute(
-        notebook_manager, server_client, "print(MARKER)", kernel_id=raw_kernel_id
+        notebook_manager, code_sandbox_client, "print(MARKER)", kernel_id=raw_kernel_id
     )
 
     assert "raw-kernel" in "".join(str(output) for output in outputs)
@@ -116,14 +116,14 @@ async def test_execute_code_runs_in_the_requested_kernel(targeting_setup):
 async def test_execute_code_leaves_the_targeted_kernel_running(targeting_setup):
     """The targeted kernel is borrowed, so it must survive the call and keep its
     state: releasing the connection must not shut a kernel down."""
-    notebook_manager, server_client, raw_kernel_id = targeting_setup
+    notebook_manager, code_sandbox_client, raw_kernel_id = targeting_setup
 
-    await _execute(notebook_manager, server_client, "print(MARKER)", kernel_id=raw_kernel_id)
+    await _execute(notebook_manager, code_sandbox_client, "print(MARKER)", kernel_id=raw_kernel_id)
 
-    assert any(kernel.id == raw_kernel_id for kernel in server_client.kernels.list_kernels())
+    assert any(kernel.id == raw_kernel_id for kernel in code_sandbox_client.kernels.list_kernels())
 
     outputs = await _execute(
-        notebook_manager, server_client, "print(MARKER)", kernel_id=raw_kernel_id
+        notebook_manager, code_sandbox_client, "print(MARKER)", kernel_id=raw_kernel_id
     )
     assert "raw-kernel" in "".join(str(output) for output in outputs)
 
@@ -131,9 +131,9 @@ async def test_execute_code_leaves_the_targeted_kernel_running(targeting_setup):
 @pytest.mark.asyncio
 async def test_execute_code_without_kernel_id_uses_the_current_notebook(targeting_setup):
     """Omitting kernel_id keeps the documented default: the current notebook's kernel."""
-    notebook_manager, server_client, _ = targeting_setup
+    notebook_manager, code_sandbox_client, _ = targeting_setup
 
-    outputs = await _execute(notebook_manager, server_client, "print(MARKER)")
+    outputs = await _execute(notebook_manager, code_sandbox_client, "print(MARKER)")
 
     assert "current-notebook-kernel" in "".join(str(output) for output in outputs)
 
@@ -142,10 +142,10 @@ async def test_execute_code_without_kernel_id_uses_the_current_notebook(targetin
 async def test_execute_code_reports_an_unknown_kernel_id(targeting_setup):
     """An unknown kernel_id must be reported, never silently redirected to
     whichever kernel happens to be current."""
-    notebook_manager, server_client, _ = targeting_setup
+    notebook_manager, code_sandbox_client, _ = targeting_setup
 
     outputs = await _execute(
-        notebook_manager, server_client, "print(MARKER)", kernel_id="no-such-kernel"
+        notebook_manager, code_sandbox_client, "print(MARKER)", kernel_id="no-such-kernel"
     )
 
     joined = "".join(str(output) for output in outputs)

@@ -68,7 +68,7 @@ class UseNotebookTool(BaseTool):
         return {"id": kernel_id}
 
     async def _check_path_http(
-        self, server_client: JupyterServerClient, notebook_path: str, mode: str
+        self, code_sandbox_client: JupyterServerClient, notebook_path: str, mode: str
     ) -> tuple[bool, str | None]:
         """Check if path exists using HTTP API."""
         path = Path(notebook_path)
@@ -76,9 +76,9 @@ class UseNotebookTool(BaseTool):
             parent_path = path.parent.as_posix() if path.parent.as_posix() != "." else ""
 
             if parent_path:
-                dir_contents = server_client.contents.list_directory(parent_path)
+                dir_contents = code_sandbox_client.contents.list_directory(parent_path)
             else:
-                dir_contents = server_client.contents.list_directory("")
+                dir_contents = code_sandbox_client.contents.list_directory("")
 
             file_exists = any(file.name == path.name for file in dir_contents)
             if mode == "connect":
@@ -141,7 +141,7 @@ class UseNotebookTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: JupyterServerClient | None = None,
+        code_sandbox_client: JupyterServerClient | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
@@ -161,7 +161,7 @@ class UseNotebookTool(BaseTool):
 
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: HTTP client for MCP_SERVER mode
+            code_sandbox_client: HTTP client for MCP_SERVER mode
             contents_manager: Direct API access for JUPYTER_SERVER mode
             kernel_manager: Direct kernel manager for JUPYTER_SERVER mode
             session_manager: Session manager for creating kernel-notebook associations
@@ -178,17 +178,17 @@ class UseNotebookTool(BaseTool):
             Success message with notebook information
         """
         # Check server connectivity (HTTP mode only)
-        if mode == ServerMode.MCP_SERVER and server_client is not None:
+        if mode == ServerMode.MCP_SERVER and code_sandbox_client is not None:
             try:
-                server_client.get_status()
+                code_sandbox_client.get_status()
             except Exception as e:
                 return f"Failed to connect the Jupyter server: {e}"
 
         # In split setups, contents operations use the document server and its auth.
-        # When the URLs match, server_client already targets the document server.
-        document_client = server_client
+        # When the URLs match, code_sandbox_client already targets the document server.
+        document_client = code_sandbox_client
         document_auth_headers = auth_headers
-        if mode == ServerMode.MCP_SERVER and server_client is not None:
+        if mode == ServerMode.MCP_SERVER and code_sandbox_client is not None:
             from jupyter_mcp_server.config import get_config
 
             config = get_config()
@@ -204,7 +204,7 @@ class UseNotebookTool(BaseTool):
             path_ok, error_msg = await self._check_path_local(
                 contents_manager, notebook_path, use_mode
             )
-        elif mode == ServerMode.MCP_SERVER and server_client is not None:
+        elif mode == ServerMode.MCP_SERVER and code_sandbox_client is not None:
             path_ok, error_msg = await self._check_path_http(
                 document_client, notebook_path, use_mode
             )
@@ -265,7 +265,7 @@ class UseNotebookTool(BaseTool):
                             path=notebook_path,
                         )
                     )
-                elif mode == ServerMode.MCP_SERVER and server_client is not None:
+                elif mode == ServerMode.MCP_SERVER and code_sandbox_client is not None:
                     # Creating a notebook is a state-changing PUT to /api/contents,
                     # which Jupyter's XSRF protection guards. Under password auth the
                     # injected session carries the _xsrf cookie but not the matching
@@ -283,9 +283,9 @@ class UseNotebookTool(BaseTool):
                     document_client.contents.create_notebook(notebook_path, content=content)
 
             # # Create/connect to kernel based on mode
-            if mode == ServerMode.MCP_SERVER and server_client is not None:
+            if mode == ServerMode.MCP_SERVER and code_sandbox_client is not None:
                 if kernel_id is not None:
-                    kernels = server_client.kernels.list_kernels()
+                    kernels = code_sandbox_client.kernels.list_kernels()
                     kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
                     if not kernel_exists:
                         return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."

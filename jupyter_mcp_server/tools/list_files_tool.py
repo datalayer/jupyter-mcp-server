@@ -25,7 +25,7 @@ def format_size(size_bytes: int) -> str:
 
 
 def _list_files_mcp(
-    server_client,
+    code_sandbox_client,
     current_path: str = "",
     current_depth: int = 0,
     files: list[dict] | None = None,
@@ -34,7 +34,7 @@ def _list_files_mcp(
     """Recursively list all files and directories in the Jupyter server.
 
     Args:
-        server_client: JupyterServerClient instance
+        code_sandbox_client: JupyterServerClient instance
         current_path: Current directory path
         current_depth: Current recursion depth
         files: Accumulated files list
@@ -47,7 +47,7 @@ def _list_files_mcp(
         files = []
 
     try:
-        contents = server_client.contents.list_directory(current_path)
+        contents = code_sandbox_client.contents.list_directory(current_path)
         for item in contents:
             full_path = f"{current_path}/{item.name}" if current_path else item.name
 
@@ -75,7 +75,7 @@ def _list_files_mcp(
             # max_depth=0 means no recursion (list current directory only)
             # max_depth=1 means recurse 1 level deep, etc.
             if item.type == "directory" and current_depth < max_depth:
-                _list_files_mcp(server_client, full_path, current_depth + 1, files, max_depth)
+                _list_files_mcp(code_sandbox_client, full_path, current_depth + 1, files, max_depth)
 
     except Exception as e:
         # If we can't access a directory, add an error entry
@@ -165,7 +165,7 @@ class ListFilesTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: JupyterServerClient | None = None,
+        code_sandbox_client: JupyterServerClient | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
@@ -182,7 +182,7 @@ class ListFilesTool(BaseTool):
 
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: JupyterServerClient for MCP_SERVER mode
+            code_sandbox_client: JupyterServerClient for MCP_SERVER mode
             contents_manager: Direct API access for JUPYTER_SERVER mode
             path: The starting path to list from (empty string means root directory)
             max_depth: Maximum depth to recurse into subdirectories (0 means list current directory only, default: 1)
@@ -199,10 +199,10 @@ class ListFilesTool(BaseTool):
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             # Local mode: use contents_manager directly
             all_files = await _list_files_local(contents_manager, path, max_depth)
-        elif mode == ServerMode.MCP_SERVER and server_client is not None:
+        elif mode == ServerMode.MCP_SERVER and code_sandbox_client is not None:
             # Remote mode: reuse the shared, authenticated HTTP client
             # (a client built fresh here carries no session cookies).
-            all_files = _list_files_mcp(server_client, path, 0, None, max_depth)
+            all_files = _list_files_mcp(code_sandbox_client, path, 0, None, max_depth)
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 

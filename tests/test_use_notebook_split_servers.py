@@ -99,7 +99,7 @@ def _reset_config():
 async def _execute(sandbox_client, notebook_manager, use_mode="connect", auth_headers=None):
     return await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        server_client=sandbox_client,
+        code_sandbox_client=sandbox_client,
         notebook_manager=notebook_manager,
         notebook_name="nb",
         notebook_path="work/nb.ipynb",
@@ -287,7 +287,7 @@ async def test_create_writes_to_document_server_not_sandbox(
 
     await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        server_client=context.server_client,
+        code_sandbox_client=context.code_sandbox_client,
         notebook_manager=NotebookManager(),
         notebook_name="split",
         notebook_path="split_create.ipynb",
@@ -298,7 +298,7 @@ async def test_create_writes_to_document_server_not_sandbox(
     )
 
     document_names = [f.name for f in document_client.contents.list_directory("")]
-    sandbox_names = [f.name for f in context.server_client.contents.list_directory("")]
+    sandbox_names = [f.name for f in context.code_sandbox_client.contents.list_directory("")]
     assert "split_create.ipynb" in document_names
     assert "split_create.ipynb" not in sandbox_names
 
@@ -324,7 +324,7 @@ async def test_connect_to_notebook_only_on_the_document_server(
 
     result = await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        server_client=context.server_client,
+        code_sandbox_client=context.code_sandbox_client,
         notebook_manager=notebook_manager,
         notebook_name="connect",
         notebook_path="split_connect.ipynb",

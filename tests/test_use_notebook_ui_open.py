@@ -97,7 +97,7 @@ async def _switch_to_nb2(notebook_manager):
     get_server_context().update(context_type="MCP_SERVER", jupyterlab=True)
     return await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        server_client=FakeServerClient(["nb1.ipynb", "nb2.ipynb"]),
+        code_sandbox_client=FakeServerClient(["nb1.ipynb", "nb2.ipynb"]),
         notebook_manager=notebook_manager,
         notebook_name="nb2",
         notebook_path="work/nb2.ipynb",
@@ -140,7 +140,7 @@ async def test_ui_open_stays_off_when_jupyterlab_mode_disabled():
     get_server_context().update(context_type="MCP_SERVER", jupyterlab=False)
     await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        server_client=FakeServerClient(["nb1.ipynb", "nb2.ipynb"]),
+        code_sandbox_client=FakeServerClient(["nb1.ipynb", "nb2.ipynb"]),
         notebook_manager=nm,
         notebook_name="nb2",
         notebook_path="work/nb2.ipynb",

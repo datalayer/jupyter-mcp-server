@@ -54,7 +54,7 @@ class ExecuteCodeTool(BaseTool):
         )
 
     def _connect_to_kernel(
-        self, kernel_id: str, server_client: JupyterServerClient | None
+        self, kernel_id: str, code_sandbox_client: JupyterServerClient | None
     ) -> tuple[CodeSandboxClient | None, str | None]:
         """Connect to an existing kernel by ID (MCP_SERVER mode).
 
@@ -65,8 +65,8 @@ class ExecuteCodeTool(BaseTool):
         from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
         from jupyter_mcp_server.server_context import ServerContext
 
-        if server_client is not None:
-            kernels = server_client.kernels.list_kernels()
+        if code_sandbox_client is not None:
+            kernels = code_sandbox_client.kernels.list_kernels()
             if not any(kernel.id == kernel_id for kernel in kernels):
                 return None, (
                     f"[ERROR: Kernel '{kernel_id}' not found in jupyter server, please check "
@@ -100,7 +100,7 @@ class ExecuteCodeTool(BaseTool):
         wait_for_kernel_idle_fn,
         safe_extract_outputs_fn,
         kernel_id: str = None,
-        server_client=None,
+        code_sandbox_client=None,
         progress_callback=None,
         progress_interval: int = 5,
     ) -> list[str | ImageContent]:
@@ -118,7 +118,7 @@ class ExecuteCodeTool(BaseTool):
         # in the finally below, and never shut down.
         borrowed_sandbox: CodeSandboxClient | None = None
         if kernel_id is not None and kernel_id != current_kernel_id:
-            sandbox_client, error = self._connect_to_kernel(kernel_id, server_client)
+            sandbox_client, error = self._connect_to_kernel(kernel_id, code_sandbox_client)
             if error is not None:
                 return [error]
             if sandbox_client is None:
@@ -285,7 +285,7 @@ class ExecuteCodeTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client=None,
+        code_sandbox_client=None,
         contents_manager=None,
         kernel_manager=None,
         kernel_spec_manager=None,
@@ -305,7 +305,7 @@ class ExecuteCodeTool(BaseTool):
 
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: JupyterServerClient (used to resolve kernel_id in MCP_SERVER mode)
+            code_sandbox_client: JupyterServerClient (used to resolve kernel_id in MCP_SERVER mode)
             contents_manager: Contents manager (not used)
             kernel_manager: Kernel manager (for JUPYTER_SERVER mode)
             kernel_spec_manager: Kernel spec manager (not used)
@@ -376,7 +376,7 @@ class ExecuteCodeTool(BaseTool):
                 wait_for_kernel_idle_fn=wait_for_kernel_idle_fn,
                 safe_extract_outputs_fn=safe_extract_outputs_fn,
                 kernel_id=kernel_id,
-                server_client=server_client,
+                code_sandbox_client=code_sandbox_client,
                 progress_callback=progress_callback,
                 progress_interval=progress_interval,
             )
