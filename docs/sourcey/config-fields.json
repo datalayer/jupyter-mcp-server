@@ -48,19 +48,19 @@
    "name": "sandbox_variant",
    "type": "<class 'str'>",
    "default": "jupyter",
-   "description": "Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') routes execution through the code-sandboxes package."
+   "description": "Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Any other value ('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') routes execution through the code-sandboxes package."
   },
   {
    "name": "code_sandbox_proxy_token",
    "type": "str | None",
    "default": null,
-   "description": "Proxy token for the Colab sandbox variant (colab-code-sandbox-proxy-token)."
+   "description": "Proxy token for the Google Colab sandbox variant (colab-runtime-proxy-token)."
   },
   {
    "name": "code_sandbox_channels_url",
    "type": "str | None",
    "default": null,
-   "description": "For the 'colab' and 'kaggle' sandbox variants, the WebSocket channels URL of a running notebook session. When set, server_url and kernel_id are parsed from it."
+   "description": "For the 'google_colab'/'google-colab'/'colab' and 'kaggle' sandbox variants, the WebSocket channels URL of a running notebook session. When set, server_url and kernel_id are parsed from it."
   },
   {
    "name": "sandbox_environment",

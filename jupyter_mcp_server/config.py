@@ -40,18 +40,21 @@ class JupyterMCPConfig(BaseModel):
         default="jupyter",
         description=(
             "Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes "
-            "Jupyter engine. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
+            "Jupyter engine. Any other value "
+            "('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', "
+            "'docker', 'eval', "
             "'datalayer') routes execution through the code-sandboxes package."
         ),
     )
     code_sandbox_proxy_token: str | None = Field(
         default=None,
-        description="Proxy token for the Colab sandbox variant (colab-code-sandbox-proxy-token).",
+        description="Proxy token for the Google Colab sandbox variant (colab-runtime-proxy-token).",
     )
     code_sandbox_channels_url: str | None = Field(
         default=None,
         description=(
-            "For the 'colab' and 'kaggle' sandbox variants, the WebSocket "
+            "For the 'google_colab'/'google-colab'/'colab' and 'kaggle' sandbox "
+            "variants, the WebSocket "
             "channels URL of a running notebook session. When set, server_url "
             "and kernel_id are parsed from it."
         ),
@@ -79,7 +82,10 @@ class JupyterMCPConfig(BaseModel):
     )
     document_id: str | None = Field(
         default=None,
-        description="The document id to use. Optional - if omitted, can list and select notebooks interactively",
+        description=(
+            "The document id to use. Optional - if omitted, can list and select "
+            "notebooks interactively"
+        ),
     )
     document_token: str | None = Field(
         default=None, description="The document token to use for authentication"
@@ -94,7 +100,10 @@ class JupyterMCPConfig(BaseModel):
     jupyterlab: bool = Field(default=True, description="Enable JupyterLab mode (defaults to True)")
     open_notebook_in_ui: bool = Field(
         default=False,
-        description="Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False)",
+        description=(
+            "Open the notebook in the JupyterLab UI when using it, which activates "
+            "its tab (defaults to False)"
+        ),
     )
     allowed_jupyter_mcp_tools: str = Field(
         default="notebook_run-all-cells,notebook_get-selected-cell",
@@ -102,7 +111,10 @@ class JupyterMCPConfig(BaseModel):
     )
     reconnect_interval: int = Field(
         default=0,
-        description="Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect.",
+        description=(
+            "Seconds to wait before reconnecting a dropped WebSocket connection "
+            "to the kernel. 0 disables auto-reconnect."
+        ),
     )
 
     # Execution timeout configuration

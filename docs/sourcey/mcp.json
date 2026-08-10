@@ -941,6 +941,8 @@
                   "docker",
                   "jupyter",
                   "datalayer",
+                  "google_colab",
+                  "google-colab",
                   "colab",
                   "kaggle",
                   "monty",
@@ -999,7 +1001,7 @@
               }
             ],
             "default": null,
-            "description": "Code Sandbox proxy URL when using colab or kaggle variant",
+            "description": "Code Sandbox proxy URL when using google_colab/google-colab (or legacy colab) or kaggle variant",
             "title": "Server Url"
           },
           "kernel_id": {
@@ -1012,7 +1014,7 @@
               }
             ],
             "default": null,
-            "description": "Kernel ID when using colab or kaggle variant",
+            "description": "Kernel ID when using google_colab/google-colab (or legacy colab) or kaggle variant",
             "title": "Kernel Id"
           },
           "proxy_token": {
@@ -1025,7 +1027,7 @@
               }
             ],
             "default": null,
-            "description": "Colab code sandbox proxy token when using colab variant",
+            "description": "Google Colab code sandbox proxy token when using google_colab/google-colab (or legacy colab) variant",
             "title": "Proxy Token"
           },
           "channels_url": {
@@ -1038,7 +1040,7 @@
               }
             ],
             "default": null,
-            "description": "Notebook session WebSocket channels URL to derive server_url/kernel_id (colab or kaggle variant)",
+            "description": "Notebook session WebSocket channels URL to derive server_url/kernel_id (google_colab/google-colab/colab or kaggle variant)",
             "title": "Channels Url"
           },
           "token": {

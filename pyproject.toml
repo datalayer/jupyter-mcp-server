@@ -21,20 +21,15 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    # 0.17.0 adds the `headers` passthrough and stops overwriting an explicit
-    # `token=None` in JupyterSandbox. Password auth needs both: its credentials are
-    # a session Cookie plus X-XSRFToken rather than a token.
-    "code-sandboxes>=0.17.0",
-    "datalayer_reactor",
-    "jupyter-mcp-tools",
+    "code-sandboxes>=1.0.3",
+    "datalayer-reactor>=0.1.2",
     "jupyter-nbmodel-client>=1.5.0",
-    "jupyter-server-nbmodel",
-    "jupyter-server-client",
-    "jupyter_server>=1.6,<3",
-    "jupyter-collaboration",
-    "tornado>=6.1",
-    "traitlets>=5.0",
+    "jupyter-server-nbmodel>=0.2.2",
+    "jupyter-server-client>=0.1.1",
+    "jupyter_server>=2.10,<3",
+    "jupyter-collaboration>=5",
     "mcp[cli]>=1.10.1,<2",
+    "pycrdt>=0.14.2",
     "pydantic",
     "uvicorn",
     "typer",
@@ -44,11 +39,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+docker = ["code-sandboxes[docker]"]
+google-colab = ["code-sandboxes[google-colab]"]
 kaggle = ["code-sandboxes[kaggle]"]
 monty = ["code-sandboxes[monty]"]
 modal = ["code-sandboxes[modal]"]
 datalayer = ["code-sandboxes[datalayer]"]
-all-sandboxes = ["code-sandboxes[all]"]
+sandboxes = ["code-sandboxes[all]"]
+jupyterlab = ["jupyter-mcp-tools>=0.1.7"]
 test = [
     "ipykernel",
     "jupyter_server>=1.6,<3",

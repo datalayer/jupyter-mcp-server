@@ -67,15 +67,15 @@ For more details on each tool, their parameters, and return values, please refer
 
 #### Server and Code Sandbox Management Tools
 
-| Name                 | Description                                                                                                                                                                                                                                                                                              |
-| :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                          |
-| `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                                    |
-| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter/datalayer/kaggle/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
-| `list_sandboxes`     | List launched code sandboxes and their state (active flag, variant, status, and selected code sandbox options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                               |
-| `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                     |
-| `terminate_sandbox`  | Stop and unregister a launched code sandbox. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                              |
-| `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.* |
+| Name                 | Description                                                                                                                                                                                                                                                                                     |
+| :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                 |
+| `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                           |
+| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter/datalayer/kaggle/google_colab/google-colab/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension. |
+| `list_sandboxes`     | List launched code sandboxes and their state (active flag, variant, status, and selected code sandbox options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                 |
+| `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                         |
+| `terminate_sandbox`  | Stop and unregister a launched code sandbox. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                                    |
+| `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.*                                                                                     |
 
 #### Multi-Notebook Management Tools
 
@@ -89,17 +89,17 @@ For more details on each tool, their parameters, and return values, please refer
 
 #### Cell Operations and Execution Tools
 
-| Name                       | Description                                                                      |
-| :------------------------- | :------------------------------------------------------------------------------- |
-| `read_cell`                | Read the full content (Metadata, Source and Outputs) of a single cell.           |
-| `insert_cell`              | Insert a new code or markdown cell at a specified position.                      |
-| `delete_cell`              | Delete a cell at a specified index.                                              |
-| `move_cell`                | Move a cell from one position to another within a notebook.                      |
-| `clear_cell_output`        | Clear the outputs and execution count of a single code cell.                     |
-| `overwrite_cell_source`    | Overwrite the source code of an existing cell.                                   |
-| `edit_cell_source`         | Apply surgical find-and-replace edits to a cell's source without full rewrite.   |
-| `execute_cell`             | Execute a cell with timeout, supports multimodal output including images.        |
-| `insert_execute_code_cell` | Insert a new code cell and execute it in one step.                               |
+| Name                       | Description                                                                                                                                                                                                                                                    |
+| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read_cell`                | Read the full content (Metadata, Source and Outputs) of a single cell.                                                                                                                                                                                         |
+| `insert_cell`              | Insert a new code or markdown cell at a specified position.                                                                                                                                                                                                    |
+| `delete_cell`              | Delete a cell at a specified index.                                                                                                                                                                                                                            |
+| `move_cell`                | Move a cell from one position to another within a notebook.                                                                                                                                                                                                    |
+| `clear_cell_output`        | Clear the outputs and execution count of a single code cell.                                                                                                                                                                                                   |
+| `overwrite_cell_source`    | Overwrite the source code of an existing cell.                                                                                                                                                                                                                 |
+| `edit_cell_source`         | Apply surgical find-and-replace edits to a cell's source without full rewrite.                                                                                                                                                                                 |
+| `execute_cell`             | Execute a cell with timeout, supports multimodal output including images.                                                                                                                                                                                      |
+| `insert_execute_code_cell` | Insert a new code cell and execute it in one step.                                                                                                                                                                                                             |
 | `execute_code`             | Execute code directly in the active backend (kernel by default, or active sandbox if selected), supports magic commands and shell commands. When the selected sandbox supports streaming execution, progress/output events are consumed and returned in order. |
 
 #### JupyterLab Integration
@@ -284,15 +284,15 @@ To expose sandbox lifecycle tools (`launch_sandbox`, `list_sandboxes`,
 `use_sandbox`, `terminate_sandbox`) or run any non-`jupyter` sandbox variant,
 install it with `pip install jupyter_mcp_sandboxes`.
 
-| Engine                   | `SANDBOX_VARIANT` | Extra install                   | Key variables                                         |
-| ------------------------ | ------------------ | ------------------------------- | ----------------------------------------------------- |
-| Jupyter Server (default) | `jupyter`          | —                               | `JUPYTER_URL`, `JUPYTER_TOKEN`                        |
-| JupyterHub               | `jupyter`          | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                        |
-| Datalayer                | `datalayer`        | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT` |
-| Kaggle                   | `kaggle`           | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| Google Colab             | `colab`            | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`    |
-| Monty                    | `monty`            | `jupyter-mcp-server[monty]`     | —                                                     |
-| Modal                    | `modal`            | `jupyter-mcp-server[modal]`     | Modal credentials                                     |
+| Engine                   | `SANDBOX_VARIANT`        | Extra install                   | Key variables                                                                                                                                                                                                             |
+| ------------------------ | ------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jupyter Server (default) | `jupyter`                | —                               | `JUPYTER_URL`, `JUPYTER_TOKEN`                                                                                                                                                                                            |
+| JupyterHub               | `jupyter`                | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                                                                                                                                                                                  |
+| Datalayer                | `datalayer`              | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT`                                                                                                                                                           |
+| Kaggle                   | `kaggle`                 | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
+| Google Colab             | `google-colab` / `colab` | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`                                                                                                                                                         |
+| Monty                    | `monty`                  | `jupyter-mcp-server[monty]`     | —                                                                                                                                                                                                                         |
+| Modal                    | `modal`                  | `jupyter-mcp-server[modal]`     | Modal credentials                                                                                                                                                                                                         |
 
 ### 1. Jupyter Server
 
@@ -386,14 +386,14 @@ pip install jupyter-mcp-server
 
 ```json
 "env": {
-  "SANDBOX_VARIANT": "colab",
+  "SANDBOX_VARIANT": "google-colab",
   "CODE_SANDBOX_URL": "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev",
   "CODE_SANDBOX_ID": "a1b2c3d4-....",
   "CODE_SANDBOX_PROXY_TOKEN": "ya29...."
 }
 ```
 
-> The proxy token (`colab-code-sandbox-proxy-token`) is short-lived; refresh it when it
+> The proxy token (`colab-runtime-proxy-token`) is short-lived; refresh it when it
 > expires.
 
 You can also pass `CODE_SANDBOX_CHANNELS_URL` with the Colab channels WebSocket URL

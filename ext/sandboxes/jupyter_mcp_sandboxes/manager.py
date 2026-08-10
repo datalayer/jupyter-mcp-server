@@ -48,6 +48,8 @@ class CodeSandboxManager:
             "variant": variant,
             "timeout": timeout,
         }
+        if create_kwargs["variant"] in {"google-colab", "colab"}:
+            create_kwargs["variant"] = "google_colab"
         if environment:
             create_kwargs["environment"] = environment
         if gpu:
@@ -55,7 +57,7 @@ class CodeSandboxManager:
         if python_version and variant == "modal":
             create_kwargs["python_version"] = python_version
 
-        if variant == "colab":
+        if create_kwargs["variant"] == "google_colab":
             if server_url:
                 create_kwargs["server_url"] = server_url
             if kernel_id:

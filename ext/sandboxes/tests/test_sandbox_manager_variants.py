@@ -70,7 +70,7 @@ def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="colab-1",
-            variant="colab",
+            variant="google-colab",
             timeout=45,
             server_url="https://colab.example",
             kernel_id="kernel-1",
@@ -79,7 +79,7 @@ def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
         )
 
     kwargs = mock_create.call_args.kwargs
-    assert kwargs["variant"] == "colab"
+    assert kwargs["variant"] == "google_colab"
     assert kwargs["server_url"] == "https://colab.example"
     assert kwargs["kernel_id"] == "kernel-1"
     assert kwargs["proxy_token"] == "proxy-token"

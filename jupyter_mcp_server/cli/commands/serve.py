@@ -307,7 +307,7 @@ def server_callback(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     code_sandbox_proxy_token: Annotated[
@@ -315,7 +315,7 @@ def server_callback(
         typer.Option(
             "--code-sandbox-proxy-token",
             envvar="CODE_SANDBOX_PROXY_TOKEN",
-            help="Proxy token used by the 'colab' sandbox variant (colab-code-sandbox-proxy-token).",
+            help="Proxy token used by the Google Colab sandbox variant (colab-runtime-proxy-token).",
         ),
     ] = None,
     code_sandbox_channels_url: Annotated[
@@ -323,7 +323,7 @@ def server_callback(
         typer.Option(
             "--code-sandbox-channels-url",
             envvar="CODE_SANDBOX_CHANNELS_URL",
-            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive code sandbox URL and kernel id.",
+            help="For the 'google_colab'/'google-colab' (or legacy 'colab') and 'kaggle' sandbox variants, WebSocket channels URL used to derive code sandbox URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -585,7 +585,7 @@ def start_command(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
         ),
     ] = "jupyter",
     code_sandbox_proxy_token: Annotated[
@@ -593,7 +593,7 @@ def start_command(
         typer.Option(
             "--code-sandbox-proxy-token",
             envvar="CODE_SANDBOX_PROXY_TOKEN",
-            help="Proxy token used by the 'colab' sandbox variant (colab-code-sandbox-proxy-token).",
+            help="Proxy token used by the Google Colab sandbox variant (colab-runtime-proxy-token).",
         ),
     ] = None,
     code_sandbox_channels_url: Annotated[
@@ -601,7 +601,7 @@ def start_command(
         typer.Option(
             "--code-sandbox-channels-url",
             envvar="CODE_SANDBOX_CHANNELS_URL",
-            help="For the 'colab' or 'kaggle' sandbox variant, WebSocket channels URL used to derive code sandbox URL and kernel id.",
+            help="For the 'google_colab'/'google-colab' (or legacy 'colab') and 'kaggle' sandbox variants, WebSocket channels URL used to derive code sandbox URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
