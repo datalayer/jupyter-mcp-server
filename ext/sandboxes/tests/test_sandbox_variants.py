@@ -42,7 +42,7 @@ def test_build_sandbox_variant_routing(engine, expected_variant):
 def test_build_sandbox_colab_forwards_code_sandbox_connection():
     """Colab engine forwards code sandbox URL, kernel id and proxy token."""
     config = JupyterMCPConfig(
-        sandbox_variant="colab",
+        sandbox_variant="google-colab",
         code_sandbox_url="https://colab-host.example",
         code_sandbox_id="kernel-id",
         code_sandbox_proxy_token="proxy-token",
@@ -54,7 +54,7 @@ def test_build_sandbox_colab_forwards_code_sandbox_connection():
         build_sandbox_client(config, MagicMock())
 
         mock_create.assert_called_once_with(
-            variant="colab",
+            variant="google_colab",
             timeout=float(config.execution_timeout),
             server_url="https://colab-host.example",
             kernel_id="kernel-id",
@@ -65,7 +65,7 @@ def test_build_sandbox_colab_forwards_code_sandbox_connection():
 def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
     """Colab engine forwards channels_url when supplied and allows missing kernel_id."""
     config = JupyterMCPConfig(
-        sandbox_variant="colab",
+        sandbox_variant="google_colab",
         code_sandbox_url="https://colab-host.example",
         code_sandbox_proxy_token="proxy-token",
         code_sandbox_channels_url=(
@@ -81,7 +81,7 @@ def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
         build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
-        assert kwargs["variant"] == "colab"
+        assert kwargs["variant"] == "google_colab"
         assert kwargs["server_url"] == "https://colab-host.example"
         assert kwargs["proxy_token"] == "proxy-token"
         assert "kernel_id" not in kwargs

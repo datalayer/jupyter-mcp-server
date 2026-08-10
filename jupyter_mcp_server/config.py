@@ -40,18 +40,18 @@ class JupyterMCPConfig(BaseModel):
         default="jupyter",
         description=(
             "Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes "
-            "Jupyter engine. Any other value ('colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
+            "Jupyter engine. Any other value ('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
             "'datalayer') routes execution through the code-sandboxes package."
         ),
     )
     code_sandbox_proxy_token: str | None = Field(
         default=None,
-        description="Proxy token for the Colab sandbox variant (colab-code-sandbox-proxy-token).",
+        description="Proxy token for the Google Colab sandbox variant (colab-runtime-proxy-token).",
     )
     code_sandbox_channels_url: str | None = Field(
         default=None,
         description=(
-            "For the 'colab' and 'kaggle' sandbox variants, the WebSocket "
+            "For the 'google_colab'/'google-colab' and 'kaggle' sandbox variants, the WebSocket "
             "channels URL of a running notebook session. When set, server_url "
             "and kernel_id are parsed from it."
         ),

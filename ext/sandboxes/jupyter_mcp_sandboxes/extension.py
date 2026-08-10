@@ -115,7 +115,18 @@ class SandboxesExtension(JupyterMCPExtension):
                 str, Field(description="Unique sandbox identifier used by list/use/terminate tools")
             ],
             variant: Annotated[
-                Literal["eval", "docker", "jupyter", "datalayer", "colab", "kaggle", "monty", "modal"]
+                Literal[
+                    "eval",
+                    "docker",
+                    "jupyter",
+                    "datalayer",
+                    "google_colab",
+                    "google-colab",
+                    "colab",
+                    "kaggle",
+                    "monty",
+                    "modal",
+                ]
                 | None,
                 Field(
                     description=(
@@ -143,20 +154,38 @@ class SandboxesExtension(JupyterMCPExtension):
             ] = None,
             server_url: Annotated[
                 str | None,
-                Field(description="Code Sandbox proxy URL when using colab or kaggle variant"),
+                Field(
+                    description=(
+                        "Code Sandbox proxy URL when using google_colab/google-colab "
+                        "(or legacy colab) or kaggle variant"
+                    )
+                ),
             ] = None,
             kernel_id: Annotated[
                 str | None,
-                Field(description="Kernel ID when using colab or kaggle variant"),
+                Field(
+                    description=(
+                        "Kernel ID when using google_colab/google-colab "
+                        "(or legacy colab) or kaggle variant"
+                    )
+                ),
             ] = None,
             proxy_token: Annotated[
                 str | None,
-                Field(description="Colab code sandbox proxy token when using colab variant"),
+                Field(
+                    description=(
+                        "Google Colab code sandbox proxy token when using "
+                        "google_colab/google-colab (or legacy colab) variant"
+                    )
+                ),
             ] = None,
             channels_url: Annotated[
                 str | None,
                 Field(
-                    description="Notebook session WebSocket channels URL to derive server_url/kernel_id (colab or kaggle variant)"
+                    description=(
+                        "Notebook session WebSocket channels URL to derive "
+                        "server_url/kernel_id (google_colab/google-colab/colab or kaggle variant)"
+                    )
                 ),
             ] = None,
             token: Annotated[

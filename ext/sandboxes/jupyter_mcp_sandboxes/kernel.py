@@ -22,11 +22,13 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
     """Build an unstarted client for the configured sandbox variant."""
     del logger
     engine = (config.sandbox_variant or "jupyter").lower()
+    if engine in {"google-colab", "colab"}:
+        engine = "google_colab"
     timeout = float(getattr(config, "execution_timeout", 30) or 30)
 
-    if engine == "colab":
+    if engine == "google_colab":
         create_kwargs: dict[str, Any] = {
-            "variant": "colab",
+            "variant": "google_colab",
             "timeout": timeout,
             "server_url": config.code_sandbox_url,
             "proxy_token": config.code_sandbox_proxy_token,

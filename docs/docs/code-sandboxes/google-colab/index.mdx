@@ -3,7 +3,7 @@
 The Jupyter MCP Server can execute code against a **Google Colab** code sandbox. Colab
 exposes a Jupyter-compatible kernel behind an authenticating proxy, so the server
 connects to it through the [code-sandboxes](https://github.com/datalayer/code-sandboxes)
-`colab` sandbox variant.
+`google_colab` sandbox variant (CLI alias: `google-colab`).
 
 :::tip
 
@@ -35,7 +35,7 @@ You obtain the following values from an active Colab browser session:
 |-----------|----------------------|-------------|
 | Server URL | `CODE_SANDBOX_URL` | The Colab tunnel URL for the code sandbox |
 | Kernel ID | `CODE_SANDBOX_ID` | The assigned kernel identifier |
-| Proxy token | `CODE_SANDBOX_PROXY_TOKEN` | The `colab-code-sandbox-proxy-token` value |
+| Proxy token | `CODE_SANDBOX_PROXY_TOKEN` | The `colab-runtime-proxy-token` value |
 
 ### How to obtain these values
 
@@ -43,7 +43,7 @@ The three values are the pieces of the WebSocket URL that Colab's own frontend
 uses to reach your assigned code sandbox:
 
 ```
-wss://<host>/api/kernels/<kernel_id>/channels?session_id=<...>&colab-code-sandbox-proxy-token=<proxy_token>&colab-client-agent=web
+wss://<host>/api/kernels/<kernel_id>/channels?session_id=<...>&colab-runtime-proxy-token=<proxy_token>&colab-client-agent=web
 ```
 
 Read them from your browser's developer tools:
@@ -58,7 +58,7 @@ Read them from your browser's developer tools:
      `https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev`; there is usually **no**
      `/tun/m/...` path segment.
    - **`CODE_SANDBOX_ID`** — the UUID after `/api/kernels/`.
-   - **`CODE_SANDBOX_PROXY_TOKEN`** — the `colab-code-sandbox-proxy-token` query parameter
+  - **`CODE_SANDBOX_PROXY_TOKEN`** — the `colab-runtime-proxy-token` query parameter
      (same value as the `X-Colab-Runtime-Proxy-Token` header). Ignore the
      `session_id` and `colab-client-agent` parameters.
 
@@ -67,10 +67,10 @@ from scratch. Start/connect a code sandbox in the Colab UI first, then reuse it 
 
 ## Configuration
 
-Select the Colab engine with `SANDBOX_VARIANT=colab`:
+Select the Colab engine with `SANDBOX_VARIANT=google-colab`:
 
 ```bash
-SANDBOX_VARIANT=colab
+SANDBOX_VARIANT=google-colab
 CODE_SANDBOX_URL=https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev
 CODE_SANDBOX_ID=c9bba548-3995-4f26-8e1a-7b8fbb10c578
 CODE_SANDBOX_PROXY_TOKEN=eyJhbGci....
@@ -81,7 +81,7 @@ Or via the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --sandbox-variant colab \
+  --sandbox-variant google-colab \
   --code-sandbox-url "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev" \
   --code-sandbox-id "c9bba548-3995-4f26-8e1a-7b8fbb10c578" \
   --code-sandbox-proxy-token "eyJhbGci...." \
@@ -104,8 +104,8 @@ Instead of setting `CODE_SANDBOX_URL` and `CODE_SANDBOX_ID` separately, you can 
 full WebSocket channels URL:
 
 ```bash
-SANDBOX_VARIANT=colab
-CODE_SANDBOX_CHANNELS_URL="wss://<host>/api/kernels/<kernel_id>/channels?session_id=<...>&colab-code-sandbox-proxy-token=<proxy_token>&colab-client-agent=web"
+SANDBOX_VARIANT=google-colab
+CODE_SANDBOX_CHANNELS_URL="wss://<host>/api/kernels/<kernel_id>/channels?session_id=<...>&colab-runtime-proxy-token=<proxy_token>&colab-client-agent=web"
 CODE_SANDBOX_PROXY_TOKEN=<proxy_token>
 ```
 
@@ -114,7 +114,7 @@ Or on the command line:
 ```bash
 jupyter mcp start \
   --transport streamable-http \
-  --sandbox-variant colab \
+  --sandbox-variant google-colab \
   --code-sandbox-channels-url "wss://<host>/api/kernels/<kernel_id>/channels?..." \
   --code-sandbox-proxy-token "<proxy_token>" \
   --port 4040

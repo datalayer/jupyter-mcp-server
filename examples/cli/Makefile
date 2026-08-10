@@ -135,7 +135,7 @@ start:
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			log_step "Choose optional additional sandbox backend:"; \
-			echo "  none (default), jupyterhub, datalayer, colab, kaggle, monty, modal, eval, docker"; \
+			echo "  none (default), jupyterhub, datalayer, google-colab, colab, kaggle, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
@@ -150,7 +150,7 @@ start:
 		VARIANT="none"; \
 	fi; \
 	case "$$VARIANT" in \
-		none|jupyterhub|datalayer|colab|kaggle|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|google-colab|google_colab|colab|kaggle|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
 	if [[ "$$VARIANT" == "none" ]]; then \
@@ -170,12 +170,12 @@ start:
 		case "$$VARIANT" in \
 			none) \
 				;; \
-			colab) \
+			google-colab|google_colab|colab) \
 				if [[ -z "$${CODE_SANDBOX_CHANNELS_URL:-}" && ( -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_ID:-}" || -z "$${CODE_SANDBOX_PROXY_TOKEN:-}" ) ]]; then \
 					echo "Colab requires either CODE_SANDBOX_CHANNELS_URL, or CODE_SANDBOX_URL + CODE_SANDBOX_ID + CODE_SANDBOX_PROXY_TOKEN."; \
 					echo "Examples:"; \
-					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start"; \
-					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... CODE_SANDBOX_PROXY_TOKEN=... make start"; \
+					echo "  SANDBOX_VARIANT=google-colab CODE_SANDBOX_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start"; \
+					echo "  SANDBOX_VARIANT=google-colab CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... CODE_SANDBOX_PROXY_TOKEN=... make start"; \
 					exit 1; \
 				fi; \
 				;; \
@@ -359,7 +359,7 @@ start-noauth:
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			log_step "Choose optional additional sandbox backend:"; \
-			echo "  none (default), jupyterhub, datalayer, colab, kaggle, monty, modal, eval, docker"; \
+			echo "  none (default), jupyterhub, datalayer, google-colab, colab, kaggle, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
@@ -374,7 +374,7 @@ start-noauth:
 		VARIANT="none"; \
 	fi; \
 	case "$$VARIANT" in \
-		none|jupyterhub|datalayer|colab|kaggle|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|google-colab|google_colab|colab|kaggle|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
 	if [[ "$$VARIANT" == "none" ]]; then \
@@ -394,12 +394,12 @@ start-noauth:
 		case "$$VARIANT" in \
 			none) \
 				;; \
-			colab) \
+			google-colab|google_colab|colab) \
 				if [[ -z "$${CODE_SANDBOX_CHANNELS_URL:-}" && ( -z "$${CODE_SANDBOX_URL:-}" || -z "$${CODE_SANDBOX_ID:-}" || -z "$${CODE_SANDBOX_PROXY_TOKEN:-}" ) ]]; then \
 					echo "Colab requires either CODE_SANDBOX_CHANNELS_URL, or CODE_SANDBOX_URL + CODE_SANDBOX_ID + CODE_SANDBOX_PROXY_TOKEN."; \
 					echo "Examples:"; \
-					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start-noauth"; \
-					echo "  SANDBOX_VARIANT=colab CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... CODE_SANDBOX_PROXY_TOKEN=... make start-noauth"; \
+					echo "  SANDBOX_VARIANT=google-colab CODE_SANDBOX_CHANNELS_URL='wss://.../api/kernels/.../channels?...' make start-noauth"; \
+					echo "  SANDBOX_VARIANT=google-colab CODE_SANDBOX_URL=... CODE_SANDBOX_ID=... CODE_SANDBOX_PROXY_TOKEN=... make start-noauth"; \
 					exit 1; \
 				fi; \
 				;; \

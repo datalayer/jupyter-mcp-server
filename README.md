@@ -71,7 +71,7 @@ For more details on each tool, their parameters, and return values, please refer
 | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                          |
 | `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                                    |
-| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter/datalayer/kaggle/colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
+| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter/datalayer/kaggle/google_colab/google-colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension.                      |
 | `list_sandboxes`     | List launched code sandboxes and their state (active flag, variant, status, and selected code sandbox options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                               |
 | `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                     |
 | `terminate_sandbox`  | Stop and unregister a launched code sandbox. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                              |
@@ -290,7 +290,7 @@ install it with `pip install jupyter_mcp_sandboxes`.
 | JupyterHub               | `jupyter`          | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                        |
 | Datalayer                | `datalayer`        | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT` |
 | Kaggle                   | `kaggle`           | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| Google Colab             | `colab`            | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`    |
+| Google Colab             | `google-colab`            | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`    |
 | Monty                    | `monty`            | `jupyter-mcp-server[monty]`     | —                                                     |
 | Modal                    | `modal`            | `jupyter-mcp-server[modal]`     | Modal credentials                                     |
 
@@ -386,14 +386,14 @@ pip install jupyter-mcp-server
 
 ```json
 "env": {
-  "SANDBOX_VARIANT": "colab",
+  "SANDBOX_VARIANT": "google-colab",
   "CODE_SANDBOX_URL": "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev",
   "CODE_SANDBOX_ID": "a1b2c3d4-....",
   "CODE_SANDBOX_PROXY_TOKEN": "ya29...."
 }
 ```
 
-> The proxy token (`colab-code-sandbox-proxy-token`) is short-lived; refresh it when it
+> The proxy token (`colab-runtime-proxy-token`) is short-lived; refresh it when it
 > expires.
 
 You can also pass `CODE_SANDBOX_CHANNELS_URL` with the Colab channels WebSocket URL

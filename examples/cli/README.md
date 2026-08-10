@@ -69,7 +69,7 @@ make start-noauth-agent
 
 This will:
 
-1. Ask for an optional sandbox variant (`none`, `jupyterhub`, `datalayer`, `colab`, `kaggle`, `monty`, `modal`, `eval`, `docker`)
+1. Ask for an optional sandbox variant (`none`, `jupyterhub`, `datalayer`, `google-colab`, `kaggle`, `monty`, `modal`, `eval`, `docker`)
 1. Start JupyterLab with token auth
 1. Wait until JupyterLab is ready
 1. Start Jupyter MCP Server with Streamable HTTP transport
@@ -112,7 +112,7 @@ Variant-specific required environment variables:
 - `jupyter` / `eval` / `docker` / `monty`: no extra variables required.
 - `jupyterhub`: requires `CODE_SANDBOX_URL` and `CODE_SANDBOX_TOKEN`.
 - `datalayer`: requires `CODE_SANDBOX_URL` and `CODE_SANDBOX_TOKEN`.
-- `colab`: requires either `CODE_SANDBOX_CHANNELS_URL`, or `CODE_SANDBOX_URL` + `CODE_SANDBOX_ID` + `CODE_SANDBOX_PROXY_TOKEN`.
+- `google-colab`: requires either `CODE_SANDBOX_CHANNELS_URL`, or `CODE_SANDBOX_URL` + `CODE_SANDBOX_ID` + `CODE_SANDBOX_PROXY_TOKEN`.
 - `kaggle`: defaults to batch mode (for example `KAGGLE_API_TOKEN` or Kaggle credentials). For interactive mode, set `CODE_SANDBOX_URL` and either `KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` (create a new kernel) or `CODE_SANDBOX_ID`/`CODE_SANDBOX_CHANNELS_URL` (connect existing kernel). Optional accelerator: `SANDBOX_GPU` (for example `T4`, `P100`, `NvidiaTeslaT4`).
 - `modal`: requires either (`MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET`) or a local
   Modal login in `~/.modal.toml` (for example after `modal token new`).
