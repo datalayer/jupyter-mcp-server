@@ -45,7 +45,7 @@ monty = ["code-sandboxes[monty]"]
 modal = ["code-sandboxes[modal]"]
 datalayer = ["code-sandboxes[datalayer]"]
 sandboxes = ["code-sandboxes[all]"]
-jupyterlab = ["jupyter-mcp-tools"]
+jupyterlab = ["jupyter-mcp-tools>=0.1.4"]
 test = [
     "ipykernel",
     "jupyter_server>=1.6,<3",
