@@ -31,7 +31,7 @@
 >
 > **New in v1.1.0:** We are not supporting external `Sandboxes` (Datalayer, Kaggle, Monty, Google Colab, Modal...).
 >
-> Setup details [on this page](https://jupyter-mcp-server.datalayer.tech/transports/streamable-http/#3-configure-your-mcp-client)
+> Setup details [on this page](https://jupyter-mcp-server.datalayer.tech/mcp-transports/streamable-http/#3-configure-your-mcp-client)
 >
 > Join the conversation in our [Community page](https://jupyter-mcp-server.datalayer.tech/community) - your feedback will help us prioritize features and ensure these integrations work seamlessly for your needs.
 
