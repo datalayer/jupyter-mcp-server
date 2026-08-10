@@ -508,7 +508,7 @@ class TestServerContextAuthHeaders:
         from jupyter_mcp_server.tools import ServerMode
         context._mode = ServerMode.MCP_SERVER
         context._code_sandbox_password_auth = None
-        context._server_client = MagicMock()
+        context._sandbox_server_client = MagicMock()
         context._initialized = True
 
         assert context.auth_headers == {}
@@ -532,7 +532,7 @@ class TestServerContextAuthHeaders:
         mock_session.cookies.set("_xsrf", "fresh_token")
         mock_session.cookies.set("username-localhost", "user1")
         mock_client.http_client.session = mock_session
-        context._server_client = mock_client
+        context._sandbox_server_client = mock_client
 
         headers = context.auth_headers
         assert "X-XSRFToken" in headers
@@ -556,7 +556,7 @@ class TestServerContextAuthHeaders:
         mock_session = MagicMock()
         mock_session.cookies = RequestsCookieJar()  # empty jar
         mock_client.http_client.session = mock_session
-        context._server_client = mock_client
+        context._sandbox_server_client = mock_client
 
         headers = context.auth_headers
         assert headers == {"Cookie": "login=cookie", "X-XSRFToken": "login_xsrf"}
@@ -603,7 +603,7 @@ class TestServerContextAuthHeaders:
         jar.set("_xsrf", "fresh")
         jar.set("session", "fresh-session")
         mock_client.http_client.session.cookies = jar
-        context._server_client = mock_client
+        context._sandbox_server_client = mock_client
 
         # document_auth_headers should return the FRESH code sandbox cookies,
         # not the stale login-time snapshot
@@ -629,7 +629,7 @@ class TestServerContextAuthHeaders:
 
         mock_client = MagicMock()
         mock_client.http_client.session.cookies = RequestsCookieJar()
-        context._server_client = mock_client
+        context._sandbox_server_client = mock_client
 
         # document_auth_headers should come from document_auth, not code sandbox
         headers = context.document_auth_headers
@@ -871,12 +871,12 @@ class TestNotebookConnectionAuth:
         context._code_sandbox_password_auth = mock_auth
         # Share code sandbox auth with document since URLs match in this test
         context._document_password_auth = mock_auth
-        context._server_client = MagicMock()
+        context._sandbox_server_client = MagicMock()
         mock_session = MagicMock()
         mock_session.cookies = RequestsCookieJar()
         mock_session.cookies.set("_xsrf", "tok")
         mock_session.cookies.set("session", "abc")
-        context._server_client.http_client.session = mock_session
+        context._sandbox_server_client.http_client.session = mock_session
 
         return NotebookConnection(
             notebook_info={

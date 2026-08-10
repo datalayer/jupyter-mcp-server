@@ -154,7 +154,7 @@ async def list_files(path: str = "", max_depth: int = 1, ...) -> str:
     return await safe_notebook_operation(
         lambda: ListFilesTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             path=path,
             max_depth=max_depth,

@@ -55,7 +55,7 @@ class RestartNotebookTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: JupyterServerClient | None = None,
+        sandbox_server_client: JupyterServerClient | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,

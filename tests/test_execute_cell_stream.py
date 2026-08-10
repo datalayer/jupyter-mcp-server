@@ -73,7 +73,7 @@ async def _run_stream(cell, execute_impl, timeout_seconds, kernel):
     manager = FakeNotebookManager(FakeNotebook(cell, execute_impl))
     return await ExecuteCellTool().execute(
         mode=ServerMode.MCP_SERVER,
-        server_client=None,
+        sandbox_server_client=None,
         contents_manager=None,
         kernel_manager=None,
         kernel_spec_manager=None,

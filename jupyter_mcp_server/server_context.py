@@ -22,8 +22,8 @@ class ServerContext:
     _kernel_manager = None
     _kernel_spec_manager = None
     _session_manager = None
-    _server_client = None
-    _document_client = None
+    _sandbox_server_client = None
+    _document_server_client = None
     _code_sandbox_password_auth = None
     _document_password_auth = None
     _initialized = False
@@ -49,8 +49,8 @@ class ServerContext:
             cls._instance._kernel_manager = None
             cls._instance._kernel_spec_manager = None
             cls._instance._session_manager = None
-            cls._instance._server_client = None
-            cls._instance._document_client = None
+            cls._instance._sandbox_server_client = None
+            cls._instance._document_server_client = None
 
     def _close_auth(self):
         """Close auth sessions if present; safe to call multiple times.
@@ -130,13 +130,15 @@ class ServerContext:
                     logger.warning(
                         "Both code_sandbox_password and code_sandbox_token are set. Password auth takes precedence."
                     )
-                self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=None)
-                self._code_sandbox_password_auth.inject_into_session(
-                    self._server_client.http_client.session
+                self._sandbox_server_client = JupyterServerClient(
+                    base_url=code_sandbox_url, token=None
                 )
-                self._install_code_sandbox_auth_retry(self._server_client)
+                self._code_sandbox_password_auth.inject_into_session(
+                    self._sandbox_server_client.http_client.session
+                )
+                self._install_code_sandbox_auth_retry(self._sandbox_server_client)
             else:
-                self._server_client = JupyterServerClient(
+                self._sandbox_server_client = JupyterServerClient(
                     base_url=code_sandbox_url, token=config.code_sandbox_token
                 )
                 if not config.code_sandbox_token:
@@ -145,7 +147,7 @@ class ServerContext:
                     # auth, JupyterHub single-user servers, --IdentityProvider.token='').
                     self._code_sandbox_password_auth = self._try_anonymous_auth(code_sandbox_url)
                     self._code_sandbox_password_auth.inject_into_session(
-                        self._server_client.http_client.session
+                        self._sandbox_server_client.http_client.session
                     )
 
             # Document auth — only needed when the document server is explicitly
@@ -247,13 +249,13 @@ class ServerContext:
         return self._session_manager
 
     @property
-    def server_client(self):
+    def sandbox_server_client(self):
         if not self._initialized:
             self.initialize()
-        return self._server_client
+        return self._sandbox_server_client
 
     @property
-    def document_client(self):
+    def document_server_client(self):
         """Return an HTTP client for document server operations.
 
         Reuse the server client when ``document_url`` is unset or matches the
@@ -261,12 +263,12 @@ class ServerContext:
         """
         if not self._initialized:
             self.initialize()
-        if self._document_client is not None:
-            return self._document_client
+        if self._document_server_client is not None:
+            return self._document_server_client
         config = get_config()
         document_url = config.document_url
         if (not document_url) or (document_url == config.code_sandbox_url):
-            return self._server_client
+            return self._sandbox_server_client
         if (
             self._document_password_auth is not None
             and self._document_password_auth is not self._code_sandbox_password_auth
@@ -275,8 +277,8 @@ class ServerContext:
             self._document_password_auth.inject_into_session(client.http_client.session)
         else:
             client = JupyterServerClient(base_url=document_url, token=config.document_token)
-        self._document_client = client
-        return self._document_client
+        self._document_server_client = client
+        return self._document_server_client
 
     @property
     def code_sandbox_auth_headers(self) -> dict[str, str]:
@@ -291,8 +293,8 @@ class ServerContext:
             self.initialize()
         if self._code_sandbox_password_auth is None:
             return {}
-        if self._server_client is not None:
-            session = self._server_client.http_client.session
+        if self._sandbox_server_client is not None:
+            session = self._sandbox_server_client.http_client.session
             cookies = dict(session.cookies)
             if cookies:
                 cookie_header = "; ".join(f"{name}={value}" for name, value in cookies.items())
@@ -322,8 +324,8 @@ class ServerContext:
             return self.code_sandbox_auth_headers
         return self._document_password_auth.get_headers()
 
-    def _install_code_sandbox_auth_retry(self, server_client: JupyterServerClient) -> None:
-        """Make every request through `server_client` retry once on a 401/403.
+    def _install_code_sandbox_auth_retry(self, sandbox_server_client: JupyterServerClient) -> None:
+        """Make every request through `sandbox_server_client` retry once on a 401/403.
 
         The collaboration/document path already survives a cookie expiry via
         `NotebookConnection._get_ws_url`, which catches the error, calls
@@ -334,7 +336,7 @@ class ServerContext:
         """
         from jupyter_server_client.exceptions import AuthenticationError, ForbiddenError
 
-        original_request = server_client.http_client.request
+        original_request = sandbox_server_client.http_client.request
 
         def request_with_relogin(*args, **kwargs):
             try:
@@ -348,7 +350,7 @@ class ServerContext:
                 self.relogin_code_sandbox()
                 return original_request(*args, **kwargs)
 
-        server_client.http_client.request = request_with_relogin
+        sandbox_server_client.http_client.request = request_with_relogin
 
     def relogin_code_sandbox(self, timeout: float = 10.0) -> None:
         """Re-authenticate the code sandbox server session after cookie expiry.
@@ -362,9 +364,9 @@ class ServerContext:
         if self._code_sandbox_password_auth is None:
             return
         self._code_sandbox_password_auth.relogin(timeout=timeout)
-        if self._server_client is not None:
+        if self._sandbox_server_client is not None:
             self._code_sandbox_password_auth.inject_into_session(
-                self._server_client.http_client.session
+                self._sandbox_server_client.http_client.session
             )
         logger.info("Code sandbox session re-authenticated after cookie expiry.")
 
@@ -383,9 +385,9 @@ class ServerContext:
             self.relogin_code_sandbox(timeout=timeout)
             return
         self._document_password_auth.relogin(timeout=timeout)
-        if self._document_client is not None:
+        if self._document_server_client is not None:
             self._document_password_auth.inject_into_session(
-                self._document_client.http_client.session
+                self._document_server_client.http_client.session
             )
         logger.info("Document session re-authenticated after cookie expiry.")
 

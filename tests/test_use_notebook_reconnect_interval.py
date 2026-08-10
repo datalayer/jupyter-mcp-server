@@ -66,7 +66,7 @@ async def test_use_notebook_mcp_server_forwards_reconnect_interval(configured_re
     ) as mock_create:
         await UseNotebookTool().execute(
             mode=ServerMode.MCP_SERVER,
-            server_client=FakeServerClient(),
+            sandbox_server_client=FakeServerClient(),
             notebook_manager=NotebookManager(),
             notebook_name="nb",
             notebook_path="nb.ipynb",
@@ -92,7 +92,7 @@ async def test_use_notebook_mcp_server_defaults_reconnect_interval_to_zero(confi
     ) as mock_create:
         await UseNotebookTool().execute(
             mode=ServerMode.MCP_SERVER,
-            server_client=FakeServerClient(),
+            sandbox_server_client=FakeServerClient(),
             notebook_manager=NotebookManager(),
             notebook_name="nb2",
             notebook_path="nb2.ipynb",

@@ -157,7 +157,7 @@ class OverwriteCellSourceTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: JupyterServerClient | None = None,
+        sandbox_server_client: JupyterServerClient | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
@@ -193,7 +193,7 @@ class OverwriteCellSourceTool(BaseTool):
 
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: HTTP client for MCP_SERVER mode
+            sandbox_server_client: HTTP client for MCP_SERVER mode
             contents_manager: Direct API access for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             cell_index: Index of the cell to overwrite (0-based)

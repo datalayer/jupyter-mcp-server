@@ -83,7 +83,7 @@ async def auto_enroll_document(
         # Use the use_notebook_tool to properly enroll the notebook with kernel
         result = await use_notebook_tool.execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             notebook_name="default",
             notebook_path=config.document_id,
             use_mode="connect",

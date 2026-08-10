@@ -128,7 +128,7 @@ class ClearCellOutputTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: JupyterServerClient | None = None,
+        sandbox_server_client: JupyterServerClient | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
@@ -157,7 +157,7 @@ class ClearCellOutputTool(BaseTool):
 
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: HTTP client for MCP_SERVER mode
+            sandbox_server_client: HTTP client for MCP_SERVER mode
             contents_manager: Direct API access for JUPYTER_SERVER mode
             notebook_manager: Notebook manager instance
             cell_index: Index of the code cell to clear (0-based)

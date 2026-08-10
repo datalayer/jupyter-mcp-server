@@ -121,7 +121,7 @@ class JupyterCitePrompt(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: JupyterServerClient | None = None,
+        sandbox_server_client: JupyterServerClient | None = None,
         contents_manager: Any | None = None,
         notebook_manager: NotebookManager | None = None,
         cell_indices: str | None = None,
@@ -167,9 +167,11 @@ class JupyterCitePrompt(BaseTool):
             notebook_path = notebook_manager.get_notebook_path(notebook_name)
             loaded_from_contents = False
 
-            if server_client is not None and notebook_path:
+            if sandbox_server_client is not None and notebook_path:
                 try:
-                    model = server_client.contents.get(notebook_path, content=True, type="notebook")
+                    model = sandbox_server_client.contents.get(
+                        notebook_path, content=True, type="notebook"
+                    )
                     content = model.content if hasattr(model, "content") else model.get("content")
                     if isinstance(content, dict):
                         notebook = Notebook(**content)

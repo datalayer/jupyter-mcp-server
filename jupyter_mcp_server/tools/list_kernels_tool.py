@@ -15,17 +15,19 @@ from jupyter_mcp_server.utils import format_TSV
 class ListKernelsTool(BaseTool):
     """List all available kernels in the Jupyter server."""
 
-    def _list_kernels_http(self, server_client: JupyterServerClient) -> list[dict[str, str]]:
+    def _list_kernels_http(
+        self, sandbox_server_client: JupyterServerClient
+    ) -> list[dict[str, str]]:
         """List kernels using HTTP API (MCP_SERVER mode)."""
         try:
             # Get all kernels from the Jupyter server
-            kernels = server_client.kernels.list_kernels()
+            kernels = sandbox_server_client.kernels.list_kernels()
 
             if not kernels:
                 return []
 
             # Get kernel specifications for additional details
-            kernels_specs = server_client.kernelspecs.list_kernelspecs()
+            kernels_specs = sandbox_server_client.kernelspecs.list_kernelspecs()
 
             # Create enhanced kernel information list
             output = []
@@ -153,7 +155,7 @@ class ListKernelsTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client: JupyterServerClient | None = None,
+        sandbox_server_client: JupyterServerClient | None = None,
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
@@ -163,7 +165,7 @@ class ListKernelsTool(BaseTool):
 
         Args:
             mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
-            server_client: HTTP client for MCP_SERVER mode
+            sandbox_server_client: HTTP client for MCP_SERVER mode
             kernel_manager: Direct kernel manager access for JUPYTER_SERVER mode
             kernel_spec_manager: Kernel spec manager for JUPYTER_SERVER mode
             **kwargs: Additional parameters (unused)
@@ -174,8 +176,8 @@ class ListKernelsTool(BaseTool):
         # Get kernel info based on mode
         if mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
             kernel_list = await self._list_kernels_local(kernel_manager, kernel_spec_manager)
-        elif mode == ServerMode.MCP_SERVER and server_client is not None:
-            kernel_list = self._list_kernels_http(server_client)
+        elif mode == ServerMode.MCP_SERVER and sandbox_server_client is not None:
+            kernel_list = self._list_kernels_http(sandbox_server_client)
         else:
             raise ValueError(f"Invalid mode or missing required managers/clients: mode={mode}")
 

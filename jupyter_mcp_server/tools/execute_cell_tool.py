@@ -213,7 +213,7 @@ class ExecuteCellTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        server_client=None,
+        sandbox_server_client=None,
         contents_manager=None,
         kernel_manager=None,
         kernel_spec_manager=None,

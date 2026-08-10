@@ -391,7 +391,7 @@ async def list_files(
     return await safe_notebook_operation(
         lambda: ListFilesTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             path=path,
             max_depth=max_depth,
@@ -426,7 +426,7 @@ async def list_kernels() -> (
     return await safe_notebook_operation(
         lambda: ListKernelsTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             kernel_manager=server_context.kernel_manager,
             kernel_spec_manager=server_context.kernel_spec_manager,
         )
@@ -471,7 +471,7 @@ async def use_notebook(
     result = await safe_notebook_operation(
         lambda: UseNotebookTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             notebook_name=notebook_name,
             notebook_path=notebook_path,
             use_mode=mode,
@@ -601,7 +601,7 @@ async def read_notebook(
     return await safe_notebook_operation(
         lambda: ReadNotebookTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             notebook_manager=notebook_manager,
             notebook_name=notebook_name,
@@ -643,7 +643,7 @@ async def insert_cell(
     return await safe_notebook_operation(
         lambda: InsertCellTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -680,7 +680,7 @@ async def overwrite_cell_source(
     return await safe_notebook_operation(
         lambda: OverwriteCellSourceTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -722,7 +722,7 @@ async def edit_cell_source(
     return await safe_notebook_operation(
         lambda: EditCellSourceTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -773,7 +773,7 @@ async def execute_cell(
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -829,7 +829,7 @@ async def insert_execute_code_cell(
     insert_result = await safe_notebook_operation(
         lambda: InsertCellTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -851,7 +851,7 @@ async def insert_execute_code_cell(
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -895,7 +895,7 @@ async def read_cell(
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             notebook_manager=notebook_manager,
             cell_index=cell_index,
@@ -935,7 +935,7 @@ async def delete_cell(
     return await safe_notebook_operation(
         lambda: DeleteCellTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -969,7 +969,7 @@ async def clear_cell_output(
     return await safe_notebook_operation(
         lambda: ClearCellOutputTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -1010,7 +1010,7 @@ async def move_cell(
     return await safe_notebook_operation(
         lambda: MoveCellTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
@@ -1094,7 +1094,7 @@ async def execute_code(
     return await safe_notebook_operation(
         lambda: ExecuteCodeTool().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             kernel_manager=server_context.kernel_manager,
             notebook_manager=notebook_manager,
             code=code,
@@ -1174,7 +1174,7 @@ async def jupyter_cite(
     return await safe_notebook_operation(
         lambda: JupyterCitePrompt().execute(
             mode=server_context.mode,
-            server_client=server_context.server_client,
+            sandbox_server_client=server_context.sandbox_server_client,
             contents_manager=server_context.contents_manager,
             notebook_manager=notebook_manager,
             cell_indices=cell_indices,
