@@ -932,6 +932,12 @@ async def execute_via_execution_stack(
     if logger is None:
         logger = default_logging.getLogger(__name__)
 
+    # hook_ctx is set once BEFORE_EXECUTE has fired; every exit past that point
+    # owes exactly one AFTER_EXECUTE carrying this context back to the handlers.
+    # The cancellation handler re-raises into the outer one, hence the flag.
+    hook_ctx = None
+    after_execute_fired = False
+
     try:
         # Get the ExecutionStack from the jupyter_server_nbmodel extension
         nbmodel_extensions = serverapp.extension_manager.extension_apps.get(
@@ -1029,7 +1035,17 @@ async def execute_via_execution_stack(
                     # Check for pending input (shouldn't happen with allow_stdin=False)
                     if "input_request" in result:
                         logger.warning("Unexpected input request during execution")
-                        return ["[ERROR: Unexpected input request]"]
+                        input_request_output = ["[ERROR: Unexpected input request]"]
+                        await HookRegistry.get_instance().fire(
+                            HookEvent.AFTER_EXECUTE,
+                            code=code,
+                            kernel_id=kernel_id,
+                            metadata=metadata,
+                            outputs=input_request_output,
+                            error=RuntimeError("Unexpected input request during execution"),
+                            context=hook_ctx,
+                        )
+                        return input_request_output
 
                     # Extract outputs
                     outputs = result.get("outputs", [])
@@ -1040,9 +1056,19 @@ async def execute_via_execution_stack(
 
                         try:
                             outputs = json.loads(outputs)
-                        except json.JSONDecodeError:
+                        except json.JSONDecodeError as decode_err:
                             logger.error(f"Failed to parse outputs JSON: {outputs}")
-                            return ["[ERROR: Invalid output format]"]
+                            decode_error_output = ["[ERROR: Invalid output format]"]
+                            await HookRegistry.get_instance().fire(
+                                HookEvent.AFTER_EXECUTE,
+                                code=code,
+                                kernel_id=kernel_id,
+                                metadata=metadata,
+                                outputs=decode_error_output,
+                                error=decode_err,
+                                context=hook_ctx,
+                            )
+                            return decode_error_output
 
                     if outputs:
                         formatted = safe_extract_outputs(outputs)
@@ -1080,7 +1106,7 @@ async def execute_via_execution_stack(
                 # Still pending, wait before next poll
                 await asyncio.sleep(poll_interval)
 
-        except (asyncio.CancelledError, TimeoutError):
+        except (asyncio.CancelledError, TimeoutError) as interrupt_err:
             # Clean up the orphaned execution request to prevent subsequent
             # execute_cell calls from hanging on stale state.
             logger.warning(
@@ -1091,10 +1117,32 @@ async def execute_via_execution_stack(
                 execution_stack.cancel(kernel_id)
             except Exception as cancel_err:
                 logger.error(f"Failed to cancel execution on kernel {kernel_id}: {cancel_err}")
+            # CancelledError does not reach the handler below (it is not an
+            # Exception), so this execution's AFTER_EXECUTE has to be fired here.
+            await HookRegistry.get_instance().fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code,
+                kernel_id=kernel_id,
+                metadata=metadata,
+                outputs=[],
+                error=interrupt_err,
+                context=hook_ctx,
+            )
+            after_execute_fired = True
             raise
 
     except Exception as e:
         logger.error(f"Error executing via ExecutionStack: {e}", exc_info=True)
+        if hook_ctx is not None and not after_execute_fired:
+            await HookRegistry.get_instance().fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code,
+                kernel_id=kernel_id,
+                metadata=metadata,
+                outputs=[],
+                error=e,
+                context=hook_ctx,
+            )
         return [f"[ERROR: {e!s}]"]
 
 
@@ -1131,6 +1179,10 @@ async def execute_code_local(
         logger = logging.getLogger(__name__)
 
     client: Any = None
+
+    # Set once BEFORE_EXECUTE has fired; every exit past that point owes
+    # exactly one AFTER_EXECUTE carrying this context back to the handlers.
+    hook_ctx = None
 
     try:
         # Get kernel manager
@@ -1210,7 +1262,17 @@ async def execute_code_local(
                 logger.warning(
                     f"Code execution timeout after {timeout}s, collected {len(outputs)} outputs"
                 )
-                return [f"[TIMEOUT ERROR: Code execution exceeded {timeout} seconds]"]
+                timeout_output = [f"[TIMEOUT ERROR: Code execution exceeded {timeout} seconds]"]
+                await HookRegistry.get_instance().fire(
+                    HookEvent.AFTER_EXECUTE,
+                    code=code,
+                    kernel_id=kernel_id,
+                    metadata={},
+                    outputs=timeout_output,
+                    error=asyncio.TimeoutError(),
+                    context=hook_ctx,
+                )
+                return timeout_output
 
             # Use shorter poll timeout during grace period
             poll_timeout = (
@@ -1321,6 +1383,16 @@ async def execute_code_local(
 
     except Exception as e:
         logger.error(f"Error executing code locally: {e}")
+        if hook_ctx is not None:
+            await HookRegistry.get_instance().fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code,
+                kernel_id=kernel_id,
+                metadata={},
+                outputs=[],
+                error=e,
+                context=hook_ctx,
+            )
         return [f"[ERROR: {e!s}]"]
 
     finally:
