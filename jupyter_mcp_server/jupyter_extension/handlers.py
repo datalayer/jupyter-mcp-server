@@ -16,6 +16,11 @@ from typing import Any
 from jupyter_server.base.handlers import JupyterHandler
 from tornado.web import HTTPError
 
+from jupyter_mcp_server.identity import (
+    identity_from_jupyter_user,
+    reset_current_identity,
+    set_current_identity,
+)
 from jupyter_mcp_server.jupyter_extension.backends.local_backend import LocalBackend
 from jupyter_mcp_server.jupyter_extension.backends.remote_backend import RemoteBackend
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
@@ -40,11 +45,28 @@ class MCPSSEHandler(JupyterHandler):
     # Cache of jupyter_mcp_tools tool names for routing decisions
     _jupyter_tool_names = set()
 
+    _identity_token = None
+
     async def prepare(self):
-        """Require a valid Jupyter token for all /mcp requests."""
+        """Require a valid Jupyter token for all /mcp requests.
+
+        Whoever the identity provider resolved becomes the identity of this
+        request, so a tool sees the same `Identity` here as it would in
+        MCP_SERVER mode. A deployment that authenticates its own way supplies
+        a Jupyter `IdentityProvider`; nothing below has to know.
+        """
         await super().prepare()
         if not self.current_user:
             raise HTTPError(403, "Authentication required")
+        self._identity_token = set_current_identity(
+            identity_from_jupyter_user(self.current_user)
+        )
+
+    def on_finish(self):
+        """Forget the identity when the request is over."""
+        if self._identity_token is not None:
+            reset_current_identity(self._identity_token)
+            self._identity_token = None
 
     def set_default_headers(self):
         """Set headers for SSE responses."""
@@ -476,11 +498,26 @@ class MCPHandler(JupyterHandler):
     Requires a valid Jupyter token for all requests (GET and POST).
     """
 
+    _identity_token = None
+
     async def prepare(self):
-        """Enforce Jupyter token authentication."""
+        """Enforce Jupyter token authentication.
+
+        As in `MCPSSEHandler`, the resolved user becomes the identity of the
+        request so that both modes present tools with the same thing.
+        """
         await super().prepare()
         if not self.current_user:
             raise self._custom_403()
+        self._identity_token = set_current_identity(
+            identity_from_jupyter_user(self.current_user)
+        )
+
+    def on_finish(self):
+        """Forget the identity when the request is over."""
+        if self._identity_token is not None:
+            reset_current_identity(self._identity_token)
+            self._identity_token = None
 
     def _custom_403(self):
         from tornado.web import HTTPError

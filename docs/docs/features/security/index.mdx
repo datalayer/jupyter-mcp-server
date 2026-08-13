@@ -65,6 +65,15 @@ jupyter mcp start \
 When running as a Jupyter Server extension, MCP endpoints are protected by Jupyter's built-in IdentityProvider.
 The token is the same `--IdentityProvider.token` used to start JupyterLab.
 
+:::tip Authenticating with your own platform
+
+A shared token is not the only option. Both modes accept a pluggable
+authentication of your own — an OAuth resource server, your accounts, your
+scopes — through a token verifier in `MCP_SERVER` mode and a Jupyter identity
+provider in `JUPYTER_SERVER` mode. See [Identity](/features/identity).
+
+:::
+
 ### STDIO Transport
 
 STDIO transport communicates over standard input/output and does not use HTTP, so token authentication does not apply.

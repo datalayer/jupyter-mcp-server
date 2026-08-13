@@ -4,6 +4,7 @@
 
 import asyncio
 import json
+import os
 import re
 import time
 from collections.abc import Callable
@@ -251,14 +252,22 @@ def do_start(
     import uvicorn
 
     from jupyter_mcp_server.config import set_config
+    from jupyter_mcp_server.identity import TOKEN_VERIFIER_CLASS_ENV
     from jupyter_mcp_server.log import logger
     from jupyter_mcp_server.server import __auto_enroll_document, __start_kernel, mcp
     from jupyter_mcp_server.server_context import ServerContext
 
-    if transport == "streamable-http" and not mcp_token and not insecure_mcp_noauth:
+    has_custom_verifier = bool((os.environ.get(TOKEN_VERIFIER_CLASS_ENV) or "").strip())
+    if (
+        transport == "streamable-http"
+        and not mcp_token
+        and not insecure_mcp_noauth
+        and not has_custom_verifier
+    ):
         raise ValueError(
             "streamable-http transport requires MCP client authentication. "
-            "Set --mcp-token / MCP_TOKEN, or pass --insecure-mcp-noauth to "
+            "Set --mcp-token / MCP_TOKEN, name a verifier in "
+            f"{TOKEN_VERIFIER_CLASS_ENV}, or pass --insecure-mcp-noauth to "
             "explicitly allow unauthenticated access."
         )
 
@@ -332,11 +341,15 @@ def do_start(
     maybe_register_otel(otel_file or None)
 
     if transport == "streamable-http":
-        if mcp_token:
-            from jupyter_mcp_server.server import CodeSandboxTokenVerifier
+        # A deployment can supply its own verifier — an OAuth resource server,
+        # a platform identity — by naming it in
+        # JUPYTER_MCP_TOKEN_VERIFIER_CLASS. Falling back to the shared secret
+        # of --mcp-token when it does not.
+        from jupyter_mcp_server.identity import resolve_token_verifier
 
-            mcp._token_verifier = CodeSandboxTokenVerifier(mcp_token)
-            logger.info("MCP endpoint token authentication enabled (using MCP_TOKEN)")
+        token_verifier = resolve_token_verifier(mcp_token)
+        if token_verifier is not None:
+            mcp._token_verifier = token_verifier
         elif insecure_mcp_noauth:
             logger.warning(
                 "MCP endpoint authentication DISABLED (--insecure-mcp-noauth). "
