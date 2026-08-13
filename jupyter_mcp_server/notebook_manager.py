@@ -154,8 +154,13 @@ class NotebookManager:
     is shared is the alias and its binding, which leaks the existence and path
     of a notebook rather than its contents.
 
-    A deployment isolating users from one another should run a process per
-    tenant until this state is keyed by caller.
+    A deployment serving several users should therefore run **one process per
+    user** rather than sharing one. That is the supported pattern, not a
+    stopgap: a process is a boundary the operating system already enforces,
+    and it covers this state along with every other piece a future change
+    might cache. The hosted Datalayer gateway works exactly this way — it
+    authenticates and authorizes centrally, then hands each request to that
+    user's own server process.
     """
 
     def __init__(self):

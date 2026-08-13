@@ -209,12 +209,29 @@ transport stateful, do not rely on `identity.token`.
 
 :::
 
-:::note One process, for now
+:::warning Serving several users means one process each
 
-The notebook manager is process-global, so notebooks used via `use_notebook`
-are shared across the users of a single process. A deployment isolating users
-from one another should run a process per tenant until that state is
-per-caller.
+Passing the credential per request covers the document and sandbox tokens. It
+does not make a single process multi-tenant, and it was never going to: the
+configuration is a singleton, `ServerContext` caches HTTP clients with a token
+baked into their sessions, and `NotebookManager` holds the notebooks that have
+been used. Each is correct for one person and none is safe to share, and every
+future piece of cached state would be another one to find.
+
+So the supported way to serve several users is **one server process per user**,
+with authentication and authorization in front of them. A process is a boundary
+the operating system already enforces, and it covers the state you have not
+thought of as well as the state you have.
+
+The hosted [Datalayer](https://datalayer.ai) gateway is built this way: it
+verifies the token, checks the scope and the notebook permission, and then
+hands the request to that user's own process, which holds no credential of its
+own and authenticates the forwarded header exactly as a directly connected
+client would.
+
+Per-request credentials still matter inside that design — a worker serves one
+user but sees many of their tokens over time, and `identity.token` is what
+keeps each request acting with the one it arrived with.
 
 :::
 
