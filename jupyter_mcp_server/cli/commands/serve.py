@@ -143,7 +143,7 @@ def server_callback(
         DocumentProvider,
         typer.Option(
             "--document-provider",
-            # `--provider` / PROVIDER stay accepted: they named this before 1.3.
+            # `--provider` / PROVIDER stay accepted: they named this before v1.3.2.
             "--provider",
             envvar=["DOCUMENT_PROVIDER", "PROVIDER"],
             help=(
@@ -428,7 +428,7 @@ def start_command(
         DocumentProvider,
         typer.Option(
             "--document-provider",
-            # `--provider` / PROVIDER stay accepted: they named this before 1.3.
+            # `--provider` / PROVIDER stay accepted: they named this before v1.3.2.
             "--provider",
             envvar=["DOCUMENT_PROVIDER", "PROVIDER"],
             help=(

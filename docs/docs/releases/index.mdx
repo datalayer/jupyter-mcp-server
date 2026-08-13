@@ -1,5 +1,127 @@
 # Releases
 
+## Migration Guide to 1.3.2
+
+Version 1.3.2 renames `provider` to `document_provider`, so that the name says what the
+option actually selects.
+
+It only ever chose **where the notebook documents live** — `jupyter` for the collaboration
+API of a Jupyter Server, `datalayer` for the Datalayer spacer. Where the *code runs* is a
+separate choice, made with `--sandbox-variant`. The old name, and its help text, suggested
+one option governed both.
+
+:::tip[Nothing breaks in 1.3.2]
+
+The former names are deprecated, not removed. `--provider` is still accepted as an alias,
+`PROVIDER` is still read, and a `/connect` payload carrying `"provider"` is still
+understood. Migrate when convenient.
+
+:::
+
+### Who Should Migrate
+
+- End users passing `--provider` or setting `PROVIDER`, which in practice means anyone
+  pointing the server at Datalayer-hosted documents.
+- Operators whose manifests, wrapper scripts or MCP client configurations carry `PROVIDER`.
+- Anyone calling the `/connect` endpoint or the `connect_to_jupyter` tool with a
+  `provider` field.
+
+### Change Summary
+
+- Use `document_provider` names everywhere instead of `provider` names.
+- The accepted values are unchanged: `jupyter` (default) and `datalayer`.
+- Execution backends keep their own option, `--sandbox-variant` / `SANDBOX_VARIANT`.
+- Nothing has to change immediately: the old names still work in this version.
+
+### Rename Matrix
+
+| Old (pre-1.3.2) | New (1.3.2+) |
+|---|---|
+| `provider` | `document_provider` |
+| `PROVIDER` | `DOCUMENT_PROVIDER` |
+| `--provider` | `--document-provider` |
+| `"provider"` in the `/connect` payload | `"document_provider"` |
+| `provider` argument of `connect_to_jupyter` | `document_provider` |
+
+### End User Migration
+
+#### 1. Update environment variables
+
+Before:
+
+```bash
+export PROVIDER=datalayer
+```
+
+After:
+
+```bash
+export DOCUMENT_PROVIDER=datalayer
+```
+
+#### 2. Update CLI commands
+
+Before:
+
+```bash
+jupyter mcp start \
+	--provider datalayer \
+	--document-url <url> \
+	--document-token <token>
+```
+
+After:
+
+```bash
+jupyter mcp start \
+	--document-provider datalayer \
+	--document-url <url> \
+	--document-token <token>
+```
+
+#### 3. Update MCP client configurations
+
+An MCP client passing the variable through its `env` block needs the new key:
+
+```json
+{
+  "env": {
+    "DOCUMENT_PROVIDER": "datalayer",
+    "DOCUMENT_URL": "<url>",
+    "DOCUMENT_TOKEN": "<token>"
+  }
+}
+```
+
+#### 4. Check that document and execution are configured separately
+
+The two axes are independent, and a Datalayer document store does not imply a Datalayer
+sandbox. State each one:
+
+```bash
+jupyter mcp start \
+	--document-provider datalayer \
+	--sandbox-variant datalayer
+```
+
+### Known Migration Pitfalls
+
+- Assuming `--provider datalayer` also moved execution to Datalayer; it never did, and
+  `--sandbox-variant` is what does.
+- Both `PROVIDER` and `DOCUMENT_PROVIDER` set to different values in the same environment.
+  The new name wins, which may not be what the older one intended.
+- Wrapper scripts updated while CI secrets still carry the old key name.
+
+### Recommended Migration Checklist
+
+1. Replace `PROVIDER` with `DOCUMENT_PROVIDER` in environments, manifests and CI secrets.
+2. Replace `--provider` with `--document-provider` in commands and wrappers.
+3. Rename `provider` to `document_provider` in `/connect` payloads and tool calls.
+4. State `--sandbox-variant` explicitly wherever execution is not the default Jupyter one.
+5. Validate a notebook opens and a cell executes before removing the old names.
+
+For full reference values, see [Configuration](/features/configuration).
+
 ## Migration Guide to 1.2.0
 
 Version 1.2.0 completes the terminology migration from runtime to code sandbox.

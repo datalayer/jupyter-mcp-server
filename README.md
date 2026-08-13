@@ -49,7 +49,7 @@ working on your data when your laptop does not.
 <table>
 <tr><td>
 
-![Renamed](https://img.shields.io/badge/%F0%9F%94%84-Renamed-E67E22?style=for-the-badge&labelColor=A0522D)
+![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-E67E22?style=for-the-badge&labelColor=A0522D)
 
 **`--provider` is now `--document-provider`** (env var `PROVIDER` → `DOCUMENT_PROVIDER`).
 
@@ -58,8 +58,9 @@ API of a Jupyter Server, `datalayer` for the Datalayer spacer — while the old 
 help text suggested it also chose where code runs. Execution is picked separately, with
 `--sandbox-variant` (`jupyter`, `datalayer`, `kaggle`, `colab`, `monty`, `modal`).
 
-The former names keep working: `--provider` is still accepted as an alias, `PROVIDER` is
-still read, and a `/connect` payload carrying `"provider"` is still understood.
+Nothing breaks in v1.3.2: `--provider` is still accepted as an alias, `PROVIDER` is still
+read, and a `/connect` payload carrying `"provider"` is still understood. Move to the new
+names when convenient — the old ones are deprecated, not removed.
 
 </td></tr>
 </table>
