@@ -27,7 +27,7 @@ class UseNotebookTool(BaseTool):
 
     async def _start_kernel_local(self, kernel_manager: Any, path: str | None = None):
         # Start a new kernel using local API
-        kernel_id = await kernel_manager.start_kernel()
+        kernel_id = await kernel_manager.start_kernel(path=path)
         logger.info(f"Started kernel '{kernel_id}', waiting for it to be ready...")
 
         # CRITICAL: Wait for the kernel to actually start and be ready
