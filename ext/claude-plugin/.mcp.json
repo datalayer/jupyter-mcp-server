@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "datalayer": {
+      "type": "http",
+      "url": "https://mcp.datalayer.run/mcp"
+    }
+  }
+}

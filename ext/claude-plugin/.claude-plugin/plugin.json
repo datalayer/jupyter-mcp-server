@@ -1,0 +1,14 @@
+{
+  "name": "datalayer",
+  "description": "Connect Claude Code to Datalayer Notebooks — always-on notebooks, durable execution, and your data, through the hosted Jupyter MCP Server.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Datalayer",
+    "email": "support@datalayer.io",
+    "url": "https://datalayer.ai"
+  },
+  "homepage": "https://datalayer.ai/docs/access-jupyter-mcp-server",
+  "repository": "https://github.com/datalayer/jupyter-mcp-server",
+  "license": "BSD-3-Clause",
+  "keywords": ["jupyter", "notebook", "datalayer", "mcp", "data"]
+}
