@@ -142,6 +142,20 @@ class NotebookManager:
 
     This class replaces the global kernel variable approach with a unified
     management system that supports both single and multiple notebook scenarios.
+
+    Note that this state is per *process*, not per caller. A server accepting
+    several users therefore shares its managed notebooks between them: one
+    user's ``use_notebook`` is visible to another, and ``list_notebooks``
+    reports the union rather than each caller's own.
+
+    The credential is already per request — see
+    :attr:`~jupyter_mcp_server.identity.Identity.token` — so a shared entry
+    still cannot be *read* without the reader's own authority behind it. What
+    is shared is the alias and its binding, which leaks the existence and path
+    of a notebook rather than its contents.
+
+    A deployment isolating users from one another should run a process per
+    tenant until this state is keyed by caller.
     """
 
     def __init__(self):

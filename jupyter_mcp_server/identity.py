@@ -76,6 +76,18 @@ class Identity:
     #: What the credential allows. Empty means "unscoped", which a platform
     #: treats as full authority for that user, not as no authority.
     scopes: tuple[str, ...] = ()
+    #: The credential to present to the document and sandbox servers when
+    #: acting for this caller, when it differs from the configured one.
+    #:
+    #: A single-user server has one token in its configuration and every
+    #: request uses it. A server accepting many users cannot: the configured
+    #: token would be one person's, used for everyone's requests. Setting this
+    #: makes the credential travel with the request instead — see
+    #: :meth:`~jupyter_mcp_server.config.JupyterMCPConfig.resolved_document_token`.
+    #:
+    #: Empty means "use whatever is configured", which is the single-user case
+    #: and stays the default.
+    token: str = ""
     #: Anything the verifier wants to carry through to the tools.
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -131,7 +143,14 @@ class TokenVerifier(Protocol):
 
 
 def identity_from_access_token(access_token: AccessToken) -> Identity:
-    """The :class:`Identity` behind an MCP ``AccessToken``."""
+    """The :class:`Identity` behind an MCP ``AccessToken``.
+
+    The bearer token is carried through as the caller's credential, so a
+    server acting for many users presents each user's own token to the
+    document and sandbox servers rather than one configured for all of them.
+    A verifier that would rather not do that can return an ``AccessToken``
+    with no ``token``, and the configured credential is used as before.
+    """
     scopes = tuple(getattr(access_token, "scopes", ()) or ())
     return Identity(
         username=str(
@@ -141,6 +160,7 @@ def identity_from_access_token(access_token: AccessToken) -> Identity:
         ),
         client_id=str(getattr(access_token, "client_id", "") or ""),
         scopes=scopes,
+        token=str(getattr(access_token, "token", "") or ""),
     )
 
 
@@ -215,3 +235,75 @@ def resolve_token_verifier(default_token: str | None = None) -> TokenVerifier | 
         return CodeSandboxTokenVerifier(default_token)
 
     return None
+
+
+class IdentityMiddleware:
+    """Publish the authenticated caller for the duration of one HTTP request.
+
+    In JUPYTER_SERVER mode the handler sets the identity itself, because
+    Jupyter has already authenticated the request. In MCP_SERVER mode nothing
+    did: the SDK verifies the bearer token and puts the result in the ASGI
+    scope, and there it stopped — so a tool had no way to know who it was
+    acting for, and every request used whatever single credential the process
+    was configured with.
+
+    This closes that gap. Pure ASGI rather than ``BaseHTTPMiddleware`` so the
+    identity is set in the same task that runs the request, which is what a
+    :mod:`contextvars` value needs to be visible further down.
+
+    A note on where this may be installed. The streamable HTTP transport can
+    run stateful or stateless, and the difference decides whether this works:
+
+    - **stateless** — the server task is started per request, in the request's
+      context, so the identity set here reaches the tool. This is what
+      ``jupyter-mcp-server`` uses.
+    - **stateful** — the server task is started once, when the session is
+      created, and inherits *that* request's context. Every later call in the
+      session then runs as whoever opened it, whatever credential the later
+      request carried.
+
+    So this is correct under the transport as configured, and would silently
+    pin identity to the first caller if the transport were made stateful. That
+    is not a hypothetical: it was measured before this was written.
+    """
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        identity = _identity_from_scope(scope)
+        if identity is None:
+            await self.app(scope, receive, send)
+            return
+
+        token = set_current_identity(identity)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            # Reset rather than clear: concurrent requests each hold their own
+            # token, and clearing would leak one request's identity into
+            # another's context.
+            reset_current_identity(token)
+
+
+def _identity_from_scope(scope: dict) -> Identity | None:
+    """The identity the SDK's authentication left in the ASGI scope.
+
+    The bearer middleware puts an authenticated user under ``user``, carrying
+    the verified access token. Anything else — an unauthenticated endpoint, a
+    server with no verifier — means there is no identity to publish, which is
+    not an error.
+    """
+    user = scope.get("user")
+    access_token = getattr(user, "access_token", None)
+    if access_token is None:
+        return None
+    try:
+        return identity_from_access_token(access_token)
+    except Exception:  # noqa: BLE001 - never fail a request over identity
+        logger.warning("Could not build an identity from the access token", exc_info=True)
+        return None

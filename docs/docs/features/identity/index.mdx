@@ -31,6 +31,7 @@ identity = current_identity()
 identity.username    # who the user is
 identity.client_id   # which client is acting for them, when one is named
 identity.scopes      # what that client was allowed to do
+identity.token       # the credential to act with, when it travels per request
 identity.has_scope("code:execute")
 ```
 
@@ -138,6 +139,84 @@ so the two modes stay at parity.
 | Client | `AccessToken.client_id` | `User.client_id`, when set |
 | Scopes | `AccessToken.scopes` | `User.mcp_scopes`, when set |
 | Read from a tool | `current_identity()` | `current_identity()` |
+
+## Serving more than one user
+
+A server that serves one person needs one credential. It is configured once —
+`--document-token`, `--code-sandbox-token` — and every request uses it. That is
+the ordinary case, and nothing below changes it.
+
+A server that accepts many users cannot work that way. The configured token
+belongs to *somebody*, so using it for everyone means one user's requests run
+with another user's authority. The credential has to travel with the request.
+
+That is what `identity.token` is for. When a verifier puts a credential on the
+`Identity`, the server presents it to the document and code sandbox servers
+instead of the configured one:
+
+```python
+from mcp.server.auth.provider import AccessToken
+
+
+class MyVerifier:
+    async def verify_token(self, token: str) -> AccessToken | None:
+        claims = my_platform.verify(token)
+        if claims is None:
+            return None
+        return AccessToken(
+            token=token,          # carried through as identity.token
+            client_id=claims["client_id"],
+            scopes=claims["scopes"],
+            subject=claims["user_id"],
+        )
+```
+
+Nothing else is needed. `identity_from_access_token()` copies the bearer token
+onto the `Identity`, and the configuration resolves it:
+
+```python
+config.resolved_document_token()      # the caller's, else the configured one
+config.resolved_code_sandbox_token()  # the same rule, for the execution server
+```
+
+Both are read wherever a token is needed, so a tool cannot forget to ask. A
+verifier that would rather not pass the credential through returns an
+`AccessToken` with an empty `token`, and the configured one is used as before.
+
+:::warning This depends on the transport being stateless
+
+The identity is a `ContextVar`, and whether a tool can see it depends on which
+task the tool runs in.
+
+With `stateless_http=True` — what this project uses — the server task is
+started **per request**, in that request's context, so the tool sees that
+request's caller.
+
+With a stateful transport the server task is started **once**, when the session
+is created, and inherits that first request's context. Every later call in the
+session then runs as whoever opened it, whatever credential the later request
+carried. Measured, not assumed:
+
+| Transport | Session opened by `alice`, call sent by `bob` | Tool sees |
+|---|---|---|
+| stateless | per request | `bob` |
+| stateful | pinned at initialize | `alice` |
+
+The danger is not that it fails — it is that it succeeds with the wrong
+identity. An authorization layer checking each request's token would then
+disagree with the identity the tool acts under, silently. If you make the
+transport stateful, do not rely on `identity.token`.
+
+:::
+
+:::note One process, for now
+
+The notebook manager is process-global, so notebooks used via `use_notebook`
+are shared across the users of a single process. A deployment isolating users
+from one another should run a process per tenant until that state is
+per-caller.
+
+:::
 
 ## Using the identity in a tool
 
