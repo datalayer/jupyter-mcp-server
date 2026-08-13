@@ -1,0 +1,173 @@
+# Identity
+
+The built-in authentication described in [Security](/features/security) covers
+the common cases: a shared `MCP_TOKEN` for the standalone server, and the
+Jupyter token when running as an extension. This page is about the next step —
+authenticating MCP clients **the way your own platform does**, with your
+accounts, your OAuth, and your notion of what a client is allowed to do.
+
+## Why a configurable identity
+
+The server runs in two modes, and each authenticates through a mechanism owned
+by a different project:
+
+| Mode | Transport | Authenticated by | Result read from |
+|---|---|---|---|
+| `MCP_SERVER` | FastMCP over streamable HTTP | A **token verifier** of the MCP SDK | The bearer-auth middleware |
+| `JUPYTER_SERVER` | Tornado handlers in a Jupyter Server | A Jupyter **identity provider** | `self.current_user` |
+
+Both are pluggable, but they have different shapes, and a tool that wants to
+know who is calling should not have to care which mode it is running in. The
+`jupyter_mcp_server.identity` module gives both one shape.
+
+## The `Identity`
+
+Whatever authenticated the request, a tool sees the same object:
+
+```python
+from jupyter_mcp_server.identity import current_identity
+
+identity = current_identity()
+identity.username    # who the user is
+identity.client_id   # which client is acting for them, when one is named
+identity.scopes      # what that client was allowed to do
+identity.has_scope("code:execute")
+```
+
+:::info An unscoped credential is not a powerless one
+
+`has_scope()` returns `True` for **any** scope when `scopes` is empty. That is
+deliberate: a Jupyter token or a personal access token is the user acting as
+themselves, delegating nothing, so it carries their whole authority. Only a
+delegated credential — an OAuth token issued to an agent — narrows it.
+
+:::
+
+The identity lives in a `ContextVar` set at the start of each request and reset
+when it finishes, so concurrent requests never see one another's caller.
+
+## `MCP_SERVER` mode: a token verifier
+
+Name your class in the `JUPYTER_MCP_TOKEN_VERIFIER_CLASS` environment
+variable, as `package.module:ClassName` (a dotted path works too):
+
+```bash
+export JUPYTER_MCP_TOKEN_VERIFIER_CLASS="my_platform.mcp:MyTokenVerifier"
+
+jupyter mcp start --transport streamable-http --jupyter-token JUPYTER_SECRET
+```
+
+A verifier is any object with one asynchronous method. Return `None` to refuse
+the request, or an `AccessToken` to accept it:
+
+```python
+from mcp.server.auth.provider import AccessToken
+
+
+class MyTokenVerifier:
+    """Verify a bearer token against my platform."""
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        claims = my_platform.decode(token)     # signature, issuer, audience…
+        if claims is None:
+            return None
+        return AccessToken(
+            token=token,
+            client_id=claims["client_id"],
+            scopes=claims.get("scope", "").split(),
+            subject=claims["sub"],
+        )
+```
+
+The class is instantiated with no arguments, so it reads whatever it needs from
+the environment. When one is set, the MCP SDK installs its bearer-auth
+middleware and refuses every unverified request; `subject`, `client_id` and
+`scopes` become the `Identity`.
+
+### Resolution order
+
+1. `JUPYTER_MCP_TOKEN_VERIFIER_CLASS` — your verifier, if named;
+2. `--mcp-token` / `MCP_TOKEN` — the built-in shared secret;
+3. nothing — the server refuses to start on `streamable-http` unless you pass
+   `--insecure-mcp-noauth`.
+
+A class that does not implement `verify_token` raises `TypeError` at **startup**
+rather than on the first request, so a typo in the path is found immediately.
+
+## `JUPYTER_SERVER` mode: an identity provider
+
+As an extension, the MCP handlers require `self.current_user`, which Jupyter
+resolves through its own `IdentityProvider`. Plug yours in the usual Jupyter
+way — nothing in this project needs changing:
+
+```python
+# jupyter_server_config.py
+c.ServerApp.identity_provider_class = "my_platform.jupyter:MyIdentityProvider"
+```
+
+```python
+from jupyter_server.auth.identity import IdentityProvider, User
+
+
+class MyIdentityProvider(IdentityProvider):
+    """Resolve a Jupyter request against my platform."""
+
+    def get_user(self, handler):
+        token = handler.request.headers.get("Authorization", "").removeprefix("Bearer ")
+        claims = my_platform.decode(token)
+        if claims is None:
+            return None
+        user = User(username=claims["sub"])
+        # Optional: narrow what this session may do. Without it the session is
+        # unscoped, which means the user's full authority.
+        user.mcp_scopes = claims.get("scope", "").split()
+        return user
+```
+
+The `mcp_scopes` attribute is the one addition this project looks for: it is
+how a Jupyter session carries the same scope information an OAuth token would,
+so the two modes stay at parity.
+
+## Parity between the modes
+
+| | `MCP_SERVER` | `JUPYTER_SERVER` |
+|---|---|---|
+| Plug-in point | `JUPYTER_MCP_TOKEN_VERIFIER_CLASS` | `c.ServerApp.identity_provider_class` |
+| Implement | `async verify_token(token)` | `get_user(handler)` |
+| User | `AccessToken.subject` | `User.username` |
+| Client | `AccessToken.client_id` | `User.client_id`, when set |
+| Scopes | `AccessToken.scopes` | `User.mcp_scopes`, when set |
+| Read from a tool | `current_identity()` | `current_identity()` |
+
+## Using the identity in a tool
+
+```python
+from jupyter_mcp_server.identity import current_identity
+
+
+async def my_tool(...):
+    identity = current_identity()
+    if identity and not identity.has_scope("code:execute"):
+        raise PermissionError(
+            "This client was not granted permission to execute code."
+        )
+    ...
+```
+
+:::tip Scopes say what kind, permissions say which object
+
+A scope allows a *kind* of operation. It does not say which notebook or which
+dataset — that decision belongs to your platform, and should be made per
+request against the user in `identity.username`. A token carrying
+`notebooks:write` must still not let one user edit another's notebook.
+
+:::
+
+## An example: hosted Datalayer
+
+The [Datalayer](https://datalayer.ai) hosted MCP endpoint is built on exactly
+this hook. It supplies a verifier that accepts both OAuth 2.1 access tokens and
+personal access tokens, checks the audience so a token minted for another API
+cannot be replayed, and maps the platform's scopes — `notebooks:read`,
+`notebooks:write`, `code:execute`, `data:read` — onto the `Identity` the tools
+read. Nothing in this project is patched to make that work.

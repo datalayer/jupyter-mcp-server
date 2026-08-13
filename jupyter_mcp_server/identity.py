@@ -169,10 +169,7 @@ def load_token_verifier_class(path: str) -> type:
     else:
         module_name, _, class_name = path.rpartition(".")
     if not module_name or not class_name:
-        raise ValueError(
-            f"Cannot read '{path}' as a class path; "
-            "use 'package.module:ClassName'."
-        )
+        raise ValueError(f"Cannot read '{path}' as a class path; use 'package.module:ClassName'.")
     module = import_module(module_name)
     return getattr(module, class_name)
 
