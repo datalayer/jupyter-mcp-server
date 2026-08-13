@@ -9,7 +9,7 @@ from typing import Annotated
 
 import typer
 
-from jupyter_mcp_server.cli.commands.connect import Provider
+from jupyter_mcp_server.cli.commands.connect import DocumentProvider
 from jupyter_mcp_server.utils import (
     do_start,
     parse_bool_option,
@@ -41,7 +41,7 @@ def _resolve_and_start(
     jupyter_token: str | None,
     jupyter_password: str | None,
     port: int,
-    provider: str,
+    document_provider: str,
     jupyterlab: str,
     open_notebook_in_ui: str,
     allowed_jupyter_mcp_tools: str,
@@ -87,7 +87,7 @@ def _resolve_and_start(
         document_token=resolved_document_token,
         document_password=resolved_document_password,
         port=port,
-        provider=provider,
+        document_provider=document_provider,
         jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
         open_notebook_in_ui=parse_bool_option(open_notebook_in_ui, "--open-notebook-in-ui"),
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
@@ -139,14 +139,21 @@ def server_callback(
             help="Path to JSONL file for OpenTelemetry span export.",
         ),
     ] = "",
-    provider: Annotated[
-        Provider,
+    document_provider: Annotated[
+        DocumentProvider,
         typer.Option(
+            "--document-provider",
+            # `--provider` / PROVIDER stay accepted: they named this before v1.3.2.
             "--provider",
-            envvar="PROVIDER",
-            help="The provider to use for the document and code sandbox. Defaults to 'jupyter'.",
+            envvar=["DOCUMENT_PROVIDER", "PROVIDER"],
+            help=(
+                "Which backend holds the notebook documents. `jupyter` talks to "
+                "the collaboration API of a Jupyter Server, `datalayer` to the "
+                "Datalayer spacer. Execution is chosen separately with "
+                "--sandbox-variant. Defaults to 'jupyter'."
+            ),
         ),
-    ] = Provider.jupyter,
+    ] = DocumentProvider.jupyter,
     jupyterlab: Annotated[
         str,
         typer.Option(
@@ -168,7 +175,7 @@ def server_callback(
         typer.Option(
             "--code-sandbox-url",
             envvar="CODE_SANDBOX_URL",
-            help="The code sandbox URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer code sandbox URL.",
+            help="The code sandbox URL to use. With the jupyter document backend, this is the Jupyter server URL. With the datalayer one, this is the Datalayer code sandbox URL.",
         ),
     ] = None,
     code_sandbox_id: Annotated[
@@ -184,7 +191,7 @@ def server_callback(
         typer.Option(
             "--code-sandbox-token",
             envvar="CODE_SANDBOX_TOKEN",
-            help="The code sandbox token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+            help="The code sandbox token to use for authentication with the backend. If not provided, the backend should accept anonymous requests.",
         ),
     ] = None,
     code_sandbox_password: Annotated[
@@ -216,7 +223,7 @@ def server_callback(
         typer.Option(
             "--document-url",
             envvar="DOCUMENT_URL",
-            help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
+            help="The document URL to use. With the jupyter document backend, this is the Jupyter server URL. With the datalayer one, this is the Datalayer document URL.",
         ),
     ] = None,
     document_id: Annotated[
@@ -224,7 +231,7 @@ def server_callback(
         typer.Option(
             "--document-id",
             envvar="DOCUMENT_ID",
-            help="The document id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path. Optional - if omitted, you can list and select notebooks interactively.",
+            help="The document id to use. With the jupyter document backend, this is the notebook path. With the datalayer one, this is the notebook path. Optional - if omitted, you can list and select notebooks interactively.",
         ),
     ] = None,
     document_token: Annotated[
@@ -232,7 +239,7 @@ def server_callback(
         typer.Option(
             "--document-token",
             envvar="DOCUMENT_TOKEN",
-            help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+            help="The document token to use for authentication with the backend. If not provided, the backend should accept anonymous requests.",
         ),
     ] = None,
     document_password: Annotated[
@@ -368,7 +375,7 @@ def server_callback(
         jupyter_token=jupyter_token,
         jupyter_password=jupyter_password,
         port=port,
-        provider=provider.value,
+        document_provider=document_provider.value,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
@@ -417,14 +424,21 @@ def start_command(
             help="Path to JSONL file for OpenTelemetry span export.",
         ),
     ] = "",
-    provider: Annotated[
-        Provider,
+    document_provider: Annotated[
+        DocumentProvider,
         typer.Option(
+            "--document-provider",
+            # `--provider` / PROVIDER stay accepted: they named this before v1.3.2.
             "--provider",
-            envvar="PROVIDER",
-            help="The provider to use for the document and code sandbox. Defaults to 'jupyter'.",
+            envvar=["DOCUMENT_PROVIDER", "PROVIDER"],
+            help=(
+                "Which backend holds the notebook documents. `jupyter` talks to "
+                "the collaboration API of a Jupyter Server, `datalayer` to the "
+                "Datalayer spacer. Execution is chosen separately with "
+                "--sandbox-variant. Defaults to 'jupyter'."
+            ),
         ),
-    ] = Provider.jupyter,
+    ] = DocumentProvider.jupyter,
     jupyterlab: Annotated[
         str,
         typer.Option(
@@ -446,7 +460,7 @@ def start_command(
         typer.Option(
             "--code-sandbox-url",
             envvar="CODE_SANDBOX_URL",
-            help="The code sandbox URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer code sandbox URL.",
+            help="The code sandbox URL to use. With the jupyter document backend, this is the Jupyter server URL. With the datalayer one, this is the Datalayer code sandbox URL.",
         ),
     ] = None,
     code_sandbox_id: Annotated[
@@ -462,7 +476,7 @@ def start_command(
         typer.Option(
             "--code-sandbox-token",
             envvar="CODE_SANDBOX_TOKEN",
-            help="The code sandbox token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+            help="The code sandbox token to use for authentication with the backend. If not provided, the backend should accept anonymous requests.",
         ),
     ] = None,
     code_sandbox_password: Annotated[
@@ -494,7 +508,7 @@ def start_command(
         typer.Option(
             "--document-url",
             envvar="DOCUMENT_URL",
-            help="The document URL to use. For the jupyter provider, this is the Jupyter server URL. For the datalayer provider, this is the Datalayer document URL.",
+            help="The document URL to use. With the jupyter document backend, this is the Jupyter server URL. With the datalayer one, this is the Datalayer document URL.",
         ),
     ] = None,
     document_id: Annotated[
@@ -502,7 +516,7 @@ def start_command(
         typer.Option(
             "--document-id",
             envvar="DOCUMENT_ID",
-            help="The document id to use. For the jupyter provider, this is the notebook path. For the datalayer provider, this is the notebook path. Optional - if omitted, you can list and select notebooks interactively.",
+            help="The document id to use. With the jupyter document backend, this is the notebook path. With the datalayer one, this is the notebook path. Optional - if omitted, you can list and select notebooks interactively.",
         ),
     ] = None,
     document_token: Annotated[
@@ -510,7 +524,7 @@ def start_command(
         typer.Option(
             "--document-token",
             envvar="DOCUMENT_TOKEN",
-            help="The document token to use for authentication with the provider. If not provided, the provider should accept anonymous requests.",
+            help="The document token to use for authentication with the backend. If not provided, the backend should accept anonymous requests.",
         ),
     ] = None,
     document_password: Annotated[
@@ -643,7 +657,7 @@ def start_command(
         jupyter_token=jupyter_token,
         jupyter_password=jupyter_password,
         port=port,
-        provider=provider.value,
+        document_provider=document_provider.value,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,

@@ -263,7 +263,7 @@ For enterprise deployments, consider [Datalayer](https://datalayer.ai) which pro
       "command": "uvx",
       "args": ["jupyter-mcp-server@latest"],
       "env": {
-        "PROVIDER": "datalayer",
+        "DOCUMENT_PROVIDER": "datalayer",
         "DATALAYER_URL": "https://app.datalayer.ai",
         "DATALAYER_TOKEN": "your-user-token"
       }
@@ -454,9 +454,9 @@ c.JupyterHub.extra_log_file = '/var/log/jupyterhub/jupyterhub.log'
 
 ## Additional Resources
 
+- [Datalayer](https://datalayer.ai)
 - [JupyterHub Documentation](https://jupyterhub.readthedocs.io/)
 - [Zero to JupyterHub (Kubernetes)](https://z2jh.jupyter.org/)
 - [JupyterHub Deployment Guide](https://jupyterhub.readthedocs.io/en/stable/features/technical-overview.html)
-- [JupyterHub Provider Documentation](/code-sandboxes/jupyterhub)
+- [JupyterHub Documentation](/code-sandboxes/jupyterhub)
 - [Issue #181: Multi-user serving](https://github.com/datalayer/jupyter-mcp-server/issues/181)
-- [Datalayer Platform](https://datalayer.ai)

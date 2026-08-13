@@ -9,10 +9,10 @@
    "description": "The transport to use for the MCP server"
   },
   {
-   "name": "provider",
+   "name": "document_provider",
    "type": "<class 'str'>",
    "default": "jupyter",
-   "description": "The provider to use for the document and code sandbox"
+   "description": "Which backend holds the notebook documents: 'jupyter' or 'datalayer'"
   },
   {
    "name": "code_sandbox_url",

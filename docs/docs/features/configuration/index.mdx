@@ -24,7 +24,7 @@ The server automatically detects the appropriate mode based on deployment contex
 
 When enabled together with JupyterLab mode, `use_notebook` also opens the notebook in the JupyterLab UI, which activates its tab. It is off by default so that notebooks used over MCP do not pull the focus away from the tab you are working in.
 
-## Transport & Providers
+## Transport & Code Sandboxs
 
 ### Transport Options
 
@@ -33,12 +33,15 @@ When enabled together with JupyterLab mode, `use_notebook` also opens the notebo
 | **STDIO** (default) | Desktop apps, Docker | `--transport stdio` |
 | **Streamable HTTP** | Web apps, multiple clients | `--transport streamable-http --port 4040` |
 
-### Providers
+### Document backends
 
-| Provider | Description | Configuration |
+Where the notebook documents live. Execution is a separate choice, made with
+`--sandbox-variant`.
+
+| Document backend | Description | Configuration |
 |----------|-------------|---------------|
-| **jupyter** (default) | Standard JupyterLab/Hub | `--provider jupyter` |
-| **datalayer** | Enterprise hosting | `--provider datalayer` |
+| **jupyter** (default) | Standard JupyterLab/Hub | `--document-provider jupyter` |
+| **datalayer** | Enterprise hosting | `--document-provider datalayer` |
 
 ## Environment Variables
 
@@ -89,7 +92,7 @@ For deployments requiring granular control over document storage and code sandbo
 | Variable | Description | Example | Default |
 |----------|-------------|---------|---------|
 | `START_NEW_CODE_SANDBOX` | Create new code sandbox vs use existing | `true` / `false` | `false` |
-| `PROVIDER` | Provider type for document and code sandbox | `jupyter` / `datalayer` | `jupyter` |
+| `DOCUMENT_PROVIDER` | Which backend holds the notebook documents | `jupyter` / `datalayer` | `jupyter` |
 | `TRANSPORT` | Transport method for MCP | `stdio` / `streamable-http` | `stdio` |
 | `PORT` | Port for streamable HTTP transport | `4040` | `4040` |
 | `RECONNECT_INTERVAL` | Seconds before retrying a dropped kernel WebSocket connection. `0` disables auto-reconnect. | `5` | `0` |
@@ -234,7 +237,8 @@ Usage: jupyter mcp start [OPTIONS]
 
 Options:
   --transport [stdio|streamable-http]  Transport type (default: stdio)
-  --provider [jupyter|datalayer]      Provider type (default: jupyter)
+  --document-provider [jupyter|datalayer]
+                                      Document backend holding the notebooks (default: jupyter)
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
   --code-sandbox-url TEXT                  Runtime URL for kernel operations (default: None)
   --code-sandbox-token TEXT                Runtime authentication token (default: None)
@@ -277,7 +281,8 @@ Usage: jupyter mcp connect [OPTIONS]
 Connect a Jupyter MCP Server to a document and a code sandbox.
 
 Options:
-  --provider [jupyter|datalayer]      Provider type (default: jupyter)
+  --document-provider [jupyter|datalayer]
+                                      Document backend holding the notebooks (default: jupyter)
   --jupyterlab BOOLEAN               Enable JupyterLab mode (default: true)
   --code-sandbox-url TEXT                  Runtime URL for kernel operations (default: None)
   --code-sandbox-token TEXT                Runtime authentication token (default: None)
@@ -335,7 +340,7 @@ jupyter mcp start \
 Then connect via endpoint:
 ```bash
 jupyter mcp connect \
-  --provider datalayer \
+  --document-provider datalayer \
   --document-url <url> \
   --document-id <document> \
   --document-token <token> \

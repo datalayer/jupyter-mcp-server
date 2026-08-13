@@ -860,7 +860,7 @@ class TestNotebookConnectionAuth:
             code_sandbox_url="http://localhost:8888",
             document_url="http://localhost:8888",
             code_sandbox_password="secret",
-            provider="jupyter",
+            document_provider="jupyter",
         )
 
         from jupyter_mcp_server.tools import ServerMode

@@ -76,7 +76,11 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         "", config=True, help="Authentication token for code sandbox server (if remote)"
     )
 
-    provider = Unicode("jupyter", config=True, help="Provider type for document/code sandbox")
+    document_provider = Unicode(
+        "jupyter",
+        config=True,
+        help="Which backend holds the notebook documents: 'jupyter' or 'datalayer'",
+    )
 
     jupyterlab = Bool(True, config=True, help="Enable JupyterLab mode (defaults to True)")
 
@@ -145,7 +149,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config.code_sandbox_token = self.code_sandbox_token if self.code_sandbox_token else None
         config.start_new_code_sandbox = self.start_new_code_sandbox
         config.code_sandbox_id = self.code_sandbox_id if self.code_sandbox_id else None
-        config.provider = self.provider
+        config.document_provider = self.document_provider
         config.jupyterlab = self.jupyterlab
         config.open_notebook_in_ui = self.open_notebook_in_ui
         config.allowed_jupyter_mcp_tools = self.allowed_jupyter_mcp_tools
@@ -160,7 +164,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
                 "mcp_code_sandbox_token": self.code_sandbox_token,
                 "mcp_start_new_code_sandbox": self.start_new_code_sandbox,
                 "mcp_code_sandbox_id": self.code_sandbox_id,
-                "mcp_provider": self.provider,
+                "mcp_provider": self.document_provider,
                 "mcp_jupyterlab": self.jupyterlab,
                 "mcp_open_notebook_in_ui": self.open_notebook_in_ui,
                 "mcp_allowed_jupyter_mcp_tools": self.allowed_jupyter_mcp_tools,

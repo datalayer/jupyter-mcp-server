@@ -4,8 +4,6 @@
   ~ BSD 3-Clause License
 -->
 
-[![Datalayer](https://images.datalayer.io/brand/logos/datalayer-horizontal.svg)](https://datalayer.io)
-
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
 <div align="center">
@@ -16,24 +14,62 @@
 
 **An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage [Jupyter](https://jupyter.org) Notebooks in real-time**
 
-*Developed by [Datalayer](https://github.com/datalayer) - Join our [Discord](https://github.com/datalayer)*
+*Developed by [Datalayer](https://datalayer.ai) - Join our [Discord](https://discord.gg/YQFwvmSSuR)*
 
 [![PyPI - Version](https://img.shields.io/pypi/v/jupyter-mcp-server?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/jupyter-mcp-server)
 [![Total PyPI downloads](https://img.shields.io/pepy/dt/jupyter-mcp-server?style=for-the-badge&logo=python&logoColor=white)](https://pepy.tech/project/jupyter-mcp-server)
 [![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server?style=for-the-badge&logo=docker&logoColor=white&color=2496ED)](https://hub.docker.com/r/datalayer/jupyter-mcp-server)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
-![Jupyter MCP Server Demo](https://images.datalayer.io/products/jupyter-mcp-server/mcp-demo-multimodal.gif)
+[![Discover Datalayer](https://img.shields.io/badge/Discover%20Datalayer-datalayer.ai-1ABC9C?style=for-the-badge&logo=jupyter&logoColor=white&labelColor=0E7C6B)](https://datalayer.ai)
 
 </div>
 
-> **Breaking change in v1.2.0:** "Runtime", aka name "Jupyter Kernel", is now called "Code Sandbox", see the [migration guide](https://jupyter-mcp-server.datalayer.tech/releases/#migration-guide-to-120).
->
-> **New in v1.1.0:** We are not supporting external `Sandboxes` (Datalayer, Kaggle, Monty, Google Colab, Modal...).
->
-> Setup details [on this page](https://jupyter-mcp-server.datalayer.tech/mcp-transports/streamable-http/#3-configure-your-mcp-client)
->
-> Join the conversation in our [Community page](https://jupyter-mcp-server.datalayer.tech/community) - your feedback will help us prioritize features and ensure these integrations work seamlessly for your needs.
+<table>
+<tr><td>
+
+<a href="https://datalayer.ai"><img alt="Datalayer" src="https://images.datalayer.io/brand/logos/datalayer-horizontal.svg" height="22"/></a>
+
+[![Built and maintained by Datalayer](https://img.shields.io/badge/Built%20and%20maintained%20by-Datalayer%20%C2%B7%20datalayer.ai-1ABC9C?style=for-the-badge&logo=jupyter&logoColor=white&labelColor=0E7C6B)](https://datalayer.ai)
+
+📖 [Documentation](https://jupyter-mcp-server.datalayer.tech) &nbsp;·&nbsp; 🔧 [Tools](https://jupyter-mcp-server.datalayer.tech/mcp) &nbsp;·&nbsp; 💬 [Community](https://jupyter-mcp-server.datalayer.tech/community)
+
+**Free and open source, BSD 3-Clause** — point it at any Jupyter you already run, local or
+JupyterHub, no account needed.
+
+Built and maintained by [**Datalayer**](https://datalayer.ai), where the same server drives
+always-on Notebooks with GPU Code Sandboxes and durable execution — so your agent keeps
+working on your data when your laptop does not.
+
+[![Discover Datalayer](https://img.shields.io/badge/%E2%86%92%20Discover%20Datalayer-datalayer.ai-1ABC9C?style=for-the-badge&labelColor=0E7C6B)](https://datalayer.ai)
+
+</td></tr>
+</table>
+
+<table>
+<tr><td>
+
+![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-E67E22?style=for-the-badge&labelColor=A0522D)
+
+**`--provider` is now `--document-provider`** (env var `PROVIDER` → `DOCUMENT_PROVIDER`).
+
+It only ever chose where the notebook **documents** live — `jupyter` for the collaboration
+API of a Jupyter Server, `datalayer` for the Datalayer spacer — while the old name and its
+help text suggested it also chose where code runs. Execution is picked separately, with
+`--sandbox-variant` (`jupyter`, `datalayer`, `kaggle`, `colab`, `monty`, `modal`).
+
+Nothing breaks in v1.3.2: `--provider` is still accepted as an alias, `PROVIDER` is still
+read, and a `/connect` payload carrying `"provider"` is still understood. Move to the new
+names when convenient — the old ones are deprecated, not removed.
+
+</td></tr>
+</table>
+
+<div align="center">
+
+![Jupyter MCP Server Demo](https://images.datalayer.io/products/jupyter-mcp-server/mcp-demo-multimodal.gif)
+
+</div>
 
 ## 📖 Table of Contents
 
@@ -56,7 +92,9 @@
 - 🤝 **MCP-compatible:** Works with any MCP client, such as Claude Desktop, Cursor, Windsurf, and more.
 - 🔍 **Observability:** Built-in hook system with OpenTelemetry integration for tracing tool calls and kernel executions.
 
-Compatible with any Jupyter deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai) hosted Notebooks.
+Compatible with any Jupyter deployment (local, JupyterHub, ...) and with
+[**Datalayer**](https://datalayer.ai) hosted Notebooks, where the Code Sandboxes
+come with GPUs and the execution survives a disconnect.
 
 ## 🔧 MCP Overview
 
@@ -147,15 +185,22 @@ For comprehensive setup instructions—including `Streamable HTTP` transport, ru
 pip install jupyterlab jupyter-collaboration jupyter-mcp-tools ipykernel
 ```
 
-> [!TIP]
-> To confirm your environment is correctly configured:
->
-> 1. Open a notebook in JupyterLab
-> 1. Type some content in any cell (code or markdown)
-> 1. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
-> 1. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
->
-> This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
+<table>
+<tr><td>
+
+![Tip](https://img.shields.io/badge/%F0%9F%92%A1-Tip-1ABC9C?style=for-the-badge&labelColor=0E7C6B)
+
+To confirm your environment is correctly configured:
+
+1. Open a notebook in JupyterLab
+1. Type some content in any cell (code or markdown)
+1. Observe the tab indicator: you should see an "×" appear next to the notebook name, indicating unsaved changes
+1. Wait a few seconds—the "×" should automatically change to a "●" without manually saving
+
+This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
+
+</td></tr>
+</table>
 
 ### 2. Start JupyterLab
 
@@ -164,8 +209,15 @@ pip install jupyterlab jupyter-collaboration jupyter-mcp-tools ipykernel
 jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
-> [!NOTE]
-> If you are running notebooks through JupyterHub instead of JupyterLab as above, refer to our [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyterhub).
+<table>
+<tr><td>
+
+![Note](https://img.shields.io/badge/%E2%84%B9%EF%B8%8F-Note-3498DB?style=for-the-badge&labelColor=1B5E8A)
+
+If you are running notebooks through JupyterHub instead of JupyterLab as above, refer to our [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyterhub).
+
+</td></tr>
+</table>
 
 ### 3. Configure Your Preferred MCP Client
 
@@ -261,13 +313,19 @@ Then, configure your client:
 
 </details>
 
-> [!TIP]
->
-> 1. **Port Configuration**: Ensure the `port` in your Jupyter URLs matches the one used in the `jupyter lab` command. For simplified config, set this in `JUPYTER_URL`.
-> 1. **Server Separation**: Use `JUPYTER_URL` when both services are on the same server, or set individual variables for advanced deployments. The different URL variables exist because some deployments separate notebook storage (`DOCUMENT_URL`) from kernel execution (`CODE_SANDBOX_URL`).
-> 1. **Authentication**: In most cases, document and code sandbox services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `CODE_SANDBOX_TOKEN` individually for different credentials.
-> 1. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook the MCP client default to connect. It should be relative to the directory where JupyterLab was started. If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
-> 1. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
+<table>
+<tr><td>
+
+![Tip](https://img.shields.io/badge/%F0%9F%92%A1-Tip-1ABC9C?style=for-the-badge&labelColor=0E7C6B)
+
+1. **Port Configuration**: Ensure the `port` in your Jupyter URLs matches the one used in the `jupyter lab` command. For simplified config, set this in `JUPYTER_URL`.
+1. **Server Separation**: Use `JUPYTER_URL` when both services are on the same server, or set individual variables for advanced deployments. The different URL variables exist because some deployments separate notebook storage (`DOCUMENT_URL`) from kernel execution (`CODE_SANDBOX_URL`).
+1. **Authentication**: In most cases, document and code sandbox services use the same authentication token. Use `JUPYTER_TOKEN` for simplified config or set `DOCUMENT_TOKEN` and `CODE_SANDBOX_TOKEN` individually for different credentials.
+1. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook the MCP client default to connect. It should be relative to the directory where JupyterLab was started. If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
+1. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
+
+</td></tr>
+</table>
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
 

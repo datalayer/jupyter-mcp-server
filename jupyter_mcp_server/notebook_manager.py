@@ -92,7 +92,7 @@ class NotebookConnection:
                 server_url=server_url,
                 token=token,
                 path=path,
-                provider=config.provider,
+                provider=config.document_provider,
                 headers=auth_headers or None,
             )
         except requests.HTTPError as error:
@@ -109,7 +109,7 @@ class NotebookConnection:
                 server_url=server_url,
                 token=token,
                 path=path,
-                provider=config.provider,
+                provider=config.document_provider,
                 headers=fresh_headers or None,
             )
 

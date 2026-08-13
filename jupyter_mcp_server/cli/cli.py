@@ -6,7 +6,7 @@
 
 import typer
 
-from jupyter_mcp_server.cli.commands.connect import Provider, connect_command
+from jupyter_mcp_server.cli.commands.connect import DocumentProvider, connect_command
 from jupyter_mcp_server.cli.commands.serve import server_callback, start_command
 from jupyter_mcp_server.cli.commands.stop import stop_command
 
@@ -27,7 +27,7 @@ def serve() -> None:
 
 
 __all__ = [
-    "Provider",
+    "DocumentProvider",
     "app",
     "connect_command",
     "serve",

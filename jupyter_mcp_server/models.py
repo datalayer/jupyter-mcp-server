@@ -4,13 +4,17 @@
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from jupyter_mcp_server.utils import normalize_cell_source, safe_extract_outputs
 
 
 class DocumentCodeSandbox(BaseModel):
-    provider: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    # `provider` is what this field was called before v1.3.2; the /connect payload
+    # of an older client still names it that way.
+    document_provider: str = Field(validation_alias=AliasChoices("document_provider", "provider"))
     document_url: str | None = None
     document_id: str
     document_token: str

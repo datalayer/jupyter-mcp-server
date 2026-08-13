@@ -891,10 +891,10 @@
             "description": "Jupyter server authentication token",
             "title": "Jupyter Token"
           },
-          "provider": {
+          "document_provider": {
             "default": "jupyter",
-            "description": "Provider type",
-            "title": "Provider",
+            "description": "Which backend holds the notebook documents",
+            "title": "Document Provider",
             "type": "string"
           }
         },

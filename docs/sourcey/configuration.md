@@ -10,7 +10,7 @@ All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mc
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `transport` | str | `"stdio"` | The transport to use for the MCP server |
-| `provider` | str | `"jupyter"` | The provider to use for the document and code sandbox |
+| `document_provider` | str | `"jupyter"` | Which backend holds the notebook documents: 'jupyter' or 'datalayer' |
 | `code_sandbox_url` | str | `"http://localhost:8888"` | The code sandbox URL to use, or 'local' for direct serverapp access |
 | `start_new_code_sandbox` | bool | `false` | Start a new code sandbox or use an existing one |
 | `code_sandbox_id` | str \| None | `None` | The kernel ID to use |

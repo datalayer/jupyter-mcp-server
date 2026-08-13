@@ -226,7 +226,7 @@ def do_start(
     document_id: str,
     document_token: str,
     port: int,
-    provider: str,
+    document_provider: str,
     jupyterlab: bool,
     open_notebook_in_ui: bool,
     allowed_jupyter_mcp_tools: str,
@@ -264,13 +264,13 @@ def do_start(
 
     logger.info(
         f"Start command received - code_sandbox_url: {code_sandbox_url!r}, "
-        f"document_url: {document_url!r}, provider: {provider}, "
+        f"document_url: {document_url!r}, document_provider: {document_provider}, "
         f"transport: {transport}"
     )
 
     config = set_config(
         transport=transport,
-        provider=provider,
+        document_provider=document_provider,
         code_sandbox_url=code_sandbox_url,
         start_new_code_sandbox=start_new_code_sandbox,
         code_sandbox_id=code_sandbox_id,

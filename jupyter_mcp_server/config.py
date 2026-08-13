@@ -13,9 +13,10 @@ class JupyterMCPConfig(BaseModel):
     # Transport configuration
     transport: str = Field(default="stdio", description="The transport to use for the MCP server")
 
-    # Provider configuration
-    provider: str = Field(
-        default="jupyter", description="The provider to use for the document and code sandbox"
+    # Document backend configuration
+    document_provider: str = Field(
+        default="jupyter",
+        description="Which backend holds the notebook documents: 'jupyter' or 'datalayer'",
     )
 
     # Code Sandbox configuration

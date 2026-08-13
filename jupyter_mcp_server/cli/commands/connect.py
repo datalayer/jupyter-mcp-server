@@ -20,7 +20,7 @@ from jupyter_mcp_server.utils import (
 )
 
 
-class Provider(str, Enum):
+class DocumentProvider(str, Enum):
     jupyter = "jupyter"
     datalayer = "datalayer"
 
@@ -51,10 +51,15 @@ def connect_command(
             help="The URL of the Jupyter MCP Server to connect to. Defaults to 'http://localhost:4040'.",
         ),
     ] = "http://localhost:4040",
-    provider: Annotated[
-        Provider,
-        typer.Option("--provider", envvar="PROVIDER"),
-    ] = Provider.jupyter,
+    document_provider: Annotated[
+        DocumentProvider,
+        typer.Option(
+            "--document-provider",
+            # `--provider` / PROVIDER stay accepted: they named this before v1.3.2.
+            "--provider",
+            envvar=["DOCUMENT_PROVIDER", "PROVIDER"],
+        ),
+    ] = DocumentProvider.jupyter,
     jupyterlab: Annotated[
         str,
         typer.Option("--jupyterlab", envvar="JUPYTERLAB"),
@@ -148,7 +153,7 @@ def connect_command(
     )
 
     config = set_config(
-        provider=provider.value,
+        document_provider=document_provider.value,
         code_sandbox_url=resolved_code_sandbox_url,
         code_sandbox_id=code_sandbox_id,
         code_sandbox_token=resolved_code_sandbox_token,
@@ -163,7 +168,7 @@ def connect_command(
 
     config = get_config()
     document_code_sandbox = DocumentCodeSandbox(
-        provider=config.provider,
+        document_provider=config.document_provider,
         code_sandbox_url=config.code_sandbox_url,
         code_sandbox_id=config.code_sandbox_id,
         code_sandbox_token=config.code_sandbox_token,
