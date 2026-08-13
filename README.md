@@ -34,6 +34,7 @@
 > Built and maintained by [**Datalayer**](https://datalayer.ai), where the same server drives
 > always-on Notebooks with GPU Code Sandboxes and durable execution — so your agent keeps
 > working on your data when your laptop does not.
+>
 > → **[Discover Datalayer](https://datalayer.ai)**
 
 <div align="center">
