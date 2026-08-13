@@ -25,7 +25,7 @@ You do not need this plugin. Claude Code speaks MCP, and the hosted endpoint is
 a URL:
 
 ```bash
-claude mcp add --transport http datalayer https://mcp.datalayer.run/mcp
+claude mcp add datalayer --transport http https://mcp.datalayer.run/mcp
 ```
 
 The first call opens a browser, you sign into Datalayer, and you approve what
@@ -40,7 +40,7 @@ To connect a self-hosted Jupyter instead, point at your own server and pass a
 token:
 
 ```bash
-claude mcp add --transport http jupyter http://localhost:4040/mcp \
+claude mcp add jupyter --transport http http://localhost:4040/mcp \
   --header "Authorization: Bearer ${MCP_TOKEN}"
 ```
 
@@ -80,9 +80,10 @@ authorization, exactly as above.
 | `/datalayer:run [index \| all \| description]` | Execute a cell or the whole notebook on the server |
 | `/datalayer:status` | Show the connection, the active notebook and running sandboxes |
 
-`/datalayer:notebook` with no argument lists what you can reach and asks. With
-an argument it opens the best match, and asks rather than guessing when several
-match.
+`/datalayer:notebook` with no argument lists the notebooks you can reach and
+asks which one to open. With an argument it opens the best match, and when
+several match it lists the candidates and asks you to choose rather than
+guessing.
 
 `/datalayer:run` is deliberately careful: it confirms before running a cell it
 identified from a description, and when a cell fails it shows the error and

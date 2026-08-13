@@ -6,7 +6,9 @@
 
 # 📋 Jupyter MCP Server Prompt Templates
 
-Welcome to the Jupyter MCP Server Prompt Templates repository! This directory contains curated, community-driven prompt templates designed to help AI agents and users make the most of Jupyter MCP Server across different scenarios and use cases.
+Welcome to the Jupyter MCP Server Prompt Templates.
+
+This directory contains curated, community-driven prompt templates designed to help AI agents and users make the most of Jupyter MCP Server across different scenarios and use cases.
 
 ## 💡 How to Use Prompt Templates
 
@@ -19,7 +21,7 @@ Templates are organized by use case, you can choose any of them.
 ### Example Usage
 
 ```
-1. Go to prompt/general/
+1. Go to ext/prompt-templates/general/
 2. Read the README.md to understand the template's purpose
 3. Copy the content from AGENT.md
 4. Paste it as your system prompt(e.g. `CLAUDE.md` in Claude Code)
