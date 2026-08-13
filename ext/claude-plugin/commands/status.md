@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2024- Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 ---
 description: Show the Datalayer connection, notebooks and sandboxes
 ---

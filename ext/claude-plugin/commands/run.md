@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2024- Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 ---
 description: Run a cell, or the whole notebook, on Datalayer
 argument-hint: [cell index, "all", or a description]

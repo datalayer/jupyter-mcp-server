@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2024- Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 ---
 description: Open a Datalayer notebook and work in it
 argument-hint: [notebook name or path]
