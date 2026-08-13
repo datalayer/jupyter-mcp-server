@@ -29,6 +29,8 @@ answered "you have none".
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from typing import Annotated, Any, Optional
 
 from jupyter_mcp_server.config import get_config
@@ -155,11 +157,57 @@ class SpacesExtension(JupyterMCPExtension):
 
 
 def _serving_datalayer() -> bool:
-    """Whether this server is pointed at Datalayer rather than a Jupyter."""
+    """Whether this server is pointed at Datalayer rather than a Jupyter.
+
+    Asked at *import* time, which is earlier than it looks. The open source
+    server registers extensions at module scope, so this runs while the CLI is
+    still parsing its arguments and before ``set_config`` has been called —
+    meaning the configuration says ``jupyter`` however the server was invoked.
+    Reading only the configuration therefore always answers "no", and the
+    extension silently does nothing.
+
+    So three sources, in the order they become trustworthy:
+
+    1. the configuration, when something has already set it — programmatic
+       callers and tests;
+    2. ``DOCUMENT_PROVIDER`` in the environment, which a deployment controls;
+    3. the command line, which is what the CLI is about to configure from.
+
+    Reading ``sys.argv`` is not elegant. It is, at this point in startup, the
+    only place the intent exists. The proper fix belongs upstream — register
+    extensions after configuration rather than at import — and when that lands
+    the first source alone will do.
+    """
+    # Any of them naming Datalayer is enough, rather than the first that
+    # answers winning. The configuration is never silent — it defaults to
+    # "jupyter" — so treating it as authoritative here would mean the later
+    # sources are never reached, and this would answer "no" at import however
+    # the server was started.
     try:
-        return (get_config().document_provider or "").lower() == "datalayer"
+        configured = (get_config().document_provider or "").lower()
     except Exception:  # noqa: BLE001 - configuration may not be built yet
-        return False
+        configured = ""
+    sources = (
+        configured,
+        (os.environ.get("DOCUMENT_PROVIDER") or "").lower(),
+        _provider_from_argv(),
+    )
+    return "datalayer" in sources
+
+
+def _provider_from_argv() -> str:
+    """The provider named on the command line, if one was.
+
+    Accepts ``--document-provider datalayer`` and
+    ``--document-provider=datalayer``, and the short form the CLI also takes.
+    """
+    argv = sys.argv[1:]
+    for index, argument in enumerate(argv):
+        if argument.startswith("--document-provider="):
+            return argument.split("=", 1)[1].strip().lower()
+        if argument in ("--document-provider", "-dp") and index + 1 < len(argv):
+            return argv[index + 1].strip().lower()
+    return ""
 
 
 def _remove(mcp: Any, names: tuple[str, ...]) -> None:
