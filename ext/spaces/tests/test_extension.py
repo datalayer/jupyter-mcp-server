@@ -201,3 +201,89 @@ class TestActivationAtImportTime:
         monkeypatch.setattr("sys.argv", ["jupyter-mcp-server", "start"])
         monkeypatch.delenv("DOCUMENT_PROVIDER", raising=False)
         assert not _serving_datalayer()
+
+
+class TestUseNotebookByName:
+    """A uid is not something a person says out loud.
+
+    An agent asked to open "welcome to datalayer" has a name, not an
+    identifier. Requiring the uid means it either asks the user to go and find
+    one, or guesses — and a guessed uid opens nothing.
+    """
+
+    @staticmethod
+    def _notebooks():
+        return [
+            {"uid": "ntb-1", "name": "Welcome to Datalayer — Notebook",
+             "notebook_name": "welcome_to_datalayer", "space": "Welcome"},
+            {"uid": "ntb-2", "name": "Sales forecast",
+             "notebook_name": "sales_forecast", "space": "Team"},
+            {"uid": "ntb-3", "name": "Sales forecast v2",
+             "notebook_name": "sales_forecast_v2", "space": "Team"},
+        ]
+
+    def _wire(self, mcp, monkeypatch, called):
+        async def fake_list():
+            return self._notebooks()
+
+        monkeypatch.setattr("jupyter_mcp_spaces.spaces.list_notebooks", fake_list)
+
+        @mcp.tool()
+        async def use_notebook(notebook_name, notebook_path="", mode="connect", kernel_id=None):
+            """Upstream: opens a notebook by path."""
+            called["path"] = notebook_path
+            return "opened"
+
+        from jupyter_mcp_spaces.extension import _wrap_use_notebook
+
+        _wrap_use_notebook(mcp)
+        return mcp._tool_manager._tools["use_notebook"].fn
+
+    @pytest.mark.asyncio
+    async def test_a_display_name_becomes_a_uid(self, monkeypatch):
+        called = {}
+        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        await fn(notebook_name="nb", notebook_path="Sales forecast")
+        assert called["path"] == "ntb-2"
+
+    @pytest.mark.asyncio
+    async def test_the_file_name_works_too(self, monkeypatch):
+        called = {}
+        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        await fn(notebook_name="nb", notebook_path="welcome_to_datalayer")
+        assert called["path"] == "ntb-1"
+
+    @pytest.mark.asyncio
+    async def test_a_uid_is_passed_straight_through(self, monkeypatch):
+        # Already an identifier: resolving it again would be a wasted call.
+        called = {}
+        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        await fn(notebook_name="nb", notebook_path="ntb-3")
+        assert called["path"] == "ntb-3"
+
+    @pytest.mark.asyncio
+    async def test_an_ambiguous_name_asks_rather_than_opens(self, monkeypatch):
+        called = {}
+        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        with pytest.raises(ValueError) as caught:
+            await fn(notebook_name="nb", notebook_path="Sales")
+        assert "2 notebooks match" in str(caught.value)
+        # And nothing was opened.
+        assert "path" not in called
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_name_says_so(self, monkeypatch):
+        called = {}
+        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        with pytest.raises(ValueError) as caught:
+            await fn(notebook_name="nb", notebook_path="nothing like this")
+        assert "list_notebooks" in str(caught.value)
+
+    @pytest.mark.asyncio
+    async def test_creating_does_not_resolve(self, monkeypatch):
+        # A notebook being created does not exist yet, so there is nothing to
+        # match and the name given is the name wanted.
+        called = {}
+        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        await fn(notebook_name="nb", notebook_path="brand new.ipynb", mode="create")
+        assert called["path"] == "brand new.ipynb"

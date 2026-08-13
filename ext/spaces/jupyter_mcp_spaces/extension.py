@@ -150,6 +150,8 @@ class SpacesExtension(JupyterMCPExtension):
                 }
             return {"found": True, "notebook": matches[0]}
 
+        _wrap_use_notebook(mcp)
+
         logger.info(
             "Datalayer spaces tools registered; %s hidden",
             ", ".join(JUPYTER_ONLY_TOOLS),
@@ -226,3 +228,88 @@ def _remove(mcp: Any, names: tuple[str, ...]) -> None:
             logger.debug("Removed tool [%s]", name)
         except Exception:  # noqa: BLE001 - absent is the acceptable outcome
             logger.debug("Tool [%s] was not registered", name)
+
+
+def _wrap_use_notebook(mcp: Any) -> None:
+    """Let `use_notebook` be given a name, not only a uid.
+
+    Datalayer addresses notebooks by uid, and a uid is not something a person
+    says out loud. An agent asked to open "welcome to datalayer" should not
+    have to be told the identifier first — and if it guesses one, it opens
+    nothing.
+
+    So the name is resolved here, and the original tool is called with the
+    uid. The original is *wrapped*, not rewritten: everything it does after
+    the identifier — the kernel, the collaboration session, registering the
+    notebook — is not this extension's business and would rot if copied.
+
+    A name matching several notebooks is not resolved. The candidates are
+    returned instead, because opening one of several notebooks the user did
+    not choose is worse than asking.
+    """
+    manager = getattr(mcp, "_tool_manager", None)
+    existing = getattr(manager, "_tools", {}).get("use_notebook") if manager else None
+    if existing is None:
+        logger.debug("No use_notebook tool to wrap")
+        return
+    original = existing.fn
+
+    try:
+        manager.remove_tool("use_notebook")
+    except Exception:  # noqa: BLE001 - already gone is fine
+        pass
+
+    @mcp.tool(annotations=ToolAnnotations(title="Use Notebook"))
+    async def use_notebook(
+        notebook_name: Annotated[
+            str, Field(description="A short name to refer to this notebook by later")
+        ],
+        notebook_path: Annotated[
+            str,
+            Field(
+                description=(
+                    "Which notebook to open: its name as shown in Datalayer, "
+                    "or its uid. Use list_notebooks to see them."
+                )
+            ),
+        ] = "",
+        mode: Annotated[
+            str, Field(description="'connect' to an existing notebook, or 'create'")
+        ] = "connect",
+        kernel_id: Annotated[
+            str, Field(description="An existing kernel to attach, if you have one")
+        ] = "",
+    ) -> Any:
+        """Open one of your Datalayer notebooks, by name or by uid."""
+        resolved = notebook_path
+        if notebook_path and mode != "create":
+            try:
+                notebooks = await spaces.list_notebooks()
+            except spaces.SpacesError as error:
+                raise ValueError(str(error)) from error
+
+            if not any(n["uid"] == notebook_path for n in notebooks):
+                matches = spaces.resolve(notebooks, notebook_path)
+                if len(matches) == 1:
+                    resolved = matches[0]["uid"]
+                    logger.info(
+                        "Resolved notebook [%s] to [%s]", notebook_path, resolved
+                    )
+                elif len(matches) > 1:
+                    names = ", ".join(f"{m['name']} ({m['uid']})" for m in matches)
+                    raise ValueError(
+                        f"{len(matches)} notebooks match '{notebook_path}': {names}. "
+                        "Ask which one is meant, then pass its uid."
+                    )
+                else:
+                    raise ValueError(
+                        f"No notebook of yours matches '{notebook_path}'. "
+                        "Use list_notebooks to see them."
+                    )
+
+        return await original(
+            notebook_name=notebook_name,
+            notebook_path=resolved,
+            mode=mode,
+            kernel_id=kernel_id or None,
+        )
