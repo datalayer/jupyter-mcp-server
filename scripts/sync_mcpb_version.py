@@ -3,7 +3,7 @@
 #
 # BSD 3-Clause License
 
-"""Sync mcpb/manifest.json and mcpb/pyproject.toml's version fields to
+"""Sync ext/mcpb/manifest.json and ext/mcpb/pyproject.toml's version fields to
 jupyter_mcp_server/__version__.py, the single source of truth for the
 package version (see #236).
 
@@ -20,8 +20,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = ROOT / "jupyter_mcp_server" / "__version__.py"
-MANIFEST_FILE = ROOT / "mcpb" / "manifest.json"
-PYPROJECT_FILE = ROOT / "mcpb" / "pyproject.toml"
+MANIFEST_FILE = ROOT / "ext" / "mcpb" / "manifest.json"
+PYPROJECT_FILE = ROOT / "ext" / "mcpb" / "pyproject.toml"
 
 PACKAGE_VERSION_RE = re.compile(r'__version__\s*=\s*"([^"]+)"')
 MANIFEST_VERSION_RE = re.compile(r'("version":\s*")[^"]+(")')
@@ -66,9 +66,9 @@ def find_drift(package_version: str, manifest_version: str, pyproject_version: s
     """Return one message per mcpb file whose version does not match package_version."""
     drift = []
     if manifest_version != package_version:
-        drift.append(f"mcpb/manifest.json is {manifest_version}, expected {package_version}")
+        drift.append(f"ext/mcpb/manifest.json is {manifest_version}, expected {package_version}")
     if pyproject_version != package_version:
-        drift.append(f"mcpb/pyproject.toml is {pyproject_version}, expected {package_version}")
+        drift.append(f"ext/mcpb/pyproject.toml is {pyproject_version}, expected {package_version}")
     return drift
 
 
@@ -97,10 +97,10 @@ def main() -> int:
 
     if manifest_version != package_version:
         write_manifest_version(package_version)
-        print(f"mcpb/manifest.json: {manifest_version} -> {package_version}")
+        print(f"ext/mcpb/manifest.json: {manifest_version} -> {package_version}")
     if pyproject_version != package_version:
         write_pyproject_version(package_version)
-        print(f"mcpb/pyproject.toml: {pyproject_version} -> {package_version}")
+        print(f"ext/mcpb/pyproject.toml: {pyproject_version} -> {package_version}")
     return 0
 
 

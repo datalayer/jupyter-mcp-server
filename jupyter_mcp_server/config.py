@@ -7,6 +7,25 @@ import os
 from pydantic import BaseModel, ConfigDict, Field
 
 
+def _caller_token() -> str | None:
+    """The credential of the request being served, when there is one.
+
+    Imported inside the function because :mod:`identity` is a small leaf
+    module and this keeps the import graph acyclic; the cost is a dictionary
+    lookup on an already-imported module.
+
+    Never raises: a configuration read is not the place to fail a request, and
+    "no caller" is the ordinary single-user case rather than an error.
+    """
+    try:
+        from jupyter_mcp_server.identity import current_identity
+
+        identity = current_identity()
+    except Exception:  # noqa: BLE001 - absence of an identity is not a failure
+        return None
+    return (identity.token or None) if identity else None
+
+
 class JupyterMCPConfig(BaseModel):
     """Singleton configuration object for Jupyter MCP Server."""
 
@@ -141,8 +160,26 @@ class JupyterMCPConfig(BaseModel):
         return self.document_url or self.code_sandbox_url
 
     def resolved_document_token(self) -> str | None:
-        """Document server token; follows code_sandbox_token when document_url is unset."""
+        """Document server token; follows code_sandbox_token when document_url is unset.
+
+        The credential of the caller being served wins over the configured
+        one. A single-user server configures a token once and every request
+        uses it; a server accepting many users cannot do that, because the
+        configured token belongs to one person and would then act for
+        everyone. Reading it here rather than at each call site means a tool
+        cannot forget to ask.
+        """
+        caller = _caller_token()
+        if caller:
+            return caller
         return self.code_sandbox_token if not self.document_url else self.document_token
+
+    def resolved_code_sandbox_token(self) -> str | None:
+        """Code sandbox token, with the caller's credential taking precedence.
+
+        The same rule as the document token, for the server that runs code.
+        """
+        return _caller_token() or self.code_sandbox_token
 
     def is_local_code_sandbox(self) -> bool:
         """Check if code sandbox URL is set to local."""

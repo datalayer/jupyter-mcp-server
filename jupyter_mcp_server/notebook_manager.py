@@ -142,6 +142,25 @@ class NotebookManager:
 
     This class replaces the global kernel variable approach with a unified
     management system that supports both single and multiple notebook scenarios.
+
+    Note that this state is per *process*, not per caller. A server accepting
+    several users therefore shares its managed notebooks between them: one
+    user's ``use_notebook`` is visible to another, and ``list_notebooks``
+    reports the union rather than each caller's own.
+
+    The credential is already per request — see
+    :attr:`~jupyter_mcp_server.identity.Identity.token` — so a shared entry
+    still cannot be *read* without the reader's own authority behind it. What
+    is shared is the alias and its binding, which leaks the existence and path
+    of a notebook rather than its contents.
+
+    A deployment serving several users should therefore run **one process per
+    user** rather than sharing one. That is the supported pattern, not a
+    stopgap: a process is a boundary the operating system already enforces,
+    and it covers this state along with every other piece a future change
+    might cache. The hosted Datalayer gateway works exactly this way — it
+    authenticates and authorizes centrally, then hands each request to that
+    user's own server process.
     """
 
     def __init__(self):

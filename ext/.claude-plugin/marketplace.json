@@ -1,0 +1,19 @@
+{
+  "name": "datalayer",
+  "owner": {
+    "name": "Datalayer",
+    "email": "support@datalayer.io",
+    "url": "https://datalayer.ai"
+  },
+  "metadata": {
+    "description": "Datalayer plugins for Claude Code.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "datalayer",
+      "source": "./claude-plugin",
+      "description": "Connect Claude Code to Datalayer Notebooks through the hosted Jupyter MCP Server."
+    }
+  ]
+}

@@ -163,6 +163,15 @@ class FastMCPWithCORS(FastMCP):
         # which we don't use). Add it here directly.
         app = super().streamable_http_app()
 
+        # Added first, so it ends up innermost: Starlette builds the stack with
+        # the last added outermost, and this has to run *after* the
+        # authentication below has put the verified caller in the scope.
+        # Without it a tool cannot tell who it is acting for, and every request
+        # uses the single credential the process was configured with.
+        from jupyter_mcp_server.identity import IdentityMiddleware
+
+        app.add_middleware(IdentityMiddleware)
+
         app.add_middleware(
             ManagementRouteSecurityMiddleware,
             token_verifier=self._token_verifier,
