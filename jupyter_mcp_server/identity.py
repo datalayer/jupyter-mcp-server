@@ -42,9 +42,15 @@ import contextvars
 import os
 from dataclasses import dataclass, field
 from importlib import import_module
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from jupyter_mcp_server.log import logger
+
+if TYPE_CHECKING:
+    # Only for the annotations: the contract is the MCP SDK's `AccessToken`,
+    # and naming it here documents it without making this module import the
+    # SDK at startup.
+    from mcp.server.auth.provider import AccessToken
 
 #: Import path of the token verifier to use in MCP_SERVER mode, as
 #: ``package.module:ClassName`` or ``package.module.ClassName``. The class is
@@ -119,11 +125,12 @@ class TokenVerifier(Protocol):
     straight to FastMCP.
     """
 
-    async def verify_token(self, token: str) -> Any:  # -> AccessToken | None
+    async def verify_token(self, token: str) -> AccessToken | None:
+        """The access token behind a bearer token, or ``None`` to refuse it."""
         ...
 
 
-def identity_from_access_token(access_token: Any) -> Identity:
+def identity_from_access_token(access_token: AccessToken) -> Identity:
     """The :class:`Identity` behind an MCP ``AccessToken``."""
     scopes = tuple(getattr(access_token, "scopes", ()) or ())
     return Identity(
@@ -169,12 +176,15 @@ def load_token_verifier_class(path: str) -> type:
     else:
         module_name, _, class_name = path.rpartition(".")
     if not module_name or not class_name:
-        raise ValueError(f"Cannot read '{path}' as a class path; use 'package.module:ClassName'.")
+        raise ValueError(
+            f"Cannot read '{path}' as a class path; use 'package.module:ClassName' "
+            "or 'package.module.ClassName'."
+        )
     module = import_module(module_name)
     return getattr(module, class_name)
 
 
-def resolve_token_verifier(default_token: str | None = None) -> Any | None:
+def resolve_token_verifier(default_token: str | None = None) -> TokenVerifier | None:
     """The token verifier this deployment wants, if any.
 
     Resolution order, most specific first:

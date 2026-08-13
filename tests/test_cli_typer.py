@@ -9,6 +9,7 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from jupyter_mcp_server.cli.cli import DocumentProvider, app, connect_command, stop_command
+from jupyter_mcp_server.identity import TOKEN_VERIFIER_CLASS_ENV
 
 
 class _Response:
@@ -80,6 +81,52 @@ def test_typer_start_streamable_http_requires_auth_token():
     assert result.exit_code != 0
     message = result.output or str(result.exception or "")
     assert "requires MCP client authentication" in message
+
+
+def test_typer_start_streamable_http_error_names_the_verifier_option(monkeypatch):
+    """The refusal must mention every way of satisfying it, not only the token."""
+    monkeypatch.delenv(TOKEN_VERIFIER_CLASS_ENV, raising=False)
+
+    result = CliRunner().invoke(app, ["start", "--transport", "streamable-http"])
+
+    assert result.exit_code != 0
+    message = result.output or str(result.exception or "")
+    assert TOKEN_VERIFIER_CLASS_ENV in message
+
+
+def test_typer_start_streamable_http_accepts_a_configured_verifier(monkeypatch):
+    """A deployment authenticating its own way needs no --mcp-token.
+
+    This is the path a platform takes: its verifier is named in the
+    environment, so the shared secret is neither present nor wanted.
+    """
+    monkeypatch.setenv(TOKEN_VERIFIER_CLASS_ENV, "tests.test_identity:AcceptingVerifier")
+    seen = {}
+
+    def fake_do_start(**kwargs):
+        seen.update(kwargs)
+
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
+        result = CliRunner().invoke(app, ["start", "--transport", "streamable-http"])
+
+    assert result.exit_code == 0, result.output
+    assert seen["transport"] == "streamable-http"
+    assert not seen.get("mcp_token")
+
+
+def test_typer_start_stdio_needs_no_mcp_auth(monkeypatch):
+    """stdio does not speak HTTP, so none of this applies to it."""
+    monkeypatch.delenv(TOKEN_VERIFIER_CLASS_ENV, raising=False)
+    seen = {}
+
+    def fake_do_start(**kwargs):
+        seen.update(kwargs)
+
+    with patch("jupyter_mcp_server.cli.commands.serve.do_start", fake_do_start):
+        result = CliRunner().invoke(app, ["start", "--transport", "stdio"])
+
+    assert result.exit_code == 0, result.output
+    assert seen["transport"] == "stdio"
 
 
 def test_typer_root_accepts_explicit_start_new_code_sandbox_bool_value():
