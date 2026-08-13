@@ -1,0 +1,147 @@
+# Hosted
+
+Everything else in these docs is about running Jupyter MCP Server yourself.
+This section is about not having to.
+
+[Datalayer](https://datalayer.ai) hosts this project as a service at
+`https://mcp.datalayer.run/mcp`: one endpoint, for every agent and every
+notebook, with nothing to install and nothing to keep running.
+
+:::note
+
+The project stays open source and BSD 3-Clause. The hosted service is built on
+it — the tool vocabulary is identical, and it authenticates through the
+documented [Identity](/features/identity) hook rather than a fork.
+
+:::
+
+## When local is enough
+
+Run it yourself when the notebook is on your machine and you are the only one
+working on it:
+
+```bash
+pip install jupyter-mcp-server
+jupyter mcp start --transport streamable-http --jupyter-token MY_TOKEN
+```
+
+That is the whole setup, it costs nothing, and your data never leaves your
+laptop. For a solo experiment it is the right answer.
+
+## When hosted earns its place
+
+Four things are awkward to solve locally, and they are what the hosted service
+is for.
+
+### The process you have to keep running
+
+A local MCP server lives as long as your terminal does. The hosted endpoint is
+a URL: your agent connects to it from any machine, and there is no process to
+supervise, restart or expose.
+
+### The execution that dies with the session
+
+This is the one that matters most. Locally, the lifetime of a computation is
+tied to the lifetime of your session. Start a long `model.fit(...)`, close the
+laptop, and you come back to nothing.
+
+Hosted, execution belongs to the server:
+
+```
+Ask the agent to run a 40-minute job
+        ↓
+Close the agent · close the laptop
+        ↓
+Execution continues
+        ↓
+Reconnect from anywhere
+        ↓
+The notebook holds everything produced meanwhile
+```
+
+The client subscribes to an execution; it does not own it.
+
+### One notebook, several agents
+
+Locally, a shared token means every client has the same access, and revoking
+one means revoking all. Hosted, each agent is authorized separately through
+OAuth 2.1, appears in a **Connected Agents** list, and can be disconnected on
+its own:
+
+| Client | Access | Last used | |
+|---|---|---|---|
+| Claude Code | Notebooks + Execute | 2 min ago | Revoke |
+| Codex | Notebooks + Execute | Yesterday | Revoke |
+
+### Permissions that belong to a team
+
+A Jupyter token is all-or-nothing. Hosted, an agent inherits exactly the
+access of the person who authorized it — no more — and team sharing applies
+whether a notebook is opened by a person or reached by an agent.
+
+## Authentication
+
+The hosted endpoint is an OAuth 2.1 resource server, as the MCP authorization
+specification asks. A client that connects unauthenticated receives:
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="Datalayer",
+  resource_metadata="https://mcp.datalayer.run/.well-known/oauth-protected-resource/mcp"
+```
+
+and follows that document to the authorization server. In practice you point
+your client at the URL, a browser opens, you sign into Datalayer, and you
+approve what the agent may do:
+
+| Scope | What it allows |
+|---|---|
+| `notebooks:read` | Read cells, outputs and metadata |
+| `notebooks:write` | Add, edit and delete cells |
+| `code:execute` | Run cells on a code sandbox |
+| `data:read` | Read datasets, datasources and dataservers |
+
+:::tip Your password never reaches the agent
+
+You sign into Datalayer; the agent receives a scoped token. That separation is
+the reason for the browser step, and it is why a personal password should
+never be configured as an MCP credential — with any server, hosted or not.
+
+:::
+
+A personal access token remains available for CLI use and for clients that do
+not implement OAuth.
+
+## Connecting
+
+```json
+{
+  "mcpServers": {
+    "datalayer": {
+      "url": "https://mcp.datalayer.run/mcp"
+    }
+  }
+}
+```
+
+The same client configurations documented under [MCP Clients](/mcp-clients)
+apply — only the URL changes.
+
+## Comparison
+
+| | Self-hosted | Datalayer |
+|---|---|---|
+| Cost | Free, open source | Free tier, then usage-based |
+| To operate | Your own process | Nothing |
+| Reachable from | Your machine | Anywhere |
+| Execution survives disconnect | No | Yes |
+| Several agents | One shared credential | Authorized and revoked separately |
+| Team permissions | — | Applied to agents as to people |
+| Data | Stays on your machine | Stays in your workspace |
+| Authentication | Shared token | OAuth 2.1 or personal token |
+
+## Learn more
+
+- [Datalayer documentation for the hosted endpoint](https://datalayer.ai/docs/access-jupyter-mcp-server)
+- [Identity](/features/identity) — the hook the hosted service authenticates through
+- [Security](/features/security) — authentication when you run it yourself
