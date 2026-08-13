@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from jupyter_mcp_server.cli.cli import Provider, app, connect_command, stop_command
+from jupyter_mcp_server.cli.cli import DocumentProvider, app, connect_command, stop_command
 
 
 class _Response:
@@ -32,7 +32,7 @@ def test_typer_connect_command_sends_mcp_token():
     with patch("jupyter_mcp_server.cli.commands.connect.httpx.put", fake_put):
         connect_command(
             jupyter_mcp_server_url="http://localhost:4040",
-            provider=Provider.jupyter,
+            document_provider=DocumentProvider.jupyter,
             jupyterlab=True,
             open_notebook_in_ui=False,
             code_sandbox_url=None,

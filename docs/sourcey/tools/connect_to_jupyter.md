@@ -25,7 +25,7 @@ Example usage:
 | --- | --- | --- | --- | --- |
 | `jupyter_url` | string | yes | — | Jupyter server URL to connect to (e.g., 'http://localhost:8888') |
 | `jupyter_token` | string \| null | no | `null` | Jupyter server authentication token |
-| `provider` | string | no | `"jupyter"` | Provider type |
+| `document_provider` | string | no | `"jupyter"` | Which backend holds the notebook documents |
 
 ## Output
 
@@ -58,14 +58,14 @@ Example usage:
     "arguments": {
       "jupyter_url": "<jupyter_url>",
       "jupyter_token": null,
-      "provider": "jupyter"
+      "document_provider": "jupyter"
     }
   }
 }
 ```
 
 ```python
-result = await session.call_tool("connect_to_jupyter", arguments={"jupyter_url": "<jupyter_url>", "jupyter_token": None, "provider": "jupyter"})
+result = await session.call_tool("connect_to_jupyter", arguments={"jupyter_url": "<jupyter_url>", "jupyter_token": None, "document_provider": "jupyter"})
 ```
 
 ## Source

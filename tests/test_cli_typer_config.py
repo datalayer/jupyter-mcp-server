@@ -12,7 +12,7 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from jupyter_mcp_server.cli.cli import Provider, app, connect_command, stop_command
+from jupyter_mcp_server.cli.cli import DocumentProvider, app, connect_command, stop_command
 from jupyter_mcp_server.config import JupyterMCPConfig, get_config, reset_config, set_config
 from jupyter_mcp_server.utils import mcp_auth_headers, resolve_url_and_token_variables
 
@@ -68,7 +68,7 @@ def test_connect_command_sends_mcp_token():
     with patch("jupyter_mcp_server.cli.commands.connect.httpx.put", fake_put):
         connect_command(
             jupyter_mcp_server_url="http://localhost:4040",
-            provider=Provider.jupyter,
+            document_provider=DocumentProvider.jupyter,
             jupyterlab=True,
             open_notebook_in_ui=False,
             code_sandbox_url=None,
@@ -97,7 +97,7 @@ def test_connect_command_accepts_unset_document_url():
     with patch("jupyter_mcp_server.cli.commands.connect.httpx.put", fake_put):
         connect_command(
             jupyter_mcp_server_url="http://localhost:4040",
-            provider=Provider.jupyter,
+            document_provider=DocumentProvider.jupyter,
             jupyterlab=True,
             open_notebook_in_ui=False,
             code_sandbox_url="http://localhost:8888",
@@ -138,18 +138,18 @@ def test_config():
     config = get_config()
     assert config.code_sandbox_url == "http://localhost:8888"
     assert config.document_id is None
-    assert config.provider == "jupyter"
+    assert config.document_provider == "jupyter"
 
     new_config = set_config(
         code_sandbox_url="http://localhost:9999",
         document_id="test_notebooks.ipynb",
-        provider="datalayer",
+        document_provider="datalayer",
         code_sandbox_token="test_token",
     )
 
     assert new_config.code_sandbox_url == "http://localhost:9999"
     assert new_config.document_id == "test_notebooks.ipynb"
-    assert new_config.provider == "datalayer"
+    assert new_config.document_provider == "datalayer"
 
     config2 = get_config()
     assert config2.code_sandbox_url == "http://localhost:9999"
@@ -159,7 +159,7 @@ def test_config():
     config3 = get_config()
     assert config3.code_sandbox_url == "http://localhost:8888"
     assert config3.document_id is None
-    assert config3.provider == "jupyter"
+    assert config3.document_provider == "jupyter"
 
 
 def test_allowed_jupyter_mcp_tools_config():

@@ -274,7 +274,7 @@ async def connect(request: Request):
     logger.info(
         f"Connect endpoint received - code_sandbox_url: {data.get('code_sandbox_url')!r}, "
         f"document_url: {data.get('document_url')!r}, "
-        f"provider: {data.get('provider')}"
+        f"document_provider: {data.get('document_provider')}"
     )
 
     document_code_sandbox = DocumentCodeSandbox(**data)
@@ -289,7 +289,7 @@ async def connect(request: Request):
     # Update configuration with new values
     # String "None" values will be automatically normalized by set_config()
     set_config(
-        provider=document_code_sandbox.provider,
+        document_provider=document_code_sandbox.document_provider,
         code_sandbox_url=document_code_sandbox.code_sandbox_url,
         code_sandbox_id=document_code_sandbox.code_sandbox_id,
         code_sandbox_token=document_code_sandbox.code_sandbox_token,
@@ -1124,7 +1124,9 @@ async def connect_to_jupyter(
     jupyter_token: Annotated[
         str | None, Field(description="Jupyter server authentication token")
     ] = None,
-    provider: Annotated[str, Field(description="Provider type")] = "jupyter",
+    document_provider: Annotated[
+        str, Field(description="Which backend holds the notebook documents")
+    ] = "jupyter",
 ) -> Annotated[str, Field(description="Connection status message")]:
     """Connect to a Jupyter server dynamically with URL and token.
 
@@ -1143,7 +1145,7 @@ async def connect_to_jupyter(
             mode=server_context.mode,
             jupyter_url=jupyter_url,
             jupyter_token=jupyter_token,
-            provider=provider,
+            document_provider=document_provider,
         )
     )
 

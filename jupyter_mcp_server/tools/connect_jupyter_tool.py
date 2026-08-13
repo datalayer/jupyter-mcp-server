@@ -20,7 +20,7 @@ class ConnectJupyterTool(BaseTool):
         mode: ServerMode,
         jupyter_url: str,
         jupyter_token: str | None = None,
-        provider: str = "jupyter",
+        document_provider: str = "jupyter",
         **kwargs,
     ) -> str:
         """Execute the connect to Jupyter server operation.
@@ -29,7 +29,7 @@ class ConnectJupyterTool(BaseTool):
             mode: ServerMode indicating MCP_SERVER or JUPYTER_SERVER
             jupyter_url: The Jupyter server URL to connect to
             jupyter_token: The Jupyter server token for authentication
-            provider: Provider type (default: "jupyter")
+            document_provider: DocumentProvider type (default: "jupyter")
             **kwargs: Additional keyword arguments
 
         Returns:
@@ -44,7 +44,7 @@ class ConnectJupyterTool(BaseTool):
         try:
             # Update configuration with new connection parameters
             set_config(
-                provider=provider,
+                document_provider=document_provider,
                 code_sandbox_url=jupyter_url,
                 code_sandbox_token=jupyter_token,
                 document_url=jupyter_url,
@@ -60,7 +60,7 @@ class ConnectJupyterTool(BaseTool):
             # Build connection info message
             connection_info = [
                 f"Successfully connected to Jupyter server: {jupyter_url}",
-                f"Provider: {provider}",
+                f"DocumentProvider: {document_provider}",
             ]
 
             if jupyter_token:
