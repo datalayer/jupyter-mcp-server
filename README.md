@@ -589,6 +589,6 @@ Looking for blog posts, videos, or other materials about Jupyter MCP Server?
 
 Made with ❤️ by [Datalayer](https://datalayer.ai)
 
-<img src="https://assets.datalayer.tech/datalayer-25.svg" alt="Datalayer Logo" width="200"></img>
+<img src="https://assets.datalayer.tech/datalayer-25.svg" alt="Datalayer Logo" width="200"/>
 
 </div>

@@ -16,8 +16,6 @@ from unittest.mock import patch
 import pytest
 
 from jupyter_mcp_server.config import reset_config, set_config
-from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.tools._base import ServerMode
 
 
 class _FakeContents:

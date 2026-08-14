@@ -19,7 +19,7 @@ from jupyter_mcp_server.config import get_config, reset_config, set_config
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.server_context import ServerContext
-from jupyter_mcp_server.tools import use_notebook_tool
+from jupyter_mcp_server import sandbox_client
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 
@@ -124,7 +124,7 @@ async def test_split_create_does_not_inject_sandbox_xsrf(monkeypatch):
     nm = NotebookManager()
 
     with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
+        sandbox_client, "create_jupyter_sandbox_client", return_value=FakeKernel()
     ):
         await _execute(
             FakeServerClient(),
@@ -162,7 +162,7 @@ async def test_split_opens_ui_on_document_server(monkeypatch):
     monkeypatch.setattr("jupyter_mcp_tools.client.MCPToolsClient", FakeMCPToolsClient)
 
     with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
+        sandbox_client, "create_jupyter_sandbox_client", return_value=FakeKernel()
     ):
         await _execute(FakeServerClient(), nm)
 
@@ -194,7 +194,7 @@ async def test_same_url_keeps_caller_client(monkeypatch):
     nm = NotebookManager()
 
     with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
+        sandbox_client, "create_jupyter_sandbox_client", return_value=FakeKernel()
     ):
         result = await _execute(client, nm)
 
@@ -220,7 +220,7 @@ async def test_unset_document_url_keeps_caller_client(monkeypatch):
     nm = NotebookManager()
 
     with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
+        sandbox_client, "create_jupyter_sandbox_client", return_value=FakeKernel()
     ):
         result = await _execute(client, nm)
 

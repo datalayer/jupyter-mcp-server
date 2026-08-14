@@ -16,7 +16,6 @@ from jupyter_server_client import JupyterServerClient, NotFoundError
 
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
 logger = logging.getLogger(__name__)
@@ -333,12 +332,26 @@ class UseNotebookTool(BaseTool):
                 # perfectly reachable.
                 #
                 # `ensure_kernel_alive` attaches one on the first execution,
-                # through whichever sandbox is configured. A caller naming a
-                # specific `kernel_id` still has it recorded and reused then.
-                kernel = None
-                info_list.append(
-                    "[INFO] Notebook opened. A kernel starts on the first execution."
-                )
+                # through whichever sandbox is configured — so the variant is
+                # honoured rather than assumed.
+                #
+                # A `kernel_id` given here is only checked for existence: it is
+                # not carried to that first execution, which builds a kernel
+                # from the configuration. Reusing a particular one means naming
+                # it at execution time, or setting `code_sandbox_id`.
+                if config.start_new_code_sandbox:
+                    # The operator asked for a sandbox up front, so start one.
+                    # Through the shared factory, which consults the installed
+                    # extensions first and so honours `--sandbox-variant`.
+                    from jupyter_mcp_server.utils import create_kernel
+
+                    kernel = create_kernel(config, logger)
+                    info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
+                else:
+                    kernel = None
+                    info_list.append(
+                        "[INFO] Notebook opened. A kernel starts on the first execution."
+                    )
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
                 # JUPYTER_SERVER mode: Use local kernel manager API directly
                 if kernel_id:
