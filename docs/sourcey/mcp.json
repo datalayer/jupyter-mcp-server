@@ -1225,5 +1225,6 @@
         }
       ]
     }
-  ]
+  ],
+  "description": "Read, edit and run Jupyter notebooks over MCP. Cells are addressed by index within a notebook opened with use_notebook, and execution happens on the server, so a long computation keeps running after the session ends."
 }

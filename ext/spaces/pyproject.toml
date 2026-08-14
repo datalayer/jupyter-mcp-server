@@ -7,14 +7,14 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "jupyter_mcp_sandboxes"
-version = "0.1.2"
-description = "Sandboxes extension for Jupyter MCP Server (launch/use code-sandboxes code sandboxes as an alternative to Jupyter kernels)"
+name = "jupyter_mcp_spaces"
+version = "0.1.1"
+description = "Datalayer spaces extension for Jupyter MCP Server (list and open the notebooks of a space, in place of a Jupyter filesystem)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "BSD-3-Clause" }
 authors = [{ name = "Datalayer", email = "info@datalayer.io" }]
-keywords = ["jupyter", "mcp", "sandbox", "extension"]
+keywords = ["jupyter", "mcp", "datalayer", "spaces", "extension"]
 classifiers = [
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3",
@@ -23,7 +23,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "code-sandboxes",
+    # The platform calls live in the SDK, not here.
+    "datalayer-core>=1.1.54",
     "datalayer-reactor",
     "jupyter-mcp-server",
 ]
@@ -34,15 +35,13 @@ build = ["build>=1.2.1", "twine>=5.1.1"]
 
 # Register the extension so Jupyter MCP Server can discover it at startup.
 [project.entry-points."jupyter_mcp_server.extensions"]
-sandboxes = "jupyter_mcp_sandboxes:SandboxesExtension"
+spaces = "jupyter_mcp_spaces:SpacesExtension"
 
 [project.urls]
 Homepage = "https://github.com/datalayer/jupyter-mcp-server"
-Source = "https://github.com/datalayer/jupyter-mcp-server"
-
-[tool.setuptools]
-include-package-data = true
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["jupyter_mcp_sandboxes*"]
+include = ["jupyter_mcp_spaces*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -197,7 +197,21 @@ class FastMCPWithCORS(FastMCP):
         return app
 
 
-mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
+#: What the server tells a client it is for. Sent in `initialize`, so an agent
+#: reads it before choosing a tool — worth saying what the tools operate on
+#: and what is unusual about them, rather than restating the name.
+INSTRUCTIONS = (
+    "Read, edit and run Jupyter notebooks. Cells are addressed by index within "
+    "a notebook you have opened with use_notebook, and execution happens on the "
+    "server, so a long computation keeps running after this session ends."
+)
+
+mcp = FastMCPWithCORS(
+    name="Jupyter MCP Server",
+    instructions=INSTRUCTIONS,
+    json_response=False,
+    stateless_http=True,
+)
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()

@@ -5,6 +5,7 @@
 
 pip install -e ".[lint,typing]"
 pip install ./ext/sandboxes
+pip install ./ext/spaces
 mypy --install-types --non-interactive .
 ruff check .
 mdformat --check *.md

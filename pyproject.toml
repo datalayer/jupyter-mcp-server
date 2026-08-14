@@ -138,3 +138,6 @@ ignore = [
 # Test modules commonly rely on assert statements, dummy credentials, and
 # simple mutable class-level fixtures/mocks.
 "tests/*" = ["S101", "S106", "RUF012"]
+# The extensions under ext/ keep their tests beside them, and they are
+# tests like any other.
+"ext/*/tests/*" = ["S101", "S106", "RUF012"]
