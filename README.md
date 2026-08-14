@@ -581,14 +581,14 @@ Looking for blog posts, videos, or other materials about Jupyter MCP Server?
 
 👉 Visit the [**Resources section**](https://jupyter-mcp-server.datalayer.tech/resources) in our documentation for more!
 
-[![Star History Chart](https://api.star-history.com/svg?repos=datalayer/jupyter-mcp-server&type=Date)](https://star-history.com/#datalayer/jupyter-mcp-server&type=Date)
-
-______________________________________________________________________
+---
 
 <div align="center">
 
 **If this project is helpful to you, please give us a ⭐️**
 
 Made with ❤️ by [Datalayer](https://datalayer.ai)
+
+<img src="https://assets.datalayer.tech/datalayer-25.svg" alt="Datalayer Logo" width="200"></img>
 
 </div>

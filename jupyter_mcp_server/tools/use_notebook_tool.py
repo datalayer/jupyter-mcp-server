@@ -320,26 +320,25 @@ class UseNotebookTool(BaseTool):
                     kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
                     if not kernel_exists:
                         return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."
-                # Ensure the kernel is started with the same path as the notebook.
-                # Routed through code-sandboxes (jupyter variant) rather than a
-                # direct JupyterKernelClient; the sandbox creates and starts the kernel.
-                from jupyter_mcp_server.config import get_config
-
-                config = get_config()
-                kernel = create_jupyter_sandbox_client(
-                    server_url=code_sandbox_url,
-                    # Password auth authenticates via the cookie/XSRF headers, so
-                    # the token is dropped when they are present.
-                    token=None if auth_headers else code_sandbox_token,
-                    kernel_id=kernel_id,
-                    path=notebook_path,
-                    logger=logger,
-                    timeout=getattr(config, "execution_timeout", None),
-                    reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,
-                    headers=auth_headers or None,
+                # No kernel yet.
+                #
+                # Opening a notebook is not running one. Reading cells, their
+                # outputs and metadata happens over the document connection and
+                # needs no kernel at all; only execution does. Attaching one
+                # here spent a runtime on every open — and, worse, it always
+                # built a *Jupyter* sandbox whatever `--sandbox-variant` said,
+                # so pointing the server at any other backend meant waiting for
+                # an `/api/status` that would never answer and failing with
+                # "Timed out waiting for Jupyter Server" on a notebook that was
+                # perfectly reachable.
+                #
+                # `ensure_kernel_alive` attaches one on the first execution,
+                # through whichever sandbox is configured. A caller naming a
+                # specific `kernel_id` still has it recorded and reused then.
+                kernel = None
+                info_list.append(
+                    "[INFO] Notebook opened. A kernel starts on the first execution."
                 )
-
-                info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
                 # JUPYTER_SERVER mode: Use local kernel manager API directly
                 if kernel_id:

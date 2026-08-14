@@ -2,20 +2,22 @@
 #
 # BSD 3-Clause License
 
-"""use_notebook's MCP_SERVER kernel-creation path must forward the configured
-reconnect_interval/execution_timeout to create_jupyter_sandbox_client, the same
-way its sibling call sites (utils.create_kernel, execute_code_tool) already do.
+"""`reconnect_interval` reaches the sandbox that runs the code.
+
+Opening a notebook no longer creates a kernel — reading cells needs none, and
+building one there always built a *Jupyter* sandbox whatever the configured
+variant said. The kernel is created on the first execution instead, by the
+shared factory, and that is where this setting has to arrive.
 """
 
+import logging
 from unittest.mock import patch
 
 import pytest
 
-import jupyter_mcp_server.tools.use_notebook_tool as use_notebook_tool
 from jupyter_mcp_server.config import reset_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import ServerMode
-from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 
 
 class _FakeContents:
@@ -57,49 +59,67 @@ def configured_reconnect():
     reset_config()
 
 
-@pytest.mark.asyncio
-async def test_use_notebook_mcp_server_forwards_reconnect_interval(configured_reconnect):
-    """A configured --reconnect-interval must reach create_jupyter_sandbox_client
-    on the use_notebook MCP_SERVER path, not be silently dropped."""
-    with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
-    ) as mock_create:
-        await UseNotebookTool().execute(
-            mode=ServerMode.MCP_SERVER,
-            sandbox_server_client=FakeServerClient(),
-            notebook_manager=NotebookManager(),
-            notebook_name="nb",
-            notebook_path="nb.ipynb",
-            use_mode="create",
-            code_sandbox_url="http://localhost:8888",
-            code_sandbox_token="secret",
-        )
+def _created_with(**config_kwargs):
+    """The kwargs the shared factory hands the sandbox client."""
+    from jupyter_mcp_server import utils
 
-    assert mock_create.call_count == 1
-    kwargs = mock_create.call_args.kwargs
-    assert kwargs["reconnect_interval"] == 5
-    assert kwargs["timeout"] == 300
-
-
-@pytest.mark.asyncio
-async def test_use_notebook_mcp_server_defaults_reconnect_interval_to_zero(configured_reconnect):
-    """No --reconnect-interval configured means 0 (disabled), matching the
-    sibling call sites' `getattr(config, "reconnect_interval", 0) or 0`."""
     reset_config()
+    config = set_config(**config_kwargs)
+    seen = {}
 
-    with patch.object(
-        use_notebook_tool, "create_jupyter_sandbox_client", return_value=FakeKernel()
-    ) as mock_create:
-        await UseNotebookTool().execute(
-            mode=ServerMode.MCP_SERVER,
-            sandbox_server_client=FakeServerClient(),
-            notebook_manager=NotebookManager(),
-            notebook_name="nb2",
-            notebook_path="nb2.ipynb",
-            use_mode="create",
-            code_sandbox_url="http://localhost:8888",
-            code_sandbox_token="secret",
-        )
+    class _Kernel:
+        id = "k1"
 
-    kwargs = mock_create.call_args.kwargs
-    assert kwargs["reconnect_interval"] == 0
+    def fake_client(**kwargs):
+        seen.update(kwargs)
+        return _Kernel()
+
+    with patch(
+        "jupyter_mcp_server.sandbox_client.create_jupyter_sandbox_client", fake_client
+    ):
+        with patch(
+            "jupyter_mcp_server.extensions.get_extension_manager"
+        ) as manager:
+            manager.return_value.create_kernel.return_value = None
+            utils.create_kernel(config, logging.getLogger("test"))
+    reset_config()
+    return seen
+
+
+def test_the_configured_reconnect_interval_reaches_the_sandbox():
+    seen = _created_with(code_sandbox_url="http://localhost:8888", reconnect_interval=7)
+    assert seen["reconnect_interval"] == 7
+
+
+def test_it_defaults_to_zero():
+    # Zero disables auto-reconnect, which is the documented default.
+    seen = _created_with(code_sandbox_url="http://localhost:8888")
+    assert seen["reconnect_interval"] == 0
+
+
+def test_an_extension_takes_over_for_another_variant():
+    """A non-jupyter variant must not reach the Jupyter client at all.
+
+    This is the regression that stalled `use_notebook` for two minutes: a
+    Jupyter sandbox was built whatever the variant said, then waited for an
+    `/api/status` that a Datalayer endpoint never answers.
+    """
+    from jupyter_mcp_server import utils
+
+    reset_config()
+    config = set_config(sandbox_variant="datalayer", code_sandbox_url="https://prod1.datalayer.run")
+
+    class _Sandbox:
+        id = "sandbox-1"
+
+    def must_not_run(**kwargs):  # pragma: no cover - the point of the test
+        raise AssertionError("the Jupyter client must not be built for a datalayer variant")
+
+    with patch(
+        "jupyter_mcp_server.sandbox_client.create_jupyter_sandbox_client", must_not_run
+    ):
+        with patch("jupyter_mcp_server.extensions.get_extension_manager") as manager:
+            manager.return_value.create_kernel.return_value = _Sandbox()
+            kernel = utils.create_kernel(config, logging.getLogger("test"))
+    reset_config()
+    assert kernel.id == "sandbox-1"
