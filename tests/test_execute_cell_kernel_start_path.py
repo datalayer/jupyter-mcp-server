@@ -4,6 +4,7 @@
 
 """Regression test for local kernel reprovisioning working directories."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import nbformat
@@ -95,5 +96,8 @@ async def test_reprovisioned_kernel_uses_notebook_api_path_not_absolute_file_pat
     )
 
     assert kernel_manager.started_paths == ["projects/demo/notebook.ipynb"]
-    assert file_id_manager.paths == ["/srv/notebooks/projects/demo/notebook.ipynb"]
-    assert read_paths == ["/srv/notebooks/projects/demo/notebook.ipynb"]
+    filesystem_notebook_path = str(
+        Path("/srv/notebooks") / "projects/demo/notebook.ipynb"
+    )
+    assert file_id_manager.paths == [filesystem_notebook_path]
+    assert read_paths == [filesystem_notebook_path]
