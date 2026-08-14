@@ -177,8 +177,28 @@ class UseNotebookTool(BaseTool):
         Returns:
             Success message with notebook information
         """
-        # Check server connectivity (HTTP mode only)
-        if mode == ServerMode.MCP_SERVER and sandbox_server_client is not None:
+        # Check server connectivity (HTTP mode only).
+        #
+        # Only when a Jupyter server is actually what holds the documents.
+        # `get_status()` asks for `/api/status`, which exists on a Jupyter
+        # server and nowhere else — so when the documents come from another
+        # provider, or code runs in a sandbox that is not a Jupyter, this
+        # precheck fails against a URL that was never meant to answer it and
+        # the tool reports "Failed to connect the Jupyter server" for a server
+        # it does not need. Nothing downstream uses that client in those
+        # setups: the document goes over the provider's own collaboration
+        # endpoint, and execution through the sandbox.
+        from jupyter_mcp_server.config import get_config
+
+        config = get_config()
+        needs_jupyter = (
+            config.document_provider == "jupyter" and not config.uses_sandbox_variant()
+        )
+        if (
+            mode == ServerMode.MCP_SERVER
+            and sandbox_server_client is not None
+            and needs_jupyter
+        ):
             try:
                 sandbox_server_client.get_status()
             except Exception as e:

@@ -24,14 +24,34 @@ DEF = re.compile(r"\s*(?:async\s+)?def\s+(\w+)")
 # particular: `pip install ./ext/sandboxes` leaves a setuptools copy of the
 # extension at ext/sandboxes/build/lib/..., and scanning it would map the
 # sandbox tools to a build artifact instead of the real file.
+#: Extensions whose tools are registered conditionally, and so are absent from
+#: a default snapshot.
+#:
+#: The reference documents the server as it runs out of the box: a Jupyter
+#: backend, with the tools that implies. `jupyter-mcp-spaces` only registers
+#: when the server is pointed at Datalayer, and it *hides* `list_files`,
+#: `list_kernels` and `connect_to_jupyter` when it does — so no single snapshot
+#: can contain both sets, and including these here would make the reference
+#: permanently stale against itself. They are documented with the extension
+#: that provides them.
+CONDITIONAL_EXTENSIONS = {"spaces"}
+
 SKIP_DIRS = {
     ".git", ".tox", ".venv", ".eggs", "__pycache__", "build", "dist",
+    # This directory included: the scanner would otherwise read its own
+    # source, match the decorator pattern inside the regex that defines it,
+    # and index the next function as a tool.
+    "docs",
     "node_modules", "site-packages", "tests", "venv",
 }
+
+
 
 entries = {}
 for base, dirs, files in os.walk(SRC):
     # Prune in place so os.walk never descends into them.
+    if os.path.basename(base) == "ext":
+        dirs[:] = [d for d in dirs if d not in CONDITIONAL_EXTENSIONS]
     dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.endswith(".egg-info"))
     files = sorted(files)
     for fn in files:
@@ -52,10 +72,20 @@ for base, dirs, files in os.walk(SRC):
                     name = d.group(1)
                     prev = entries.get(name)
                     if prev and prev["file"] != rel:
-                        # Fail loudly rather than let os.walk order pick a winner.
+                        # Fail loudly rather than let os.walk order pick a
+                        # winner. Two causes: a stale build tree holding a
+                        # second copy, or an extension registering a name the
+                        # core server already uses. An extension that does
+                        # that on purpose — replacing a tool rather than
+                        # adding one — belongs in CONDITIONAL_EXTENSIONS, so
+                        # the reference documents one of them and not a
+                        # contradiction.
                         raise SystemExit(
-                            f"{name} is registered in two files: {prev['file']} and {rel}. "
-                            "Remove the stray copy (a stale build/ tree?) and re-run."
+                            f"{name} is registered in two files: "
+                            f"{prev['file']} and {rel}. Remove the stray copy "
+                            "(a stale build/ tree?), or list the extension in "
+                            "CONDITIONAL_EXTENSIONS if it replaces the tool "
+                            "deliberately, and re-run."
                         )
                     entries[name] = {"kind": kind, "file": rel}
                     break

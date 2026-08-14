@@ -25,6 +25,19 @@ const spec = await snapshot({
 // with the installed console-script name so no machine-specific path is published.
 if (spec.transport?.command) spec.transport.command = "jupyter-mcp-server";
 
+// What this server is, for whoever reads the published reference.
+//
+// Set here because the snapshot does not carry it: `initialize` returns the
+// server's `instructions`, which is what an MCP client reads at runtime, but
+// mcp-parser records only the name and version — so the validator asks for a
+// description that nothing else supplies. Keep this in step with
+// `INSTRUCTIONS` in jupyter_mcp_server/server.py; they address the same two
+// audiences, a reader of the docs and an agent choosing a tool.
+spec.description =
+  "Read, edit and run Jupyter notebooks over MCP. Cells are addressed by " +
+  "index within a notebook opened with use_notebook, and execution happens " +
+  "on the server, so a long computation keeps running after the session ends.";
+
 // Descriptions come straight from Python docstrings, and CPython 3.13 dedents
 // docstrings at compile time while 3.12 and earlier keep the source indentation
 // (gh.io/cpython#81283). Without normalising, the same server yields a different
