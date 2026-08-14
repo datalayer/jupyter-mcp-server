@@ -30,6 +30,7 @@ jobs:
         run: |
           python -m pip install .
           python -m pip install ./ext/sandboxes
+          python -m pip install ./ext/spaces
 
       - name: Install the docs dependencies
         working-directory: docs
