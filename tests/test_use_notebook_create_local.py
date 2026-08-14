@@ -39,9 +39,11 @@ class RecordingKernelManager:
 
     def __init__(self, events):
         self.events = events
+        self.start_kernel_calls = []
 
-    async def start_kernel(self):
+    async def start_kernel(self, path=None):
         self.events.append("start_kernel")
+        self.start_kernel_calls.append(path)
         return "kernel-1"
 
     def get_kernel(self, kernel_id):
@@ -103,3 +105,24 @@ async def test_create_writes_the_notebook_before_starting_a_session_on_it():
 
     assert events.index("new") < events.index("create_session")
     assert events.index("new") < events.index("start_kernel")
+
+
+@pytest.mark.asyncio
+async def test_create_starts_the_kernel_in_the_notebook_directory():
+    """Nested notebooks need a matching kernel working directory so relative
+    paths resolve beside the notebook rather than at the server root."""
+    events = []
+    kernel_manager = RecordingKernelManager(events)
+
+    await UseNotebookTool().execute(
+        mode=ServerMode.JUPYTER_SERVER,
+        contents_manager=RecordingContentsManager(events),
+        kernel_manager=kernel_manager,
+        session_manager=RecordingSessionManager(events),
+        notebook_manager=NotebookManager(),
+        notebook_name="nested",
+        notebook_path="projects/demo/notebook.ipynb",
+        use_mode="create",
+    )
+
+    assert kernel_manager.start_kernel_calls == ["projects/demo/notebook.ipynb"]

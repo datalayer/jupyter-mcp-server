@@ -84,10 +84,10 @@ class ExecuteCellTool(BaseTool):
             return True
 
     async def _start_and_bind_kernel(
-        self, kernel_manager, notebook_manager, notebook_path: str
+        self, kernel_manager, notebook_manager, notebook_path: str | None
     ) -> str:
         """Start a kernel and rebind it to the current notebook in local mode."""
-        kernel_id = await kernel_manager.start_kernel()
+        kernel_id = await kernel_manager.start_kernel(path=notebook_path)
         await asyncio.sleep(1.0)
         logger.info(f"Kernel {kernel_id} started and initialized")
 
@@ -257,8 +257,10 @@ class ExecuteCellTool(BaseTool):
             if kernel_manager is None:
                 raise ValueError("kernel_manager is required for JUPYTER_SERVER mode")
 
-            # Get notebook_path and kernel_id first
+            # Preserve the root-relative API path for kernel creation, then resolve
+            # a separate filesystem path for file and YDoc operations below.
             notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
+            notebook_api_path = notebook_path
 
             # Resolve to absolute path
             if notebook_path and serverapp and not Path(notebook_path).is_absolute():
@@ -270,7 +272,7 @@ class ExecuteCellTool(BaseTool):
             if kernel_id is None:
                 logger.info("No kernel_id available, starting new kernel for execute_cell")
                 kernel_id = await self._start_and_bind_kernel(
-                    kernel_manager, notebook_manager, notebook_path
+                    kernel_manager, notebook_manager, notebook_api_path
                 )
             elif not await self._kernel_exists(kernel_manager, kernel_id):
                 logger.info(
@@ -278,7 +280,7 @@ class ExecuteCellTool(BaseTool):
                     kernel_id,
                 )
                 kernel_id = await self._start_and_bind_kernel(
-                    kernel_manager, notebook_manager, notebook_path
+                    kernel_manager, notebook_manager, notebook_api_path
                 )
 
             logger.info(
@@ -340,7 +342,7 @@ class ExecuteCellTool(BaseTool):
                             kernel_id,
                         )
                         kernel_id = await self._start_and_bind_kernel(
-                            kernel_manager, notebook_manager, notebook_path
+                            kernel_manager, notebook_manager, notebook_api_path
                         )
                         outputs = await execute_via_execution_stack(
                             serverapp=serverapp,
@@ -398,7 +400,7 @@ class ExecuteCellTool(BaseTool):
                             kernel_id,
                         )
                         kernel_id = await self._start_and_bind_kernel(
-                            kernel_manager, notebook_manager, notebook_path
+                            kernel_manager, notebook_manager, notebook_api_path
                         )
                         raw_outputs = []
                         execution_count_out = []
