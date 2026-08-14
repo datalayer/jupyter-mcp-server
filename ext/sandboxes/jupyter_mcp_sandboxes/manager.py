@@ -47,6 +47,11 @@ class CodeSandboxManager:
         create_kwargs: dict[str, Any] = {
             "variant": variant,
             "timeout": timeout,
+            # The name the caller gave this sandbox, so the platform records
+            # it too. Without it a sandbox is `welcome-sbx` here and
+            # `sandbox-d786c04d` in the runtimes table, and nothing connects
+            # the two — the same object appearing to be two.
+            "name": sandbox_name,
         }
         if create_kwargs["variant"] in {"google-colab", "colab"}:
             create_kwargs["variant"] = "google_colab"
