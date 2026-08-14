@@ -75,8 +75,13 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
         if engine in ("modal", "datalayer") and getattr(config, "sandbox_gpu", None):
             create_kwargs["gpu"] = config.sandbox_gpu
         if engine == "datalayer":
-            if config.code_sandbox_token:
-                create_kwargs["token"] = config.code_sandbox_token
+            # The caller's own credential when the request carries one, so a
+            # server acting for several people runs each person's code as
+            # them. `resolved_code_sandbox_token` falls back to whatever was
+            # configured, which is the single-user case and unchanged.
+            token = _sandbox_token(config)
+            if token:
+                create_kwargs["token"] = token
             if config.code_sandbox_url:
                 create_kwargs["run_url"] = config.code_sandbox_url
         if config.sandbox_environment:
@@ -84,6 +89,18 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
         return CodeSandboxClient.create(**create_kwargs)
 
     raise ValueError(f"Unsupported sandbox variant: {config.sandbox_variant}")
+
+
+def _sandbox_token(config) -> str | None:
+    """The credential to run code with: the caller's, else the configured one.
+
+    Guarded because the resolver arrived in jupyter-mcp-server 1.3.4 and this
+    extension supports older ones, where the configured token is all there is.
+    """
+    resolver = getattr(config, "resolved_code_sandbox_token", None)
+    if callable(resolver):
+        return resolver()
+    return config.code_sandbox_token
 
 
 def create_sandbox_client(config, logger) -> CodeSandboxClient:
