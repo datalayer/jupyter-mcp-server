@@ -32,6 +32,7 @@
 **`https://mcp.datalayer.run/mcp`** — one endpoint for every agent and every notebook.
 Sign in from your browser, approve what the agent may do, and your work keeps running
 on the server after the agent disconnects.
+
 → [**Hosted Jupyter MCP Server**](https://jupyter-mcp-server.datalayer.tech/hosted)
 
 [![Claude Code plugin](https://img.shields.io/badge/%F0%9F%A4%96%20Claude%20Code-plugin%20available-8E44AD?style=for-the-badge&labelColor=5B2C6F)](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/claude-plugin)
