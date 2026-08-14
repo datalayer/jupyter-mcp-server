@@ -106,6 +106,13 @@ class ToolCache:
                 base_url=base_url, token=token, query=query, enabled_only=enabled_only
             )
 
+            # jupyter-mcp-tools returns [] rather than raising when the JupyterLab
+            # extension has not registered its tools yet (HTTP 503), on a timeout, or
+            # on a connection error, so an empty result is transient here.
+            if not fresh_data:
+                logger.debug(f"Not caching empty tool list for key {cache_key}")
+                return fresh_data
+
             # Store in cache
             async with self._lock:
                 self._cache[cache_key] = CacheEntry(data=fresh_data, timestamp=time.time())
