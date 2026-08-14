@@ -8,11 +8,25 @@ from __future__ import annotations
 
 from jupyter_mcp_spaces.spaces import resolve
 
-
 NOTEBOOKS = [
-    {"uid": "ntb-1", "name": "sales-forecast.ipynb", "notebook_name": "sales_forecast", "space": "Personal"},
-    {"uid": "ntb-2", "name": "sales-forecast-v2.ipynb", "notebook_name": "sales_forecast_v2", "space": "Team"},
-    {"uid": "ntb-3", "name": "churn.ipynb", "notebook_name": "churn", "space": "Personal"},
+    {
+        "uid": "ntb-1",
+        "name": "sales-forecast.ipynb",
+        "notebook_name": "sales_forecast",
+        "space": "Personal",
+    },
+    {
+        "uid": "ntb-2",
+        "name": "sales-forecast-v2.ipynb",
+        "notebook_name": "sales_forecast_v2",
+        "space": "Team",
+    },
+    {
+        "uid": "ntb-3",
+        "name": "churn.ipynb",
+        "notebook_name": "churn",
+        "space": "Personal",
+    },
 ]
 
 

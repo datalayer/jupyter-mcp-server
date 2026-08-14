@@ -31,15 +31,30 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
-from jupyter_mcp_server.config import get_config
-from jupyter_mcp_server.extensions import JupyterMCPExtension
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from reactor import PluginCompatibility, PluginManifest
 
+from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_spaces import spaces
+
+
+def _version() -> str:
+    """The version of this package, from its metadata.
+
+    Read rather than restated: a number written here as well as in
+    `pyproject.toml` is one that will disagree with it, and the manifest is
+    what a reader consults to find out which build is loaded.
+    """
+    try:
+        from importlib.metadata import version
+
+        return version("jupyter-mcp-spaces")
+    except Exception:
+        return "0.0.0.dev0"
 
 
 logger = logging.getLogger(__name__)
@@ -59,7 +74,7 @@ class SpacesExtension(JupyterMCPExtension):
     def manifest(self) -> PluginManifest:
         return PluginManifest(
             name="jupyter-mcp-spaces",
-            version="0.1.0",
+            version=_version(),
             description=(
                 "List and open the notebooks of a Datalayer space, in place of "
                 "the filesystem tools of a Jupyter server."
@@ -187,7 +202,7 @@ def _serving_datalayer() -> bool:
     # the server was started.
     try:
         configured = (get_config().document_provider or "").lower()
-    except Exception:  # noqa: BLE001 - configuration may not be built yet
+    except Exception:
         configured = ""
     sources = (
         configured,
@@ -226,7 +241,7 @@ def _remove(mcp: Any, names: tuple[str, ...]) -> None:
         try:
             manager.remove_tool(name)
             logger.debug("Removed tool [%s]", name)
-        except Exception:  # noqa: BLE001 - absent is the acceptable outcome
+        except Exception:
             logger.debug("Tool [%s] was not registered", name)
 
 
@@ -256,8 +271,11 @@ def _wrap_use_notebook(mcp: Any) -> None:
 
     try:
         manager.remove_tool("use_notebook")
-    except Exception:  # noqa: BLE001 - already gone is fine
-        pass
+    except Exception as error:
+        # Already absent is the acceptable outcome; anything else is worth a
+        # line, because a tool that failed to be removed is a tool that
+        # silently keeps the original behaviour.
+        logger.debug("use_notebook was not registered: %s", error)
 
     @mcp.tool(annotations=ToolAnnotations(title="Use Notebook"))
     async def use_notebook(

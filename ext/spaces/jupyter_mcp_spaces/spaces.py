@@ -34,7 +34,6 @@ from typing import Any
 from datalayer_core import DatalayerClient
 from datalayer_core.utils.urls import DatalayerURLs
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +47,7 @@ def _caller_token() -> str:
         from jupyter_mcp_server.identity import current_identity
 
         identity = current_identity()
-    except Exception:  # noqa: BLE001 - no identity is not a failure
+    except Exception:
         return ""
     return (identity.token if identity else "") or ""
 
@@ -80,7 +79,7 @@ async def _call(name: str, *args: Any) -> Any:
         return await asyncio.to_thread(_run)
     except SpacesError:
         raise
-    except Exception as error:  # noqa: BLE001 - surfaced to the agent as text
+    except Exception as error:
         logger.warning("Datalayer call [%s] failed: %s", name, error)
         raise SpacesError(f"Datalayer could not be reached: {error}") from error
 

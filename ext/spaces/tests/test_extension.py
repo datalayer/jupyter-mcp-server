@@ -13,10 +13,9 @@ itself is the thing under test here.
 from __future__ import annotations
 
 import pytest
-from mcp.server.fastmcp import FastMCP
-
 from jupyter_mcp_spaces import SpacesExtension
 from jupyter_mcp_spaces.extension import JUPYTER_ONLY_TOOLS
+from mcp.server.fastmcp import FastMCP
 
 
 @pytest.fixture(autouse=True)
@@ -143,9 +142,9 @@ class TestActivationAtImportTime:
     """
 
     def test_the_command_line_is_enough(self, monkeypatch):
-        from jupyter_mcp_server.config import reset_config
-
         from jupyter_mcp_spaces.extension import _serving_datalayer
+
+        from jupyter_mcp_server.config import reset_config
 
         reset_config()  # as at import: the default, "jupyter"
         monkeypatch.setattr(
@@ -154,9 +153,9 @@ class TestActivationAtImportTime:
         assert _serving_datalayer()
 
     def test_the_joined_form_is_accepted(self, monkeypatch):
-        from jupyter_mcp_server.config import reset_config
-
         from jupyter_mcp_spaces.extension import _serving_datalayer
+
+        from jupyter_mcp_server.config import reset_config
 
         reset_config()
         monkeypatch.setattr(
@@ -165,9 +164,9 @@ class TestActivationAtImportTime:
         assert _serving_datalayer()
 
     def test_the_environment_is_enough(self, monkeypatch):
-        from jupyter_mcp_server.config import reset_config
-
         from jupyter_mcp_spaces.extension import _serving_datalayer
+
+        from jupyter_mcp_server.config import reset_config
 
         reset_config()
         monkeypatch.setattr("sys.argv", ["jupyter-mcp-server"])
@@ -181,9 +180,9 @@ class TestActivationAtImportTime:
         treating the configuration as authoritative means the command line is
         never consulted and the answer is always "no".
         """
-        from jupyter_mcp_server.config import get_config, reset_config
-
         from jupyter_mcp_spaces.extension import _serving_datalayer
+
+        from jupyter_mcp_server.config import get_config, reset_config
 
         reset_config()
         assert get_config().document_provider == "jupyter"
@@ -193,9 +192,9 @@ class TestActivationAtImportTime:
         assert _serving_datalayer()
 
     def test_a_jupyter_server_stays_a_jupyter_server(self, monkeypatch):
-        from jupyter_mcp_server.config import reset_config
-
         from jupyter_mcp_spaces.extension import _serving_datalayer
+
+        from jupyter_mcp_server.config import reset_config
 
         reset_config()
         monkeypatch.setattr("sys.argv", ["jupyter-mcp-server", "start"])
