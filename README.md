@@ -4,6 +4,8 @@
   ~ BSD 3-Clause License
 -->
 
+<a href="https://datalayer.ai"><img alt="Datalayer" src="https://images.datalayer.io/brand/logos/datalayer-horizontal.svg" height="22"/></a>
+
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
 <div align="center">
@@ -18,16 +20,9 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/jupyter-mcp-server?style=for-the-badge&logo=pypi&logoColor=white)](https://pypi.org/project/jupyter-mcp-server) [![Total PyPI downloads](https://img.shields.io/pepy/dt/jupyter-mcp-server?style=for-the-badge&logo=python&logoColor=white)](https://pepy.tech/project/jupyter-mcp-server) [![Docker Pulls](https://img.shields.io/docker/pulls/datalayer/jupyter-mcp-server?style=for-the-badge&logo=docker&logoColor=white&color=2496ED)](https://hub.docker.com/r/datalayer/jupyter-mcp-server) [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue?style=for-the-badge&logo=open-source-initiative&logoColor=white)](https://opensource.org/licenses/BSD-3-Clause)
 
-[![Discover Datalayer](https://img.shields.io/badge/Discover%20Datalayer-datalayer.ai-1ABC9C?style=for-the-badge&logo=jupyter&logoColor=white&labelColor=0E7C6B)](https://datalayer.ai)
+[![Built and maintained by Datalayer](https://img.shields.io/badge/Built%20and%20maintained%20by-Datalayer%20%C2%B7%20datalayer.ai-1ABC9C?style=for-the-badge&logo=jupyter&logoColor=white&labelColor=0E7C6B)](https://datalayer.ai)
 
 </div>
-
-<table>
-<tr><td>
-
-<a href="https://datalayer.ai"><img alt="Datalayer" src="https://images.datalayer.io/brand/logos/datalayer-horizontal.svg" height="22"/></a>
-
-[![Built and maintained by Datalayer](https://img.shields.io/badge/Built%20and%20maintained%20by-Datalayer%20%C2%B7%20datalayer.ai-1ABC9C?style=for-the-badge&logo=jupyter&logoColor=white&labelColor=0E7C6B)](https://datalayer.ai)
 
 📖 [Documentation](https://jupyter-mcp-server.datalayer.tech) &nbsp;·&nbsp; 🔧 [Tools](https://jupyter-mcp-server.datalayer.tech/mcp) &nbsp;·&nbsp; 💬 [Community](https://jupyter-mcp-server.datalayer.tech/community)
 
@@ -62,13 +57,10 @@ working on your data when your laptop does not.
 
 [![Discover Datalayer](https://img.shields.io/badge/%E2%86%92%20Discover%20Datalayer-datalayer.ai-1ABC9C?style=for-the-badge&labelColor=0E7C6B)](https://datalayer.ai)
 
-</td></tr>
-</table>
+---
 
-<table>
-<tr><td>
 
-![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-E67E22?style=for-the-badge&labelColor=A0522D)
+[![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-D35400?style=for-the-badge&labelColor=7E3F14)](https://github.com/datalayer/jupyter-mcp-server/releases#release-v1.3.2)
 
 **`--provider` is now `--document-provider`** (env var `PROVIDER` → `DOCUMENT_PROVIDER`).
 
@@ -81,8 +73,7 @@ Nothing breaks in v1.3.2: `--provider` is still accepted as an alias, `PROVIDER`
 read, and a `/connect` payload carrying `"provider"` is still understood. Move to the new
 names when convenient — the old ones are deprecated, not removed.
 
-</td></tr>
-</table>
+---
 
 <div align="center">
 
@@ -204,8 +195,7 @@ For comprehensive setup instructions—including `Streamable HTTP` transport, ru
 pip install jupyterlab jupyter-collaboration jupyter-mcp-tools ipykernel
 ```
 
-<table>
-<tr><td>
+---
 
 ![Tip](https://img.shields.io/badge/%F0%9F%92%A1-Tip-1ABC9C?style=for-the-badge&labelColor=0E7C6B)
 
@@ -218,8 +208,7 @@ To confirm your environment is correctly configured:
 
 This automatic saving behavior confirms that the real-time collaboration features are working properly, which is essential for MCP server integration.
 
-</td></tr>
-</table>
+---
 
 ### 2. Start JupyterLab
 
@@ -228,15 +217,13 @@ This automatic saving behavior confirms that the real-time collaboration feature
 jupyter lab --port 8888 --IdentityProvider.token MY_TOKEN --ip 0.0.0.0
 ```
 
-<table>
-<tr><td>
+---
 
 ![Note](https://img.shields.io/badge/%E2%84%B9%EF%B8%8F-Note-3498DB?style=for-the-badge&labelColor=1B5E8A)
 
 If you are running notebooks through JupyterHub instead of JupyterLab as above, refer to our [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyterhub).
 
-</td></tr>
-</table>
+---
 
 ### 3. Configure Your Preferred MCP Client
 
@@ -332,8 +319,7 @@ Then, configure your client:
 
 </details>
 
-<table>
-<tr><td>
+---
 
 ![Tip](https://img.shields.io/badge/%F0%9F%92%A1-Tip-1ABC9C?style=for-the-badge&labelColor=0E7C6B)
 
@@ -343,8 +329,7 @@ Then, configure your client:
 1. **Notebook Path**: The `DOCUMENT_ID` parameter specifies the path to the notebook the MCP client default to connect. It should be relative to the directory where JupyterLab was started. If you omit `DOCUMENT_ID`, the MCP client can automatically list all available notebooks on the Jupyter server, allowing you to select one interactively via your prompts.
 1. **Image Output**: Set `ALLOW_IMG_OUTPUT` to `false` if your LLM does not support mutimodel understanding.
 
-</td></tr>
-</table>
+---
 
 For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
 

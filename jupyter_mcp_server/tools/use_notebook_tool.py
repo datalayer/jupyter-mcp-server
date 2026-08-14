@@ -219,8 +219,19 @@ class UseNotebookTool(BaseTool):
                 document_server_client = context.document_server_client
                 document_auth_headers = context.document_auth_headers
 
-        # Check the path exists
-        if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+        # Check the path exists.
+        #
+        # Only on a Jupyter server, where a notebook is a file inside a
+        # directory and both can be listed. A document provider that addresses
+        # notebooks by identifier has neither: the check lists the "parent
+        # directory" of an identifier, gets a 404, and reports "'root
+        # directory' not found in jupyter server" for a notebook that exists
+        # and is about to open perfectly well. The provider answers whether
+        # the document exists when the collaboration session is requested,
+        # which is the authoritative check anyway.
+        if config.document_provider != "jupyter":
+            path_ok, error_msg = True, None
+        elif mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             path_ok, error_msg = await self._check_path_local(
                 contents_manager, notebook_path, use_mode
             )
