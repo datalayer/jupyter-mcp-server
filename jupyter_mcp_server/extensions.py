@@ -204,7 +204,9 @@ class ExtensionManager:
                 )
             code_sandbox = extension.create_code_sandbox(config, log)
             if code_sandbox is not None:
-                logger.debug("Extension '%s' provided a code sandbox", name)
+                # The caller's logger, as for the warning above: one method,
+                # one logging configuration.
+                log.debug("Extension '%s' provided a code sandbox", name)
                 return code_sandbox
         return None
 
