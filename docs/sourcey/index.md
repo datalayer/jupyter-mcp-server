@@ -32,7 +32,7 @@ This reference documents the server's complete MCP surface — **22 tools** and 
 | Tool | Summary |
 | --- | --- |
 | [`insert_cell`](/mcp/tools/insert-cell/) | Insert a cell to specified position from the currently activated notebook. |
-| [`read_cell`](/mcp/tools/read-cell/) | Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells) |
+| [`read_cell`](/mcp/tools/read-cell/) | Read a cell as readable text entries. |
 | [`edit_cell_source`](/mcp/tools/edit-cell-source/) | Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool). |
 | [`overwrite_cell_source`](/mcp/tools/overwrite-cell-source/) | Replace the entire source of a cell in the currently activated notebook. |
 | [`move_cell`](/mcp/tools/move-cell/) | Move a cell from source_index to target_index within the currently activated notebook. |

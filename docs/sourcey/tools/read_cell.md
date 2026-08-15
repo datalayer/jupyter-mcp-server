@@ -1,11 +1,14 @@
 ---
 title: "read_cell"
-description: "Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)"
+description: "Read a cell as readable text entries."
 ---
 
 # read_cell
 
-Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)
+Read a cell as readable text entries.
+
+Includes metadata and source, plus optional formatted output text rather
+than raw nbformat objects.
 
 > read-only: **yes**
 
