@@ -2,117 +2,87 @@
 #
 # BSD 3-Clause License
 
-"""`execute_cell` runs on the selected sandbox, like `execute_code`.
+"""`execute_cell` runs on the sandbox the caller selected — and writes back.
 
-Selecting a sandbox reroutes `execute_code`. Before this, it did not reroute
-`execute_cell`, which went on waiting for a notebook-bound Jupyter kernel — and
-since a kernel is only attached on first execution, that was a kernel waiting
-on the very call waiting on it. The tool never returned and nothing said why.
+The first attempt at this (PR #375) intercepted `execute_cell` and ran the
+cell's source through the same shortcut `execute_code` uses. The cell ran, an
+answer came back — and the notebook never changed: no execution count, no
+outputs in the document, nothing for anyone watching in the application. That
+is `execute_code` semantics wearing `execute_cell`'s name.
 
-The second test here is the one that matters most: the sandbox must receive the
-cell's *source*. An earlier attempt passed the output of `read_cell`, which is
-lines formatted for a person — headers, outputs, truncation — so the sandbox
-would have executed prose, or, when the shape did not match, an empty string:
-silently running nothing and reporting success.
+The real contract is the ordinary path's: `notebook.execute_cell(index,
+kernel)` executes on a code-sandbox client and the collaborative document
+consumes the outputs as they stream. So the fix lives one level down — the
+kernel *factory* returns the sandbox selected with `use_sandbox` instead of
+creating a fresh one — and `execute_cell` itself stays untouched.
 """
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
+from jupyter_mcp_sandboxes.extension import SandboxesExtension
 
-@pytest.mark.asyncio
-async def test_the_sandbox_is_offered_the_call():
-    from jupyter_mcp_server import server
 
-    with (
-        patch.object(server, "_cell_source_for_sandbox", AsyncMock(return_value="1 + 1")),
-        patch.object(
-            server.extension_manager,
-            "intercept_execute_code",
-            AsyncMock(return_value=["2"]),
-        ) as intercept,
-    ):
+def _config(variant="datalayer"):
+    return SimpleNamespace(
+        sandbox_variant=variant,
+        uses_sandbox_variant=lambda: variant != "jupyter",
+    )
+
+
+import logging
+
+LOG = logging.getLogger("test")
+
+
+class TestTheFactoryHonoursTheSelection:
+    def test_the_selected_sandbox_is_the_execution_backend(self):
+        """The property the whole fix rests on.
+
+        A caller who launched a sandbox and selected it has said where the
+        cell should run. A factory that creates a second runtime ignores
+        that, bills for it, and runs the cell somewhere else.
+        """
+        extension = SandboxesExtension()
+        chosen = object()
+        extension._manager._sandboxes["mine"] = chosen
+        extension._manager._active_name = "mine"
+
+        assert extension.create_code_sandbox(_config(), LOG) is chosen
+
+    def test_without_a_selection_a_sandbox_is_created(self):
+        extension = SandboxesExtension()
+        built = object()
+        with patch(
+            "jupyter_mcp_sandboxes.kernel.create_sandbox_client", return_value=built
+        ):
+            assert extension.create_code_sandbox(_config(), LOG) is built
+
+    def test_the_jupyter_variant_is_left_to_the_core(self):
+        # A plain Jupyter deployment has no sandbox layer to consult.
+        extension = SandboxesExtension()
+        extension._manager._sandboxes["mine"] = object()
+        extension._manager._active_name = "mine"
+        assert extension.create_code_sandbox(_config("jupyter"), LOG) is None
+
+
+class TestExecuteCellIsNotIntercepted:
+    def test_the_tool_no_longer_shortcuts_past_the_notebook(self):
+        """The revert, pinned.
+
+        If interception comes back to `execute_cell`, outputs stop reaching
+        the document again — silently, because the caller still gets its
+        answer. This is the cheapest place to notice.
+        """
+        import inspect
+
+        from jupyter_mcp_server import server
+
         fn = getattr(server.execute_cell, "fn", server.execute_cell)
-        result = await fn(cell_index=0)
-
-    assert result == ["2"]
-    intercept.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_it_is_the_cell_source_that_is_sent():
-    """Not a rendering of the cell — the code itself."""
-    from jupyter_mcp_server import server
-
-    with (
-        patch.object(
-            server, "_cell_source_for_sandbox", AsyncMock(return_value="print('hi')")
-        ),
-        patch.object(
-            server.extension_manager,
-            "intercept_execute_code",
-            AsyncMock(return_value=["hi"]),
-        ) as intercept,
-    ):
-        fn = getattr(server.execute_cell, "fn", server.execute_cell)
-        await fn(cell_index=0)
-
-    sent = intercept.await_args.args[0]
-    assert sent == "print('hi')"
-    # The formatted forms that must never reach a sandbox.
-    assert "=====Cell" not in sent
-    assert sent != ""
-
-
-@pytest.mark.asyncio
-async def test_without_a_sandbox_the_kernel_path_is_untouched():
-    """`intercept_execute_code` answers None when none is selected.
-
-    The ordinary path must then run exactly as before — this is what keeps a
-    plain Jupyter deployment working.
-    """
-    from jupyter_mcp_server import server
-
-    with (
-        patch.object(server, "_cell_source_for_sandbox", AsyncMock(return_value="1 + 1")),
-        patch.object(
-            server.extension_manager,
-            "intercept_execute_code",
-            AsyncMock(return_value=None),
-        ),
-        patch.object(
-            server, "safe_notebook_operation", AsyncMock(return_value=["kernel ran it"])
-        ) as ordinary,
-    ):
-        fn = getattr(server.execute_cell, "fn", server.execute_cell)
-        result = await fn(cell_index=0)
-
-    assert result == ["kernel ran it"]
-    ordinary.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_an_unreadable_cell_falls_through_rather_than_sending_nothing():
-    """A cell that cannot be read must not become an empty execution.
-
-    Returning "" would be truthy enough to reach the sandbox and would run
-    nothing at all, reporting success — worse than the hang this replaced.
-    """
-    from jupyter_mcp_server import server
-
-    with (
-        patch.object(server, "_cell_source_for_sandbox", AsyncMock(return_value=None)),
-        patch.object(
-            server.extension_manager, "intercept_execute_code", AsyncMock()
-        ) as intercept,
-        patch.object(
-            server, "safe_notebook_operation", AsyncMock(return_value=["kernel ran it"])
-        ),
-    ):
-        fn = getattr(server.execute_cell, "fn", server.execute_cell)
-        await fn(cell_index=0)
-
-    intercept.assert_not_awaited()
+        source = inspect.getsource(fn)
+        assert "intercept_execute_code" not in source
+        assert "_cell_source_for_sandbox" not in source

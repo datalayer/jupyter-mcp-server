@@ -147,6 +147,12 @@ class CodeSandboxManager:
     def get_active_name(self) -> str | None:
         return self._active_name
 
+    def get_active(self):
+        """The active sandbox's client, or ``None`` when none is selected."""
+        if not self._active_name:
+            return None
+        return self._sandboxes.get(self._active_name)
+
     def execute_on_active(self, code: str, timeout: int) -> list[str | Any]:
         """Execute code on the active sandbox and return display-ready outputs."""
         if not self._active_name or self._active_name not in self._sandboxes:

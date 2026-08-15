@@ -63,6 +63,19 @@ class SandboxesExtension(JupyterMCPExtension):
         if not (uses_variant and config.uses_sandbox_variant()):
             return None
 
+        # The sandbox the caller selected with `use_sandbox`, when there is
+        # one. Creating a fresh sandbox here would ignore that choice, pay for
+        # a second runtime, and run the cell somewhere other than where the
+        # caller pointed — the notebook binds to this client, so this is also
+        # what makes "assign the sandbox to the notebook" true.
+        active = self._manager.get_active()
+        if active is not None:
+            log.info(
+                "Reusing the active sandbox [%s] as the execution backend",
+                self._manager.get_active_name(),
+            )
+            return active
+
         from jupyter_mcp_sandboxes.kernel import create_sandbox_client
 
         try:
