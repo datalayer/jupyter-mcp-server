@@ -60,6 +60,20 @@ working on your data when your laptop does not.
 
 ---
 
+[![New: OAuth 2.1](https://img.shields.io/badge/%F0%9F%94%90%20New-OAuth%202.1%20sign--in-2E86C1?style=for-the-badge&labelColor=1B4F72)](https://jupyter-mcp-server.datalayer.tech/security/oauth)
+
+**No token to copy and paste.** An agent that meets this server unauthenticated is told
+where to authenticate, opens your browser, and you sign in to Datalayer as yourself. The
+agent never sees your password — it receives a token scoped to what you approved, and you
+can disconnect one agent without touching the others.
+
+What each agent may do is two separate decisions: the **scopes** you approve
+(`notebooks:read`, `notebooks:write`, `code:execute`, `data:read`) say what kind of
+operation it may perform, and your own Datalayer permissions still say which notebooks it
+may touch. An agent can never reach a notebook you cannot.
+
+Personal access tokens keep working, and remain the simpler path for a CLI or a script.
+→ [**OAuth and identity**](https://jupyter-mcp-server.datalayer.tech/security/oauth)
 
 [![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-D35400?style=for-the-badge&labelColor=7E3F14)](https://github.com/datalayer/jupyter-mcp-server/releases#release-v1.3.2)
 
