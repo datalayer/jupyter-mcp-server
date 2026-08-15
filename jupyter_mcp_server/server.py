@@ -50,7 +50,6 @@ from jupyter_mcp_server.tools import (
     ListNotebooksTool,
     MoveCellTool,
     OverwriteCellSourceTool,
-    ReadCellTool,
     # Cell Reading
     ReadCellTool,
     ReadNotebookTool,
@@ -61,6 +60,7 @@ from jupyter_mcp_server.tools import (
     UseNotebookTool,
 )
 from jupyter_mcp_server.utils import (
+    resolve_notebook_connection,
     create_code_sandbox,
     ensure_code_sandbox_alive,
     safe_extract_outputs,
@@ -770,17 +770,15 @@ async def _cell_source_for_sandbox(cell_index: int) -> str | None:
     try:
         if not notebook_manager.get_current_notebook():
             return None
-        cell = await ReadCellTool().execute(
-            mode=server_context.mode,
-            sandbox_server_client=server_context.sandbox_server_client,
-            contents_manager=server_context.contents_manager,
-            kernel_manager=server_context.kernel_manager,
-            kernel_spec_manager=server_context.kernel_spec_manager,
-            notebook_manager=notebook_manager,
-            cell_index=cell_index,
-            include_outputs=False,
-        )
-        source = cell.get("source", "") if isinstance(cell, dict) else ""
+        # The document itself, not `read_cell`: that tool returns lines
+        # formatted for a person to read — headers, outputs, truncation — and
+        # feeding those to a sandbox would execute prose. What is needed here
+        # is the cell's source exactly as stored.
+        async with resolve_notebook_connection(notebook_manager) as document:
+            cells = document.as_dict().get("cells") or []
+            if cell_index >= len(cells):
+                return None
+            source = cells[cell_index].get("source", "")
         return source if isinstance(source, str) else "".join(source)
     except Exception:  # noqa: BLE001 - fall back to the kernel path
         logger.debug("Could not read cell %s for the sandbox", cell_index, exc_info=True)
