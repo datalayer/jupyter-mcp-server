@@ -184,13 +184,13 @@ class ExtensionManager:
         self._started = False
 
     def create_code_sandbox(self, config: Any, log: logging.Logger) -> Optional[Any]:
-        """Ask extensions to build a kernel; return the first non-None result."""
+        """Ask extensions to build a code sandbox; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
-            kernel = extension.create_code_sandbox(config, log)
-            if kernel is not None:
-                logger.debug("Extension '%s' provided a kernel", name)
-                return kernel
+            code_sandbox = extension.create_code_sandbox(config, log)
+            if code_sandbox is not None:
+                logger.debug("Extension '%s' provided a code sandbox", name)
+                return code_sandbox
         return None
 
     async def intercept_execute_code(

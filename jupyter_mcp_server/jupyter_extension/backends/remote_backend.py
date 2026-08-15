@@ -19,6 +19,7 @@ what anyone editing it is looking at, and writing one would overwrite whatever
 another client had in flight.
 """
 
+import asyncio
 from typing import Any, Literal
 
 from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
@@ -47,18 +48,42 @@ class RemoteBackend(Backend):
         self.document_token = document_token
         self.code_sandbox_url = code_sandbox_url
         self.code_sandbox_token = code_sandbox_token
+        self._documents_client: JupyterServerClient | None = None
+        self._sandbox_client: JupyterServerClient | None = None
 
     # -- clients ------------------------------------------------------------
 
     def _documents(self) -> JupyterServerClient:
-        """The server holding the notebook files."""
-        return JupyterServerClient(base_url=self.document_url, token=self.document_token)
+        """The server holding the notebook files.
+
+        Built once and kept: the client owns an HTTP session, and making a new
+        one per call re-does the connection and its authentication on every
+        listing — of which `list_notebooks` alone performs one per directory.
+        """
+        if self._documents_client is None:
+            self._documents_client = JupyterServerClient(
+                base_url=self.document_url, token=self.document_token
+            )
+        return self._documents_client
 
     def _sandbox(self) -> JupyterServerClient:
-        """The server running the code."""
-        return JupyterServerClient(
-            base_url=self.code_sandbox_url, token=self.code_sandbox_token
-        )
+        """The server running the code. Kept for the same reason."""
+        if self._sandbox_client is None:
+            self._sandbox_client = JupyterServerClient(
+                base_url=self.code_sandbox_url, token=self.code_sandbox_token
+            )
+        return self._sandbox_client
+
+    @staticmethod
+    async def _off_loop(call, *args):
+        """Run a blocking client call without stalling the event loop.
+
+        `JupyterServerClient` is synchronous, and these methods are awaited by
+        a server handling other requests at the same time. Calling it directly
+        would hold the loop for the length of a network round trip — and
+        `list_notebooks` makes one per directory it walks.
+        """
+        return await asyncio.to_thread(call, *args)
 
     def _document(self, path: str) -> NbModelClient:
         """A live connection to one collaborative notebook."""
@@ -74,7 +99,7 @@ class RemoteBackend(Backend):
 
     async def get_notebook_content(self, path: str) -> dict[str, Any]:
         """Get notebook content via remote API."""
-        return self._documents().contents.get(path)
+        return await self._off_loop(self._documents().contents.get, path)
 
     async def list_notebooks(self, path: str = "") -> list[str]:
         """List notebooks via remote API, recursively from `path`."""
@@ -86,7 +111,10 @@ class RemoteBackend(Backend):
             if current in seen:
                 continue
             seen.add(current)
-            for entry in self._documents().contents.list_directory(current):
+            listing = await self._off_loop(
+                self._documents().contents.list_directory, current
+            )
+            for entry in listing:
                 name = getattr(entry, "path", None) or getattr(entry, "name", "")
                 kind = getattr(entry, "type", "")
                 if kind == "directory":
@@ -98,14 +126,14 @@ class RemoteBackend(Backend):
     async def notebook_exists(self, path: str) -> bool:
         """Check if notebook exists via remote API."""
         try:
-            self._documents().contents.get(path)
+            await self._off_loop(self._documents().contents.get, path)
         except Exception:  # noqa: BLE001 - any failure to fetch means "not there"
             return False
         return True
 
     async def create_notebook(self, path: str) -> dict[str, Any]:
         """Create notebook via remote API."""
-        return self._documents().contents.create_notebook(path)
+        return await self._off_loop(self._documents().contents.create_notebook, path)
 
     # Cell operations
 
@@ -201,13 +229,16 @@ class RemoteBackend(Backend):
                 "execution_state": getattr(kernel, "execution_state", None),
                 "connections": getattr(kernel, "connections", 0),
             }
-            for kernel in self._sandbox().kernels.list_kernels()
+            for kernel in await self._off_loop(self._sandbox().kernels.list_kernels)
         ]
 
     async def kernel_exists(self, kernel_id: str) -> bool:
         """Check if a kernel exists on the execution server."""
         try:
-            return self._sandbox().kernels.get_kernel(kernel_id) is not None
+            fetched = await self._off_loop(
+                self._sandbox().kernels.get_kernel, kernel_id
+            )
+            return fetched is not None
         except Exception:  # noqa: BLE001 - any failure to fetch means "not there"
             return False
 

@@ -1,10 +1,11 @@
 # Identity
 
-The built-in authentication described in [Security](/features/security) covers
+The built-in authentication described in [Authentication](/security/authentication) covers
 the common cases: a shared `MCP_TOKEN` for the standalone server, and the
 Jupyter token when running as an extension. This page is about the next step —
 authenticating MCP clients **the way your own platform does**, with your
-accounts, your OAuth, and your notion of what a client is allowed to do.
+accounts and your notion of what a client is allowed to do. For the OAuth 2.1
+resource-server flow, see [OAuth 2.1](/security/oauth).
 
 ## Why a configurable identity
 
@@ -259,11 +260,8 @@ request against the user in `identity.username`. A token carrying
 
 :::
 
-## An example: hosted Datalayer
+## OAuth integration
 
-The [Datalayer](https://datalayer.ai) hosted MCP endpoint is built on exactly
-this hook. It supplies a verifier that accepts both OAuth 2.1 access tokens and
-personal access tokens, checks the audience so a token minted for another API
-cannot be replayed, and maps the platform's scopes — `notebooks:read`,
-`notebooks:write`, `code:execute`, `data:read` — onto the `Identity` the tools
-read. Nothing in this project is patched to make that work.
+OAuth access tokens use the same verifier and `Identity` mechanisms described
+above. See [OAuth 2.1](/security/oauth) for protected-resource discovery,
+audience validation, scope mapping, and the hosted Datalayer example.

@@ -174,3 +174,56 @@ class TestCellSource:
         # nbformat stores source as a list of lines that already carry their
         # newlines; adding more would double every line break.
         assert _text(["a\n", "b\n"]) == "a\nb\n"
+
+
+class TestItDoesNotStallTheServer:
+    """Blocking work must not be done on the event loop.
+
+    `JupyterServerClient` is synchronous, and these methods are awaited by a
+    server serving other requests at the same time. A direct call holds the
+    loop for a whole network round trip — and `list_notebooks` makes one per
+    directory, so a deep tree stalls everything.
+    """
+
+    def test_every_blocking_call_is_offloaded(self):
+        import inspect
+        import re
+
+        from jupyter_mcp_server.jupyter_extension.backends import remote_backend
+
+        source = inspect.getsource(remote_backend)
+        # An *invoked* client method — `contents.get(...)` — runs here and now.
+        # An offloaded one is passed by reference to the helper, so it appears
+        # without parentheses: `_off_loop(contents.get, path)`. Searching for
+        # the call syntax therefore finds exactly what would block.
+        invoked = re.findall(r"\.(?:contents|kernels)\.\w+\(", source)
+        assert invoked == [], f"blocking call left on the loop: {invoked}"
+
+    @pytest.mark.asyncio
+    async def test_the_client_is_built_once(self, backend):
+        """The HTTP session, and its authentication, are set up per client.
+
+        Rebuilding it per call re-does that work on every listing.
+        """
+        with patch(
+            "jupyter_mcp_server.jupyter_extension.backends.remote_backend.JupyterServerClient"
+        ) as client:
+            backend._documents()
+            backend._documents()
+            backend._documents()
+        assert client.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_the_two_servers_keep_separate_clients(self, backend):
+        # Distinct instances per construction, as the real class gives — a
+        # single shared mock would pass this test while the code addressed one
+        # server for both halves.
+        with patch(
+            "jupyter_mcp_server.jupyter_extension.backends.remote_backend.JupyterServerClient",
+            side_effect=lambda **kw: MagicMock(base_url=kw["base_url"]),
+        ):
+            documents = backend._documents()
+            sandbox = backend._sandbox()
+        assert documents is not sandbox
+        assert documents.base_url == "http://documents.test"
+        assert sandbox.base_url == "http://sandbox.test"

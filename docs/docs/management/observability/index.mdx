@@ -1,0 +1,84 @@
+# Observability
+
+Jupyter MCP Server includes an OpenTelemetry handler that emits spans for tool
+calls, kernel execution, and kernel lifecycle events. It uses the
+[hook system](/management/hooks) and writes spans as JSON Lines for local
+inspection or downstream processing.
+
+## Enable OpenTelemetry tracing
+
+### CLI
+
+```bash
+jupyter mcp start \
+  --otel-file /tmp/mcp_spans.jsonl \
+  --transport stdio \
+  --jupyter-url http://localhost:8888 \
+  --jupyter-token MY_TOKEN
+```
+
+### Environment variable
+
+```bash
+export JUPYTER_MCP_OTEL_FILE=/tmp/mcp_spans.jsonl
+jupyter mcp start ...
+```
+
+### Jupyter extension traitlet
+
+```bash
+jupyter lab \
+  --JupyterMCPServerExtensionApp.otel_file=/tmp/mcp_spans.jsonl \
+  --port 8888 \
+  --IdentityProvider.token MY_TOKEN
+```
+
+Or set the value in `jupyter_server_config.py`:
+
+```python
+c.JupyterMCPServerExtensionApp.otel_file = "/tmp/mcp_spans.jsonl"
+```
+
+Configuration resolves in this order: CLI argument, environment variable,
+then disabled when neither is set.
+
+## Span output
+
+Each line in the configured file is one JSON span:
+
+```json
+{
+  "name": "tool_call:execute_cell",
+  "context": {
+    "trace_id": "0x...",
+    "span_id": "0x..."
+  },
+  "start_time": "2025-01-15T10:30:00.000000Z",
+  "end_time": "2025-01-15T10:30:02.500000Z",
+  "attributes": {
+    "tool.name": "execute_cell",
+    "result.summary": "..."
+  }
+}
+```
+
+## Span types
+
+| Span name | Attributes | Source event |
+|---|---|---|
+| `tool_call:<tool_name>` | `tool.name`, `result.summary`, or `error` and `error.message` | Tool call |
+| `execute` | `kernel.id`, the first 200 characters of `code.snippet`, `output.count` | Code execution |
+| `kernel_lifecycle` | `event_type`, `kernel.id`, `kernel.name` | Kernel start, restart, or shutdown |
+
+Before and after hook events share a context dictionary. The OpenTelemetry
+handler stores its span in `context["_otel_span"]` when the operation starts
+and ends it when the matching after event arrives. Handler errors are optional
+and do not fail tool calls.
+
+## Configuration reference
+
+| Configuration | Type | Description |
+|---|---|---|
+| `--otel-file` | CLI option | Path for JSONL span output |
+| `JUPYTER_MCP_OTEL_FILE` | Environment variable | Fallback path for JSONL span output |
+| `JupyterMCPServerExtensionApp.otel_file` | Jupyter traitlet | Span output path in extension mode |

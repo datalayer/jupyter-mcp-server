@@ -1,4 +1,4 @@
-# Security
+# Authentication
 
 Jupyter MCP Server is designed to integrate with your existing Jupyter deployment's security infrastructure. This guide covers authentication methods, token management, and best practices for secure deployments.
 
@@ -8,7 +8,7 @@ When interacting with Jupyter infrastructure, the MCP Server supports multiple a
 
 1. **Bearer Token Authentication** (Recommended for most deployments)
 2. **XSRF Cookie-based Authentication** (For token-less environments)
-3. **External Authentication** (SSO, OAuth, IAM in managed environments)
+3. **External Authentication** (SSO, OAuth, IAM in managed environments; see [OAuth 2.1](/security/oauth))
 
 ## MCP Endpoint Authentication
 
@@ -70,7 +70,8 @@ The token is the same `--IdentityProvider.token` used to start JupyterLab.
 A shared token is not the only option. Both modes accept a pluggable
 authentication of your own — an OAuth resource server, your accounts, your
 scopes — through a token verifier in `MCP_SERVER` mode and a Jupyter identity
-provider in `JUPYTER_SERVER` mode. See [Identity](/features/identity).
+provider in `JUPYTER_SERVER` mode. See [Identity](/security/identity) and
+[OAuth 2.1](/security/oauth).
 
 :::
 
@@ -276,7 +277,7 @@ server still requires *some* credential rather than being left open with no auth
 
 :::info Partial Coverage of Issue #183
 
-Password authentication addresses the XSRF-protected scenario described in [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183) for password-protected Jupyter servers. Other scenarios mentioned in that issue — SSO/OAuth, IAM-based auth in managed environments — are not yet supported.
+Password authentication addresses the XSRF-protected scenario described in [issue #183](https://github.com/datalayer/jupyter-mcp-server/issues/183) for password-protected downstream Jupyter servers. SSO/OAuth and IAM authentication to those downstream servers are not covered by this password flow. OAuth authentication between an MCP client and Jupyter MCP Server is documented separately in [OAuth 2.1](/security/oauth).
 
 :::
 
