@@ -7,6 +7,7 @@ import json
 import os
 import re
 import time
+import uuid
 from collections.abc import Callable
 from typing import Any, cast
 
@@ -1159,6 +1160,33 @@ async def execute_via_execution_stack(
         return [f"[ERROR: {e!s}]"]
 
 
+def create_isolated_kernel_client(kernel: Any) -> Any:
+    """Create a kernel client that does not inherit the kernel's ZMQ identity.
+
+    ``KernelManager.client()`` hands the new client a *clone* of the manager's
+    ``Session``, and the clone keeps the session id. jupyter_client uses that id
+    as the ZMQ socket identity on shell, stdin and control
+    (``connect_shell(identity=self.session.bsession)``), and ipykernel sets
+    ``ROUTER_HANDOVER``, so a client connecting with an identity that is already
+    in use takes it over — the previous owner keeps its sockets but stops
+    reaching the kernel, silently and permanently.
+
+    Anything holding a long-lived client on the same kernel is orphaned that way
+    by a single short-lived client created here. jupyter-server-nbmodel keeps one
+    per kernel to serve ``execute_cell``, so without this every ``execute_cell``
+    after an ``execute_code`` on that kernel hangs until its timeout.
+
+    Giving each client its own session id keeps the identities distinct. The
+    signing key is shared, so the kernel still accepts the messages. Clients that
+    expose no ``Session`` (remote/websocket backed) are returned unchanged.
+    """
+    client = kernel.client()
+    session = getattr(client, "session", None)
+    if session is not None and hasattr(session, "session"):
+        session.session = str(uuid.uuid4())
+    return client
+
+
 async def execute_code_local(
     serverapp, notebook_path: str, code: str, kernel_id: str, timeout: int = 300, logger=None
 ) -> list[str | ImageContent]:
@@ -1204,7 +1232,7 @@ async def execute_code_local(
         # Get the kernel using pinned_superclass pattern (like KernelUsageHandler)
         lkm = kernel_manager.pinned_superclass.get_kernel(kernel_manager, kernel_id)
         session = lkm.session
-        client = lkm.client()
+        client = create_isolated_kernel_client(lkm)
 
         # Ensure channels are started (critical for receiving IOPub messages!)
         if not client.channels_running:

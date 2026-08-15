@@ -16,7 +16,7 @@ from jupyter_core.utils import ensure_async
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.jupyter_extension.backends.base import Backend
-from jupyter_mcp_server.utils import safe_extract_outputs
+from jupyter_mcp_server.utils import create_isolated_kernel_client, safe_extract_outputs
 
 if TYPE_CHECKING:
     from jupyter_server.serverapp import ServerApp
@@ -330,9 +330,10 @@ class LocalBackend(Backend):
         cell = cells[cell_index]
         source = "".join(cell["source"]) if isinstance(cell["source"], list) else cell["source"]
 
-        # Get kernel client
+        # Get kernel client. Its ZMQ identity must not collide with any
+        # long-lived client on the same kernel (see create_isolated_kernel_client).
         kernel = self.kernel_manager.get_kernel(kernel_id)
-        client = kernel.client()
+        client = create_isolated_kernel_client(kernel)
 
         # Execute code
         msg_id = client.execute(source)
