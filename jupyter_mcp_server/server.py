@@ -52,6 +52,7 @@ from jupyter_mcp_server.tools import (
     OverwriteCellSourceTool,
     ReadCellTool,
     # Cell Reading
+    ReadCellTool,
     ReadNotebookTool,
     RestartNotebookTool,
     # Tool infrastructure
@@ -758,6 +759,34 @@ async def edit_cell_source(
     )
 
 
+async def _cell_source_for_sandbox(cell_index: int) -> str | None:
+    """The source of a cell, for a sandbox to run.
+
+    Returns ``None`` whenever it cannot be had — no notebook active, no such
+    cell, an unreadable document — so the caller falls through to the ordinary
+    kernel path unchanged. Whether a sandbox wants it is decided by
+    `intercept_execute_code`, which answers ``None`` when none is selected.
+    """
+    try:
+        if not notebook_manager.get_current_notebook():
+            return None
+        cell = await ReadCellTool().execute(
+            mode=server_context.mode,
+            sandbox_server_client=server_context.sandbox_server_client,
+            contents_manager=server_context.contents_manager,
+            kernel_manager=server_context.kernel_manager,
+            kernel_spec_manager=server_context.kernel_spec_manager,
+            notebook_manager=notebook_manager,
+            cell_index=cell_index,
+            include_outputs=False,
+        )
+        source = cell.get("source", "") if isinstance(cell, dict) else ""
+        return source if isinstance(source, str) else "".join(source)
+    except Exception:  # noqa: BLE001 - fall back to the kernel path
+        logger.debug("Could not read cell %s for the sandbox", cell_index, exc_info=True)
+        return None
+
+
 @mcp.tool(
     annotations=ToolAnnotations(
         title="Execute Cell",
@@ -792,6 +821,23 @@ async def execute_cell(
         config.execution_timeout if timeout == 0 else min(timeout, config.max_execution_timeout)
     )
     progress_callback = __make_execution_progress_callback(ctx)
+
+    # Run on the selected sandbox, exactly as `execute_code` does.
+    #
+    # Without this, selecting a sandbox reroutes `execute_code` and leaves this
+    # tool waiting on a notebook-bound Jupyter kernel — which is only attached
+    # on first execution, so it waits on the very call that is waiting on it.
+    # The tool then never returns and nothing says why.
+    #
+    # `intercept_execute_code` answers None when no sandbox is selected, so the
+    # ordinary path below is untouched in that case.
+    source = await _cell_source_for_sandbox(cell_index)
+    if source is not None:
+        intercepted = await extension_manager.intercept_execute_code(
+            source, effective_timeout
+        )
+        if intercepted is not None:
+            return intercepted
 
     return await safe_notebook_operation(
         lambda: ExecuteCellTool().execute(
