@@ -24,7 +24,7 @@ from jupyter_mcp_server.utils import (
     safe_extract_outputs,
     settle_timed_out_execution,
     track_pending_execution,
-    wait_for_kernel_idle,
+    wait_for_code_sandbox_idle,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,7 +95,10 @@ class ExecuteCellTool(BaseTool):
             kernel_info = {"id": kernel_id}
             notebook_manager.add_notebook(
                 name=notebook_path,
-                kernel=kernel_info,
+                # The parameter is `code_sandbox` since the rename; what is
+                # registered here is still a real Jupyter kernel, which is what
+                # JUPYTER_SERVER mode executes on.
+                code_sandbox=kernel_info,
                 server_url="local",
                 path=notebook_path,
             )
@@ -224,7 +227,7 @@ class ExecuteCellTool(BaseTool):
         timeout_seconds: int = 60,
         stream: bool = False,
         progress_interval: int = 5,
-        ensure_kernel_alive_fn=None,
+        ensure_code_sandbox_alive_fn=None,
         progress_callback=None,
         **kwargs,
     ) -> list[str | ImageContent]:
@@ -239,7 +242,7 @@ class ExecuteCellTool(BaseTool):
             timeout_seconds: Maximum seconds to wait for execution
             stream: Enable streaming progress updates for long-running cells
             progress_interval: Seconds between progress updates (MCP keepalive + stream log)
-            ensure_kernel_alive_fn: Function to ensure kernel is alive (MCP_SERVER)
+            ensure_code_sandbox_alive_fn: Function to ensure kernel is alive (MCP_SERVER)
             progress_callback: Optional async callback for MCP progress/keepalive
 
         Returns:
@@ -429,10 +432,10 @@ class ExecuteCellTool(BaseTool):
                 return outputs
 
         elif mode == ServerMode.MCP_SERVER:
-            kernel = ensure_kernel_alive_fn()
-            await wait_for_kernel_idle(kernel, max_wait_seconds=30)
+            kernel = ensure_code_sandbox_alive_fn()
+            await wait_for_code_sandbox_idle(kernel, max_wait_seconds=30)
             current_nb = notebook_manager.get_current_notebook() or "default"
-            kid = notebook_manager.get_kernel_id(current_nb) or ""
+            kid = notebook_manager.get_code_sandbox_id(current_nb) or ""
 
             async with notebook_manager.get_current_connection() as notebook:
                 num_cells = len(notebook)

@@ -80,7 +80,7 @@ async def test_restart_reprovisions_when_kernel_culled():
     assert "reprovisioned" in result
     assert "kernel-new-1" in result
     # The binding was rebound to the fresh kernel, not left stale.
-    assert nm.get_kernel_id("nb") == "kernel-new-1"
+    assert nm.get_code_sandbox_id("nb") == "kernel-new-1"
     # The new kernel was started with the notebook's path (cwd), matching use_notebook.
     assert km.started_paths == ["work/test.ipynb"]
 
@@ -100,7 +100,7 @@ async def test_restart_reprovisions_when_kernel_culled_during_restart():
     )
 
     assert "reprovisioned" in result
-    assert nm.get_kernel_id("nb") == "kernel-new-1"
+    assert nm.get_code_sandbox_id("nb") == "kernel-new-1"
 
 
 @pytest.mark.asyncio
@@ -117,5 +117,5 @@ async def test_restart_live_kernel_is_unchanged():
     )
 
     assert "restarted successfully" in result
-    assert nm.get_kernel_id("nb") == "live"
+    assert nm.get_code_sandbox_id("nb") == "live"
     assert km.started_paths == []  # no new kernel provisioned

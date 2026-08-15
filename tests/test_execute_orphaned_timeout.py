@@ -7,7 +7,7 @@
 asyncio.Task.cancel() on a task wrapping asyncio.to_thread() cannot stop the
 underlying OS thread: notebook.execute_cell() keeps running (and mutating the
 shared notebook/kernel state) after a timeout has already been raised back to
-the caller. is_kernel_busy() must reflect that so a subsequent call waits for
+the caller. is_code_sandbox_busy() must reflect that so a subsequent call waits for
 the orphaned execution instead of starting a second one against the same
 kernel/notebook connection.
 """
@@ -22,8 +22,8 @@ from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
 from jupyter_mcp_server.utils import (
     execute_cell_with_forced_sync,
-    is_kernel_busy,
-    wait_for_kernel_idle,
+    is_code_sandbox_busy,
+    wait_for_code_sandbox_idle,
 )
 
 
@@ -63,7 +63,7 @@ class FakeNotebookManager:
     def get_current_notebook(self):
         return "default"
 
-    def get_kernel_id(self, notebook_name):
+    def get_code_sandbox_id(self, notebook_name):
         return "kernel-1"
 
     @contextlib.asynccontextmanager
@@ -88,7 +88,7 @@ async def _run_stream(cell, execute_impl, timeout_seconds, kernel):
         timeout_seconds=timeout_seconds,
         stream=True,
         progress_interval=1,
-        ensure_kernel_alive_fn=lambda: kernel,
+        ensure_code_sandbox_alive_fn=lambda: kernel,
     )
 
 
@@ -117,11 +117,11 @@ async def test_streaming_timeout_leaves_kernel_marked_busy_until_thread_finishes
 
     # The tool already returned its [TIMEOUT ...] result, but the fake
     # execute_cell is still asleep in its background thread.
-    assert is_kernel_busy(kernel) is True
+    assert is_code_sandbox_busy(kernel) is True
 
     await asyncio.sleep(_ORPHANED_TASK_SLEEP + 0.5)
 
-    assert is_kernel_busy(kernel) is False
+    assert is_code_sandbox_busy(kernel) is False
 
 
 @pytest.mark.asyncio
@@ -137,11 +137,11 @@ async def test_wait_for_kernel_idle_blocks_until_orphaned_stream_task_finishes()
     )
 
     start = time.time()
-    await wait_for_kernel_idle(kernel, max_wait_seconds=10)
+    await wait_for_code_sandbox_idle(kernel, max_wait_seconds=10)
     elapsed = time.time() - start
 
     assert elapsed >= 0.5
-    assert is_kernel_busy(kernel) is False
+    assert is_code_sandbox_busy(kernel) is False
 
 
 @pytest.mark.asyncio
@@ -164,7 +164,7 @@ async def test_non_stream_timeout_interrupts_kernel_once():
         timeout_seconds=0,
         stream=False,
         progress_interval=1,
-        ensure_kernel_alive_fn=lambda: kernel,
+        ensure_code_sandbox_alive_fn=lambda: kernel,
     )
 
     assert kernel.interrupt_count == 1, (
@@ -198,8 +198,8 @@ async def test_forced_sync_timeout_leaves_kernel_marked_busy_until_thread_finish
     with pytest.raises(asyncio.TimeoutError):
         await execute_cell_with_forced_sync(notebook, 0, kernel, timeout_seconds=0)
 
-    assert is_kernel_busy(kernel) is True
+    assert is_code_sandbox_busy(kernel) is True
 
     await asyncio.sleep(_ORPHANED_TASK_SLEEP + 0.5)
 
-    assert is_kernel_busy(kernel) is False
+    assert is_code_sandbox_busy(kernel) is False

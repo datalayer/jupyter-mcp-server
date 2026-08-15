@@ -1,0 +1,106 @@
+# OAuth 2.1
+
+Jupyter MCP Server can participate in an OAuth 2.1 deployment as an MCP
+resource server. OAuth is appropriate when clients act on behalf of named
+users, need limited scopes, or must be authorized and revoked independently.
+
+Jupyter MCP Server does not issue access tokens. Your platform's authorization
+server authenticates the user, authorizes the client, and issues a token. The
+MCP endpoint verifies that token and exposes its identity and scopes to tools.
+
+## Authorization flow
+
+An MCP client first connects without credentials. A protected endpoint responds
+with a Bearer challenge that identifies its protected-resource metadata:
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer
+  resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource/mcp"
+```
+
+The client follows that metadata to discover the authorization server, opens
+the user's browser, and obtains an access token. Subsequent MCP requests carry:
+
+```http
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+The authorization server and protected-resource metadata are platform
+responsibilities. Jupyter MCP Server supplies the token-verifier integration
+used by the resource server.
+
+## Verify OAuth access tokens
+
+In standalone `MCP_SERVER` mode, configure a verifier with
+`JUPYTER_MCP_TOKEN_VERIFIER_CLASS`:
+
+```bash
+export JUPYTER_MCP_TOKEN_VERIFIER_CLASS="my_platform.mcp:OAuthTokenVerifier"
+jupyter mcp start --transport streamable-http --jupyter-token JUPYTER_SECRET
+```
+
+The verifier validates the signature, issuer, audience, expiry, and any other
+claims required by your platform. Return an MCP SDK `AccessToken` when the
+credential is valid, or `None` to reject it:
+
+```python
+from mcp.server.auth.provider import AccessToken
+
+
+class OAuthTokenVerifier:
+    async def verify_token(self, token: str) -> AccessToken | None:
+        claims = my_platform.verify_oauth_token(
+            token,
+            audience="https://mcp.example.com/mcp",
+        )
+        if claims is None:
+            return None
+        return AccessToken(
+            token=token,
+            client_id=claims["client_id"],
+            scopes=claims.get("scope", "").split(),
+            subject=claims["sub"],
+        )
+```
+
+The bearer middleware rejects unverified requests. The token's `subject`,
+`client_id`, and `scopes` are converted into the request's
+[Identity](/security/identity).
+
+## Scopes and object permissions
+
+Scopes limit the kinds of operation a client may perform. A platform might
+issue scopes such as:
+
+| Scope | Example permission |
+|---|---|
+| `notebooks:read` | Read cells, outputs, and metadata |
+| `notebooks:write` | Add, edit, and delete cells |
+| `code:execute` | Execute code in a sandbox |
+| `data:read` | Read datasets and datasources |
+
+A scope does not select a particular Notebook or dataset. Your authorization
+layer must still check object-level permissions for the user identified by the
+token. See [Identity](/security/identity) for consuming scopes in tools and
+forwarding per-request credentials.
+
+## Jupyter Server extension mode
+
+When Jupyter MCP Server runs as a Jupyter Server extension, authentication is
+owned by Jupyter's `IdentityProvider`. An OAuth-aware platform should integrate
+its provider there and attach any MCP scopes to `User.mcp_scopes`. Jupyter MCP
+Server then creates the same `Identity` shape used in standalone mode.
+
+## Hosted Datalayer example
+
+The [Datalayer hosted MCP endpoint](https://datalayer.ai/docs/access-mcp) uses
+this integration. Its verifier accepts OAuth 2.1 access tokens and personal
+access tokens, validates the audience to prevent cross-API token replay, and
+maps platform scopes onto the `Identity` read by tools.
+
+## Related documentation
+
+- [Authentication](/security/authentication) for shared-token, Jupyter, network, and Docker security
+- [Identity](/security/identity) for the common request identity abstraction
+- [Multi-User Deployments](/security/multi-users) for process isolation and routing

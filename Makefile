@@ -29,6 +29,13 @@ test: ## run the unit tests
 	TEST_JUPYTER_SERVER=true \
 	pytest
 
+test-extensions: ## run the unit tests of the extensions under ext/
+	@# Their own tests, run on their own. A bare `pytest` collects them too,
+	@# but twice — once per server mode — and reports them under whichever
+	@# mode happened to run, which is neither true nor useful when one fails.
+	@# These need no Jupyter server and take seconds.
+	pytest ext/sandboxes/tests ext/spaces/tests
+
 test-mcp-server: ## run the unit tests for mcp server
 	git checkout ./dev/content && \
 	TEST_MCP_SERVER=true \

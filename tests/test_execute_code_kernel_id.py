@@ -18,7 +18,7 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.execute_code_tool import ExecuteCodeTool
-from jupyter_mcp_server.utils import safe_extract_outputs, wait_for_kernel_idle
+from jupyter_mcp_server.utils import safe_extract_outputs, wait_for_code_sandbox_idle
 
 from .conftest import JUPYTER_TOKEN
 
@@ -94,8 +94,8 @@ async def _execute(notebook_manager, sandbox_server_client, code, kernel_id=None
         code=code,
         timeout=30,
         kernel_id=kernel_id,
-        ensure_kernel_alive_fn=_no_kernel_expected,
-        wait_for_kernel_idle_fn=wait_for_kernel_idle,
+        ensure_code_sandbox_alive_fn=_no_kernel_expected,
+        wait_for_code_sandbox_idle_fn=wait_for_code_sandbox_idle,
         safe_extract_outputs_fn=safe_extract_outputs,
     )
 

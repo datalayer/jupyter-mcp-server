@@ -64,7 +64,7 @@ jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN
 
 This starts JupyterLab at [http://127.0.0.1:4040](http://127.0.0.1:4040) with the MCP server integrated.
 
-For complete configuration options, see the [server configuration guide](/features/configuration).
+For complete configuration options, see the [server configuration guide](/operations/configuration).
 
 ## 2. Configure your MCP Client
 
@@ -118,4 +118,4 @@ Some clients (Cursor, Claude Desktop on Windows) have a bug where spaces inside 
 **Authentication errors (401/403):**
 - Verify authentication token is accepted: `curl -H "Authorization: Bearer MY_TOKEN" http://localhost:4040/mcp/healthz`
 
-For detailed configuration and troubleshooting, see the [configuration guide](/features/configuration).
+For detailed configuration and troubleshooting, see the [configuration guide](/operations/configuration).

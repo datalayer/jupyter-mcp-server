@@ -55,7 +55,7 @@ class UnuseNotebookTool(BaseTool):
             # We only remove the reference in notebook_manager, the actual kernel
             # continues to run unless explicitly shutdown
 
-            kernel_id = notebook_manager.get_kernel_id(notebook_name)
+            kernel_id = notebook_manager.get_code_sandbox_id(notebook_name)
             if kernel_id and kernel_manager:
                 try:
                     logger.info(

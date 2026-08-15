@@ -55,7 +55,7 @@ class ListNotebooksTool(BaseTool):
             info = managed_notebooks[name]
             activate_marker = "✓" if info.get("is_current") else ""
             # Get kernel_id from notebook_manager
-            kernel_id = notebook_manager.get_kernel_id(name) or "-"
+            kernel_id = notebook_manager.get_code_sandbox_id(name) or "-"
             rows.append(
                 [
                     name,

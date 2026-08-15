@@ -11,8 +11,15 @@ slug: /
 
 It is compatible with any [Jupyter](https://jupyter.org) deployment (local, JupyterHub, ...) and with [Datalayer](https://datalayer.ai) hosted Notebooks.
 
-Run it yourself, or use the [hosted endpoint](/hosted) when your notebook needs to stay
-alive, reach managed data and compute, or be securely available to several agents.
+Jupyter MCP Server remains open source and can be run locally. This site
+documents installation, transports, configuration, and operation of the
+self-hosted server. For hosted endpoint setup, authentication, permissions,
+operation, and tested client configurations, see the
+[Datalayer MCP guide](https://datalayer.ai/docs/access-mcp) and its
+[client configuration section](https://datalayer.ai/docs/access-mcp#configure-your-client).
+Jupyter MCP Server supports both STDIO and Streamable HTTP and is compatible
+with any client that implements either transport.
+
 :::info
 
 Key features include:
@@ -23,7 +30,7 @@ Key features include:
 - 📊 **Multimodal support:** Support different output types, including images, plots, and text.
 - 📁 **Multi-notebook support:** Seamlessly switch between multiple notebooks.
 - 🎛️ **JupyterLab integration:** Enhanced UI integration like automatic notebook opening.
-- 🤝 **MCP-compatible:** Works with any MCP client, such as [Claude Desktop](/mcp-clients/claude_desktop), [Cursor](/mcp-clients/cursor), [Cline](/mcp-clients/cline), [Windsurf](/mcp-clients/windsurf) and more.
+- 🤝 **MCP-compatible:** Works with any client that supports STDIO or Streamable HTTP. See the [tested client guides](https://datalayer.ai/docs/access-mcp#configure-your-client).
 
 **Free and open source, BSD 3-Clause** — install it in your own Jupyter, no
 account needed. Built and maintained by [**Datalayer**](https://datalayer.ai),

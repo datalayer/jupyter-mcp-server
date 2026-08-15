@@ -2,7 +2,7 @@
 #
 # BSD 3-Clause License
 
-"""Unit tests for NotebookManager.ensure_kernel_alive kernel regeneration.
+"""Unit tests for NotebookManager.ensure_code_sandbox_alive kernel regeneration.
 
 These tests use an in-memory NotebookManager with minimal JupyterKernelClient
 stand-ins, so no running Jupyter server is required.
@@ -19,7 +19,7 @@ NB_PATH = "work/analysis.ipynb"
 
 class FakeKernel:
     """Minimal JupyterKernelClient stand-in exposing only the liveness surface that
-    ensure_kernel_alive checks (`is_alive`), plus an id for identity asserts."""
+    ensure_code_sandbox_alive checks (`is_alive`), plus an id for identity asserts."""
 
     def __init__(self, kernel_id, alive=True):
         self.id = kernel_id
@@ -48,11 +48,11 @@ def test_ensure_kernel_alive_preserves_binding_on_restart():
     binding, and swap in the fresh kernel."""
     nm = _manager_with_bound_notebook()
 
-    new_kernel = nm.ensure_kernel_alive("nb", lambda: FakeKernel("fresh-kernel"))
+    new_kernel = nm.ensure_code_sandbox_alive("nb", lambda: FakeKernel("fresh-kernel"))
 
     # The fresh kernel is installed and returned.
     assert new_kernel.id == "fresh-kernel"
-    assert nm.get_kernel_id("nb") == "fresh-kernel"
+    assert nm.get_code_sandbox_id("nb") == "fresh-kernel"
 
     # The binding survives the restart (this is what regressed): it must NOT
     # fall back to the config defaults.
@@ -75,7 +75,7 @@ def test_ensure_kernel_alive_keeps_live_kernel():
         path=NB_PATH,
     )
 
-    result = nm.ensure_kernel_alive("nb", lambda: FakeKernel("should-not-be-used"))
+    result = nm.ensure_code_sandbox_alive("nb", lambda: FakeKernel("should-not-be-used"))
 
     assert result is live
     assert nm.get_notebook_path("nb") == NB_PATH
@@ -86,8 +86,8 @@ def test_ensure_kernel_alive_adds_notebook_when_absent():
     normal add_notebook path (fallback branch)."""
     nm = NotebookManager()
 
-    new_kernel = nm.ensure_kernel_alive("fresh", lambda: FakeKernel("k1"))
+    new_kernel = nm.ensure_code_sandbox_alive("fresh", lambda: FakeKernel("k1"))
 
     assert new_kernel.id == "k1"
     assert "fresh" in nm
-    assert nm.get_kernel_id("fresh") == "k1"
+    assert nm.get_code_sandbox_id("fresh") == "k1"

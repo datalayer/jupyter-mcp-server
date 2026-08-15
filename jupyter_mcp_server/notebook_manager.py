@@ -3,10 +3,18 @@
 # BSD 3-Clause License
 
 """
-Unified Notebook and Kernel Management Module
+Unified Notebook and Code Sandbox Management Module
 
-This module provides centralized management for Jupyter notebooks and kernels,
-replacing the scattered global variable approach with a unified architecture.
+This module provides centralized management for Jupyter notebooks and the code
+sandboxes that run their cells, replacing the scattered global variable
+approach with a unified architecture.
+
+"Code sandbox" is the generic name for whatever executes code for a notebook: a
+Jupyter kernel reached over HTTP/WebSocket in MCP_SERVER mode, a non-Jupyter
+sandbox engine contributed by an extension, or — in JUPYTER_SERVER mode — a
+plain ``{"id": kernel_id}`` handle to a kernel the local kernel manager owns.
+The MCP tools keep speaking of "kernels" to their callers; internally the
+generic name is used so the non-Jupyter cases are not mislabelled.
 """
 
 from __future__ import annotations
@@ -138,9 +146,9 @@ class NotebookConnection:
 
 class NotebookManager:
     """
-    Centralized manager for multiple notebooks and their corresponding kernels.
+    Centralized manager for multiple notebooks and their code sandboxes.
 
-    This class replaces the global kernel variable approach with a unified
+    This class replaces the global code sandbox variable approach with a unified
     management system that supports both single and multiple notebook scenarios.
 
     Note that this state is per *process*, not per caller. A server accepting
@@ -179,7 +187,7 @@ class NotebookManager:
     def add_notebook(
         self,
         name: str,
-        kernel: CodeSandboxClient | dict[str, Any],
+        code_sandbox: CodeSandboxClient | dict[str, Any],
         server_url: str | None = None,
         token: str | None = None,
         path: str | None = None,
@@ -189,7 +197,7 @@ class NotebookManager:
 
         Args:
             name: Unique identifier for the notebook
-            kernel: Sandbox client instance (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode)
+            code_sandbox: Sandbox client instance (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode)
             server_url: Jupyter server URL (optional, uses config default). Use "local" for JUPYTER_SERVER mode.
             token: Authentication token (optional, uses config default)
             path: Notebook file path (optional, uses config default)
@@ -200,7 +208,7 @@ class NotebookManager:
         is_local_mode = server_url == "local"
 
         self._notebooks[name] = {
-            "kernel": kernel,
+            "code_sandbox": code_sandbox,
             "is_local": is_local_mode,
             "notebook_info": {
                 "server_url": server_url or config.resolved_document_url(),
@@ -228,14 +236,15 @@ class NotebookManager:
             try:
                 notebook_data = self._notebooks[name]
                 is_local = notebook_data.get("is_local", False)
-                kernel = notebook_data["kernel"]
+                code_sandbox = notebook_data["code_sandbox"]
 
-                # Only stop kernel if it's an HTTP sandbox client (MCP_SERVER mode)
-                # In JUPYTER_SERVER mode, kernel is just metadata, actual kernel managed elsewhere
-                if not is_local and kernel and hasattr(kernel, "stop"):
-                    kernel.stop()
+                # Only stop the sandbox if it's an HTTP sandbox client (MCP_SERVER
+                # mode). In JUPYTER_SERVER mode it is just metadata; the kernel
+                # itself is managed by the local kernel manager.
+                if not is_local and code_sandbox and hasattr(code_sandbox, "stop"):
+                    code_sandbox.stop()
             except Exception:
-                # Ignore errors during kernel cleanup
+                # Ignore errors during code sandbox cleanup
                 pass
             finally:
                 del self._notebooks[name]
@@ -254,9 +263,9 @@ class NotebookManager:
             return True
         return False
 
-    def get_kernel(self, name: str) -> CodeSandboxClient | dict[str, Any] | None:
+    def get_code_sandbox(self, name: str) -> CodeSandboxClient | dict[str, Any] | None:
         """
-        Get the kernel for a specific notebook.
+        Get the code sandbox for a specific notebook.
 
         Args:
             name: Notebook identifier
@@ -265,26 +274,29 @@ class NotebookManager:
             Sandbox client (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode), or None if not found
         """
         if name in self._notebooks:
-            return self._notebooks[name]["kernel"]
+            return self._notebooks[name]["code_sandbox"]
         return None
 
-    def get_kernel_id(self, name: str) -> str | None:
+    def get_code_sandbox_id(self, name: str) -> str | None:
         """
-        Get the kernel ID for a specific notebook.
+        Get the code sandbox ID for a specific notebook.
+
+        The id is a Jupyter kernel id whenever the sandbox is Jupyter-backed,
+        which is what the `kernel_id` tool parameters name.
 
         Args:
             name: Notebook identifier
 
         Returns:
-            Kernel ID string or None if not found
+            Code sandbox ID string or None if not found
         """
         if name in self._notebooks:
-            kernel = self._notebooks[name]["kernel"]
+            code_sandbox = self._notebooks[name]["code_sandbox"]
             # Handle both sandbox client objects and kernel metadata dicts
-            if isinstance(kernel, dict):
-                return kernel.get("id")
-            elif hasattr(kernel, "id"):
-                return kernel.id
+            if isinstance(code_sandbox, dict):
+                return code_sandbox.get("id")
+            elif hasattr(code_sandbox, "id"):
+                return code_sandbox.id
         return None
 
     def get_notebook_path(self, name: str) -> str | None:
@@ -335,7 +347,7 @@ class NotebookManager:
 
     def restart_notebook(self, name: str) -> bool:
         """
-        Restart the kernel for a specific notebook.
+        Restart the code sandbox for a specific notebook.
 
         Args:
             name: Notebook identifier
@@ -345,9 +357,9 @@ class NotebookManager:
         """
         if name in self._notebooks:
             try:
-                kernel = self._notebooks[name]["kernel"]
-                if kernel and hasattr(kernel, "restart"):
-                    kernel.restart()
+                code_sandbox = self._notebooks[name]["code_sandbox"]
+                if code_sandbox and hasattr(code_sandbox, "restart"):
+                    code_sandbox.restart()
                 return True
             except Exception:
                 return False
@@ -357,34 +369,37 @@ class NotebookManager:
         """Check if the manager is empty (no notebooks)."""
         return len(self._notebooks) == 0
 
-    def ensure_kernel_alive(
-        self, name: str, kernel_factory: Callable[[], CodeSandboxClient]
+    def ensure_code_sandbox_alive(
+        self, name: str, code_sandbox_factory: Callable[[], CodeSandboxClient]
     ) -> CodeSandboxClient:
         """
-        Ensure a kernel is alive, create if necessary.
+        Ensure a code sandbox is alive, create if necessary.
 
         Args:
             name: Notebook identifier
-            kernel_factory: Function to create a new kernel
+            code_sandbox_factory: Function to create a new code sandbox
 
         Returns:
-            The alive kernel instance
+            The alive code sandbox instance
         """
-        kernel = self.get_kernel(name)
-        if kernel is None or not hasattr(kernel, "is_alive") or not kernel.is_alive():
-            # Create new kernel
-            new_kernel = kernel_factory()
+        code_sandbox = self.get_code_sandbox(name)
+        if (
+            code_sandbox is None
+            or not hasattr(code_sandbox, "is_alive")
+            or not code_sandbox.is_alive()
+        ):
+            new_code_sandbox = code_sandbox_factory()
             if name in self._notebooks:
-                # Swap only the kernel: a restart replaces the kernel, never the
+                # Swap only the sandbox: a restart replaces the sandbox, never the
                 # notebook the entry points at. Re-adding via add_notebook without
                 # the original server_url/token/path would reset notebook_info to
                 # the config defaults (see add_notebook) and silently rebind this
                 # notebook to the default document.
-                self._notebooks[name]["kernel"] = new_kernel
+                self._notebooks[name]["code_sandbox"] = new_code_sandbox
             else:
-                self.add_notebook(name, new_kernel)
-            return new_kernel
-        return kernel
+                self.add_notebook(name, new_code_sandbox)
+            return new_code_sandbox
+        return code_sandbox
 
     def set_current_notebook(self, name: str) -> bool:
         """
@@ -456,27 +471,30 @@ class NotebookManager:
 
         Args:
             kernel_manager: Jupyter server's kernel manager (JUPYTER_SERVER mode only).
-                In that mode `kernel` is a plain dict ({"id": kernel_id}), not a
-                KernelClient, so liveness has to be checked against the real kernel
+                In that mode the code sandbox is a plain dict ({"id": kernel_id}),
+                not a client, so liveness has to be checked against the real kernel
                 manager instead of via `is_alive()`.
 
         Returns:
-            Dictionary with notebook names as keys and their info as values
+            Dictionary with notebook names as keys and their info as values.
+            `kernel_status` keeps its name because `list_notebooks` reports it
+            to callers under the `Kernel_Status` column.
         """
         result = {}
         for name, notebook_data in self._notebooks.items():
-            kernel = notebook_data["kernel"]
+            code_sandbox = notebook_data["code_sandbox"]
             notebook_info = notebook_data["notebook_info"]
 
-            # Check kernel status
             kernel_status = "unknown"
-            if kernel:
+            if code_sandbox:
                 try:
-                    if hasattr(kernel, "is_alive"):
-                        kernel_status = "alive" if kernel.is_alive() else "dead"
-                    elif isinstance(kernel, dict) and kernel_manager is not None:
-                        kernel_id = kernel.get("id")
-                        kernel_status = "alive" if kernel_id and kernel_id in kernel_manager else "dead"
+                    if hasattr(code_sandbox, "is_alive"):
+                        kernel_status = "alive" if code_sandbox.is_alive() else "dead"
+                    elif isinstance(code_sandbox, dict) and kernel_manager is not None:
+                        kernel_id = code_sandbox.get("id")
+                        kernel_status = (
+                            "alive" if kernel_id and kernel_id in kernel_manager else "dead"
+                        )
                 except Exception:
                     kernel_status = "error"
             else:

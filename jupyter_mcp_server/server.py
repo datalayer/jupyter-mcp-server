@@ -60,12 +60,12 @@ from jupyter_mcp_server.tools import (
     UseNotebookTool,
 )
 from jupyter_mcp_server.utils import (
-    create_kernel,
-    ensure_kernel_alive,
+    create_code_sandbox,
+    ensure_code_sandbox_alive,
     safe_extract_outputs,
     safe_notebook_operation,
-    start_kernel,
-    wait_for_kernel_idle,
+    start_code_sandbox,
+    wait_for_code_sandbox_idle,
 )
 
 ###############################################################################
@@ -217,10 +217,10 @@ server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()
 
 
-def __start_kernel():
+def __start_code_sandbox():
     """Start the Jupyter kernel with error handling (for backward compatibility)."""
     config = get_config()
-    start_kernel(notebook_manager, config, logger)
+    start_code_sandbox(notebook_manager, config, logger)
 
 
 async def __auto_enroll_document():
@@ -233,16 +233,16 @@ async def __auto_enroll_document():
     )
 
 
-def __ensure_kernel_alive() -> CodeSandboxClient:
+def __ensure_code_sandbox_alive() -> CodeSandboxClient:
     """Ensure kernel is running, restart if needed."""
 
-    def __create_kernel() -> CodeSandboxClient:
+    def __create_code_sandbox() -> CodeSandboxClient:
         """Create a new kernel instance using current configuration."""
         config = get_config()
-        return create_kernel(config, logger)
+        return create_code_sandbox(config, logger)
 
     current_notebook = notebook_manager.get_current_notebook() or "default"
-    return ensure_kernel_alive(notebook_manager, current_notebook, __create_kernel)
+    return ensure_code_sandbox_alive(notebook_manager, current_notebook, __create_code_sandbox)
 
 
 def __make_execution_progress_callback(ctx: Context | None):
@@ -327,7 +327,7 @@ async def connect(request: Request):
     ServerContext.reset()
 
     try:
-        __start_kernel()
+        __start_code_sandbox()
         return JSONResponse({"success": True})
     except Exception as e:
         logger.error(f"Failed to connect: {e}")
@@ -353,7 +353,7 @@ async def health_check(request: Request):
     kernel_status = "unknown"
     try:
         current_notebook = notebook_manager.get_current_notebook() or "default"
-        kernel = notebook_manager.get_kernel(current_notebook)
+        kernel = notebook_manager.get_code_sandbox(current_notebook)
         if kernel:
             kernel_status = "alive" if hasattr(kernel, "is_alive") and kernel.is_alive() else "dead"
         else:
@@ -499,7 +499,7 @@ async def use_notebook(
             notebook_path=notebook_path,
             use_mode=mode,
             kernel_id=kernel_id,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            ensure_code_sandbox_alive_fn=__ensure_code_sandbox_alive,
             contents_manager=server_context.contents_manager,
             kernel_manager=server_context.kernel_manager,
             session_manager=server_context.session_manager,
@@ -509,7 +509,7 @@ async def use_notebook(
             auth_headers=server_context.code_sandbox_auth_headers or None,
         )
     )
-    kid = notebook_manager.get_kernel_id(notebook_name) or "unknown"
+    kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
     await HookRegistry.get_instance().fire(
         HookEvent.KERNEL_LIFECYCLE,
         event_type="started",
@@ -554,7 +554,7 @@ async def restart_notebook(
         notebook_manager=notebook_manager,
         kernel_manager=server_context.kernel_manager,
     )
-    kid = notebook_manager.get_kernel_id(notebook_name) or "unknown"
+    kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
     await HookRegistry.get_instance().fire(
         HookEvent.KERNEL_LIFECYCLE,
         event_type="restarted",
@@ -575,7 +575,7 @@ async def unuse_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
 ) -> Annotated[str, Field(description="Success message")]:
     """Unuse from a specific notebook and release its resources."""
-    kid = notebook_manager.get_kernel_id(notebook_name) or "unknown"
+    kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
     result = await UnuseNotebookTool().execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
@@ -804,7 +804,7 @@ async def execute_cell(
             timeout_seconds=effective_timeout,
             stream=stream,
             progress_interval=progress_interval,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            ensure_code_sandbox_alive_fn=__ensure_code_sandbox_alive,
             progress_callback=progress_callback,
         ),
         max_retries=1,
@@ -882,7 +882,7 @@ async def insert_execute_code_cell(
             timeout_seconds=effective_timeout,
             stream=stream,
             progress_interval=progress_interval,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
+            ensure_code_sandbox_alive_fn=__ensure_code_sandbox_alive,
             progress_callback=progress_callback,
         ),
         max_retries=1,
@@ -1112,7 +1112,7 @@ async def execute_code(
 
     if kernel_id is None and server_context.mode == ServerMode.JUPYTER_SERVER:
         current_notebook = notebook_manager.get_current_notebook() or "default"
-        kernel_id = notebook_manager.get_kernel_id(current_notebook)
+        kernel_id = notebook_manager.get_code_sandbox_id(current_notebook)
 
     return await safe_notebook_operation(
         lambda: ExecuteCodeTool().execute(
@@ -1123,8 +1123,8 @@ async def execute_code(
             code=code,
             timeout=effective_timeout,
             kernel_id=kernel_id,
-            ensure_kernel_alive_fn=__ensure_kernel_alive,
-            wait_for_kernel_idle_fn=wait_for_kernel_idle,
+            ensure_code_sandbox_alive_fn=__ensure_code_sandbox_alive,
+            wait_for_code_sandbox_idle_fn=wait_for_code_sandbox_idle,
             safe_extract_outputs_fn=safe_extract_outputs,
             progress_callback=progress_callback,
             progress_interval=progress_interval,

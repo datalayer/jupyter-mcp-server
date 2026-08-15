@@ -75,7 +75,7 @@ class ExecuteCodeTool(BaseTool):
 
         config = get_config()
         # Password auth carries credentials via cookie/XSRF headers; when present,
-        # drop the token so it can't override them (mirrors create_kernel and
+        # drop the token so it can't override them (mirrors create_code_sandbox and
         # use_notebook). Without this, a borrowed cross-kernel connection under
         # password auth would be unauthenticated, since code_sandbox_token is typically
         # None in that mode.
@@ -96,8 +96,8 @@ class ExecuteCodeTool(BaseTool):
         notebook_manager: NotebookManager,
         code: str,
         timeout: int,
-        ensure_kernel_alive_fn,
-        wait_for_kernel_idle_fn,
+        ensure_code_sandbox_alive_fn,
+        wait_for_code_sandbox_idle_fn,
         safe_extract_outputs_fn,
         kernel_id: str = None,
         sandbox_server_client=None,
@@ -112,7 +112,7 @@ class ExecuteCodeTool(BaseTool):
         """
         # Get current notebook name and kernel
         current_notebook = notebook_manager.get_current_notebook() or "default"
-        current_kernel_id = notebook_manager.get_kernel_id(current_notebook)
+        current_kernel_id = notebook_manager.get_code_sandbox_id(current_notebook)
 
         # A sandbox client we connect to here is borrowed, not owned: it must be released
         # in the finally below, and never shut down.
@@ -126,11 +126,11 @@ class ExecuteCodeTool(BaseTool):
             borrowed_sandbox = code_sandbox_client
             kid = kernel_id
         else:
-            code_sandbox_client = notebook_manager.get_kernel(current_notebook)
+            code_sandbox_client = notebook_manager.get_code_sandbox(current_notebook)
 
             if not code_sandbox_client:
                 # Ensure kernel is alive
-                code_sandbox_client = ensure_kernel_alive_fn()
+                code_sandbox_client = ensure_code_sandbox_alive_fn()
 
             if isinstance(code_sandbox_client, dict):
                 return [
@@ -145,7 +145,7 @@ class ExecuteCodeTool(BaseTool):
                 kid=kid,
                 code=code,
                 timeout=timeout,
-                wait_for_kernel_idle_fn=wait_for_kernel_idle_fn,
+                wait_for_code_sandbox_idle_fn=wait_for_code_sandbox_idle_fn,
                 safe_extract_outputs_fn=safe_extract_outputs_fn,
                 progress_callback=progress_callback,
                 progress_interval=progress_interval,
@@ -177,14 +177,14 @@ class ExecuteCodeTool(BaseTool):
         kid: str,
         code: str,
         timeout: int,
-        wait_for_kernel_idle_fn,
+        wait_for_code_sandbox_idle_fn,
         safe_extract_outputs_fn,
         progress_callback=None,
         progress_interval: int = 5,
     ) -> list[str | ImageContent]:
         """Run code on an already-resolved sandbox client (MCP_SERVER mode)."""
         # Wait for kernel to be idle before executing
-        await wait_for_kernel_idle_fn(code_sandbox_client, max_wait_seconds=30)
+        await wait_for_code_sandbox_idle_fn(code_sandbox_client, max_wait_seconds=30)
 
         logger.info(f"Executing IPython code (MCP_SERVER) with timeout {timeout}s: {code[:100]}...")
 
@@ -294,8 +294,8 @@ class ExecuteCodeTool(BaseTool):
         code: str = None,
         timeout: int = 60,
         kernel_id: str = None,
-        ensure_kernel_alive_fn=None,
-        wait_for_kernel_idle_fn=None,
+        ensure_code_sandbox_alive_fn=None,
+        wait_for_code_sandbox_idle_fn=None,
         safe_extract_outputs_fn=None,
         progress_callback=None,
         progress_interval: int = 5,
@@ -314,8 +314,8 @@ class ExecuteCodeTool(BaseTool):
             code: IPython code to execute (supports magic commands, shell commands with !, and Python code)
             timeout: Execution timeout in seconds (default: 60s)
             kernel_id: Kernel to execute in; defaults to the current notebook's kernel
-            ensure_kernel_alive_fn: Function to ensure kernel is alive (for MCP_SERVER mode)
-            wait_for_kernel_idle_fn: Function to wait for kernel idle state (for MCP_SERVER mode)
+            ensure_code_sandbox_alive_fn: Function to ensure kernel is alive (for MCP_SERVER mode)
+            wait_for_code_sandbox_idle_fn: Function to wait for kernel idle state (for MCP_SERVER mode)
             safe_extract_outputs_fn: Function to safely extract outputs
             progress_callback: Optional async callback for MCP progress/keepalive
             progress_interval: Seconds between progress callback invocations
@@ -363,18 +363,18 @@ class ExecuteCodeTool(BaseTool):
 
         # MCP_SERVER mode: Use notebook_manager (original behavior)
         elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
-            if ensure_kernel_alive_fn is None:
-                raise ValueError("ensure_kernel_alive_fn is required for MCP_SERVER mode")
-            if wait_for_kernel_idle_fn is None:
-                raise ValueError("wait_for_kernel_idle_fn is required for MCP_SERVER mode")
+            if ensure_code_sandbox_alive_fn is None:
+                raise ValueError("ensure_code_sandbox_alive_fn is required for MCP_SERVER mode")
+            if wait_for_code_sandbox_idle_fn is None:
+                raise ValueError("wait_for_code_sandbox_idle_fn is required for MCP_SERVER mode")
 
             logger.info(f"Executing IPython in MCP_SERVER mode with kernel_id={kernel_id}")
             return await self._execute_via_notebook_manager(
                 notebook_manager=notebook_manager,
                 code=code,
                 timeout=timeout,
-                ensure_kernel_alive_fn=ensure_kernel_alive_fn,
-                wait_for_kernel_idle_fn=wait_for_kernel_idle_fn,
+                ensure_code_sandbox_alive_fn=ensure_code_sandbox_alive_fn,
+                wait_for_code_sandbox_idle_fn=wait_for_code_sandbox_idle_fn,
                 safe_extract_outputs_fn=safe_extract_outputs_fn,
                 kernel_id=kernel_id,
                 sandbox_server_client=sandbox_server_client,

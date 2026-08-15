@@ -57,7 +57,7 @@ class FakeNotebookManager:
     def get_current_notebook(self):
         return "default"
 
-    def get_kernel_id(self, notebook):
+    def get_code_sandbox_id(self, notebook):
         return "current-kernel"
 
 
@@ -71,7 +71,7 @@ class BorrowedKernelExecuteCodeTool(ExecuteCodeTool):
         return self._fake_kernel, None
 
 
-async def _noop_wait_for_kernel_idle(kernel, max_wait_seconds=30):
+async def _noop_wait_for_code_sandbox_idle(kernel, max_wait_seconds=30):
     return None
 
 
@@ -86,8 +86,8 @@ async def test_borrowed_kernel_not_stopped_while_execution_task_pending():
         notebook_manager=FakeNotebookManager(),
         code="time.sleep(60)",
         timeout=0,
-        ensure_kernel_alive_fn=lambda: None,
-        wait_for_kernel_idle_fn=_noop_wait_for_kernel_idle,
+        ensure_code_sandbox_alive_fn=lambda: None,
+        wait_for_code_sandbox_idle_fn=_noop_wait_for_code_sandbox_idle,
         safe_extract_outputs_fn=lambda outputs: outputs,
         kernel_id="borrowed-kernel",
     )
@@ -113,8 +113,8 @@ async def test_borrowed_kernel_stopped_immediately_when_execution_already_finish
         notebook_manager=FakeNotebookManager(),
         code="1 + 1",
         timeout=5,
-        ensure_kernel_alive_fn=lambda: None,
-        wait_for_kernel_idle_fn=_noop_wait_for_kernel_idle,
+        ensure_code_sandbox_alive_fn=lambda: None,
+        wait_for_code_sandbox_idle_fn=_noop_wait_for_code_sandbox_idle,
         safe_extract_outputs_fn=lambda outputs: outputs,
         kernel_id="borrowed-kernel",
     )

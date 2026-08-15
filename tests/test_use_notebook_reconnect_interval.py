@@ -78,8 +78,8 @@ def _created_with(**config_kwargs):
         with patch(
             "jupyter_mcp_server.extensions.get_extension_manager"
         ) as manager:
-            manager.return_value.create_kernel.return_value = None
-            utils.create_kernel(config, logging.getLogger("test"))
+            manager.return_value.create_code_sandbox.return_value = None
+            utils.create_code_sandbox(config, logging.getLogger("test"))
     reset_config()
     return seen
 
@@ -117,7 +117,7 @@ def test_an_extension_takes_over_for_another_variant():
         "jupyter_mcp_server.sandbox_client.create_jupyter_sandbox_client", must_not_run
     ):
         with patch("jupyter_mcp_server.extensions.get_extension_manager") as manager:
-            manager.return_value.create_kernel.return_value = _Sandbox()
-            kernel = utils.create_kernel(config, logging.getLogger("test"))
+            manager.return_value.create_code_sandbox.return_value = _Sandbox()
+            kernel = utils.create_code_sandbox(config, logging.getLogger("test"))
     reset_config()
     assert kernel.id == "sandbox-1"

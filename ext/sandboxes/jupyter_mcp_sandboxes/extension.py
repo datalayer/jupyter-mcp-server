@@ -57,7 +57,7 @@ class SandboxesExtension(JupyterMCPExtension):
 
     # -- Kernel factory -----------------------------------------------------
 
-    def create_kernel(self, config: Any, log: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Optional[Any]:
         """Build a sandbox-backed kernel when a non-jupyter variant is set."""
         uses_variant = getattr(config, "uses_sandbox_variant", None)
         if not (uses_variant and config.uses_sandbox_variant()):
@@ -214,7 +214,7 @@ class SandboxesExtension(JupyterMCPExtension):
             return await safe_notebook_operation(
                 lambda: LaunchSandboxTool().execute(
                     mode=server_context.mode,
-                    sandbox_code_sandbox_manager=manager,
+                    code_sandbox_manager=manager,
                     sandbox_name=sandbox_name,
                     variant=resolved_variant,
                     timeout=timeout,
@@ -245,7 +245,7 @@ class SandboxesExtension(JupyterMCPExtension):
             return await safe_notebook_operation(
                 lambda: ListSandboxesTool().execute(
                     mode=server_context.mode,
-                    sandbox_code_sandbox_manager=manager,
+                    code_sandbox_manager=manager,
                 )
             )
 
@@ -270,7 +270,7 @@ class SandboxesExtension(JupyterMCPExtension):
             return await safe_notebook_operation(
                 lambda: UseSandboxTool().execute(
                     mode=server_context.mode,
-                    sandbox_code_sandbox_manager=manager,
+                    code_sandbox_manager=manager,
                     sandbox_name=sandbox_name,
                 )
             )
@@ -289,7 +289,7 @@ class SandboxesExtension(JupyterMCPExtension):
             return await safe_notebook_operation(
                 lambda: TerminateSandboxTool().execute(
                     mode=server_context.mode,
-                    sandbox_code_sandbox_manager=manager,
+                    code_sandbox_manager=manager,
                     sandbox_name=sandbox_name,
                 )
             )

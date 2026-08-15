@@ -1,0 +1,88 @@
+# Hooks
+
+## Overview
+
+Jupyter MCP Server includes a **hook system** that fires events before and after MCP tool calls and kernel executions. This enables auditing and custom integrations without modifying core server code. For built-in tracing, see [Observability](/operations/observability).
+
+## Hook Events
+
+The hook system fires the following events:
+
+| Event | When Fired | Key Data |
+|-------|-----------|----------|
+| `BEFORE_TOOL_CALL` | Before any MCP tool executes | `tool_name`, `arguments` |
+| `AFTER_TOOL_CALL` | After any MCP tool completes | `tool_name`, `arguments`, `result`, `error` |
+| `BEFORE_EXECUTE` | Before code execution in a kernel | `kernel_id`, `code` |
+| `AFTER_EXECUTE` | After code execution completes | `kernel_id`, `outputs`, `error` |
+| `KERNEL_LIFECYCLE` | On kernel start, restart, or shutdown | `event_type`, `kernel_id`, `kernel_name` |
+
+All built-in tools are instrumented with `BEFORE_TOOL_CALL` / `AFTER_TOOL_CALL` hooks. Cell and code execution tools additionally fire `BEFORE_EXECUTE` / `AFTER_EXECUTE` hooks around kernel interactions.
+
+## Architecture
+
+Each tool function is wrapped with a `@with_hooks` decorator that fires `BEFORE_TOOL_CALL` / `AFTER_TOOL_CALL` events. For execution tools, `BEFORE_EXECUTE` / `AFTER_EXECUTE` events are additionally fired around the kernel interaction. All events are dispatched through a singleton `HookRegistry` to registered handlers.
+
+### Handler Error Behavior
+
+Each handler declares a `propagate_errors` flag:
+
+:::warning Critical vs Optional Handlers
+- **`propagate_errors = True`** (critical): Exceptions propagate to the caller and may fail the tool call.
+- **`propagate_errors = False`** (optional): Exceptions are logged at DEBUG level and suppressed. The built-in OTel handler uses this mode.
+:::
+
+### Context Correlation
+
+Before/after event pairs share a `context` dictionary. Handlers can store data in the context during `BEFORE_*` events and retrieve it during the corresponding `AFTER_*` event. For example, the OTel handler stores a span reference in `context["_otel_span"]` to end it on the after event.
+
+## Writing a Custom Hook Handler
+
+You can create custom handlers for logging, metrics, auditing, or any other purpose.
+
+### Handler Interface
+
+```python
+class HookHandler(Protocol):
+    propagate_errors: bool
+
+    async def on_event(self, event: HookEvent, **kwargs) -> None: ...
+```
+
+### Example: Simple Logging Handler
+
+```python
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
+
+class LoggingHandler:
+    propagate_errors = False  # Don't break tool calls on logging errors
+
+    async def on_event(self, event: HookEvent, **kwargs) -> None:
+        if event == HookEvent.BEFORE_TOOL_CALL:
+            print(f"Tool called: {kwargs.get('tool_name')}")
+        elif event == HookEvent.AFTER_TOOL_CALL:
+            error = kwargs.get("error")
+            if error:
+                print(f"Tool failed: {kwargs.get('tool_name')} - {error}")
+            else:
+                print(f"Tool completed: {kwargs.get('tool_name')}")
+
+# Register the handler
+handler = LoggingHandler()
+HookRegistry.get_instance().register(handler)
+```
+
+### Registering Handlers
+
+Handlers are registered with the singleton `HookRegistry`:
+
+```python
+from jupyter_mcp_server.hooks import HookRegistry
+
+registry = HookRegistry.get_instance()
+
+# Register
+registry.register(my_handler)
+
+# Unregister when done
+registry.unregister(my_handler)
+```
