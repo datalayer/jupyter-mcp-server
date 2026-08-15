@@ -13,17 +13,11 @@ non-``jupyter`` sandbox variants.
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Any, Literal
 
-from reactor import PluginCompatibility, PluginManifest
-from jupyter_mcp_server.config import get_config
-from jupyter_mcp_server.extensions import JupyterMCPExtension
-from jupyter_mcp_server.hooks import with_hooks
-from jupyter_mcp_server.server_context import ServerContext
-from jupyter_mcp_server.tools._base import ServerMode
-from jupyter_mcp_server.utils import safe_notebook_operation
 from mcp.types import ToolAnnotations
 from pydantic import Field
+from reactor import PluginCompatibility, PluginManifest
 
 from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 from jupyter_mcp_sandboxes.tools import (
@@ -32,6 +26,11 @@ from jupyter_mcp_sandboxes.tools import (
     TerminateSandboxTool,
     UseSandboxTool,
 )
+from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.extensions import JupyterMCPExtension
+from jupyter_mcp_server.hooks import with_hooks
+from jupyter_mcp_server.server_context import ServerContext
+from jupyter_mcp_server.utils import safe_notebook_operation
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +56,24 @@ class SandboxesExtension(JupyterMCPExtension):
 
     # -- Kernel factory -----------------------------------------------------
 
-    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Optional[Any]:
+    @staticmethod
+    def _is_reusable(client: Any, log: logging.Logger) -> bool:
+        """Whether the selected client can actually run code.
+
+        A client without ``is_alive`` is trusted (nothing to ask); a check
+        that raises counts as dead — a client that cannot even answer the
+        question is not one to bind a notebook to.
+        """
+        is_alive = getattr(client, "is_alive", None)
+        if is_alive is None:
+            return True
+        try:
+            return bool(is_alive())
+        except Exception:
+            log.warning("Liveness check on the active sandbox failed", exc_info=True)
+            return False
+
+    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
         """Build a sandbox-backed kernel when a non-jupyter variant is set."""
         uses_variant = getattr(config, "uses_sandbox_variant", None)
         if not (uses_variant and config.uses_sandbox_variant()):
@@ -70,11 +86,20 @@ class SandboxesExtension(JupyterMCPExtension):
         # what makes "assign the sandbox to the notebook" true.
         active = self._manager.get_active()
         if active is not None:
-            log.info(
-                "Reusing the active sandbox [%s] as the execution backend",
+            if self._is_reusable(active, log):
+                log.info(
+                    "Reusing the active sandbox [%s] as the execution backend",
+                    self._manager.get_active_name(),
+                )
+                return active
+            # A dead selection must not become the notebook's backend: the
+            # factory would keep handing the same corpse back and
+            # ensure_code_sandbox_alive could never recover. Fall through to
+            # a fresh sandbox instead.
+            log.warning(
+                "The active sandbox [%s] is not alive; creating a fresh one",
                 self._manager.get_active_name(),
             )
-            return active
 
         from jupyter_mcp_sandboxes.kernel import create_sandbox_client
 
@@ -95,7 +120,7 @@ class SandboxesExtension(JupyterMCPExtension):
 
     async def intercept_execute_code(
         self, code: str, timeout: int
-    ) -> Optional[list[Any]]:
+    ) -> list[Any] | None:
         """Route execute_code to the active sandbox when one is selected."""
         if not self._manager.get_active_name():
             return None
@@ -149,11 +174,16 @@ class SandboxesExtension(JupyterMCPExtension):
                 ),
             ] = None,
             timeout: Annotated[
-                int, Field(description="Default execution timeout in seconds for this sandbox", ge=1)
+                int,
+                Field(description="Default execution timeout in seconds for this sandbox", ge=1),
             ] = 60,
             environment: Annotated[
                 str | None,
-                Field(description="Optional sandbox environment name (common for datalayer/modal variants)"),
+                Field(
+                    description=(
+                        "Optional sandbox environment name (common for datalayer/modal variants)"
+                    )
+                ),
             ] = None,
             gpu: Annotated[
                 str | None,
@@ -204,13 +234,20 @@ class SandboxesExtension(JupyterMCPExtension):
             token: Annotated[
                 str | None,
                 Field(
-                    description="Datalayer API token override, or Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN)"
+                    description=(
+                        "Datalayer API token override, or Kaggle API token for the"
+                        " kaggle variant (falls back to KAGGLE_API_TOKEN)"
+                    )
                 ),
             ] = None,
             run_url: Annotated[str | None, Field(description="Datalayer run URL override")] = None,
             python_version: Annotated[
                 str | None,
-                Field(description="Modal Python version override (e.g. 3.12). Only used for modal variant."),
+                Field(
+                    description=(
+                        "Modal Python version override (e.g. 3.12). Only used for modal variant."
+                    )
+                ),
             ] = None,
         ) -> Annotated[dict, Field(description="Launch status and code sandbox metadata")]:
             """Launch a code sandbox that can be used instead of Jupyter kernels.
@@ -274,7 +311,8 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Sandbox name to activate for execute_code. Pass null/empty to disable sandbox routing and return to Jupyter kernels."
+                        "Sandbox name to activate for execute_code. Pass null/empty to"
+                        " disable sandbox routing and return to Jupyter kernels."
                     )
                 ),
             ] = None,
@@ -296,7 +334,9 @@ class SandboxesExtension(JupyterMCPExtension):
         )
         @with_hooks("terminate_sandbox")
         async def terminate_sandbox(
-            sandbox_name: Annotated[str, Field(description="Sandbox name to terminate and unregister")],
+            sandbox_name: Annotated[
+                str, Field(description="Sandbox name to terminate and unregister")
+            ],
         ) -> Annotated[str, Field(description="Termination status message")]:
             """Terminate a launched code sandbox."""
             return await safe_notebook_operation(

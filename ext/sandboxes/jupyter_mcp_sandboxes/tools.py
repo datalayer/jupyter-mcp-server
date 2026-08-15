@@ -69,7 +69,9 @@ class LaunchSandboxTool(BaseTool):
 class ListSandboxesTool(BaseTool):
     """List all launched sandboxes."""
 
-    async def execute(self, mode: ServerMode, code_sandbox_manager=None, **kwargs) -> list[dict[str, Any]]:
+    async def execute(
+        self, mode: ServerMode, code_sandbox_manager=None, **kwargs
+    ) -> list[dict[str, Any]]:
         if code_sandbox_manager is None:
             raise ValueError("code_sandbox_manager is required")
         sandboxes = code_sandbox_manager.list()
@@ -93,13 +95,17 @@ def _annotate_attached_notebooks(sandboxes: list[dict[str, Any]], manager) -> No
     try:
         from jupyter_mcp_server.server import notebook_manager
 
-        by_client = {id(manager._sandboxes[s["name"]]): s for s in sandboxes if s.get("name") in manager._sandboxes}
+        by_client = {
+            id(manager._sandboxes[s["name"]]): s
+            for s in sandboxes
+            if s.get("name") in manager._sandboxes
+        }
         for name, _info in notebook_manager:
             client = notebook_manager.get_code_sandbox(name)
             entry = by_client.get(id(client))
             if entry is not None:
                 entry.setdefault("attached_notebooks", []).append(name)
-    except Exception:  # noqa: BLE001 - the listing is worth more than the extras
+    except Exception:
         return
     for sandbox in sandboxes:
         sandbox.setdefault("attached_notebooks", [])

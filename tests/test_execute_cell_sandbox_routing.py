@@ -19,10 +19,9 @@ creating a fresh one — and `execute_cell` itself stays untouched.
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 from unittest.mock import patch
-
-import pytest
 
 from jupyter_mcp_sandboxes.extension import SandboxesExtension
 
@@ -33,8 +32,6 @@ def _config(variant="datalayer"):
         uses_sandbox_variant=lambda: variant != "jupyter",
     )
 
-
-import logging
 
 LOG = logging.getLogger("test")
 
