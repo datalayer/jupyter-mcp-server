@@ -911,10 +911,17 @@ async def read_cell(
 ) -> Annotated[
     list[str | ImageContent],
     Field(
-        description="Cell information including index, type, source, and outputs (for code cells)"
+        description=(
+            "Readable text entries containing cell metadata, source, and optional "
+            "code-cell outputs"
+        )
     ),
 ]:
-    """Read a specific cell from the currently activated notebook and return it's metadata (index, type, execution count), source and outputs (for code cells)"""
+    """Read a cell as readable text entries.
+
+    Includes metadata and source, plus optional formatted output text rather
+    than raw nbformat objects.
+    """
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
             mode=server_context.mode,
