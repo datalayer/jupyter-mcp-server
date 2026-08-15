@@ -58,7 +58,7 @@ class FakeNotebookManager:
     def get_current_notebook(self):
         return "default"
 
-    def get_kernel_id(self, notebook_name):
+    def get_code_sandbox_id(self, notebook_name):
         return "kernel-1"
 
     @contextlib.asynccontextmanager
@@ -83,7 +83,7 @@ async def _run_stream(cell, execute_impl, timeout_seconds, kernel):
         timeout_seconds=timeout_seconds,
         stream=True,
         progress_interval=1,
-        ensure_kernel_alive_fn=lambda: kernel,
+        ensure_code_sandbox_alive_fn=lambda: kernel,
     )
 
 

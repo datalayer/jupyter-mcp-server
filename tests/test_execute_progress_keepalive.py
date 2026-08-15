@@ -57,7 +57,7 @@ class FakeNotebookManager:
     def get_current_notebook(self):
         return "default"
 
-    def get_kernel_id(self, notebook_name):
+    def get_code_sandbox_id(self, notebook_name):
         return "kernel-1"
 
     def get_kernel(self, notebook_name):
@@ -107,7 +107,7 @@ async def test_stream_path_emits_progress_callback_during_long_cell():
         timeout_seconds=30,
         stream=True,
         progress_interval=1,
-        ensure_kernel_alive_fn=lambda: kernel,
+        ensure_code_sandbox_alive_fn=lambda: kernel,
         progress_callback=progress,
     )
 
@@ -167,7 +167,7 @@ async def test_timeout_settle_includes_late_notebook_output_in_stream_result():
         timeout_seconds=0,
         stream=True,
         progress_interval=1,
-        ensure_kernel_alive_fn=lambda: kernel,
+        ensure_code_sandbox_alive_fn=lambda: kernel,
     )
 
     assert any("[TIMEOUT at" in entry for entry in result if isinstance(entry, str))
@@ -205,7 +205,7 @@ async def test_immediate_timeout_with_frozen_perf_counter(monkeypatch):
         timeout_seconds=0,
         stream=True,
         progress_interval=1,
-        ensure_kernel_alive_fn=lambda: kernel,
+        ensure_code_sandbox_alive_fn=lambda: kernel,
     )
 
     assert any("[TIMEOUT at" in entry for entry in result if isinstance(entry, str)), (
@@ -231,8 +231,8 @@ async def test_execute_code_emits_progress_callback_during_long_run():
         notebook_manager=manager,
         code="import time; time.sleep(2)",
         timeout=30,
-        ensure_kernel_alive_fn=lambda: kernel,
-        wait_for_kernel_idle_fn=wait_idle,
+        ensure_code_sandbox_alive_fn=lambda: kernel,
+        wait_for_code_sandbox_idle_fn=wait_idle,
         safe_extract_outputs_fn=lambda outputs: [o.get("text", "") for o in outputs],
         progress_callback=progress,
         progress_interval=1,

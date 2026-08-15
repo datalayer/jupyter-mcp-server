@@ -331,7 +331,7 @@ class UseNotebookTool(BaseTool):
                 # "Timed out waiting for Jupyter Server" on a notebook that was
                 # perfectly reachable.
                 #
-                # `ensure_kernel_alive` attaches one on the first execution,
+                # `ensure_code_sandbox_alive` attaches one on the first execution,
                 # through whichever sandbox is configured — so the variant is
                 # honoured rather than assumed.
                 #
@@ -343,9 +343,9 @@ class UseNotebookTool(BaseTool):
                     # The operator asked for a sandbox up front, so start one.
                     # Through the shared factory, which consults the installed
                     # extensions first and so honours `--sandbox-variant`.
-                    from jupyter_mcp_server.utils import create_kernel
+                    from jupyter_mcp_server.utils import create_code_sandbox
 
-                    kernel = create_kernel(config, logger)
+                    kernel = create_code_sandbox(config, logger)
                     info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
                 else:
                     kernel = None

@@ -90,7 +90,7 @@ def get_current_notebook_context(notebook_manager=None):
         # Try to get current notebook info from manager
         notebook_path = notebook_manager.get_current_notebook_path()
         current_notebook = notebook_manager.get_current_notebook() or "default"
-        kernel_id = notebook_manager.get_kernel_id(current_notebook)
+        kernel_id = notebook_manager.get_code_sandbox_id(current_notebook)
 
     # Fallback to config if not found in manager
     if not notebook_path or not kernel_id:
@@ -125,7 +125,7 @@ def resolve_notebook_path(notebook_manager=None, notebook_name: str | None = Non
     if notebook_manager is None or notebook_name not in notebook_manager:
         raise ValueError(f"Notebook '{notebook_name}' is not connected.")
 
-    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(
+    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_code_sandbox_id(
         notebook_name
     )
 
@@ -255,7 +255,7 @@ def do_start(
     from jupyter_mcp_server.config import set_config
     from jupyter_mcp_server.identity import TOKEN_VERIFIER_CLASS_ENV
     from jupyter_mcp_server.log import logger
-    from jupyter_mcp_server.server import __auto_enroll_document, __start_kernel, mcp
+    from jupyter_mcp_server.server import __auto_enroll_document, __start_code_sandbox, mcp
     from jupyter_mcp_server.server_context import ServerContext
 
     has_custom_verifier = bool((os.environ.get(TOKEN_VERIFIER_CLASS_ENV) or "").strip())
@@ -328,12 +328,12 @@ def do_start(
             logger.error(f"Failed to auto-enroll document '{config.document_id}': {e}")
             if config.start_new_code_sandbox or config.code_sandbox_id:
                 try:
-                    __start_kernel()
+                    __start_code_sandbox()
                 except Exception as e2:
                     logger.error(f"Failed to start kernel on startup: {e2}")
     elif config.start_new_code_sandbox or config.code_sandbox_id:
         try:
-            __start_kernel()
+            __start_code_sandbox()
         except Exception as e:
             logger.error(f"Failed to start kernel on startup: {e}")
 
@@ -583,30 +583,30 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 
 
 ###############################################################################
-# Kernel and notebook operation helpers
+# Code sandbox and notebook operation helpers
 ###############################################################################
 
 
-def create_kernel(config, logger) -> CodeSandboxClient:
-    """Create a new kernel instance using current configuration.
+def create_code_sandbox(config, logger) -> CodeSandboxClient:
+    """Create a new code sandbox using current configuration.
 
-    Kernel creation is resolved in this order:
+    Creation is resolved in this order:
 
      1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
-         over kernel creation for a non-'jupyter' sandbox variant.
-     2. Otherwise the kernel is created through the ``code_sandboxes`` package
-         using the ``jupyter`` variant, and this function returns a
+         over creation for a non-'jupyter' sandbox variant.
+     2. Otherwise the sandbox is created through the ``code_sandboxes`` package
+         using the ``jupyter`` variant — a Jupyter kernel behind a
          variant-neutral ``CodeSandboxClient``.
 
-    This routes all kernel execution through ``code_sandboxes`` instead of
-    calling a legacy direct kernel client package.
+    This routes all execution through ``code_sandboxes`` instead of calling a
+    legacy direct kernel client package.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
     from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 
-    extension_kernel = get_extension_manager().create_kernel(config, logger)
-    if extension_kernel is not None:
-        return extension_kernel
+    extension_code_sandbox = get_extension_manager().create_code_sandbox(config, logger)
+    if extension_code_sandbox is not None:
+        return extension_code_sandbox
 
     from jupyter_mcp_server.server_context import ServerContext
 
@@ -615,7 +615,7 @@ def create_kernel(config, logger) -> CodeSandboxClient:
     auth_headers = ServerContext.get_instance().code_sandbox_auth_headers
 
     try:
-        kernel = create_jupyter_sandbox_client(
+        code_sandbox = create_jupyter_sandbox_client(
             server_url=config.code_sandbox_url,
             token=None if auth_headers else config.code_sandbox_token,
             kernel_id=config.code_sandbox_id,
@@ -624,55 +624,54 @@ def create_kernel(config, logger) -> CodeSandboxClient:
             headers=auth_headers or None,
             logger=logger,
         )
-        logger.info("Kernel created and started successfully")
-        return cast(CodeSandboxClient, kernel)
+        logger.info("Code sandbox created and started successfully")
+        return cast(CodeSandboxClient, code_sandbox)
     except Exception as e:
-        logger.error(f"Failed to create kernel: {e}")
+        logger.error(f"Failed to create code sandbox: {e}")
         raise
 
 
-def start_kernel(notebook_manager, config, logger):
-    """Start the Jupyter kernel with error handling (for backward compatibility)."""
+def start_code_sandbox(notebook_manager, config, logger):
+    """Start the default notebook's code sandbox with error handling."""
     try:
         # Remove existing default notebook if any
         if "default" in notebook_manager:
             notebook_manager.remove_notebook("default")
 
-        # Create and set up new kernel
-        kernel = create_kernel(config, logger)
-        notebook_manager.add_notebook("default", kernel)
-        logger.info("Default notebook kernel started successfully")
+        code_sandbox = create_code_sandbox(config, logger)
+        notebook_manager.add_notebook("default", code_sandbox)
+        logger.info("Default notebook code sandbox started successfully")
     except Exception as e:
-        logger.error(f"Failed to start kernel: {e}")
+        logger.error(f"Failed to start code sandbox: {e}")
         raise
 
 
-def ensure_kernel_alive(
-    notebook_manager, current_notebook, create_kernel_fn: Callable[[], CodeSandboxClient]
+def ensure_code_sandbox_alive(
+    notebook_manager, current_notebook, create_code_sandbox_fn: Callable[[], CodeSandboxClient]
 ) -> CodeSandboxClient:
-    """Ensure kernel is running, restart if needed."""
+    """Ensure the notebook's code sandbox is running, restart if needed."""
     return cast(
         CodeSandboxClient,
-        notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn),
+        notebook_manager.ensure_code_sandbox_alive(current_notebook, create_code_sandbox_fn),
     )
 
 
-def track_pending_execution(kernel, task):
-    """Remember a background execute_cell task on the kernel so is_kernel_busy
-    can see it, and forget it once the task actually finishes.
+def track_pending_execution(code_sandbox, task):
+    """Remember a background execute_cell task on the code sandbox so
+    is_code_sandbox_busy can see it, and forget it once the task actually finishes.
 
     asyncio.Task.cancel() on a task wrapping asyncio.to_thread() cannot stop the
     underlying OS thread: the thread keeps running notebook.execute_cell() (and
-    mutating the shared notebook/kernel state) until it returns on its own,
+    mutating the shared notebook/sandbox state) until it returns on its own,
     regardless of the cancellation request. Recording the task here lets a
     later call see that a previous execution is still in flight instead of
-    assuming the kernel is free the moment a timeout is raised.
+    assuming the sandbox is free the moment a timeout is raised.
     """
-    kernel._mcp_pending_execution = task
+    code_sandbox._mcp_pending_execution = task
 
-    def _clear(finished_task, kernel=kernel):
-        if getattr(kernel, "_mcp_pending_execution", None) is finished_task:
-            kernel._mcp_pending_execution = None
+    def _clear(finished_task, code_sandbox=code_sandbox):
+        if getattr(code_sandbox, "_mcp_pending_execution", None) is finished_task:
+            code_sandbox._mcp_pending_execution = None
 
     task.add_done_callback(_clear)
 
@@ -828,25 +827,25 @@ async def execute_cell_with_forced_sync(
     return None
 
 
-def is_kernel_busy(kernel):
+def is_code_sandbox_busy(kernel):
     """Check if kernel is currently executing something.
 
     Reflects the task recorded by track_pending_execution, not
     kernel._client.is_alive(): JupyterKernelClient has no
     _client attribute, so that check always fell through to `return False`
     and a timed-out execution's orphaned background thread was never seen
-    as "busy" by wait_for_kernel_idle.
+    as "busy" by wait_for_code_sandbox_idle.
     """
     task = getattr(kernel, "_mcp_pending_execution", None)
     return task is not None and not task.done()
 
 
-async def wait_for_kernel_idle(kernel, max_wait_seconds=60):
+async def wait_for_code_sandbox_idle(kernel, max_wait_seconds=60):
     """Wait for kernel to become idle before proceeding."""
     from jupyter_mcp_server.log import logger
 
     start_time = time.time()
-    while is_kernel_busy(kernel):
+    while is_code_sandbox_busy(kernel):
         elapsed = time.time() - start_time
         if elapsed > max_wait_seconds:
             logger.warning(f"Kernel still busy after {max_wait_seconds}s, proceeding anyway")

@@ -21,7 +21,7 @@ class LaunchSandboxTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        sandbox_code_sandbox_manager=None,
+        code_sandbox_manager=None,
         sandbox_name: str | None = None,
         variant: str = "eval",
         timeout: int = 60,
@@ -36,12 +36,12 @@ class LaunchSandboxTool(BaseTool):
         python_version: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:
-        if sandbox_code_sandbox_manager is None:
-            raise ValueError("sandbox_code_sandbox_manager is required")
+        if code_sandbox_manager is None:
+            raise ValueError("code_sandbox_manager is required")
         if not sandbox_name:
             raise ValueError("sandbox_name is required")
 
-        sandbox_info = sandbox_code_sandbox_manager.launch(
+        sandbox_info = code_sandbox_manager.launch(
             sandbox_name=sandbox_name,
             variant=variant,
             timeout=float(timeout),
@@ -68,10 +68,10 @@ class LaunchSandboxTool(BaseTool):
 class ListSandboxesTool(BaseTool):
     """List all launched sandboxes."""
 
-    async def execute(self, mode: ServerMode, sandbox_code_sandbox_manager=None, **kwargs) -> list[dict[str, Any]]:
-        if sandbox_code_sandbox_manager is None:
-            raise ValueError("sandbox_code_sandbox_manager is required")
-        return sandbox_code_sandbox_manager.list()
+    async def execute(self, mode: ServerMode, code_sandbox_manager=None, **kwargs) -> list[dict[str, Any]]:
+        if code_sandbox_manager is None:
+            raise ValueError("code_sandbox_manager is required")
+        return code_sandbox_manager.list()
 
 
 class TerminateSandboxTool(BaseTool):
@@ -80,16 +80,16 @@ class TerminateSandboxTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        sandbox_code_sandbox_manager=None,
+        code_sandbox_manager=None,
         sandbox_name: str | None = None,
         **kwargs,
     ) -> str:
-        if sandbox_code_sandbox_manager is None:
-            raise ValueError("sandbox_code_sandbox_manager is required")
+        if code_sandbox_manager is None:
+            raise ValueError("code_sandbox_manager is required")
         if not sandbox_name:
             raise ValueError("sandbox_name is required")
 
-        if sandbox_code_sandbox_manager.terminate(sandbox_name):
+        if code_sandbox_manager.terminate(sandbox_name):
             return f"Sandbox '{sandbox_name}' terminated."
         return f"Sandbox '{sandbox_name}' not found."
 
@@ -100,14 +100,14 @@ class UseSandboxTool(BaseTool):
     async def execute(
         self,
         mode: ServerMode,
-        sandbox_code_sandbox_manager=None,
+        code_sandbox_manager=None,
         sandbox_name: str | None = None,
         **kwargs,
     ) -> str:
-        if sandbox_code_sandbox_manager is None:
-            raise ValueError("sandbox_code_sandbox_manager is required")
+        if code_sandbox_manager is None:
+            raise ValueError("code_sandbox_manager is required")
 
-        active_name = sandbox_code_sandbox_manager.use(sandbox_name)
+        active_name = code_sandbox_manager.use(sandbox_name)
         if active_name is None:
             return (
                 "Sandbox routing disabled. 'execute_code' now uses Jupyter kernels again "

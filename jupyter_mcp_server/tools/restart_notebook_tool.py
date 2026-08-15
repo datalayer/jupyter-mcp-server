@@ -85,7 +85,7 @@ class RestartNotebookTool(BaseTool):
                 return f"Failed to restart notebook '{notebook_name}': kernel_manager is required in JUPYTER_SERVER mode."
 
             # Get kernel ID from notebook_manager
-            kernel_id = notebook_manager.get_kernel_id(notebook_name)
+            kernel_id = notebook_manager.get_code_sandbox_id(notebook_name)
             if not kernel_id:
                 return f"Failed to restart notebook '{notebook_name}': kernel ID not found."
 

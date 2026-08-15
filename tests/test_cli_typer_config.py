@@ -206,9 +206,9 @@ def test_jupyter_extension_trait():
 
 
 def test_create_kernel_passes_reconnect_interval():
-    """create_kernel routes through code-sandboxes (jupyter variant) and forwards
+    """create_code_sandbox routes through code-sandboxes (jupyter variant) and forwards
     reconnect_interval to the underlying JupyterKernelClient via client_kwargs."""
-    from jupyter_mcp_server.utils import create_kernel
+    from jupyter_mcp_server.utils import create_code_sandbox
 
     config = JupyterMCPConfig(
         code_sandbox_url="http://localhost:8888",
@@ -221,7 +221,7 @@ def test_create_kernel_passes_reconnect_interval():
         mock_sandbox = MagicMock()
         mock_create.return_value = mock_sandbox
 
-        create_kernel(config, MagicMock())
+        create_code_sandbox(config, MagicMock())
 
         mock_create.assert_called_once_with(
             variant="jupyter",
@@ -237,8 +237,8 @@ def test_create_kernel_passes_reconnect_interval():
 
 
 def test_create_kernel_no_reconnect_by_default():
-    """create_kernel omits client_kwargs when reconnect_interval=0."""
-    from jupyter_mcp_server.utils import create_kernel
+    """create_code_sandbox omits client_kwargs when reconnect_interval=0."""
+    from jupyter_mcp_server.utils import create_code_sandbox
 
     config = JupyterMCPConfig(
         code_sandbox_url="http://localhost:8888",
@@ -251,7 +251,7 @@ def test_create_kernel_no_reconnect_by_default():
         mock_sandbox = MagicMock()
         mock_create.return_value = mock_sandbox
 
-        create_kernel(config, MagicMock())
+        create_code_sandbox(config, MagicMock())
 
         mock_create.assert_called_once_with(
             variant="jupyter",

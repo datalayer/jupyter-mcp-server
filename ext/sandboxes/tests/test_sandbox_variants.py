@@ -255,7 +255,7 @@ def test_extension_create_kernel_returns_none_for_jupyter_variant():
     config = JupyterMCPConfig(sandbox_variant="jupyter")
     extension = SandboxesExtension()
 
-    assert extension.create_kernel(config, MagicMock()) is None
+    assert extension.create_code_sandbox(config, MagicMock()) is None
 
 
 def test_extension_create_kernel_uses_code_sandbox_client_for_sandbox_engines():
@@ -271,14 +271,14 @@ def test_extension_create_kernel_uses_code_sandbox_client_for_sandbox_engines():
         "jupyter_mcp_sandboxes.kernel.create_sandbox_client",
         return_value=fake_sandbox_client,
     ) as mock_create_client:
-        kernel = extension.create_kernel(config, MagicMock())
+        kernel = extension.create_code_sandbox(config, MagicMock())
 
     assert kernel is fake_sandbox_client
     mock_create_client.assert_called_once()
 
 
 def test_extension_create_kernel_builds_and_starts_sandbox_client():
-    """create_kernel builds, starts, and returns a CodeSandboxClient."""
+    """create_code_sandbox builds, starts, and returns a CodeSandboxClient."""
     config = JupyterMCPConfig(
         sandbox_variant="docker",
         code_sandbox_url="https://run.example",
@@ -291,7 +291,7 @@ def test_extension_create_kernel_builds_and_starts_sandbox_client():
         "code_sandboxes.CodeSandboxClient.create",
         return_value=fake_sandbox_client,
     ) as mock_create:
-        kernel = extension.create_kernel(config, fake_logger)
+        kernel = extension.create_code_sandbox(config, fake_logger)
 
     assert kernel is fake_sandbox_client
     mock_create.assert_called_once()
@@ -309,7 +309,7 @@ def test_extension_returns_managed_sandbox_client():
         "code_sandboxes.CodeSandboxClient.create",
         return_value=fake_sandbox_client,
     ):
-        kernel = extension.create_kernel(config, fake_logger)
+        kernel = extension.create_code_sandbox(config, fake_logger)
 
     assert kernel is fake_sandbox_client
     kernel.stop()
@@ -327,7 +327,7 @@ def test_extension_create_kernel_supports_non_kernel_variant():
         "code_sandboxes.CodeSandboxClient.create",
         return_value=fake_sandbox_client,
     ):
-        kernel = extension.create_kernel(config, fake_logger)
+        kernel = extension.create_code_sandbox(config, fake_logger)
 
     assert kernel is fake_sandbox_client
     fake_sandbox_client.start.assert_called_once_with()

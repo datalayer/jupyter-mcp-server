@@ -55,7 +55,7 @@ class JupyterMCPExtension:
         Called once during server startup, after the core tools are registered.
         """
 
-    def create_kernel(self, config: Any, logger: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, logger: logging.Logger) -> Optional[Any]:
         """Optionally build a kernel for the current configuration.
 
         Return a kernel-like object (exposing the ``JupyterKernelClient`` interface) to
@@ -183,11 +183,11 @@ class ExtensionManager:
                 logger.exception("Reactor platform failed to stop")
         self._started = False
 
-    def create_kernel(self, config: Any, log: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Optional[Any]:
         """Ask extensions to build a kernel; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
-            kernel = extension.create_kernel(config, log)
+            kernel = extension.create_code_sandbox(config, log)
             if kernel is not None:
                 logger.debug("Extension '%s' provided a kernel", name)
                 return kernel
