@@ -60,7 +60,7 @@ class FakeNotebookManager:
     def get_code_sandbox_id(self, notebook_name):
         return "kernel-1"
 
-    def get_kernel(self, notebook_name):
+    def get_code_sandbox(self, notebook_name):
         return self._kernel
 
     @contextlib.asynccontextmanager
