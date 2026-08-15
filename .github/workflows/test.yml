@@ -51,5 +51,9 @@ jobs:
 
       - name: Test the extension
         run: |
+          # First: they are quick, need no server, and a failure here
+          # is unambiguous — unlike the same tests swept up by the
+          # bare pytest of the two runs below.
+          make test-extensions
           make test-mcp-server
           make test-jupyter-server
