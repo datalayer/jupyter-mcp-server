@@ -187,6 +187,21 @@ class ExtensionManager:
         """Ask extensions to build a code sandbox; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
+            if hasattr(extension, "create_kernel") and (
+                type(extension).create_code_sandbox
+                is JupyterMCPExtension.create_code_sandbox
+            ):
+                # An extension built before the factory hook was renamed: its
+                # `create_kernel` would never be called and execution would
+                # silently fall back to a Jupyter kernel that is not there.
+                # Say it, loudly — this is a version mismatch, not a choice.
+                log.warning(
+                    "Extension '%s' defines the legacy 'create_kernel' hook but "
+                    "not 'create_code_sandbox'; it is outdated for this "
+                    "jupyter-mcp-server and its sandboxes will not be used. "
+                    "Upgrade the extension package.",
+                    name,
+                )
             code_sandbox = extension.create_code_sandbox(config, log)
             if code_sandbox is not None:
                 logger.debug("Extension '%s' provided a code sandbox", name)
