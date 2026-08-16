@@ -156,23 +156,23 @@ class MCPSSEHandler(JupyterHandler):
 
                         logger.info(f"Querying jupyter_mcp_tools at {base_url}")
 
-                        # Check if JupyterLab mode is enabled before loading jupyter-mcp-tools
+                        # Check if JupyterLab mode is enabled before loading jupyter-mcp-tools.
+                        # An empty allowlist enables no command, and jupyter-mcp-tools applies
+                        # no filter to an empty query, so asking would return every command.
+                        from jupyter_mcp_server.config import get_config
+
                         context = ServerContext.get_instance()
                         jupyterlab_enabled = context.is_jupyterlab_mode()
+                        allowed_jupyter_mcp_tools = get_config().get_allowed_jupyter_mcp_tools()
                         logger.info(f"JupyterLab mode check: enabled={jupyterlab_enabled}")
 
-                        if jupyterlab_enabled:
+                        if jupyterlab_enabled and allowed_jupyter_mcp_tools:
                             # Define specific tools we want to load from jupyter-mcp-tools
                             # (https://github.com/datalayer/jupyter-mcp-tools)
                             # jupyter-mcp-tools exposes JupyterLab commands as MCP tools.
                             # Only tools listed here will be available to MCP clients.
                             # To add new tools, also update the list in server.py and
                             # see docs/docs/reference/tools-jupyterlab/index.mdx for documentation.
-                            from jupyter_mcp_server.config import get_config
-
-                            config = get_config()
-                            allowed_jupyter_mcp_tools = config.get_allowed_jupyter_mcp_tools()
-
                             logger.info(
                                 f"Looking for specific jupyter-mcp-tools: {allowed_jupyter_mcp_tools}"
                             )
@@ -220,9 +220,12 @@ class MCPSSEHandler(JupyterHandler):
                                 f"Successfully loaded {len(jupyter_tools_data)} specific jupyter-mcp-tools (requires JupyterLab frontend)"
                             )
                         else:
-                            # JupyterLab mode disabled, don't load any jupyter-mcp-tools
                             jupyter_tools_data = []
-                            logger.info("JupyterLab mode disabled, skipping jupyter-mcp-tools")
+                            logger.info(
+                                "Skipping jupyter-mcp-tools "
+                                f"(jupyterlab={jupyterlab_enabled}, "
+                                f"allowed={allowed_jupyter_mcp_tools})"
+                            )
 
                         # Build set of jupyter tool names and cache it for routing decisions
                         jupyter_tool_names = {
