@@ -367,7 +367,7 @@ class UseNotebookTool(BaseTool):
                     # extensions first and so honours `--sandbox-variant`.
                     from jupyter_mcp_server.utils import create_code_sandbox
 
-                    kernel = create_code_sandbox(config, logger)
+                    kernel = create_code_sandbox(config, logger, path=notebook_path)
                     info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
                 else:
                     kernel = None
