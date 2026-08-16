@@ -1241,8 +1241,11 @@ async def get_registered_tools():
         all_tools = []
         jupyter_tool_names = set()
 
-        # Check if JupyterLab mode is enabled before loading jupyter-mcp-tools
-        if server_context.is_jupyterlab_mode():
+        # Check if JupyterLab mode is enabled before loading jupyter-mcp-tools.
+        # An empty allowlist enables no command, and jupyter-mcp-tools applies no filter
+        # to an empty query, so asking would return every command.
+        allowed_jupyter_mcp_tools = get_config().get_allowed_jupyter_mcp_tools()
+        if server_context.is_jupyterlab_mode() and allowed_jupyter_mcp_tools:
             logger.info("JupyterLab mode enabled, loading selected jupyter-mcp-tools")
 
             # Get tools from jupyter-mcp-tools extension with caching
@@ -1273,8 +1276,6 @@ async def get_registered_tools():
                 # Only tools listed here will be available to MCP clients.
                 # To add new tools, also update the list in handlers.py and
                 # see docs/docs/reference/tools-jupyterlab/index.mdx for documentation.
-                config = get_config()
-                allowed_jupyter_mcp_tools = config.get_allowed_jupyter_mcp_tools()
 
                 # Try querying with caching to avoid expensive repeated calls
                 try:
@@ -1346,7 +1347,11 @@ async def get_registered_tools():
                 logger.error(f"Error querying jupyter-mcp-tools extension: {e}", exc_info=True)
                 # Continue to add FastMCP tools even if jupyter-mcp-tools fails
         else:
-            logger.info("JupyterLab mode disabled, skipping jupyter-mcp-tools integration")
+            logger.info(
+                "Skipping jupyter-mcp-tools integration "
+                f"(jupyterlab={server_context.is_jupyterlab_mode()}, "
+                f"allowed={allowed_jupyter_mcp_tools})"
+            )
 
         # Second, add FastMCP tools
         try:
