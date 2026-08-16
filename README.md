@@ -596,6 +596,8 @@ Looking for blog posts, videos, or other materials about Jupyter MCP Server?
 
 👉 Visit the [**Resources section**](https://jupyter-mcp-server.datalayer.tech/resources) in our documentation for more!
 
+[![Star History Chart](https://star-history.dera.page/svg?repos=datalayer/jupyter-mcp-server&type=Date)](https://star-history.dera.page/#datalayer/jupyter-mcp-server&type=Date)
+
 ---
 
 <div align="center">
