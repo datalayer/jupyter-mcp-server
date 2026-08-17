@@ -72,12 +72,18 @@ class ToolCache:
             fresh_data = await fetch_func(
                 base_url=base_url, token=token, query=query, enabled_only=enabled_only
             )
-            # jupyter-mcp-tools returns [] rather than raising when the JupyterLab
-            # extension has not registered its tools yet (HTTP 503), on a timeout, or
-            # on a connection error, so an empty result is transient here. Leaving the
-            # previous entry in place also means an expired one is still available to
-            # serve, for the same reason the except branch below falls back to it.
+            # jupyter-mcp-tools returns [] rather than raising for an HTTP 503, a
+            # timeout or a connection error, so an empty result says no more than the
+            # failed refresh below does, and gets the same answer.
             if not fresh_data:
+                async with self._lock:
+                    entry = self._cache.get(cache_key)
+                if entry is not None:
+                    logger.warning(
+                        f"Serving stale tools for {cache_key} "
+                        f"(age: {time.time() - entry.timestamp:.1f}s) after an empty refresh"
+                    )
+                    return entry.data
                 logger.debug(f"Not caching empty tool list for key {cache_key}")
                 return fresh_data
 

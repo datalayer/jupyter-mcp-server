@@ -11,6 +11,8 @@ whole TTL. These tests use a fake fetch function, so no running Jupyter server a
 no jupyter-mcp-tools installation are required.
 """
 
+import asyncio
+
 import pytest
 
 from jupyter_mcp_server.tool_cache import ToolCache
@@ -56,6 +58,28 @@ async def test_empty_result_is_not_cached_and_next_call_refetches():
     )
     assert second == TOOLS
     assert fetch.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_empty_refresh_serves_the_cached_tools():
+    """An empty refresh over a warm cache must not empty the caller's tool list, and
+    must not refresh the entry either, so the next good answer still replaces it."""
+    cache = ToolCache(default_ttl=1)
+    fetch = RecordingFetch(TOOLS, [], TOOLS)
+
+    await cache.get_tools(base_url=BASE_URL, token=TOKEN, query=QUERY, fetch_func=fetch)
+    await asyncio.sleep(1.1)
+
+    after_empty = await cache.get_tools(
+        base_url=BASE_URL, token=TOKEN, query=QUERY, fetch_func=fetch
+    )
+    assert after_empty == TOOLS, "an empty refresh must not empty the tool list"
+
+    refreshed = await cache.get_tools(
+        base_url=BASE_URL, token=TOKEN, query=QUERY, fetch_func=fetch
+    )
+    assert refreshed == TOOLS
+    assert fetch.calls == 3
 
 
 @pytest.mark.asyncio
