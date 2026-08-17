@@ -239,7 +239,9 @@ def __ensure_code_sandbox_alive() -> CodeSandboxClient:
     def __create_code_sandbox() -> CodeSandboxClient:
         """Create a new kernel instance using current configuration."""
         config = get_config()
-        return create_code_sandbox(config, logger)
+        return create_code_sandbox(
+            config, logger, path=notebook_manager.get_current_notebook_path()
+        )
 
     current_notebook = notebook_manager.get_current_notebook() or "default"
     return ensure_code_sandbox_alive(notebook_manager, current_notebook, __create_code_sandbox)
