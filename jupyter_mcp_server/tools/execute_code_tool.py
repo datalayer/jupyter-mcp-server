@@ -137,7 +137,9 @@ class ExecuteCodeTool(BaseTool):
                     "[ERROR: Kernel metadata found instead of an active CodeSandboxClient in MCP_SERVER mode]"
                 ]
 
-            kid = current_kernel_id or ""
+            # Read the id back here: ensure_code_sandbox_alive_fn stores a freshly
+            # created sandbox on the notebook entry, so the id read above predates it.
+            kid = notebook_manager.get_code_sandbox_id(current_notebook) or ""
 
         try:
             return await self._execute_on_kernel(
