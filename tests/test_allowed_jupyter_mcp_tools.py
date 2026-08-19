@@ -66,9 +66,9 @@ def registered_tools(monkeypatch):
     monkeypatch.setattr(tool_cache, "_global_tool_cache", None, raising=False)
     monkeypatch.setattr(server_context.__class__, "_mode", ServerMode.JUPYTER_SERVER)
     monkeypatch.setattr(server_context.__class__, "_initialized", True)
-    # get_registered_tools reads server_context.serverapp, which this context object does
-    # not define; None selects its documented fallback to the configured sandbox URL.
-    monkeypatch.setattr(server_context, "serverapp", None, raising=False)
+    # No `serverapp` is injected onto server_context here. The real extension context is
+    # left to report the serverapp it actually holds (none, outside a running server),
+    # which selects the documented fallback to the configured sandbox URL.
 
     async def run(allowed):
         reset_config()
@@ -109,3 +109,23 @@ async def test_configured_allowlist_still_registers_its_tools(registered_tools):
 
     assert await run("notebook_run-all-cells") == {"notebook_run-all-cells"}
     assert fetch.queries == ["notebook_run-all-cells"]
+
+
+@pytest.mark.asyncio
+async def test_serverapp_is_read_from_the_extension_context(registered_tools):
+    """The connection details come from the extension context, which is the object that
+    carries the ServerApp.
+
+    get_registered_tools() used to read `serverapp` off the module-level
+    `jupyter_mcp_server.server_context.ServerContext`, which defines no such attribute.
+    The resulting AttributeError was caught by the enclosing `except Exception`, so the
+    jupyter-mcp-tools fetch was never attempted and the allowlist silently registered
+    nothing.
+    """
+    run, fetch = registered_tools
+
+    registered = await run("notebook_run-all-cells,terminal_open")
+
+    # The fetch was attempted at all, which the AttributeError used to prevent.
+    assert fetch.queries == ["notebook_run-all-cells,terminal_open"]
+    assert registered == {"notebook_run-all-cells", "terminal_open"}

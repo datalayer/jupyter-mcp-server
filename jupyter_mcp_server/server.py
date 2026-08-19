@@ -27,6 +27,7 @@ from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
+from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -1256,12 +1257,13 @@ async def get_registered_tools():
 
                 from jupyter_mcp_server.tool_cache import get_tool_cache
 
-                # Get the base_url and token from server context
-                # In JUPYTER_SERVER mode, we should use the actual serverapp URL, not hardcoded localhost
-                if server_context.serverapp is not None:
+                # Get the base_url and token from the extension context, which is the object
+                # that carries the ServerApp (handlers.py reads it the same way).
+                extension_context = get_server_context()
+                if extension_context.serverapp is not None:
                     # Use the actual Jupyter server connection URL
-                    base_url = server_context.serverapp.connection_url
-                    token = server_context.serverapp.token
+                    base_url = extension_context.serverapp.connection_url
+                    token = extension_context.serverapp.token
                     logger.info(f"Using Jupyter ServerApp connection URL: {base_url}")
                 else:
                     # Fallback to configuration (for remote scenarios)
