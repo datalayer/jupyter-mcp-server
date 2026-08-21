@@ -45,9 +45,12 @@ class ToolCache:
         self._cache: dict[str, CacheEntry] = {}
         self._default_ttl = default_ttl
         self._lock = asyncio.Lock()
-        # In-flight fetches, keyed the same way as _cache, so concurrent callers
-        # that miss on the same key share one call instead of each making their own.
-        self._inflight: dict[str, asyncio.Task] = {}
+        # In-flight fetches, so concurrent callers that miss on the same key share
+        # one call instead of each making their own. The fetcher is part of the key:
+        # two callers can ask for the same tools through fetchers with different
+        # timeouts, and joining someone else's fetch would silently replace the
+        # bound this caller asked for.
+        self._inflight: dict[tuple[str, Any], asyncio.Task] = {}
 
     def _make_cache_key(self, base_url: str, query: str, enabled_only: bool = False) -> str:
         """Create a cache key from the request parameters."""
@@ -60,6 +63,7 @@ class ToolCache:
     async def _fetch_and_store(
         self,
         cache_key: str,
+        inflight_key: tuple[str, Any],
         fetch_func: Any,
         base_url: str,
         token: str,
@@ -93,7 +97,7 @@ class ToolCache:
             return fresh_data
         finally:
             async with self._lock:
-                self._inflight.pop(cache_key, None)
+                self._inflight.pop(inflight_key, None)
 
     async def get_tools(
         self,
@@ -142,17 +146,22 @@ class ToolCache:
                 return entry.data if entry is not None else []
 
             # Join an in-flight fetch for this key rather than starting another.
-            task = self._inflight.get(cache_key)
+            inflight_key = (cache_key, fetch_func)
+            task = self._inflight.get(inflight_key)
             if task is None:
                 task = asyncio.create_task(
                     self._fetch_and_store(
-                        cache_key, fetch_func, base_url, token, query, enabled_only
+                        cache_key, inflight_key, fetch_func, base_url, token, query, enabled_only
                     )
                 )
-                self._inflight[cache_key] = task
+                self._inflight[inflight_key] = task
 
         try:
-            return await task
+            # Shielded: the task is shared, so letting this caller's cancellation
+            # reach it would abort the fetch for everyone else waiting on it. A
+            # cancelled caller still raises CancelledError, it just no longer takes
+            # the other callers down with it.
+            return await asyncio.shield(task)
         except Exception as e:
             logger.error(f"Failed to fetch tools from jupyter-mcp-tools: {e}")
             # Serve the stale entry rather than dropping every tool because one
