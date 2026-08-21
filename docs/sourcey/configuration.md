@@ -16,7 +16,7 @@ All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mc
 | `code_sandbox_id` | str \| None | `None` | The kernel ID to use |
 | `code_sandbox_token` | str \| None | `None` | The code sandbox token to use for authentication |
 | `code_sandbox_password` | str \| None | `None` | Password for Jupyter server authentication (alternative to token) |
-| `sandbox_variant` | str | `"jupyter"` | Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Any other value ('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') routes execution through the code-sandboxes package. |
+| `sandbox_variant` | str | `"jupyter-server"` | Code execution sandbox variant. 'jupyter-server' (default) uses the code-sandboxes Jupyter Server engine. Any other value ('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'daytona', 'datalayer') routes execution through the code-sandboxes package. The spelling is not fussy: 'google_colab' and 'GOOGLE-COLAB' name the same variant. |
 | `code_sandbox_proxy_token` | str \| None | `None` | Proxy token for the Google Colab sandbox variant (colab-runtime-proxy-token). |
 | `code_sandbox_channels_url` | str \| None | `None` | For the 'google_colab'/'google-colab'/'colab' and 'kaggle' sandbox variants, the WebSocket channels URL of a running notebook session. When set, server_url and kernel_id are parsed from it. |
 | `sandbox_environment` | str \| None | `None` | Environment name for cloud sandboxes (e.g. Datalayer/Modal). |

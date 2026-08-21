@@ -4,7 +4,13 @@
 
 import os
 
+from code_sandboxes import normalize_variant
 from pydantic import BaseModel, ConfigDict, Field
+
+#: The variant that is NOT routed through a sandbox client: the Jupyter
+#: Server this MCP server is already talking to. Its canonical name in
+#: `code_sandboxes` is `jupyter-server`; `jupyter` names nothing there.
+JUPYTER_SERVER_VARIANT = "jupyter-server"
 
 
 def _caller_token() -> str | None:
@@ -57,13 +63,14 @@ class JupyterMCPConfig(BaseModel):
 
     # Sandbox variant configuration
     sandbox_variant: str = Field(
-        default="jupyter",
+        default=JUPYTER_SERVER_VARIANT,
         description=(
-            "Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes "
-            "Jupyter engine. Any other value "
-            "('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', "
-            "'docker', 'eval', "
-            "'datalayer') routes execution through the code-sandboxes package."
+            "Code execution sandbox variant. 'jupyter-server' (default) uses the "
+            "code-sandboxes Jupyter Server engine. Any other value "
+            "('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
+            "'daytona', 'datalayer') routes execution through the code-sandboxes "
+            "package. The spelling is not fussy: 'google_colab' and "
+            "'GOOGLE-COLAB' name the same variant."
         ),
     )
     code_sandbox_proxy_token: str | None = Field(
@@ -73,7 +80,7 @@ class JupyterMCPConfig(BaseModel):
     code_sandbox_channels_url: str | None = Field(
         default=None,
         description=(
-            "For the 'google_colab'/'google-colab'/'colab' and 'kaggle' sandbox "
+            "For the 'google-colab' and 'kaggle' sandbox "
             "variants, the WebSocket "
             "channels URL of a running notebook session. When set, server_url "
             "and kernel_id are parsed from it."
@@ -188,10 +195,15 @@ class JupyterMCPConfig(BaseModel):
     def uses_sandbox_variant(self) -> bool:
         """Check if execution should be routed through code-sandboxes.
 
-        Any sandbox variant other than the default 'jupyter' is served by the
-        code-sandboxes package via a sandbox-backed kernel client.
+        Any sandbox variant other than the default 'jupyter-server' is served
+        by the code-sandboxes package via a sandbox-backed kernel client.
+
+        Read through `normalize_variant`, so the answer does not depend on
+        whether the value was written with a dash, an underscore or in
+        capitals — which is how `code_sandboxes` itself reads it.
         """
-        return (self.sandbox_variant or "jupyter").lower() != "jupyter"
+        variant = self.sandbox_variant or JUPYTER_SERVER_VARIANT
+        return normalize_variant(variant) != JUPYTER_SERVER_VARIANT
 
     def is_jupyterlab_mode(self) -> bool:
         """Check if JupyterLab mode is enabled."""

@@ -49,7 +49,7 @@ def _resolve_and_start(
     reconnect_interval: int,
     execution_timeout: int,
     max_execution_timeout: int,
-    sandbox_variant: str = "jupyter",
+    sandbox_variant: str = "jupyter-server",
     code_sandbox_proxy_token: str | None = None,
     code_sandbox_channels_url: str | None = None,
     sandbox_environment: str | None = None,
@@ -314,9 +314,9 @@ def server_callback(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter-server' (default) uses the code-sandboxes Jupyter Server engine. Other values ('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'daytona', 'datalayer') route execution through the code-sandboxes package. Spelling is not fussy: 'google_colab' names the same variant as 'google-colab'.",
         ),
-    ] = "jupyter",
+    ] = "jupyter-server",
     code_sandbox_proxy_token: Annotated[
         str | None,
         typer.Option(
@@ -599,9 +599,9 @@ def start_command(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter' (default) uses the code-sandboxes Jupyter engine. Other values ('google_colab'/'google-colab'/'colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'datalayer') route execution through the code-sandboxes package.",
+            help="Code execution sandbox variant. 'jupyter-server' (default) uses the code-sandboxes Jupyter Server engine. Other values ('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'daytona', 'datalayer') route execution through the code-sandboxes package. Spelling is not fussy: 'google_colab' names the same variant as 'google-colab'.",
         ),
-    ] = "jupyter",
+    ] = "jupyter-server",
     code_sandbox_proxy_token: Annotated[
         str | None,
         typer.Option(

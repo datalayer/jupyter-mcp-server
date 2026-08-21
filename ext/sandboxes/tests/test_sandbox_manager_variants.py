@@ -79,7 +79,7 @@ def test_launch_colab_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
         )
 
     kwargs = mock_create.call_args.kwargs
-    assert kwargs["variant"] == "google_colab"
+    assert kwargs["variant"] == "google-colab"
     assert kwargs["server_url"] == "https://colab.example"
     assert kwargs["kernel_id"] == "kernel-1"
     assert kwargs["proxy_token"] == "proxy-token"
@@ -114,7 +114,7 @@ def test_launch_jupyter_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
     with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
         manager.launch(
             sandbox_name="jupyter-1",
-            variant="jupyter",
+            variant="jupyter-server",
             timeout=45,
             server_url="https://jupyter.example",
             kernel_id="kernel-3",
@@ -122,7 +122,7 @@ def test_launch_jupyter_forwards_code_sandbox_fields(fake_sandbox: MagicMock):
         )
 
     kwargs = mock_create.call_args.kwargs
-    assert kwargs["variant"] == "jupyter"
+    assert kwargs["variant"] == "jupyter-server"
     assert kwargs["server_url"] == "https://jupyter.example"
     assert kwargs["kernel_id"] == "kernel-3"
     assert kwargs["token"] == "code-sandbox-token"

@@ -54,7 +54,7 @@ def test_build_sandbox_colab_forwards_code_sandbox_connection():
         build_sandbox_client(config, MagicMock())
 
         mock_create.assert_called_once_with(
-            variant="google_colab",
+            variant="google-colab",
             timeout=float(config.execution_timeout),
             server_url="https://colab-host.example",
             kernel_id="kernel-id",
@@ -65,7 +65,7 @@ def test_build_sandbox_colab_forwards_code_sandbox_connection():
 def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
     """Colab engine forwards channels_url when supplied and allows missing kernel_id."""
     config = JupyterMCPConfig(
-        sandbox_variant="google_colab",
+        sandbox_variant="google-colab",
         code_sandbox_url="https://colab-host.example",
         code_sandbox_proxy_token="proxy-token",
         code_sandbox_channels_url=(
@@ -81,7 +81,7 @@ def test_build_sandbox_colab_forwards_channels_url_without_kernel_id():
         build_sandbox_client(config, MagicMock())
 
         kwargs = mock_create.call_args.kwargs
-        assert kwargs["variant"] == "google_colab"
+        assert kwargs["variant"] == "google-colab"
         assert kwargs["server_url"] == "https://colab-host.example"
         assert kwargs["proxy_token"] == "proxy-token"
         assert "kernel_id" not in kwargs
@@ -227,7 +227,7 @@ def test_build_sandbox_modal_forwards_gpu_flavor():
 def test_build_sandbox_jupyter_forwards_code_sandbox_and_reconnect():
     """Jupyter engine forwards code sandbox connection settings and disables implicit reuse."""
     config = JupyterMCPConfig(
-        sandbox_variant="jupyter",
+        sandbox_variant="jupyter-server",
         code_sandbox_url="https://jupyter-host.example",
         code_sandbox_token="code-sandbox-token",
         code_sandbox_id="kernel-id",
@@ -240,7 +240,7 @@ def test_build_sandbox_jupyter_forwards_code_sandbox_and_reconnect():
         build_sandbox_client(config, MagicMock())
 
         mock_create.assert_called_once_with(
-            variant="jupyter",
+            variant="jupyter-server",
             timeout=float(config.execution_timeout),
             server_url="https://jupyter-host.example",
             token="code-sandbox-token",
@@ -252,7 +252,7 @@ def test_build_sandbox_jupyter_forwards_code_sandbox_and_reconnect():
 
 def test_extension_create_kernel_returns_none_for_jupyter_variant():
     """The default jupyter variant is handled by the core, not the extension."""
-    config = JupyterMCPConfig(sandbox_variant="jupyter")
+    config = JupyterMCPConfig(sandbox_variant="jupyter-server")
     extension = SandboxesExtension()
 
     assert extension.create_code_sandbox(config, MagicMock()) is None
@@ -379,7 +379,7 @@ async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
         patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
         patch(
             "jupyter_mcp_sandboxes.extension.get_config",
-            return_value=JupyterMCPConfig(sandbox_variant="jupyter"),
+            return_value=JupyterMCPConfig(sandbox_variant="jupyter-server"),
         ),
         patch(
             "jupyter_mcp_sandboxes.extension.LaunchSandboxTool.execute",
@@ -403,7 +403,7 @@ async def test_launch_sandbox_kaggle_variant_forwards_code_sandbox_fields():
         patch("jupyter_mcp_sandboxes.extension.ServerContext.get_instance", return_value=fake_context),
         patch(
             "jupyter_mcp_sandboxes.extension.get_config",
-            return_value=JupyterMCPConfig(sandbox_variant="jupyter"),
+            return_value=JupyterMCPConfig(sandbox_variant="jupyter-server"),
         ),
         patch(
             "jupyter_mcp_sandboxes.extension.LaunchSandboxTool.execute",

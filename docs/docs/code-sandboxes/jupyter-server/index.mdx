@@ -1,16 +1,16 @@
 # Jupyter Server Code Sandbox
 
 The **Jupyter Server** sandbox is the default. Code executes through
-the `code-sandboxes` `jupyter` variant against a local or remote Jupyter Server
-(`SANDBOX_VARIANT=jupyter`), giving you a full Jupyter kernel with process
-isolation, persistent state, and rich outputs (images, plots, HTML).
+the `code-sandboxes` `jupyter-server` variant against a local or remote Jupyter
+Server (`SANDBOX_VARIANT=jupyter-server`), giving you a full Jupyter kernel with
+process isolation, persistent state, and rich outputs (images, plots, HTML).
 
 :::tip
 
 This engine uses the `code-sandboxes` Jupyter engine. For other
 `SANDBOX_VARIANT` values (`kaggle`, `google-colab`, `monty`, `modal`, ...), see the
 [code-sandboxes documentation](https://code-sandboxes.datalayer.tech/) for
-engine-level parameters and credential setup. Non-`jupyter` engines also
+engine-level parameters and credential setup. Non-`jupyter-server` engines also
 require the optional `jupyter_mcp_sandboxes` extension (`pip install
 jupyter_mcp_sandboxes`).
 

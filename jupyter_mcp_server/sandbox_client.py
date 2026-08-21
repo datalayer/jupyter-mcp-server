@@ -23,13 +23,13 @@ def create_jupyter_sandbox_client(
     headers: dict[str, str] | None = None,
     logger: logging.Logger | None = None,
 ) -> CodeSandboxClient:
-    """Build and start a Jupyter-variant Code Sandbox client."""
+    """Build and start a `jupyter-server` variant Code Sandbox client."""
     client_kwargs: dict[str, Any] = {}
     if reconnect_interval:
         client_kwargs["reconnect_interval"] = reconnect_interval
 
     create_kwargs: dict[str, Any] = {
-        "variant": "jupyter",
+        "variant": "jupyter-server",
         "server_url": server_url,
         "token": token,
         "kernel_id": kernel_id,

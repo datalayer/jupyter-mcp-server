@@ -224,7 +224,7 @@ def test_create_kernel_passes_reconnect_interval():
         create_code_sandbox(config, MagicMock())
 
         mock_create.assert_called_once_with(
-            variant="jupyter",
+            variant="jupyter-server",
             server_url="http://localhost:8888",
             token="test_token",
             kernel_id="test-kernel-id",
@@ -254,7 +254,7 @@ def test_create_kernel_no_reconnect_by_default():
         create_code_sandbox(config, MagicMock())
 
         mock_create.assert_called_once_with(
-            variant="jupyter",
+            variant="jupyter-server",
             server_url="http://localhost:8888",
             token="test_token",
             kernel_id="test-kernel-id",

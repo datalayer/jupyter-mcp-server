@@ -238,7 +238,7 @@ def do_start(
     reconnect_interval: int = 0,
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
-    sandbox_variant: str = "jupyter",
+    sandbox_variant: str = "jupyter-server",
     code_sandbox_proxy_token: str | None = None,
     code_sandbox_channels_url: str | None = None,
     sandbox_environment: str | None = None,
@@ -593,9 +593,9 @@ def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxC
     Creation is resolved in this order:
 
      1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
-         over creation for a non-'jupyter' sandbox variant.
+         over creation for a non-'jupyter-server' sandbox variant.
      2. Otherwise the sandbox is created through the ``code_sandboxes`` package
-         using the ``jupyter`` variant — a Jupyter kernel behind a
+         using the ``jupyter-server`` variant — a Jupyter kernel behind a
          variant-neutral ``CodeSandboxClient``.
 
     This routes all execution through ``code_sandboxes`` instead of calling a

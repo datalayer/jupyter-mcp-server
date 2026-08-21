@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from code_sandboxes import CodeSandboxClient
+from code_sandboxes import CodeSandboxClient, normalize_variant
+
+from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT
 
 
 def _is_default_code_sandbox_url(code_sandbox_url: str | None) -> bool:
@@ -21,14 +23,15 @@ def _is_default_code_sandbox_url(code_sandbox_url: str | None) -> bool:
 def build_sandbox_client(config, logger) -> CodeSandboxClient:
     """Build an unstarted client for the configured sandbox variant."""
     del logger
-    engine = (config.sandbox_variant or "jupyter").lower()
-    if engine in {"google-colab", "colab"}:
-        engine = "google_colab"
+    # Read the way `code_sandboxes` reads it, rather than with a table of
+    # aliases of our own: it answers to a dash, an underscore or capitals, and
+    # a second table is a second thing to keep in step through a rename.
+    engine = normalize_variant(config.sandbox_variant or JUPYTER_SERVER_VARIANT)
     timeout = float(getattr(config, "execution_timeout", 30) or 30)
 
-    if engine == "google_colab":
+    if engine == "google-colab":
         create_kwargs: dict[str, Any] = {
-            "variant": "google_colab",
+            "variant": "google-colab",
             "timeout": timeout,
             "server_url": config.code_sandbox_url,
             "proxy_token": config.code_sandbox_proxy_token,
@@ -56,9 +59,9 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
             create_kwargs["gpu"] = config.sandbox_gpu
         return CodeSandboxClient.create(**create_kwargs)
 
-    if engine in ("jupyter", "jupyter_sandbox"):
+    if engine == JUPYTER_SERVER_VARIANT:
         create_kwargs = {
-            "variant": "jupyter",
+            "variant": JUPYTER_SERVER_VARIANT,
             "timeout": timeout,
             "server_url": config.code_sandbox_url,
             "token": config.code_sandbox_token,
@@ -70,9 +73,9 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
             create_kwargs["client_kwargs"] = {"reconnect_interval": reconnect_interval}
         return CodeSandboxClient.create(**create_kwargs)
 
-    if engine in ("monty", "modal", "eval", "docker", "datalayer"):
+    if engine in ("monty", "modal", "eval", "docker", "daytona", "datalayer"):
         create_kwargs = {"variant": engine, "timeout": timeout}
-        if engine in ("modal", "datalayer") and getattr(config, "sandbox_gpu", None):
+        if engine in ("modal", "daytona", "datalayer") and getattr(config, "sandbox_gpu", None):
             create_kwargs["gpu"] = config.sandbox_gpu
         if engine == "datalayer":
             # The caller's own credential when the request carries one, so a

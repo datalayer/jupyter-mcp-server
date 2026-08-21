@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from code_sandboxes import CodeSandboxClient
+from code_sandboxes import CodeSandboxClient, normalize_variant
+from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT
 from jupyter_mcp_server.utils import safe_extract_outputs
 
 
@@ -44,6 +45,10 @@ class CodeSandboxManager:
         if sandbox_name in self._sandboxes:
             raise ValueError(f"Sandbox '{sandbox_name}' already exists.")
 
+        # Read the way `code_sandboxes` reads it, so that a caller naming a
+        # variant with an underscore or in capitals lands on the same branch
+        # below as one naming it canonically.
+        variant = normalize_variant(variant)
         create_kwargs: dict[str, Any] = {
             "variant": variant,
             "timeout": timeout,
@@ -53,8 +58,6 @@ class CodeSandboxManager:
             # the two — the same object appearing to be two.
             "name": sandbox_name,
         }
-        if create_kwargs["variant"] in {"google-colab", "colab"}:
-            create_kwargs["variant"] = "google_colab"
         if environment:
             create_kwargs["environment"] = environment
         if gpu:
@@ -62,7 +65,7 @@ class CodeSandboxManager:
         if python_version and variant == "modal":
             create_kwargs["python_version"] = python_version
 
-        if create_kwargs["variant"] == "google_colab":
+        if variant == "google-colab":
             if server_url:
                 create_kwargs["server_url"] = server_url
             if kernel_id:
@@ -82,7 +85,7 @@ class CodeSandboxManager:
             if token:
                 create_kwargs["token"] = token
 
-        if variant == "jupyter":
+        if variant == JUPYTER_SERVER_VARIANT:
             if server_url:
                 create_kwargs["server_url"] = server_url
             if kernel_id:

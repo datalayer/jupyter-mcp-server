@@ -75,6 +75,31 @@ may touch. An agent can never reach a notebook you cannot.
 Personal access tokens keep working, and remain the simpler path for a CLI or a script.
 → [**OAuth and identity**](https://jupyter-mcp-server.datalayer.tech/security/oauth)
 
+[![Hot fix](https://img.shields.io/badge/%F0%9F%9A%A8%20Hot%20fix-pin%20code--sandboxes-C0392B?style=for-the-badge&labelColor=7B241C)](https://jupyter-mcp-server.datalayer.tech/releases)
+
+**Pin `code-sandboxes` to match your `jupyter-mcp-server`.** The sandbox variant
+`jupyter` was renamed to `jupyter-server` in `code-sandboxes` 1.1.0, and the two packages
+have to agree on the name.
+
+| Your `jupyter-mcp-server` | Install                    |
+| ------------------------- | -------------------------- |
+| **>= 1.4.5**              | `code-sandboxes >= 1.1.0`  |
+| **< 1.4.5**               | `code-sandboxes <= 1.0.9`  |
+
+```bash
+# On 1.4.5 or later
+pip install "jupyter-mcp-server>=1.4.5" "code-sandboxes>=1.1.0"
+
+# Staying on an earlier jupyter-mcp-server
+pip install "jupyter-mcp-server<1.4.5" "code-sandboxes<=1.0.9"
+```
+
+An older server with a newer `code-sandboxes` installs cleanly and then fails on the
+first execution with `Unknown sandbox variant: jupyter`.
+→ [**Release notes**](https://jupyter-mcp-server.datalayer.tech/releases)
+
+---
+
 [![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-D35400?style=for-the-badge&labelColor=7E3F14)](https://github.com/datalayer/jupyter-mcp-server/releases#release-v1.3.2)
 
 **`--provider` is now `--document-provider`** (env var `PROVIDER` → `DOCUMENT_PROVIDER`).
@@ -82,7 +107,8 @@ Personal access tokens keep working, and remain the simpler path for a CLI or a 
 It only ever chose where the notebook **documents** live — `jupyter` for the collaboration
 API of a Jupyter Server, `datalayer` for the Datalayer spacer — while the old name and its
 help text suggested it also chose where code runs. Execution is picked separately, with
-`--sandbox-variant` (`jupyter`, `datalayer`, `kaggle`, `colab`, `monty`, `modal`).
+`--sandbox-variant` (`jupyter-server`, `datalayer`, `daytona`, `kaggle`, `google-colab`,
+`monty`, `modal`).
 
 Nothing breaks in v1.3.2: `--provider` is still accepted as an alias, `PROVIDER` is still
 read, and a `/connect` payload carrying `"provider"` is still understood. Move to the new
@@ -350,24 +376,27 @@ For detailed instructions on configuring various MCP clients—including [Claude
 
 ## 🧩 Sandbox Variants
 
-By default, code executes through the `code-sandboxes` `jupyter` variant against
-a Jupyter Server (`SANDBOX_VARIANT=jupyter`). Setting `SANDBOX_VARIANT` to any
+By default, code executes through the `code-sandboxes` `jupyter-server` variant against
+a Jupyter Server (`SANDBOX_VARIANT=jupyter-server`). Setting `SANDBOX_VARIANT` to any
 other value uses another [code-sandboxes](https://github.com/datalayer/code-sandboxes)
 engine via the sandbox's plain kernel client when the selected variant exposes
 one, so the same notebook tools can run code on additional backends.
 
+The spelling is not fussy: `google_colab`, `google-colab` and `GOOGLE-COLAB` all name the
+same variant. The names below are the canonical ones.
+
 Sandbox features are provided by the optional `jupyter_mcp_sandboxes` extension.
 To expose sandbox lifecycle tools (`launch_sandbox`, `list_sandboxes`,
-`use_sandbox`, `terminate_sandbox`) or run any non-`jupyter` sandbox variant,
+`use_sandbox`, `terminate_sandbox`) or run any non-`jupyter-server` sandbox variant,
 install it with `pip install jupyter_mcp_sandboxes`.
 
 | Engine                   | `SANDBOX_VARIANT`        | Extra install                   | Key variables                                                                                                                                                                                                             |
 | ------------------------ | ------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jupyter Server (default) | `jupyter`                | —                               | `JUPYTER_URL`, `JUPYTER_TOKEN`                                                                                                                                                                                            |
-| JupyterHub               | `jupyter`                | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                                                                                                                                                                                  |
+| Jupyter Server (default) | `jupyter-server`         | —                               | `JUPYTER_URL`, `JUPYTER_TOKEN`                                                                                                                                                                                            |
+| JupyterHub               | `jupyter-server`         | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                                                                                                                                                                                  |
 | Datalayer                | `datalayer`              | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT`                                                                                                                                                           |
 | Kaggle                   | `kaggle`                 | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| Google Colab             | `google-colab` / `colab` | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`                                                                                                                                                         |
+| Google Colab             | `google-colab`           | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`                                                                                                                                                         |
 | Monty                    | `monty`                  | `jupyter-mcp-server[monty]`     | —                                                                                                                                                                                                                         |
 | Modal                    | `modal`                  | `jupyter-mcp-server[modal]`     | Modal credentials                                                                                                                                                                                                         |
 
@@ -388,7 +417,7 @@ pip install jupyter-mcp-server
 
 ### 2. JupyterHub
 
-JupyterHub uses the same `jupyter` engine, targeting a user's single-user server.
+JupyterHub uses the same `jupyter-server` engine, targeting a user's single-user server.
 Authenticate with a JupyterHub API token that has the `access:servers` scope:
 
 ```json
