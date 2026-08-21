@@ -44,7 +44,7 @@ def build_cli_prog_name(
     sandbox_variant: str | None, sandbox_id: str | None, use_color: bool = True
 ) -> str:
     base = "jupyter-mcp-cli"
-    variant = (sandbox_variant or "").strip().lower()
+    variant = (sandbox_variant or "").strip().lower().replace("_", "-")
 
     def _fmt(base_text: str, sandbox_text: str) -> str:
         if not use_color:
@@ -54,7 +54,7 @@ def build_cli_prog_name(
             f"{ANSI_SANDBOX}({sandbox_text}){ANSI_RESET}"
         )
 
-    if variant in {"", "none", "jupyter"}:
+    if variant in {"", "none", "jupyter-server"}:
         return _fmt(base, "none")
 
     sandbox_id = (sandbox_id or "").strip()

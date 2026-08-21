@@ -29,7 +29,7 @@ from jupyter_mcp_sandboxes.extension import SandboxesExtension
 def _config(variant="datalayer"):
     return SimpleNamespace(
         sandbox_variant=variant,
-        uses_sandbox_variant=lambda: variant != "jupyter",
+        uses_sandbox_variant=lambda: variant != "jupyter-server",
     )
 
 
@@ -59,12 +59,12 @@ class TestTheFactoryHonoursTheSelection:
         ):
             assert extension.create_code_sandbox(_config(), LOG) is built
 
-    def test_the_jupyter_variant_is_left_to_the_core(self):
+    def test_the_jupyter_server_variant_is_left_to_the_core(self):
         # A plain Jupyter deployment has no sandbox layer to consult.
         extension = SandboxesExtension()
         extension._manager._sandboxes["mine"] = object()
         extension._manager._active_name = "mine"
-        assert extension.create_code_sandbox(_config("jupyter"), LOG) is None
+        assert extension.create_code_sandbox(_config("jupyter-server"), LOG) is None
 
 
 class TestExecuteCellIsNotIntercepted:

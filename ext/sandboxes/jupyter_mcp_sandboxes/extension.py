@@ -7,7 +7,7 @@
 Registers the sandbox lifecycle tools (``launch_sandbox``, ``list_sandboxes``,
 ``use_sandbox``, ``terminate_sandbox``), routes ``execute_code`` to the active
 sandbox when one is selected, and provides sandbox-backed kernels for
-non-``jupyter`` sandbox variants.
+non-``jupyter-server`` sandbox variants.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, Literal
 
+from code_sandboxes import normalize_variant
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from reactor import PluginCompatibility, PluginManifest
@@ -26,7 +27,7 @@ from jupyter_mcp_sandboxes.tools import (
     TerminateSandboxTool,
     UseSandboxTool,
 )
-from jupyter_mcp_server.config import get_config
+from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT, get_config
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks
 from jupyter_mcp_server.server_context import ServerContext
@@ -74,7 +75,7 @@ class SandboxesExtension(JupyterMCPExtension):
             return False
 
     def create_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
-        """Build a sandbox-backed kernel when a non-jupyter variant is set."""
+        """Build a sandbox-backed kernel when a non-jupyter-server variant is set."""
         uses_variant = getattr(config, "uses_sandbox_variant", None)
         if not (uses_variant and config.uses_sandbox_variant()):
             return None
@@ -156,11 +157,10 @@ class SandboxesExtension(JupyterMCPExtension):
                 Literal[
                     "eval",
                     "docker",
-                    "jupyter",
+                    "jupyter-server",
                     "datalayer",
-                    "google_colab",
+                    "daytona",
                     "google-colab",
-                    "colab",
                     "kaggle",
                     "monty",
                     "modal",
@@ -169,7 +169,8 @@ class SandboxesExtension(JupyterMCPExtension):
                 Field(
                     description=(
                         "Sandbox variant to launch. If omitted, defaults to configured "
-                        "SANDBOX_VARIANT when it is non-jupyter; otherwise falls back to eval."
+                        "SANDBOX_VARIANT when it is not jupyter-server; otherwise "
+                        "falls back to eval."
                     )
                 ),
             ] = None,
@@ -199,8 +200,8 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Code Sandbox proxy URL when using google_colab/google-colab "
-                        "(or legacy colab) or kaggle variant"
+                        "Code Sandbox proxy URL when using the google-colab or "
+                        "kaggle variant"
                     )
                 ),
             ] = None,
@@ -208,8 +209,7 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Kernel ID when using google_colab/google-colab "
-                        "(or legacy colab) or kaggle variant"
+                        "Kernel ID when using the google-colab or kaggle variant"
                     )
                 ),
             ] = None,
@@ -218,7 +218,7 @@ class SandboxesExtension(JupyterMCPExtension):
                 Field(
                     description=(
                         "Google Colab code sandbox proxy token when using "
-                        "google_colab/google-colab (or legacy colab) variant"
+                        "google-colab variant"
                     )
                 ),
             ] = None,
@@ -227,7 +227,7 @@ class SandboxesExtension(JupyterMCPExtension):
                 Field(
                     description=(
                         "Notebook session WebSocket channels URL to derive "
-                        "server_url/kernel_id (google_colab/google-colab/colab or kaggle variant)"
+                        "server_url/kernel_id (google-colab or kaggle variant)"
                     )
                 ),
             ] = None,
@@ -257,8 +257,14 @@ class SandboxesExtension(JupyterMCPExtension):
             MCP_SERVER and JUPYTER_SERVER modes.
             """
             configured_variant = get_config().sandbox_variant
+            # The configured variant, unless it is the Jupyter Server this
+            # server already talks to: launching a sandbox to reach that is
+            # not launching a sandbox, so `eval` stands in as the one that
+            # needs nothing.
             resolved_variant = variant or (
-                configured_variant if configured_variant != "jupyter" else "eval"
+                configured_variant
+                if normalize_variant(configured_variant) != JUPYTER_SERVER_VARIANT
+                else "eval"
             )
 
             return await safe_notebook_operation(

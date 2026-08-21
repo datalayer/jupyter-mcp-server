@@ -939,11 +939,10 @@
                 "enum": [
                   "eval",
                   "docker",
-                  "jupyter",
+                  "jupyter-server",
                   "datalayer",
-                  "google_colab",
+                  "daytona",
                   "google-colab",
-                  "colab",
                   "kaggle",
                   "monty",
                   "modal"
@@ -955,7 +954,7 @@
               }
             ],
             "default": null,
-            "description": "Sandbox variant to launch. If omitted, defaults to configured SANDBOX_VARIANT when it is non-jupyter; otherwise falls back to eval.",
+            "description": "Sandbox variant to launch. If omitted, defaults to configured SANDBOX_VARIANT when it is not jupyter-server; otherwise falls back to eval.",
             "title": "Variant"
           },
           "timeout": {
@@ -1001,7 +1000,7 @@
               }
             ],
             "default": null,
-            "description": "Code Sandbox proxy URL when using google_colab/google-colab (or legacy colab) or kaggle variant",
+            "description": "Code Sandbox proxy URL when using the google-colab or kaggle variant",
             "title": "Server Url"
           },
           "kernel_id": {
@@ -1014,7 +1013,7 @@
               }
             ],
             "default": null,
-            "description": "Kernel ID when using google_colab/google-colab (or legacy colab) or kaggle variant",
+            "description": "Kernel ID when using the google-colab or kaggle variant",
             "title": "Kernel Id"
           },
           "proxy_token": {
@@ -1027,7 +1026,7 @@
               }
             ],
             "default": null,
-            "description": "Google Colab code sandbox proxy token when using google_colab/google-colab (or legacy colab) variant",
+            "description": "Google Colab code sandbox proxy token when using google-colab variant",
             "title": "Proxy Token"
           },
           "channels_url": {
@@ -1040,7 +1039,7 @@
               }
             ],
             "default": null,
-            "description": "Notebook session WebSocket channels URL to derive server_url/kernel_id (google_colab/google-colab/colab or kaggle variant)",
+            "description": "Notebook session WebSocket channels URL to derive server_url/kernel_id (google-colab or kaggle variant)",
             "title": "Channels Url"
           },
           "token": {

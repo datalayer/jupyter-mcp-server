@@ -109,7 +109,7 @@ SANDBOX_VARIANT=monty make start
 
 Variant-specific required environment variables:
 
-- `jupyter` / `eval` / `docker` / `monty`: no extra variables required.
+- `jupyter-server` / `eval` / `docker` / `monty`: no extra variables required.
 - `jupyterhub`: requires `CODE_SANDBOX_URL` and `CODE_SANDBOX_TOKEN`.
 - `datalayer`: requires `CODE_SANDBOX_URL` and `CODE_SANDBOX_TOKEN`.
 - `google-colab`: requires either `CODE_SANDBOX_CHANNELS_URL`, or `CODE_SANDBOX_URL` + `CODE_SANDBOX_ID` + `CODE_SANDBOX_PROXY_TOKEN`.

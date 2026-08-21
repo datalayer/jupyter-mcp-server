@@ -22,7 +22,7 @@ def test_create_jupyter_sandbox_client_starts_managed_client():
 
     assert client is fake_client
     create.assert_called_once_with(
-        variant="jupyter",
+        variant="jupyter-server",
         server_url="http://localhost:8888",
         token="MY_TOKEN",
         kernel_id=None,
