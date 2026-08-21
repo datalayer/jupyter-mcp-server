@@ -330,7 +330,7 @@ def server_callback(
         typer.Option(
             "--code-sandbox-channels-url",
             envvar="CODE_SANDBOX_CHANNELS_URL",
-            help="For the 'google_colab'/'google-colab' (or legacy 'colab') and 'kaggle' sandbox variants, WebSocket channels URL used to derive code sandbox URL and kernel id.",
+            help="For the 'google-colab' and 'kaggle' sandbox variants, WebSocket channels URL used to derive code sandbox URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[
@@ -615,7 +615,7 @@ def start_command(
         typer.Option(
             "--code-sandbox-channels-url",
             envvar="CODE_SANDBOX_CHANNELS_URL",
-            help="For the 'google_colab'/'google-colab' (or legacy 'colab') and 'kaggle' sandbox variants, WebSocket channels URL used to derive code sandbox URL and kernel id.",
+            help="For the 'google-colab' and 'kaggle' sandbox variants, WebSocket channels URL used to derive code sandbox URL and kernel id.",
         ),
     ] = None,
     sandbox_environment: Annotated[

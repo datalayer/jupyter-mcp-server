@@ -4,13 +4,29 @@
 
 import os
 
-from code_sandboxes import normalize_variant
 from pydantic import BaseModel, ConfigDict, Field
 
 #: The variant that is NOT routed through a sandbox client: the Jupyter
 #: Server this MCP server is already talking to. Its canonical name in
 #: `code_sandboxes` is `jupyter-server`; `jupyter` names nothing there.
 JUPYTER_SERVER_VARIANT = "jupyter-server"
+
+
+def normalize_variant(variant: str | None) -> str:
+    """The canonical spelling of a sandbox variant name.
+
+    `code_sandboxes` names its variants with dashes — `jupyter-server`,
+    `google-colab` — and reads any spelling back. The same is done here to
+    what a user puts in `SANDBOX_VARIANT`, so every comparison in this package
+    lands on one form whether the value arrived with a dash, an underscore or
+    in capitals.
+
+    Written here rather than imported from `code_sandboxes`: canonicalising
+    our OWN setting is our own business, and the released versions of that
+    package export no such function — an import that only works against an
+    unreleased one is an import that fails on install.
+    """
+    return (variant or "").strip().lower().replace("_", "-")
 
 
 def _caller_token() -> str | None:

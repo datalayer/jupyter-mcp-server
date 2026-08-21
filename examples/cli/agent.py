@@ -12,7 +12,6 @@ import os
 import sys
 
 import anyio
-from code_sandboxes import normalize_variant
 from pydantic_ai import Agent
 from pydantic_ai._cli import (
     CustomAutoSuggest,
@@ -45,7 +44,7 @@ def build_cli_prog_name(
     sandbox_variant: str | None, sandbox_id: str | None, use_color: bool = True
 ) -> str:
     base = "jupyter-mcp-cli"
-    variant = normalize_variant(sandbox_variant) if sandbox_variant else ""
+    variant = (sandbox_variant or "").strip().lower().replace("_", "-")
 
     def _fmt(base_text: str, sandbox_text: str) -> str:
         if not use_color:

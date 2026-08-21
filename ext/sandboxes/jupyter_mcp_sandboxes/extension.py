@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, Literal
 
-from code_sandboxes import normalize_variant
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from reactor import PluginCompatibility, PluginManifest
@@ -27,7 +26,11 @@ from jupyter_mcp_sandboxes.tools import (
     TerminateSandboxTool,
     UseSandboxTool,
 )
-from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT, get_config
+from jupyter_mcp_server.config import (
+    JUPYTER_SERVER_VARIANT,
+    get_config,
+    normalize_variant,
+)
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks
 from jupyter_mcp_server.server_context import ServerContext
@@ -169,7 +172,8 @@ class SandboxesExtension(JupyterMCPExtension):
                 Field(
                     description=(
                         "Sandbox variant to launch. If omitted, defaults to configured "
-                        "SANDBOX_VARIANT when it is non-jupyter; otherwise falls back to eval."
+                        "SANDBOX_VARIANT when it is not jupyter-server; otherwise "
+                        "falls back to eval."
                     )
                 ),
             ] = None,
@@ -199,8 +203,8 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Code Sandbox proxy URL when using google_colab/google-colab "
-                        "(or legacy colab) or kaggle variant"
+                        "Code Sandbox proxy URL when using the google-colab or "
+                        "kaggle variant"
                     )
                 ),
             ] = None,
@@ -208,8 +212,7 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Kernel ID when using google_colab/google-colab "
-                        "(or legacy colab) or kaggle variant"
+                        "Kernel ID when using the google-colab or kaggle variant"
                     )
                 ),
             ] = None,
@@ -218,7 +221,7 @@ class SandboxesExtension(JupyterMCPExtension):
                 Field(
                     description=(
                         "Google Colab code sandbox proxy token when using "
-                        "google_colab/google-colab (or legacy colab) variant"
+                        "google-colab variant"
                     )
                 ),
             ] = None,
@@ -227,7 +230,7 @@ class SandboxesExtension(JupyterMCPExtension):
                 Field(
                     description=(
                         "Notebook session WebSocket channels URL to derive "
-                        "server_url/kernel_id (google_colab/google-colab/colab or kaggle variant)"
+                        "server_url/kernel_id (google-colab or kaggle variant)"
                     )
                 ),
             ] = None,
