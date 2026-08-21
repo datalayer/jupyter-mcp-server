@@ -26,7 +26,7 @@ The project uses semantic versioning format: `v{major}.{minor}.{patch}`
 Examples:
 
 - `v1.0.0` - Major version update
-- `v1.1.0` - Minor feature update
+- `v1.1.1` - Minor feature update
 - `v1.1.1` - Patch and bug fixes
 
 ### Version Tags

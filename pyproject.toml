@@ -21,7 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "code-sandboxes>=1.1.0",
+    "code-sandboxes>=1.1.1",
     "datalayer-reactor",
     "jupyter-nbmodel-client>=1.5.1",
     "jupyter-server-nbmodel>=0.2.8",

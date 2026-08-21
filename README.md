@@ -78,17 +78,17 @@ Personal access tokens keep working, and remain the simpler path for a CLI or a 
 [![Hot fix](https://img.shields.io/badge/%F0%9F%9A%A8%20Hot%20fix-pin%20code--sandboxes-C0392B?style=for-the-badge&labelColor=7B241C)](https://jupyter-mcp-server.datalayer.tech/releases)
 
 **Pin `code-sandboxes` to match your `jupyter-mcp-server`.** The sandbox variant
-`jupyter` was renamed to `jupyter-server` in `code-sandboxes` 1.1.0, and the two packages
+`jupyter` was renamed to `jupyter-server` in `code-sandboxes` 1.1.1, and the two packages
 have to agree on the name.
 
 | Your `jupyter-mcp-server` | Install                    |
 | ------------------------- | -------------------------- |
-| **>= 1.4.5**              | `code-sandboxes >= 1.1.0`  |
+| **>= 1.4.5**              | `code-sandboxes >= 1.1.1`  |
 | **< 1.4.5**               | `code-sandboxes <= 1.0.9`  |
 
 ```bash
 # On 1.4.5 or later
-pip install "jupyter-mcp-server>=1.4.5" "code-sandboxes>=1.1.0"
+pip install "jupyter-mcp-server>=1.4.5" "code-sandboxes>=1.1.1"
 
 # Staying on an earlier jupyter-mcp-server
 pip install "jupyter-mcp-server<1.4.5" "code-sandboxes<=1.0.9"

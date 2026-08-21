@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, Literal
 
+from code_sandboxes import normalize_variant
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from reactor import PluginCompatibility, PluginManifest
@@ -26,11 +27,7 @@ from jupyter_mcp_sandboxes.tools import (
     TerminateSandboxTool,
     UseSandboxTool,
 )
-from jupyter_mcp_server.config import (
-    JUPYTER_SERVER_VARIANT,
-    get_config,
-    normalize_variant,
-)
+from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT, get_config
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks
 from jupyter_mcp_server.server_context import ServerContext

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from code_sandboxes import CodeSandboxClient
+from code_sandboxes import CodeSandboxClient, normalize_variant
 
-from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT, normalize_variant
+from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT
 
 
 def _is_default_code_sandbox_url(code_sandbox_url: str | None) -> bool:
