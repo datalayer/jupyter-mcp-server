@@ -73,9 +73,25 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
             create_kwargs["client_kwargs"] = {"reconnect_interval": reconnect_interval}
         return CodeSandboxClient.create(**create_kwargs)
 
-    if engine in ("monty", "modal", "eval", "docker", "daytona", "datalayer"):
+    if engine in (
+        "monty",
+        "modal",
+        "eval",
+        "docker",
+        "daytona",
+        "e2b",
+        "coreweave",
+        "cloudflare",
+        "datalayer",
+    ):
         create_kwargs = {"variant": engine, "timeout": timeout}
-        if engine in ("modal", "daytona", "datalayer") and getattr(config, "sandbox_gpu", None):
+        # Only the engines that run on a GPU are told about one: the others
+        # take the flavor as an unread config field, and a sandbox that looks
+        # as though it asked for an H100 and did not is worse than one that
+        # never asked.
+        if engine in ("modal", "daytona", "coreweave", "datalayer") and getattr(
+            config, "sandbox_gpu", None
+        ):
             create_kwargs["gpu"] = config.sandbox_gpu
         if engine == "datalayer":
             # The caller's own credential when the request carries one, so a

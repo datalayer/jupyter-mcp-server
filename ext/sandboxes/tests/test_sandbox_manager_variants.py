@@ -23,7 +23,9 @@ def fake_sandbox() -> MagicMock:
     return sandbox
 
 
-@pytest.mark.parametrize("variant", ["eval", "docker", "monty"])
+@pytest.mark.parametrize(
+    "variant", ["eval", "docker", "monty", "daytona", "e2b", "coreweave", "cloudflare"]
+)
 def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: MagicMock):
     manager = CodeSandboxManager()
 

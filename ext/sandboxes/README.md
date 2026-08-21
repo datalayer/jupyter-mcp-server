@@ -26,8 +26,9 @@ sandbox-backed code execution. It is discovered automatically through the
 
 Installing this extension exposes four additional MCP tools:
 
-- `launch_sandbox` — launch a code sandbox (`eval`, `docker`, `jupyter`,
-  `datalayer`, `google-colab`, `kaggle`, `monty`, `modal`).
+- `launch_sandbox` — launch a code sandbox (`eval`, `docker`, `jupyter-server`,
+  `datalayer`, `daytona`, `e2b`, `coreweave`, `cloudflare`, `google-colab`,
+  `kaggle`, `monty`, `modal`).
 - `list_sandboxes` — list launched sandboxes and their state.
 - `use_sandbox` — select (or clear) the active sandbox used by `execute_code`.
 - `terminate_sandbox` — stop and unregister a sandbox.
@@ -46,9 +47,13 @@ Backend-specific extras are provided by the underlying
 [`code-sandboxes`](https://github.com/datalayer/code-sandboxes) package, e.g.:
 
 ```bash
-pip install "code-sandboxes[modal]"   # Modal
-pip install "code-sandboxes"          # Google Colab (included in base)
-pip install "code-sandboxes[kaggle]"  # Kaggle
+pip install "code-sandboxes[modal]"       # Modal
+pip install "code-sandboxes"              # Google Colab (included in base)
+pip install "code-sandboxes[kaggle]"      # Kaggle
+pip install "code-sandboxes[daytona]"     # Daytona
+pip install "code-sandboxes[e2b]"         # E2B
+pip install "code-sandboxes[coreweave]"   # CoreWeave
+pip install "code-sandboxes[cloudflare]"  # Cloudflare
 ```
 
 ## Usage

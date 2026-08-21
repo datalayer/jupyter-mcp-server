@@ -1,0 +1,77 @@
+# CoreWeave Code Sandbox
+
+The Jupyter MCP Server can execute code in a
+[CoreWeave Sandbox](https://docs.coreweave.com/products/sandboxes), a container on
+CoreWeave's GPU cloud. Execution is routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `coreweave` engine.
+
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[CoreWeave sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#coreweave)
+in the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the CoreWeave extra:
+
+```bash
+pip install "jupyter-mcp-server[coreweave]"
+```
+
+Provide credentials through environment variables:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `CWSANDBOX_API_KEY` | CoreWeave Sandboxes API key |
+| `CWSANDBOX_BASE_URL` | API endpoint to reach, when it is not the default `https://api.cwsandbox.com` |
+
+## Configuration
+
+Select the CoreWeave engine with `SANDBOX_VARIANT=coreweave`:
+
+```bash
+SANDBOX_VARIANT=coreweave
+CWSANDBOX_API_KEY=your-coreweave-api-key
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --sandbox-variant coreweave \
+  --port 4040
+```
+
+Ask for a GPU with `SANDBOX_GPU`, for example `H100`. Without it the sandbox is a
+plain container.
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "SANDBOX_VARIANT": "coreweave",
+        "CWSANDBOX_API_KEY": "your-coreweave-api-key",
+        "SANDBOX_GPU": "H100"
+      }
+    }
+  }
+}
+```
+
+:::note
+
+State is kept by a session process the variant holds open on the sandbox's stdin,
+so variables set in one execution are still there in the next. Should that process
+fail to start, each snippet runs in a process of its own and nothing carries over.
+Rich display data (figures, HTML) is not returned — outputs come back as text.
+
+:::

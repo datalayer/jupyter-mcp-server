@@ -1,0 +1,85 @@
+# Daytona Code Sandbox
+
+The Jupyter MCP Server can execute code in a [Daytona](https://www.daytona.io/docs/)
+cloud sandbox, with GPU and preemptible ("spot") GPU capacity available. Execution
+is routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `daytona` engine.
+
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[Daytona sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#daytona) in
+the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the Daytona extra:
+
+```bash
+pip install "jupyter-mcp-server[daytona]"
+```
+
+Provide credentials through environment variables. An API key is enough on its
+own; a JWT token is read together with the organization it belongs to:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `DAYTONA_API_KEY` | Daytona API key |
+| `DAYTONA_JWT_TOKEN` | Daytona JWT token, used instead of an API key |
+| `DAYTONA_ORGANIZATION_ID` | Organization the JWT token belongs to, required with it |
+
+## Configuration
+
+Select the Daytona engine with `SANDBOX_VARIANT=daytona`:
+
+```bash
+SANDBOX_VARIANT=daytona
+DAYTONA_API_KEY=your-daytona-api-key
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --sandbox-variant daytona \
+  --port 4040
+```
+
+Ask for a GPU with `SANDBOX_GPU` — for example `H100`, `H200` or `RTX-4090`.
+Naming several, comma-separated, takes the first Daytona can find:
+
+```bash
+SANDBOX_GPU=H100,H200
+```
+
+Daytona also sells preemptible ("spot") GPU capacity, much cheaper than on-demand
+at the price of being reclaimed at any moment. It is chosen through the
+`code-sandboxes` API rather than through a `SANDBOX_*` variable.
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "SANDBOX_VARIANT": "daytona",
+        "DAYTONA_API_KEY": "your-daytona-api-key"
+      }
+    }
+  }
+}
+```
+
+:::note
+
+Daytona's code interpreter holds a namespace, so variables, imports and
+definitions from one execution are still there in the next. Rich display data
+(figures, HTML) is not returned — outputs come back as text.
+
+:::

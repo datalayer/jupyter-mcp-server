@@ -14,7 +14,7 @@
 
 # 🪐🔧 Jupyter MCP Server
 
-**An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage [Jupyter](https://jupyter.org) Notebooks in real-time — and scale your [Code Sandbox](https://jupyter-mcp-server.datalayer.tech/code-sandboxes) from local to the cloud (Datalayer, Kaggle, Google Colab, Modal...)**
+**An [MCP](https://modelcontextprotocol.io) server developed for AI to connect and manage [Jupyter](https://jupyter.org) Notebooks in real-time — and scale your [Code Sandbox](https://jupyter-mcp-server.datalayer.tech/code-sandboxes) from local to the cloud (Datalayer, Kaggle, Google Colab, Modal, Daytona, E2B, CoreWeave, Cloudflare...)**
 
 *Developed by [Datalayer](https://datalayer.ai) - Join our [Discord](https://discord.gg/YQFwvmSSuR)*
 
@@ -107,8 +107,8 @@ first execution with `Unknown sandbox variant: jupyter`.
 It only ever chose where the notebook **documents** live — `jupyter` for the collaboration
 API of a Jupyter Server, `datalayer` for the Datalayer spacer — while the old name and its
 help text suggested it also chose where code runs. Execution is picked separately, with
-`--sandbox-variant` (`jupyter-server`, `datalayer`, `daytona`, `kaggle`, `google-colab`,
-`monty`, `modal`).
+`--sandbox-variant` (`jupyter-server`, `datalayer`, `daytona`, `e2b`, `coreweave`,
+`cloudflare`, `kaggle`, `google-colab`, `monty`, `modal`).
 
 Nothing breaks in v1.3.2: `--provider` is still accepted as an alias, `PROVIDER` is still
 read, and a `/connect` payload carrying `"provider"` is still understood. Move to the new
@@ -160,7 +160,7 @@ For more details on each tool, their parameters, and return values, please refer
 | :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                 |
 | `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                           |
-| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter-server/datalayer/daytona/kaggle/google-colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension. |
+| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter-server/datalayer/daytona/e2b/coreweave/cloudflare/kaggle/google-colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension. |
 | `list_sandboxes`     | List launched code sandboxes and their state (active flag, variant, status, and selected code sandbox options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                 |
 | `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                         |
 | `terminate_sandbox`  | Stop and unregister a launched code sandbox. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                                    |
@@ -390,15 +390,19 @@ To expose sandbox lifecycle tools (`launch_sandbox`, `list_sandboxes`,
 `use_sandbox`, `terminate_sandbox`) or run any non-`jupyter-server` sandbox variant,
 install it with `pip install jupyter_mcp_sandboxes`.
 
-| Engine                   | `SANDBOX_VARIANT`        | Extra install                   | Key variables                                                                                                                                                                                                             |
-| ------------------------ | ------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jupyter Server (default) | `jupyter-server`         | —                               | `JUPYTER_URL`, `JUPYTER_TOKEN`                                                                                                                                                                                            |
-| JupyterHub               | `jupyter-server`         | —                               | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                                                                                                                                                                                  |
-| Datalayer                | `datalayer`              | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT`                                                                                                                                                           |
-| Kaggle                   | `kaggle`                 | `jupyter-mcp-server[kaggle]`    | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| Google Colab             | `google-colab`           | `jupyter-mcp-server`            | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`                                                                                                                                                         |
-| Monty                    | `monty`                  | `jupyter-mcp-server[monty]`     | —                                                                                                                                                                                                                         |
-| Modal                    | `modal`                  | `jupyter-mcp-server[modal]`     | Modal credentials                                                                                                                                                                                                         |
+| Engine                   | `SANDBOX_VARIANT` | Extra install                    | Key variables                                                                                                                                                                                                             |
+| ------------------------ | ----------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jupyter Server (default) | `jupyter-server`  | —                                | `JUPYTER_URL`, `JUPYTER_TOKEN`                                                                                                                                                                                            |
+| JupyterHub               | `jupyter-server`  | —                                | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                                                                                                                                                                                  |
+| Datalayer                | `datalayer`       | `jupyter-mcp-server[datalayer]`  | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT`                                                                                                                                                           |
+| Kaggle                   | `kaggle`          | `jupyter-mcp-server[kaggle]`     | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
+| Google Colab             | `google-colab`    | `jupyter-mcp-server`             | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`                                                                                                                                                         |
+| Monty                    | `monty`           | `jupyter-mcp-server[monty]`      | —                                                                                                                                                                                                                         |
+| Modal                    | `modal`           | `jupyter-mcp-server[modal]`      | Modal credentials                                                                                                                                                                                                         |
+| Daytona                  | `daytona`         | `jupyter-mcp-server[daytona]`    | `DAYTONA_API_KEY`, or `DAYTONA_JWT_TOKEN` + `DAYTONA_ORGANIZATION_ID`. Optional accelerator: `SANDBOX_GPU`.                                                                                                               |
+| E2B                      | `e2b`             | `jupyter-mcp-server[e2b]`        | `E2B_API_KEY`. Optional: `E2B_DOMAIN`.                                                                                                                                                                                    |
+| CoreWeave                | `coreweave`       | `jupyter-mcp-server[coreweave]`  | `CWSANDBOX_API_KEY`. Optional: `CWSANDBOX_BASE_URL`, accelerator `SANDBOX_GPU`.                                                                                                                                           |
+| Cloudflare               | `cloudflare`      | `jupyter-mcp-server[cloudflare]` | `CLOUDFLARE_SANDBOX_API_URL`, `CLOUDFLARE_SANDBOX_API_KEY`                                                                                                                                                                |
 
 ### 1. Jupyter Server
 
@@ -572,6 +576,124 @@ else:
     raise SystemExit("Could not find token_id/token_secret in ~/.modal.toml")
 PY
 ```
+
+### 8. Daytona
+
+Execute in a [Daytona](https://www.daytona.io/docs/) cloud sandbox. Install the
+extra and provide a Daytona API key:
+
+```bash
+pip install "jupyter-mcp-server[daytona]"
+```
+
+```json
+"env": {
+  "SANDBOX_VARIANT": "daytona",
+  "DAYTONA_API_KEY": "your-daytona-api-key"
+}
+```
+
+Instead of an API key you can authenticate with a JWT token, which Daytona reads
+together with the organization it belongs to:
+
+```json
+"env": {
+  "SANDBOX_VARIANT": "daytona",
+  "DAYTONA_JWT_TOKEN": "your-daytona-jwt-token",
+  "DAYTONA_ORGANIZATION_ID": "your-daytona-organization-id"
+}
+```
+
+Ask for a GPU with `SANDBOX_GPU` (for example `H100`, `H200`, `RTX-4090`).
+Daytona also sells preemptible ("spot") GPU capacity, which is chosen through the
+`code-sandboxes` API rather than a `SANDBOX_*` variable.
+
+> Daytona's code interpreter holds a namespace, so variables set in one call are
+> still there in the next. Rich display data (figures, HTML) is not returned.
+
+### 9. E2B
+
+Execute in an [E2B](https://docs.e2b.dev/client) sandbox. Install the extra and
+provide an E2B API key:
+
+```bash
+pip install "jupyter-mcp-server[e2b]"
+```
+
+```json
+"env": {
+  "SANDBOX_VARIANT": "e2b",
+  "E2B_API_KEY": "your-e2b-api-key"
+}
+```
+
+Set `E2B_DOMAIN` to reach an E2B deployment other than the default `e2b.dev`.
+
+The sandbox is created from E2B's `code-interpreter-v1` template, which is the one
+carrying the Jupyter kernel the code interpreter talks to.
+
+> Each execution context is a Jupyter kernel, so state persists across calls, and
+> rich outputs — figures, HTML — come back as results.
+
+### 10. CoreWeave
+
+Execute in a [CoreWeave Sandbox](https://docs.coreweave.com/products/sandboxes),
+a container on CoreWeave's GPU cloud. Install the extra and provide a CoreWeave
+Sandboxes API key:
+
+```bash
+pip install "jupyter-mcp-server[coreweave]"
+```
+
+```json
+"env": {
+  "SANDBOX_VARIANT": "coreweave",
+  "CWSANDBOX_API_KEY": "your-coreweave-api-key",
+  "SANDBOX_GPU": "H100"
+}
+```
+
+`SANDBOX_GPU` is optional; without it the sandbox is a plain container. Set
+`CWSANDBOX_BASE_URL` to reach an endpoint other than the default
+`https://api.cwsandbox.com`.
+
+> State is kept by a session process the variant holds open on stdin. If that
+> process cannot start, each snippet runs in a process of its own and variables do
+> not carry over. Rich display data is not returned.
+
+### 11. Cloudflare
+
+Execute in a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/).
+Cloudflare's own SDK is a TypeScript Workers binding, which a Python process
+cannot hold, so this variant drives the **sandbox bridge** — a reference Worker
+Cloudflare publishes that exposes the SDK over HTTP. Deploy it once:
+
+```bash
+npm create cloudflare -- sandbox-bridge \
+  --template=cloudflare/sandbox-sdk/bridge/worker
+```
+
+The deployment returns the bridge's `workers.dev` URL and generates the key it
+accepts. Both are required:
+
+```bash
+pip install "jupyter-mcp-server[cloudflare]"
+```
+
+```json
+"env": {
+  "SANDBOX_VARIANT": "cloudflare",
+  "CLOUDFLARE_SANDBOX_API_URL": "https://sandbox-bridge.your-subdomain.workers.dev",
+  "CLOUDFLARE_SANDBOX_API_KEY": "your-bridge-api-key"
+}
+```
+
+See the [sandbox bridge documentation](https://developers.cloudflare.com/sandbox/bridge/)
+for the Worker itself.
+
+> Each snippet runs in a process of its own, so `x = 1` is gone by the next call.
+> Combine statements into a single cell, or keep state in a file — the filesystem
+> persists. Rich display data is not returned.
 
 > You can also select the engine on the command line with
 > `--sandbox-variant`, `--code-sandbox-proxy-token`, and `--sandbox-environment`.

@@ -1,0 +1,89 @@
+# Cloudflare Code Sandbox
+
+The Jupyter MCP Server can execute code in a
+[Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/), a container
+Cloudflare runs at the edge. Execution is routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `cloudflare` engine.
+
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[Cloudflare sandbox guide](https://code-sandboxes.datalayer.tech/sandboxes#cloudflare)
+in the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the Cloudflare extra:
+
+```bash
+pip install "jupyter-mcp-server[cloudflare]"
+```
+
+Cloudflare's own SDK is a TypeScript Workers binding, which a Python process
+cannot hold. This engine therefore drives the **sandbox bridge**: a reference
+Worker that Cloudflare publishes, which exposes the SDK over HTTP. Deploy it once:
+
+```bash
+npm create cloudflare -- sandbox-bridge \
+  --template=cloudflare/sandbox-sdk/bridge/worker
+```
+
+The deployment returns the bridge's `workers.dev` URL and generates the key it
+accepts. Both are required:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `CLOUDFLARE_SANDBOX_API_URL` | URL of the deployed sandbox bridge Worker |
+| `CLOUDFLARE_SANDBOX_API_KEY` | Key the bridge was deployed with |
+
+See the
+[sandbox bridge documentation](https://developers.cloudflare.com/sandbox/bridge/)
+for the Worker itself.
+
+## Configuration
+
+Select the Cloudflare engine with `SANDBOX_VARIANT=cloudflare`:
+
+```bash
+SANDBOX_VARIANT=cloudflare
+CLOUDFLARE_SANDBOX_API_URL=https://sandbox-bridge.your-subdomain.workers.dev
+CLOUDFLARE_SANDBOX_API_KEY=your-bridge-api-key
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --sandbox-variant cloudflare \
+  --port 4040
+```
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "SANDBOX_VARIANT": "cloudflare",
+        "CLOUDFLARE_SANDBOX_API_URL": "https://sandbox-bridge.your-subdomain.workers.dev",
+        "CLOUDFLARE_SANDBOX_API_KEY": "your-bridge-api-key"
+      }
+    }
+  }
+}
+```
+
+:::note
+
+Each snippet runs in a process of its own, so `x = 1` is gone by the next call.
+Combine the statements that need each other into a single cell, or keep state in a
+file — the sandbox filesystem persists. Rich display data (figures, HTML) is not
+returned; outputs come back as text.
+
+:::

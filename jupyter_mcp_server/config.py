@@ -68,9 +68,9 @@ class JupyterMCPConfig(BaseModel):
             "Code execution sandbox variant. 'jupyter-server' (default) uses the "
             "code-sandboxes Jupyter Server engine. Any other value "
             "('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', "
-            "'daytona', 'datalayer') routes execution through the code-sandboxes "
-            "package. The spelling is not fussy: 'google_colab' and "
-            "'GOOGLE-COLAB' name the same variant."
+            "'daytona', 'e2b', 'coreweave', 'cloudflare', 'datalayer') routes "
+            "execution through the code-sandboxes package. The spelling is not "
+            "fussy: 'google_colab' and 'GOOGLE-COLAB' name the same variant."
         ),
     )
     code_sandbox_proxy_token: str | None = Field(
@@ -95,6 +95,7 @@ class JupyterMCPConfig(BaseModel):
         description=(
             "GPU flavor / accelerator for sandbox engines that support it. "
             "Examples: Modal/Datalayer -> T4, A10G, A100, H100; "
+            "Daytona -> H100, H200, RTX-4090; CoreWeave -> H100; "
             "Kaggle batch -> NvidiaTeslaT4, NvidiaTeslaP100 (aliases T4/P100)."
         ),
     )

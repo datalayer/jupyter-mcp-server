@@ -22,6 +22,10 @@ from jupyter_mcp_sandboxes.kernel import build_sandbox_client
         ("docker", "docker"),
         ("monty", "monty"),
         ("modal", "modal"),
+        ("daytona", "daytona"),
+        ("e2b", "e2b"),
+        ("coreweave", "coreweave"),
+        ("cloudflare", "cloudflare"),
         ("datalayer", "datalayer"),
     ],
 )
@@ -222,6 +226,36 @@ def test_build_sandbox_modal_forwards_gpu_flavor():
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == "modal"
         assert kwargs["gpu"] == "A100"
+
+
+@pytest.mark.parametrize("engine", ["daytona", "coreweave"])
+def test_build_sandbox_forwards_gpu_flavor_for_gpu_engines(engine):
+    """Daytona and CoreWeave run on GPUs, so SANDBOX_GPU reaches them."""
+    config = JupyterMCPConfig(sandbox_variant=engine, sandbox_gpu="H100")
+
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox_client(config, MagicMock())
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["variant"] == engine
+        assert kwargs["gpu"] == "H100"
+
+
+@pytest.mark.parametrize("engine", ["e2b", "cloudflare"])
+def test_build_sandbox_omits_gpu_flavor_for_engines_without_one(engine):
+    """E2B and Cloudflare offer no GPU, so the flavor is not passed as if they did."""
+    config = JupyterMCPConfig(sandbox_variant=engine, sandbox_gpu="H100")
+
+    with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
+        mock_create.return_value = MagicMock()
+
+        build_sandbox_client(config, MagicMock())
+
+        kwargs = mock_create.call_args.kwargs
+        assert kwargs["variant"] == engine
+        assert "gpu" not in kwargs
 
 
 def test_build_sandbox_jupyter_forwards_code_sandbox_and_reconnect():

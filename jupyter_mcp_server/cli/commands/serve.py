@@ -314,7 +314,7 @@ def server_callback(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter-server' (default) uses the code-sandboxes Jupyter Server engine. Other values ('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'daytona', 'datalayer') route execution through the code-sandboxes package. Spelling is not fussy: 'google_colab' names the same variant as 'google-colab'.",
+            help="Code execution sandbox variant. 'jupyter-server' (default) uses the code-sandboxes Jupyter Server engine. Other values ('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'daytona', 'e2b', 'coreweave', 'cloudflare', 'datalayer') route execution through the code-sandboxes package. Spelling is not fussy: 'google_colab' names the same variant as 'google-colab'.",
         ),
     ] = "jupyter-server",
     code_sandbox_proxy_token: Annotated[
@@ -349,6 +349,7 @@ def server_callback(
             help=(
                 "GPU flavor / accelerator for sandbox engines that support it "
                 "(Modal/Datalayer examples: T4, A10G, A100, H100; "
+                "Daytona examples: H100, H200, RTX-4090; CoreWeave example: H100; "
                 "Kaggle batch examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
             ),
         ),
@@ -599,7 +600,7 @@ def start_command(
         typer.Option(
             "--sandbox-variant",
             envvar="SANDBOX_VARIANT",
-            help="Code execution sandbox variant. 'jupyter-server' (default) uses the code-sandboxes Jupyter Server engine. Other values ('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'daytona', 'datalayer') route execution through the code-sandboxes package. Spelling is not fussy: 'google_colab' names the same variant as 'google-colab'.",
+            help="Code execution sandbox variant. 'jupyter-server' (default) uses the code-sandboxes Jupyter Server engine. Other values ('google-colab', 'kaggle', 'monty', 'modal', 'docker', 'eval', 'daytona', 'e2b', 'coreweave', 'cloudflare', 'datalayer') route execution through the code-sandboxes package. Spelling is not fussy: 'google_colab' names the same variant as 'google-colab'.",
         ),
     ] = "jupyter-server",
     code_sandbox_proxy_token: Annotated[
@@ -634,6 +635,7 @@ def start_command(
             help=(
                 "GPU flavor / accelerator for sandbox engines that support it "
                 "(Modal/Datalayer examples: T4, A10G, A100, H100; "
+                "Daytona examples: H100, H200, RTX-4090; CoreWeave example: H100; "
                 "Kaggle batch examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
             ),
         ),

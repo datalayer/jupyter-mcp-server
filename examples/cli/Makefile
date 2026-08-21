@@ -135,7 +135,7 @@ start:
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			log_step "Choose optional additional sandbox backend:"; \
-			echo "  none (default), jupyterhub, datalayer, google-colab, colab, kaggle, monty, modal, eval, docker"; \
+			echo "  none (default), jupyterhub, datalayer, daytona, e2b, coreweave, cloudflare, google-colab, colab, kaggle, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
@@ -150,7 +150,7 @@ start:
 		VARIANT="none"; \
 	fi; \
 	case "$$VARIANT" in \
-		none|jupyterhub|datalayer|google-colab|google_colab|colab|kaggle|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|daytona|e2b|coreweave|cloudflare|google-colab|google_colab|colab|kaggle|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
 	if [[ "$$VARIANT" == "none" ]]; then \
@@ -359,7 +359,7 @@ start-noauth:
 		if [[ "$$HAS_SANDBOX_EXT" == "true" && -t 0 ]]; then \
 			echo ""; \
 			log_step "Choose optional additional sandbox backend:"; \
-			echo "  none (default), jupyterhub, datalayer, google-colab, colab, kaggle, monty, modal, eval, docker"; \
+			echo "  none (default), jupyterhub, datalayer, daytona, e2b, coreweave, cloudflare, google-colab, colab, kaggle, monty, modal, eval, docker"; \
 			read -r -p "Variant [none]: " VARIANT; \
 		else \
 			VARIANT="none"; \
@@ -374,7 +374,7 @@ start-noauth:
 		VARIANT="none"; \
 	fi; \
 	case "$$VARIANT" in \
-		none|jupyterhub|datalayer|google-colab|google_colab|colab|kaggle|monty|modal|eval|docker) ;; \
+		none|jupyterhub|datalayer|daytona|e2b|coreweave|cloudflare|google-colab|google_colab|colab|kaggle|monty|modal|eval|docker) ;; \
 		*) echo "Invalid SANDBOX_VARIANT: $$VARIANT"; exit 1 ;; \
 	esac; \
 	if [[ "$$VARIANT" == "none" ]]; then \

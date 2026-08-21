@@ -69,7 +69,7 @@ make start-noauth-agent
 
 This will:
 
-1. Ask for an optional sandbox variant (`none`, `jupyterhub`, `datalayer`, `google-colab`, `kaggle`, `monty`, `modal`, `eval`, `docker`)
+1. Ask for an optional sandbox variant (`none`, `jupyterhub`, `datalayer`, `daytona`, `e2b`, `coreweave`, `cloudflare`, `google-colab`, `kaggle`, `monty`, `modal`, `eval`, `docker`)
 1. Start JupyterLab with token auth
 1. Wait until JupyterLab is ready
 1. Start Jupyter MCP Server with Streamable HTTP transport
@@ -116,10 +116,18 @@ Variant-specific required environment variables:
 - `kaggle`: defaults to batch mode (for example `KAGGLE_API_TOKEN` or Kaggle credentials). For interactive mode, set `CODE_SANDBOX_URL` and either `KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` (create a new kernel) or `CODE_SANDBOX_ID`/`CODE_SANDBOX_CHANNELS_URL` (connect existing kernel). Optional accelerator: `SANDBOX_GPU` (for example `T4`, `P100`, `NvidiaTeslaT4`).
 - `modal`: requires either (`MODAL_TOKEN_ID` + `MODAL_TOKEN_SECRET`) or a local
   Modal login in `~/.modal.toml` (for example after `modal token new`).
+- `daytona`: requires `DAYTONA_API_KEY`, or `DAYTONA_JWT_TOKEN` +
+  `DAYTONA_ORGANIZATION_ID`. Optional accelerator: `SANDBOX_GPU` (for example `H100`).
+- `e2b`: requires `E2B_API_KEY`. Optional: `E2B_DOMAIN`.
+- `coreweave`: requires `CWSANDBOX_API_KEY`. Optional: `CWSANDBOX_BASE_URL`, and
+  `SANDBOX_GPU` (for example `H100`) to run on a GPU.
+- `cloudflare`: requires `CLOUDFLARE_SANDBOX_API_URL` and
+  `CLOUDFLARE_SANDBOX_API_KEY`, the URL and key of a deployed sandbox bridge Worker.
 
-The `make start` and `make start-noauth` targets validate these requirements
-before launching the MCP server and print a clear error with an example command
-if anything is missing.
+For the variants the targets know how to check — `jupyterhub`, `datalayer`,
+`google-colab`, `kaggle` and `modal` — `make start` and `make start-noauth`
+validate these requirements before launching the MCP server and print a clear
+error with an example command if anything is missing.
 
 Supported variables:
 
@@ -132,6 +140,10 @@ Supported variables:
 - `SANDBOX_VARIANT` (optional; when unset, `make start` prompts and defaults to `none` = Jupyter kernels)
 - `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`, `CODE_SANDBOX_CHANNELS_URL`, `KAGGLE_API_TOKEN`, `SANDBOX_GPU` (required for some variants)
 - `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET` (required for Modal unless `~/.modal.toml` exists)
+- `DAYTONA_API_KEY`, or `DAYTONA_JWT_TOKEN` + `DAYTONA_ORGANIZATION_ID` (required for Daytona)
+- `E2B_API_KEY`, `E2B_DOMAIN` (required for E2B; the domain is optional)
+- `CWSANDBOX_API_KEY`, `CWSANDBOX_BASE_URL` (required for CoreWeave; the base URL is optional)
+- `CLOUDFLARE_SANDBOX_API_URL`, `CLOUDFLARE_SANDBOX_API_KEY` (both required for Cloudflare)
 
 The CLI targets export Bedrock credentials from these environment variables:
 

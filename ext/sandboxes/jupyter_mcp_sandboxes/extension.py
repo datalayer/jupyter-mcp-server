@@ -160,6 +160,9 @@ class SandboxesExtension(JupyterMCPExtension):
                     "jupyter-server",
                     "datalayer",
                     "daytona",
+                    "e2b",
+                    "coreweave",
+                    "cloudflare",
                     "google-colab",
                     "kaggle",
                     "monty",
@@ -192,6 +195,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     description=(
                         "Optional GPU flavor / accelerator for supported variants "
                         "(modal/datalayer examples: T4, A10G, A100, H100; "
+                        "daytona examples: H100, H200, RTX-4090; coreweave example: H100; "
                         "kaggle examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100)."
                     )
                 ),
