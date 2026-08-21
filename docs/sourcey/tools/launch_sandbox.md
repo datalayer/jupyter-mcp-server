@@ -21,7 +21,7 @@ MCP_SERVER and JUPYTER_SERVER modes.
 | `variant` | `eval` · `docker` · `jupyter-server` · `datalayer` · `daytona` · `e2b` · `coreweave` · `cloudflare` · `google-colab` · `kaggle` · `monty` · `modal` \| null | no | `null` | Sandbox variant to launch. If omitted, defaults to configured SANDBOX_VARIANT when it is not jupyter-server; otherwise falls back to eval. |
 | `timeout` | integer | no | `60` | Default execution timeout in seconds for this sandbox |
 | `environment` | string \| null | no | `null` | Optional sandbox environment name (common for datalayer/modal variants) |
-| `gpu` | string \| null | no | `null` | Optional GPU flavor / accelerator for supported variants (modal/datalayer examples: T4, A10G, A100, H100; daytona examples: H100, H200, RTX-4090; coreweave example: H100; kaggle examples: NvidiaTeslaT4, NvidiaTeslaP100, or aliases T4/P100). |
+| `gpu` | string \| null | no | `null` | Optional GPU flavor / accelerator. Only coreweave, datalayer, daytona, kaggle and modal have a GPU; asking one of the others (e2b, cloudflare, docker, eval, google-colab, jupyter-server, monty) for a GPU is refused rather than quietly run on a CPU, so leave this unset for them. Examples: modal/datalayer T4, A10G, A100, H100; daytona H100, H200, RTX-4090; coreweave H100; kaggle NvidiaTeslaT4, NvidiaTeslaP100, or the aliases T4/P100. |
 | `server_url` | string \| null | no | `null` | Code Sandbox proxy URL when using the google-colab or kaggle variant |
 | `kernel_id` | string \| null | no | `null` | Kernel ID when using the google-colab or kaggle variant |
 | `proxy_token` | string \| null | no | `null` | Google Colab code sandbox proxy token when using google-colab variant |
