@@ -85,13 +85,14 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
         "datalayer",
     ):
         create_kwargs = {"variant": engine, "timeout": timeout}
-        # Only the engines that run on a GPU are told about one: the others
-        # take the flavor as an unread config field, and a sandbox that looks
-        # as though it asked for an H100 and did not is worse than one that
-        # never asked.
-        if engine in ("modal", "daytona", "coreweave", "datalayer") and getattr(
-            config, "sandbox_gpu", None
-        ):
+        # A GPU asked for is passed on WHATEVER the engine is, because
+        # `code_sandboxes` is where the answer lives: the engines that have a
+        # GPU take it, and the ones that have none refuse it by name, saying
+        # which engines do. Filtering it away here would turn that refusal
+        # into silence — SANDBOX_GPU=H100 with SANDBOX_VARIANT=e2b would run
+        # on a CPU while looking as though it had been granted an H100, which
+        # is the failure worth avoiding.
+        if getattr(config, "sandbox_gpu", None):
             create_kwargs["gpu"] = config.sandbox_gpu
         if engine == "datalayer":
             # The caller's own credential when the request carries one, so a

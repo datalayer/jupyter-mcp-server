@@ -105,7 +105,7 @@ For deployments requiring granular control over document storage and code sandbo
 | `CODE_SANDBOX_PROXY_TOKEN` | Proxy token used by the `google-colab` sandbox variant (`colab-runtime-proxy-token`) | `ya29...` | `None` |
 | `CODE_SANDBOX_CHANNELS_URL` | For the `kaggle` and `google-colab` engines, notebook session websocket channels URL used to derive `CODE_SANDBOX_URL` and `CODE_SANDBOX_ID` | `wss://.../api/kernels/.../channels?...` | `None` |
 | `SANDBOX_ENVIRONMENT` | Environment name for cloud sandboxes (Datalayer/Modal) | `python-cpu-env` | `None` |
-| `SANDBOX_GPU` | GPU flavor / accelerator for supported variants. Modal/Datalayer examples: `T4`, `A10G`, `A100`, `H100`. Daytona examples: `H100`, `H200`, `RTX-4090`. CoreWeave example: `H100`. Kaggle batch examples: `NvidiaTeslaT4`, `NvidiaTeslaP100` (aliases `T4`, `P100` also supported). | `T4` | `None` |
+| `SANDBOX_GPU` | GPU flavor / accelerator. Only `coreweave`, `datalayer`, `daytona`, `kaggle` and `modal` have a GPU; setting it for a variant that has none is refused when the sandbox starts, rather than quietly running on a CPU, so leave it unset for those. Modal/Datalayer examples: `T4`, `A10G`, `A100`, `H100`. Daytona examples: `H100`, `H200`, `RTX-4090`. CoreWeave example: `H100`. Kaggle batch examples: `NvidiaTeslaT4`, `NvidiaTeslaP100` (aliases `T4`, `P100` also supported). | `T4` | `None` |
 
 ## Sandbox Variants
 

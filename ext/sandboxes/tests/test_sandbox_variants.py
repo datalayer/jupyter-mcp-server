@@ -244,8 +244,14 @@ def test_build_sandbox_forwards_gpu_flavor_for_gpu_engines(engine):
 
 
 @pytest.mark.parametrize("engine", ["e2b", "cloudflare"])
-def test_build_sandbox_omits_gpu_flavor_for_engines_without_one(engine):
-    """E2B and Cloudflare offer no GPU, so the flavor is not passed as if they did."""
+def test_build_sandbox_passes_the_gpu_flavor_on_for_the_library_to_refuse(engine):
+    """E2B and Cloudflare have no GPU — and that is theirs to say, not ours.
+
+    Dropping the flavor here would run the sandbox on a CPU while it looked as
+    though an H100 had been granted. Passed on instead, `code_sandboxes`
+    refuses it by name and says which variants do have one, which is the same
+    answer `launch_sandbox` gives for the same mistake.
+    """
     config = JupyterMCPConfig(sandbox_variant=engine, sandbox_gpu="H100")
 
     with patch("code_sandboxes.CodeSandboxClient.create") as mock_create:
@@ -255,7 +261,7 @@ def test_build_sandbox_omits_gpu_flavor_for_engines_without_one(engine):
 
         kwargs = mock_create.call_args.kwargs
         assert kwargs["variant"] == engine
-        assert "gpu" not in kwargs
+        assert kwargs["gpu"] == "H100"
 
 
 def test_build_sandbox_jupyter_forwards_code_sandbox_and_reconnect():

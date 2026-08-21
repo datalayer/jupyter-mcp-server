@@ -27,6 +27,7 @@ def fake_sandbox() -> MagicMock:
     "variant", ["eval", "docker", "monty", "daytona", "e2b", "coreweave", "cloudflare"]
 )
 def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: MagicMock):
+    """The routing every variant shares — a GPU is not part of it, see below."""
     manager = CodeSandboxManager()
 
     with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
@@ -35,7 +36,6 @@ def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: Magi
             variant=variant,
             timeout=60,
             environment="env-name",
-            gpu="T4",
             python_version="3.12",
         )
 
@@ -43,8 +43,35 @@ def test_launch_forwards_generic_variant_kwargs(variant: str, fake_sandbox: Magi
     assert kwargs["variant"] == variant
     assert kwargs["timeout"] == 60
     assert kwargs["environment"] == "env-name"
-    assert kwargs["gpu"] == "T4"
+    assert "gpu" not in kwargs
     assert "python_version" not in kwargs
+
+
+@pytest.mark.parametrize("variant", ["daytona", "coreweave", "modal"])
+def test_launch_forwards_a_gpu_to_the_variants_that_have_one(
+    variant: str, fake_sandbox: MagicMock
+):
+    manager = CodeSandboxManager()
+
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
+        manager.launch(sandbox_name="s1", variant=variant, timeout=60, gpu="H100")
+
+    assert mock_create.call_args.kwargs["gpu"] == "H100"
+
+
+@pytest.mark.parametrize("variant", ["e2b", "cloudflare"])
+def test_launch_lets_the_library_refuse_a_gpu_the_variant_has_not_got(
+    variant: str, fake_sandbox: MagicMock
+):
+    """Passed on rather than filtered: `code_sandboxes` refuses it by name and
+    says which variants do have a GPU. Dropping it here would start a CPU
+    sandbox that looked as though it had been given an H100."""
+    manager = CodeSandboxManager()
+
+    with patch("code_sandboxes.CodeSandboxClient.create", return_value=fake_sandbox) as mock_create:
+        manager.launch(sandbox_name="s1", variant=variant, timeout=60, gpu="H100")
+
+    assert mock_create.call_args.kwargs["gpu"] == "H100"
 
 
 def test_launch_modal_forwards_python_version(fake_sandbox: MagicMock):
