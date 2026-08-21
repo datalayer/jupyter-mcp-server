@@ -1,5 +1,9 @@
 # Releases
 
+## Latest Release
+
+See the latest release notes on the [GitHub Releases page](https://github.com/datalayer/jupyter-mcp-server/releases).
+
 ## Hot Fix: Pin `code-sandboxes` to Match Your Version
 
 The sandbox variant named `jupyter` was renamed to **`jupyter-server`** in
@@ -8,20 +12,20 @@ The sandbox variant named `jupyter` was renamed to **`jupyter-server`** in
 
 | Your `jupyter-mcp-server` | Install                   |
 | ------------------------- | ------------------------- |
-| **>= 1.4.5**              | `code-sandboxes >= 1.1.1` |
-| **< 1.4.5**               | `code-sandboxes <= 1.0.9` |
+| **>= 1.5.0**              | `code-sandboxes >= 1.1.1` |
+| **< 1.5.0**               | `code-sandboxes <= 1.0.9` |
 
 ```bash
-# On 1.4.5 or later
-pip install "jupyter-mcp-server>=1.4.5" "code-sandboxes>=1.1.1"
+# On 1.5.0 or later
+pip install "jupyter-mcp-server>=1.5.0" "code-sandboxes>=1.1.1"
 
 # Staying on an earlier jupyter-mcp-server
-pip install "jupyter-mcp-server<1.4.5" "code-sandboxes<=1.0.9"
+pip install "jupyter-mcp-server<1.5.0" "code-sandboxes<=1.0.9"
 ```
 
 :::danger[How a mismatch shows up]
 
-From 1.4.5, `jupyter-mcp-server` requires `code-sandboxes >= 1.1.1`, so pip refuses that
+From 1.5.0, `jupyter-mcp-server` requires `code-sandboxes >= 1.1.1`, so pip refuses that
 pairing outright. The one it does **not** catch is the other direction: earlier releases
 asked only for `code-sandboxes >= 0.17.0`, which a 1.1.1 install satisfies. Nothing fails
 at install time — it fails the first time code runs:
@@ -32,7 +36,7 @@ Supported variants: datalayer, daytona, docker, eval, google-colab, jupyter-serv
 kaggle, modal, monty
 ```
 
-If you see that, you are on `jupyter-mcp-server` < 1.4.5 with `code-sandboxes` >= 1.1.1.
+If you see that, you are on `jupyter-mcp-server` < 1.5.0 with `code-sandboxes` >= 1.1.1.
 Either upgrade the server or pin `code-sandboxes <= 1.0.9`.
 
 :::
@@ -41,16 +45,16 @@ Either upgrade the server or pin `code-sandboxes <= 1.0.9`.
 
 `code-sandboxes` 1.1.1 made every canonical variant name spell out what it is:
 `jupyter-server` rather than `jupyter`, and `google-colab` rather than `google_colab`. From
-1.4.5 `jupyter-mcp-server` uses those names, and `SANDBOX_VARIANT=jupyter-server` is the
+1.5.0 `jupyter-mcp-server` uses those names, and `SANDBOX_VARIANT=jupyter-server` is the
 default.
 
-Spelling is read leniently from 1.4.5 onward — `google_colab`, `google-colab` and
+Spelling is read leniently from 1.5.0 onward — `google_colab`, `google-colab` and
 `GOOGLE-COLAB` all name the same variant — but `jupyter` is **not** an alias for
 `jupyter-server`. It names nothing.
 
 ### If You Set `SANDBOX_VARIANT`
 
-| Before          | From 1.4.5       |
+| Before          | From 1.5.0       |
 | --------------- | ---------------- |
 | `jupyter`       | `jupyter-server` |
 | `google_colab`  | `google-colab`   |
@@ -355,10 +359,6 @@ export SANDBOX_GPU=T4
 5. Remove old naming from internal docs to prevent regressions.
 
 For full reference values, see [Configuration](/operations/configuration).
-
-## Latest Release
-
-See the latest release notes on the [GitHub Releases page](https://github.com/datalayer/jupyter-mcp-server/releases).
 
 ## Older Releases
 

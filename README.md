@@ -83,15 +83,15 @@ have to agree on the name.
 
 | Your `jupyter-mcp-server` | Install                    |
 | ------------------------- | -------------------------- |
-| **>= 1.4.5**              | `code-sandboxes >= 1.1.1`  |
-| **< 1.4.5**               | `code-sandboxes <= 1.0.9`  |
+| **>= 1.5.0**              | `code-sandboxes >= 1.1.1`  |
+| **< 1.5.0**               | `code-sandboxes <= 1.0.9`  |
 
 ```bash
-# On 1.4.5 or later
-pip install "jupyter-mcp-server>=1.4.5" "code-sandboxes>=1.1.1"
+# On 1.5.0 or later
+pip install "jupyter-mcp-server>=1.5.0" "code-sandboxes>=1.1.1"
 
 # Staying on an earlier jupyter-mcp-server
-pip install "jupyter-mcp-server<1.4.5" "code-sandboxes<=1.0.9"
+pip install "jupyter-mcp-server<1.5.0" "code-sandboxes<=1.0.9"
 ```
 
 An older server with a newer `code-sandboxes` installs cleanly and then fails on the
