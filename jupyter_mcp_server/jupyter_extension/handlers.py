@@ -30,6 +30,21 @@ from jupyter_mcp_server.utils import clean_mcp_response, clean_mcp_response_cont
 logger = logging.getLogger(__name__)
 
 
+async def _fetch_jupyter_tools(**kwargs):
+    """Fetch jupyter-mcp-tools with the shorter timeout this transport wants.
+
+    If the JupyterLab frontend is not loaded there is nothing to wait for, so
+    tools/list should not sit here for the library default of 30 seconds.
+
+    Defined at module level on purpose: ToolCache keys its in-flight fetches by
+    fetcher as well as by query, so a function rebuilt per request would stop
+    concurrent tools/list requests from sharing one call.
+    """
+    from jupyter_mcp_tools import get_tools
+
+    return await get_tools(wait_timeout=5, **kwargs)
+
+
 class MCPSSEHandler(JupyterHandler):
     """
     Handler for MCP protocol over Streamable HTTP.
@@ -137,8 +152,6 @@ class MCPSSEHandler(JupyterHandler):
                     # Get tools from jupyter_mcp_tools extension first to identify duplicates
                     jupyter_tools_data = []
                     try:
-                        from jupyter_mcp_tools import get_tools
-
                         from jupyter_mcp_server.tool_cache import get_tool_cache
 
                         # Get the server's base URL dynamically from ServerApp
@@ -187,21 +200,13 @@ class MCPSSEHandler(JupyterHandler):
                                 # Use cached get_tools to avoid expensive repeated calls
                                 tool_cache = get_tool_cache()
 
-                                # Create wrapper function that matches the expected signature
-                                async def get_tools_wrapper(**kwargs):
-                                    # Add wait_timeout for handlers.py compatibility
-                                    return await get_tools(
-                                        wait_timeout=5,  # Shorter timeout - if frontend isn't loaded, don't wait long
-                                        **kwargs,
-                                    )
-
                                 jupyter_tools_data = await tool_cache.get_tools(
                                     base_url=base_url,
                                     token=token,
                                     query=search_query,
                                     enabled_only=False,
                                     ttl_seconds=180,  # 3 minutes for handlers (shorter than server.py)
-                                    fetch_func=get_tools_wrapper,  # Use wrapper that includes wait_timeout
+                                    fetch_func=_fetch_jupyter_tools,  # module-level wrapper carrying wait_timeout=5
                                 )
                                 logger.info(
                                     f"Query returned {len(jupyter_tools_data)} tools (from cache or fresh)"
