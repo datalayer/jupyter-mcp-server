@@ -73,9 +73,26 @@ def build_sandbox_client(config, logger) -> CodeSandboxClient:
             create_kwargs["client_kwargs"] = {"reconnect_interval": reconnect_interval}
         return CodeSandboxClient.create(**create_kwargs)
 
-    if engine in ("monty", "modal", "eval", "docker", "daytona", "datalayer"):
+    if engine in (
+        "monty",
+        "modal",
+        "eval",
+        "docker",
+        "daytona",
+        "e2b",
+        "coreweave",
+        "cloudflare",
+        "datalayer",
+    ):
         create_kwargs = {"variant": engine, "timeout": timeout}
-        if engine in ("modal", "daytona", "datalayer") and getattr(config, "sandbox_gpu", None):
+        # A GPU asked for is passed on WHATEVER the engine is, because
+        # `code_sandboxes` is where the answer lives: the engines that have a
+        # GPU take it, and the ones that have none refuse it by name, saying
+        # which engines do. Filtering it away here would turn that refusal
+        # into silence — SANDBOX_GPU=H100 with SANDBOX_VARIANT=e2b would run
+        # on a CPU while looking as though it had been granted an H100, which
+        # is the failure worth avoiding.
+        if getattr(config, "sandbox_gpu", None):
             create_kwargs["gpu"] = config.sandbox_gpu
         if engine == "datalayer":
             # The caller's own credential when the request carries one, so a

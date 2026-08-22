@@ -1,0 +1,77 @@
+# E2B Code Sandbox
+
+The Jupyter MCP Server can execute code in an [E2B](https://docs.e2b.dev/client)
+sandbox, an isolated cloud environment running a Jupyter kernel. Execution is
+routed through the
+[code-sandboxes](https://github.com/datalayer/code-sandboxes) `e2b` engine.
+
+:::tip
+
+For the full, engine-level credential and parameter reference, see the
+[E2B sandbox guide](https://code-sandboxes.datalayer.tech/providers/e2b) in
+the code-sandboxes documentation.
+
+:::
+
+## Requirements
+
+Install the E2B extra:
+
+```bash
+pip install "jupyter-mcp-server[e2b]"
+```
+
+Provide credentials through environment variables:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `E2B_API_KEY` | E2B API key |
+| `E2B_DOMAIN` | E2B deployment to reach, when it is not the default `e2b.dev` |
+
+The sandbox is created from E2B's `code-interpreter-v1` template — the single
+environment this engine offers, `e2b-code-interpreter`. That template is the one
+carrying the Jupyter kernel the code interpreter talks to; one without a kernel
+would start and then fail every execution.
+
+## Configuration
+
+Select the E2B engine with `SANDBOX_VARIANT=e2b`:
+
+```bash
+SANDBOX_VARIANT=e2b
+E2B_API_KEY=your-e2b-api-key
+```
+
+Or via the command line:
+
+```bash
+jupyter mcp start \
+  --transport streamable-http \
+  --sandbox-variant e2b \
+  --port 4040
+```
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "jupyter": {
+      "command": "uvx",
+      "args": ["jupyter-mcp-server@latest"],
+      "env": {
+        "SANDBOX_VARIANT": "e2b",
+        "E2B_API_KEY": "your-e2b-api-key"
+      }
+    }
+  }
+}
+```
+
+:::note
+
+Each execution context is a Jupyter kernel, so variables, imports and definitions
+persist across executions, and rich outputs — figures, HTML — come back as
+results, as they would from a local kernel.
+
+:::

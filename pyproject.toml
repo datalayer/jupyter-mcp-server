@@ -21,7 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "code-sandboxes>=1.1.1",
+    "code-sandboxes>=1.1.2",
     "datalayer-reactor",
     "jupyter-nbmodel-client>=1.5.1",
     "jupyter-server-nbmodel>=0.2.8",
@@ -45,6 +45,10 @@ kaggle = ["code-sandboxes[kaggle]"]
 monty = ["code-sandboxes[monty]"]
 modal = ["code-sandboxes[modal]"]
 datalayer = ["code-sandboxes[datalayer]"]
+daytona = ["code-sandboxes[daytona]"]
+cloudflare = ["code-sandboxes[cloudflare]"]
+coreweave = ["code-sandboxes[coreweave]"]
+e2b = ["code-sandboxes[e2b]"]
 sandboxes = ["code-sandboxes[all]"]
 jupyterlab = ["jupyter-mcp-tools>=0.1.7"]
 test = [
