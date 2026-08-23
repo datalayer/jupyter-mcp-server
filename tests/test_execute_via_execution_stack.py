@@ -44,6 +44,22 @@ class _ExecutionStack:
         return next(self._results)
 
 
+class _SingleResultExecutionStack:
+    """Return one terminal result, whatever it is, on the first poll."""
+
+    def __init__(self, result):
+        self._result = result
+
+    def put(self, kernel_id, code, metadata):
+        return "request-id"
+
+    def get(self, kernel_id, request_id):
+        return self._result
+
+    def cancel(self, kernel_id):
+        pass
+
+
 class _Extension:
     def __init__(self, execution_stack):
         self._Extension__execution_stack = execution_stack
@@ -77,3 +93,74 @@ async def test_rich_pending_snapshots_are_not_treated_as_completion():
     assert all("partial" not in str(output) for output in outputs)
     assert raw_outputs == [{"output_type": "stream", "name": "stdout", "text": "complete\n"}]
     assert execution_counts == [1]
+
+
+@pytest.mark.asyncio
+async def test_string_shaped_error_keeps_its_message():
+    # jupyter-server-nbmodel writes a request-level failure as a plain string,
+    # which is the only shape it ever writes for the "error" key: a kernel it
+    # could not connect to, a superseded request, a cancelled request.
+    raw_outputs = []
+
+    outputs = await execute_via_execution_stack(
+        serverapp=_ServerApp(
+            _SingleResultExecutionStack(
+                {
+                    "error": "HTTP 404: Not Found (Kernel does not exist: kernel-id)",
+                    "pending": False,
+                    "request_status": "complete",
+                }
+            )
+        ),
+        kernel_id="kernel-id",
+        code="print('hi')",
+        poll_interval=0,
+        raw_outputs=raw_outputs,
+    )
+
+    assert outputs == [
+        "[ERROR: ExecutionError: HTTP 404: Not Found (Kernel does not exist: kernel-id)]"
+    ]
+    assert raw_outputs == [
+        {
+            "output_type": "error",
+            "ename": "ExecutionError",
+            "evalue": "HTTP 404: Not Found (Kernel does not exist: kernel-id)",
+            "traceback": [],
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_mapping_shaped_error_still_reports_ename_and_evalue():
+    raw_outputs = []
+
+    outputs = await execute_via_execution_stack(
+        serverapp=_ServerApp(
+            _SingleResultExecutionStack(
+                {
+                    "error": {
+                        "ename": "ZeroDivisionError",
+                        "evalue": "division by zero",
+                        "traceback": ["Traceback line"],
+                    },
+                    "pending": False,
+                    "request_status": "complete",
+                }
+            )
+        ),
+        kernel_id="kernel-id",
+        code="1/0",
+        poll_interval=0,
+        raw_outputs=raw_outputs,
+    )
+
+    assert outputs == ["[ERROR: ZeroDivisionError: division by zero]"]
+    assert raw_outputs == [
+        {
+            "output_type": "error",
+            "ename": "ZeroDivisionError",
+            "evalue": "division by zero",
+            "traceback": ["Traceback line"],
+        }
+    ]

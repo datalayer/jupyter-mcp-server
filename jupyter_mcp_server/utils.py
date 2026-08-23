@@ -1026,6 +1026,20 @@ async def execute_via_execution_stack(
                     # Check for errors
                     if "error" in result:
                         error_info = result["error"]
+                        if not isinstance(error_info, dict):
+                            # ExecutionStack reports a request-level failure as a
+                            # plain string: the kernel it could not connect to, a
+                            # request superseded by a newer one for the same cell,
+                            # a request cancelled after an earlier one failed. Only
+                            # an exception raised inside the kernel arrives as a
+                            # mapping with ename/evalue/traceback. Wrap the string
+                            # so the reason reaches the caller instead of being
+                            # lost to an attribute error on the lines below.
+                            error_info = {
+                                "ename": "ExecutionError",
+                                "evalue": str(error_info),
+                                "traceback": [],
+                            }
                         logger.error(f"Execution error: {error_info}")
                         error_output = [
                             f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"
