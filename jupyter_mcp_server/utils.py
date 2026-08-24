@@ -651,13 +651,44 @@ def start_code_sandbox(notebook_manager, config, logger):
         raise
 
 
+def code_sandbox_is_alive(code_sandbox: Any) -> bool:
+    """Whether `code_sandbox` can still run code.
+
+    `CodeSandboxClient.is_alive()` returns `is_started`, a flag set when this
+    process called `start()`, so it stays True after the kernel goes away on the
+    server side. For a Jupyter-backed sandbox the server's kernel list is the
+    authority, the same check `use_notebook` and `execute_code` already make
+    before they accept a caller-supplied kernel id.
+    """
+    if not hasattr(code_sandbox, "is_alive") or not code_sandbox.is_alive():
+        return False
+    if getattr(code_sandbox, "variant", None) != "jupyter-server":
+        return True
+
+    from jupyter_mcp_server.server_context import ServerContext
+
+    kernel_id = getattr(code_sandbox, "id", None)
+    sandbox_server_client = ServerContext.get_instance().sandbox_server_client
+    if not kernel_id or sandbox_server_client is None:
+        return True
+    try:
+        kernels = sandbox_server_client.kernels.list_kernels()
+    except Exception:
+        # A failed lookup says nothing about the kernel, so keep the sandbox
+        # rather than discarding a working one on a transient error.
+        return True
+    return any(kernel.id == kernel_id for kernel in kernels)
+
+
 def ensure_code_sandbox_alive(
     notebook_manager, current_notebook, create_code_sandbox_fn: Callable[[], CodeSandboxClient]
 ) -> CodeSandboxClient:
     """Ensure the notebook's code sandbox is running, restart if needed."""
     return cast(
         CodeSandboxClient,
-        notebook_manager.ensure_code_sandbox_alive(current_notebook, create_code_sandbox_fn),
+        notebook_manager.ensure_code_sandbox_alive(
+            current_notebook, create_code_sandbox_fn, is_alive_fn=code_sandbox_is_alive
+        ),
     )
 
 
