@@ -3,7 +3,7 @@
 # BSD 3-Clause License
 
 """
-Tests for read_cell and read_notebook tools' YDoc-first read path.
+Tests for YDoc-first reads and the non-collaborative file fallback path.
 
 Regression tests for #297: in JUPYTER_SERVER mode, read_cell/read_notebook
 unconditionally read the notebook file from disk, so a write that already
@@ -26,10 +26,14 @@ import pytest
 
 import jupyter_mcp_server.tools.read_cell_tool as read_cell_tool_module
 import jupyter_mcp_server.tools.read_notebook_tool as read_notebook_tool_module
+from jupyter_mcp_server.tools import (
+    overwrite_cell_source_tool as overwrite_cell_source_tool_module,
+)
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.read_cell_tool import ReadCellTool
 from jupyter_mcp_server.tools.read_notebook_tool import ReadNotebookTool
+from jupyter_mcp_server.tools.overwrite_cell_source_tool import OverwriteCellSourceTool
 
 
 def _write_notebook(path, sources):
@@ -159,6 +163,39 @@ class TestReadCellToolYDocFirst:
         )
 
         assert "FILE_SOURCE" in "\n".join(result)
+
+
+class TestCellMutationFileFallback:
+    """Exercise cell mutation against a notebook with no collaborative room."""
+
+    def setup_method(self):
+        self.tool = OverwriteCellSourceTool()
+
+    @pytest.mark.asyncio
+    async def test_overwrite_cell_updates_file_without_ydoc(self, tmp_path, monkeypatch):
+        notebook_path = tmp_path / "nb.ipynb"
+        _write_notebook(str(notebook_path), ["FILE_SOURCE"])
+        get_server_context().update(
+            context_type="JUPYTER_SERVER", serverapp=_FakeServerApp(str(tmp_path))
+        )
+        monkeypatch.setattr(
+            overwrite_cell_source_tool_module,
+            "get_notebook_model",
+            _fake_get_notebook_model(None),
+        )
+
+        result = await self.tool.execute(
+            mode=ServerMode.JUPYTER_SERVER,
+            contents_manager=_FileContentsManager(tmp_path),
+            notebook_manager=None,
+            cell_index=0,
+            cell_source="UPDATED_SOURCE",
+        )
+
+        assert "UPDATED_SOURCE" in result
+        with open(notebook_path, encoding="utf-8") as f:
+            notebook = nbformat.read(f, as_version=4)
+        assert notebook.cells[0].source == "UPDATED_SOURCE"
 
 
 class _FakeNotebookManager:
