@@ -187,9 +187,10 @@ class TestCellMutationFileFallback:
         result = await self.tool.execute(
             mode=ServerMode.JUPYTER_SERVER,
             contents_manager=_FileContentsManager(tmp_path),
-            notebook_manager=None,
+            notebook_manager=_FakeNotebookManager("nb", "nb.ipynb"),
             cell_index=0,
             cell_source="UPDATED_SOURCE",
+            notebook_name="nb",
         )
 
         assert "UPDATED_SOURCE" in result
@@ -211,6 +212,9 @@ class _FakeNotebookManager:
 
     def get_notebook_path(self, name):
         return self._path
+
+    def get_code_sandbox_id(self, name):
+        return None
 
 
 class TestReadNotebookToolYDocFirst:
