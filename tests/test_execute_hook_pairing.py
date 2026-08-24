@@ -19,7 +19,11 @@ import zmq.asyncio
 
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.otel_hook import create_otel_handler
-from jupyter_mcp_server.utils import execute_code_local, execute_via_execution_stack
+from jupyter_mcp_server.utils import (
+    MissingKernelError,
+    execute_code_local,
+    execute_via_execution_stack,
+)
 
 
 class RecordingHandler:
@@ -216,6 +220,28 @@ async def test_unexpected_error_after_submission_fires_after_execute(handler):
     assert outputs == ["[ERROR: stack blew up]"]
     after = assert_paired(handler)
     assert isinstance(after["error"], ValueError)
+
+
+@pytest.mark.asyncio
+async def test_missing_kernel_fires_after_execute_before_it_propagates(handler):
+    """The one request-level failure that leaves as an exception still owes its AFTER."""
+    stack = _ExecutionStack(
+        results=[
+            {
+                "error": "HTTP 404: Not Found (Kernel does not exist: kernel-1)",
+                "pending": False,
+                "request_status": "complete",
+            }
+        ]
+    )
+
+    with pytest.raises(MissingKernelError):
+        await execute_via_execution_stack(
+            serverapp=_ServerApp(stack), kernel_id="kernel-1", code="print(1)", poll_interval=0
+        )
+
+    after = assert_paired(handler)
+    assert isinstance(after["error"], MissingKernelError)
 
 
 @pytest.mark.asyncio

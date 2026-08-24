@@ -99,14 +99,16 @@ async def test_rich_pending_snapshots_are_not_treated_as_completion():
 async def test_string_shaped_error_keeps_its_message():
     # jupyter-server-nbmodel writes a request-level failure as a plain string,
     # which is the only shape it ever writes for the "error" key: a kernel it
-    # could not connect to, a superseded request, a cancelled request.
+    # could not connect to, a superseded request, a cancelled request. The
+    # missing-kernel one leaves as an exception instead, so execute_cell can
+    # retry it; see tests/test_execute_cell_dead_kernel_retry.py.
     raw_outputs = []
 
     outputs = await execute_via_execution_stack(
         serverapp=_ServerApp(
             _SingleResultExecutionStack(
                 {
-                    "error": "HTTP 404: Not Found (Kernel does not exist: kernel-id)",
+                    "error": "Request superseded by a newer execution for this cell",
                     "pending": False,
                     "request_status": "complete",
                 }
@@ -119,13 +121,13 @@ async def test_string_shaped_error_keeps_its_message():
     )
 
     assert outputs == [
-        "[ERROR: ExecutionError: HTTP 404: Not Found (Kernel does not exist: kernel-id)]"
+        "[ERROR: ExecutionError: Request superseded by a newer execution for this cell]"
     ]
     assert raw_outputs == [
         {
             "output_type": "error",
             "ename": "ExecutionError",
-            "evalue": "HTTP 404: Not Found (Kernel does not exist: kernel-id)",
+            "evalue": "Request superseded by a newer execution for this cell",
             "traceback": [],
         }
     ]
