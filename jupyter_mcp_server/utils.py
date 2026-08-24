@@ -897,6 +897,25 @@ async def safe_notebook_operation(operation_func, max_retries=3):
 ###############################################################################
 
 
+class MissingKernelError(RuntimeError):
+    """The kernel an execution request targeted no longer exists on the server.
+
+    Callers that can start a replacement kernel and retry need this failure as an
+    exception; every other request-level failure stays a formatted output.
+    """
+
+
+def is_missing_kernel_message(message: Any) -> bool:
+    """Whether *message* reads as the server reporting an unknown kernel.
+
+    ExecutionStack reports this as free text rather than a code, so this matches
+    the same two words ``execute_cell`` already looks for before it starts a
+    replacement kernel.
+    """
+    text = str(message).lower()
+    return "kernel" in text and "not found" in text
+
+
 async def execute_via_execution_stack(
     serverapp: Any,
     kernel_id: str,
@@ -944,6 +963,7 @@ async def execute_via_execution_stack(
     Raises:
         RuntimeError: If jupyter-server-nbmodel extension is not installed
         TimeoutError: If execution exceeds timeout
+        MissingKernelError: If the request failed because ``kernel_id`` is gone
     """
     import logging as default_logging
 
@@ -1041,6 +1061,13 @@ async def execute_via_execution_stack(
                                 "traceback": [],
                             }
                         logger.error(f"Execution error: {error_info}")
+                        if is_missing_kernel_message(error_info.get("evalue", "")):
+                            # execute_cell starts a replacement kernel and retries
+                            # once when this happens, and it looks for the failure
+                            # in an exception. Leave as one so that path can run;
+                            # the handler at the end of this function fires the
+                            # single AFTER_EXECUTE this execution owes and re-raises.
+                            raise MissingKernelError(error_info.get("evalue", ""))
                         error_output = [
                             f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"
                         ]
@@ -1175,6 +1202,8 @@ async def execute_via_execution_stack(
                 error=e,
                 context=hook_ctx,
             )
+        if isinstance(e, MissingKernelError):
+            raise
         return [f"[ERROR: {e!s}]"]
 
 
