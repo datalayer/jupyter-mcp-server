@@ -26,14 +26,14 @@ import pytest
 
 import jupyter_mcp_server.tools.read_cell_tool as read_cell_tool_module
 import jupyter_mcp_server.tools.read_notebook_tool as read_notebook_tool_module
+from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.tools import (
     overwrite_cell_source_tool as overwrite_cell_source_tool_module,
 )
-from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.tools._base import ServerMode
+from jupyter_mcp_server.tools.overwrite_cell_source_tool import OverwriteCellSourceTool
 from jupyter_mcp_server.tools.read_cell_tool import ReadCellTool
 from jupyter_mcp_server.tools.read_notebook_tool import ReadNotebookTool
-from jupyter_mcp_server.tools.overwrite_cell_source_tool import OverwriteCellSourceTool
 
 
 def _write_notebook(path, sources):
