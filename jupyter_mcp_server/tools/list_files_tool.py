@@ -119,7 +119,10 @@ async def _list_files_local(
         for item in model["content"]:
             item_path = item["path"]
             item_type = item["type"]
-            item_size = item.get("size", 0) if item_type == "file" else 0
+            # The contents API types a notebook as "notebook", not "file", and reports a
+            # size for both. Keying on the type discarded every notebook size; take any
+            # size the model carries, which leaves directories (size None) blank as before.
+            item_size = item.get("size") or 0
 
             # Format size
             size_str = format_size(item_size) if item_size else ""
