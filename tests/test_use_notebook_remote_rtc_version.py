@@ -21,6 +21,7 @@ from jupyter_mcp_server.config import reset_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.use_notebook_tool import (
+    _COLLABORATION_VERDICTS,
     COLLABORATION_EXTENSION,
     UseNotebookTool,
 )
@@ -84,8 +85,12 @@ def _extensions(collaboration_version):
 
 @pytest.fixture(autouse=True)
 def _reset_config():
+    # The verdict cache is process-wide, so every test starts from a cold one.
+    # Without this the first test to warn answers for all the later ones.
     reset_config()
+    _COLLABORATION_VERDICTS.clear()
     yield
+    _COLLABORATION_VERDICTS.clear()
     reset_config()
 
 
@@ -149,3 +154,30 @@ async def test_silent_when_collaboration_extension_is_absent():
     result = await _use_notebook(server_client)
 
     assert "[WARNING]" not in result
+
+
+@pytest.mark.asyncio
+async def test_extension_list_is_fetched_once_per_server():
+    """A second use_notebook against the same server reuses the first answer."""
+    server_client = FakeServerClient(extensions=_extensions(OLDER_VERSION))
+
+    first = await _use_notebook(server_client)
+    second = await _use_notebook(server_client)
+
+    probes = [path for method, path in server_client.http_client.requested]
+    assert probes.count("/lab/api/extensions") == 1
+    assert "[WARNING]" in first
+    assert "[WARNING]" in second
+
+
+@pytest.mark.asyncio
+async def test_failed_probe_is_retried_rather_than_cached():
+    """Silence from an unreachable server is not an answer, so it is not remembered."""
+    failing = FakeServerClient(error=RuntimeError("connection refused"))
+    assert "[WARNING]" not in await _use_notebook(failing)
+
+    recovered = FakeServerClient(extensions=_extensions(OLDER_VERSION))
+    result = await _use_notebook(recovered)
+
+    assert ("GET", "/lab/api/extensions") in recovered.http_client.requested
+    assert "[WARNING]" in result
