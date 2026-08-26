@@ -44,6 +44,11 @@ logger = logging.getLogger(__name__)
 DISCONNECT_TIMEOUT = 20
 
 
+def _code_sandbox_reports_alive(code_sandbox: Any) -> bool:
+    """Ask the sandbox object itself whether it is alive."""
+    return hasattr(code_sandbox, "is_alive") and bool(code_sandbox.is_alive())
+
+
 class NotebookConnection:
     """
     Context manager for Notebook connections that handles the lifecycle
@@ -370,7 +375,10 @@ class NotebookManager:
         return len(self._notebooks) == 0
 
     def ensure_code_sandbox_alive(
-        self, name: str, code_sandbox_factory: Callable[[], CodeSandboxClient]
+        self,
+        name: str,
+        code_sandbox_factory: Callable[[], CodeSandboxClient],
+        is_alive_fn: Callable[[Any], bool] | None = None,
     ) -> CodeSandboxClient:
         """
         Ensure a code sandbox is alive, create if necessary.
@@ -378,16 +386,17 @@ class NotebookManager:
         Args:
             name: Notebook identifier
             code_sandbox_factory: Function to create a new code sandbox
+            is_alive_fn: Liveness test for the tracked sandbox. Defaults to the
+                sandbox's own `is_alive()`, which reports whether this process
+                started it and not whether it still exists where it runs.
 
         Returns:
             The alive code sandbox instance
         """
         code_sandbox = self.get_code_sandbox(name)
-        if (
-            code_sandbox is None
-            or not hasattr(code_sandbox, "is_alive")
-            or not code_sandbox.is_alive()
-        ):
+        if is_alive_fn is None:
+            is_alive_fn = _code_sandbox_reports_alive
+        if code_sandbox is None or not is_alive_fn(code_sandbox):
             new_code_sandbox = code_sandbox_factory()
             if name in self._notebooks:
                 # Swap only the sandbox: a restart replaces the sandbox, never the
