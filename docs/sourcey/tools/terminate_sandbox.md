@@ -29,8 +29,8 @@ Terminate a launched code sandbox.
   "required": [
     "result"
   ],
-  "title": "terminate_sandboxOutput",
-  "type": "object"
+  "type": "object",
+  "title": "terminate_sandboxOutput"
 }
 ```
 

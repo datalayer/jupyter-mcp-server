@@ -38,8 +38,8 @@ then use detailed format with exact index and limit to get the detailed informat
   "required": [
     "result"
   ],
-  "title": "read_notebookOutput",
-  "type": "object"
+  "type": "object",
+  "title": "read_notebookOutput"
 }
 ```
 

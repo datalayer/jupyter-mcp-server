@@ -4,6 +4,70 @@
 
 See the latest release notes on the [GitHub Releases page](https://github.com/datalayer/jupyter-mcp-server/releases).
 
+## Jupyter MCP Server 2.0: Built on MCP 2
+
+Version 2.0.0 moves the server to the
+[MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) **2**, the SDK's
+first major release, and requires `mcp >= 2, < 3`. The major version bump is about
+that dependency: the server itself keeps its command line, its configuration, its
+tools and its behaviour.
+
+| Your `jupyter-mcp-server` | Install                 |
+| ------------------------- | ----------------------- |
+| **>= 2.0.0**              | `mcp >= 2` (automatic)  |
+| **< 2.0.0**               | `mcp < 2` (automatic)   |
+
+```bash
+# Move to 2.0
+pip install -U "jupyter-mcp-server>=2.0.0"
+
+# Stay on the 1.x line, for an environment that still needs mcp 1
+pip install "jupyter-mcp-server<2"
+```
+
+:::tip[Nothing changes for users and MCP clients]
+
+`jupyter-mcp-server start`, every option, every environment variable, the Jupyter
+Server extension and its `/mcp` endpoint, the 22 tools and the `jupyter_cite` prompt
+are all as they were. MCP clients keep connecting the same way: the protocol version
+is negotiated with each client, and older clients are still served. Tool errors still
+carry their reason — "notebook not connected", "cell index out of range" — rather than
+the generic `Error executing tool` message the new SDK would return on its own.
+
+:::
+
+### Who Is Affected
+
+- Anyone whose environment holds another package pinning `mcp<2`: `pip` will refuse
+  to install `jupyter-mcp-server>=2` next to it. Stay on `jupyter-mcp-server<2` until
+  that package moves.
+- Authors of [extensions](https://jupyter-mcp-server.datalayer.tech/architecture#extensions)
+  or custom token verifiers that import from the SDK directly, and anyone embedding
+  the server's `streamable_http_app()` in their own ASGI application.
+- Clients written on the SDK against the server's test helpers or wire models.
+
+### What Changed for Integrators
+
+| mcp 1                                                 | mcp 2                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| `from mcp.server.fastmcp import FastMCP, Context`     | `from mcp.server import MCPServer`, `from mcp.server.mcpserver import Context` |
+| `FastMCP(..., json_response=..., stateless_http=...)` | `MCPServer(...)`, transport options on `streamable_http_app(...)` |
+| `from mcp.server.fastmcp.prompts.base import UserMessage` | `from mcp.server.mcpserver import UserMessage`           |
+| `tool.inputSchema`, `content.mimeType`, `result.structuredContent` | `tool.input_schema`, `content.mime_type`, `result.structured_content` (`model_dump(by_alias=True)` for the wire form) |
+| `mcp.call_tool()` returns `(content, structured)`     | returns a `CallToolResult`                                   |
+| Clients pass an `httpx.AsyncClient`                   | Clients pass an `httpx2.AsyncClient`; `streamable_http_client()` yields two streams |
+| Exceptions raised in a tool reach the client as `Error executing tool <name>: <reason>` | The SDK sends only `Error executing tool <name>`; the server's `call_tool` override restores the reason, so **on this server the message is unchanged** |
+
+The SDK's own list is in its
+[migration guide](https://py.sdk.modelcontextprotocol.io/v2/migration/).
+
+### The pydantic-ai Example
+
+The `examples/cli` agent needs pydantic-ai **2.35** or later with its `mcp` extra on
+`fastmcp-slim` **4.x**, the line of fastmcp built on mcp 2 — see
+`examples/cli/requirements.txt`. That is the one place a fastmcp package is involved;
+the server itself is on the MCP SDK alone.
+
 ## Hot Fix: Pin `code-sandboxes` to Match Your Version
 
 The sandbox variant named `jupyter` was renamed to **`jupyter-server`** in

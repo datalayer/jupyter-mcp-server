@@ -41,8 +41,8 @@ Example usage:
   "required": [
     "result"
   ],
-  "title": "connect_to_jupyterOutput",
-  "type": "object"
+  "type": "object",
+  "title": "connect_to_jupyterOutput"
 }
 ```
 

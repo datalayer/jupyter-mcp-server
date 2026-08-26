@@ -35,8 +35,8 @@ prefer edit_cell_source instead — it is safer for partial edits.
   "required": [
     "result"
   ],
-  "title": "overwrite_cell_sourceOutput",
-  "type": "object"
+  "type": "object",
+  "title": "overwrite_cell_sourceOutput"
 }
 ```
 

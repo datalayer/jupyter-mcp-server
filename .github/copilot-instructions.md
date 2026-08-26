@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2024- Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Jupyter MCP Server
 
 **Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**

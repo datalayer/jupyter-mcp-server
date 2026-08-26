@@ -52,6 +52,7 @@ e2b = ["code-sandboxes[e2b]"]
 sandboxes = ["code-sandboxes[all]"]
 jupyterlab = ["jupyter-mcp-tools>=0.1.7"]
 test = [
+    "httpx2",
     "ipykernel",
     "jupyter_server>=1.6,<3",
     "pytest>=7.0",

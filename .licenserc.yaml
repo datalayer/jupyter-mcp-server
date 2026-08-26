@@ -8,6 +8,8 @@ header:
 
   paths-ignore:
     - '**/*.ipynb'
+    # Plain text has no comment syntax for a header (requirements files).
+    - '**/*.txt'
     - '**/*.json'
     - '**/*.yaml'
     - '**/*.yml'

@@ -24,6 +24,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
+from jupyter_mcp_server.__version__ import __version__
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
@@ -237,6 +238,7 @@ INSTRUCTIONS = (
 
 mcp = MCPServerWithCORS(
     name="Jupyter MCP Server",
+    version=__version__,
     instructions=INSTRUCTIONS,
 )
 notebook_manager = NotebookManager()

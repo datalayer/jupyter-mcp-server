@@ -27,8 +27,8 @@ This tool takes no parameters.
   "required": [
     "result"
   ],
-  "title": "list_notebooksOutput",
-  "type": "object"
+  "type": "object",
+  "title": "list_notebooksOutput"
 }
 ```
 

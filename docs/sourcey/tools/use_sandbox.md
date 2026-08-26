@@ -29,8 +29,8 @@ Select which launched sandbox execute_code should use instead of kernels.
   "required": [
     "result"
   ],
-  "title": "use_sandboxOutput",
-  "type": "object"
+  "type": "object",
+  "title": "use_sandboxOutput"
 }
 ```
 

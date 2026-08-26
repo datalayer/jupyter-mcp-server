@@ -31,8 +31,8 @@ activated notebook, without deleting the cell itself.
   "required": [
     "result"
   ],
-  "title": "clear_cell_outputOutput",
-  "type": "object"
+  "type": "object",
+  "title": "clear_cell_outputOutput"
 }
 ```
 

@@ -29,8 +29,8 @@ Restart the kernel for a specific notebook.
   "required": [
     "result"
   ],
-  "title": "restart_notebookOutput",
-  "type": "object"
+  "type": "object",
+  "title": "restart_notebookOutput"
 }
 ```
 

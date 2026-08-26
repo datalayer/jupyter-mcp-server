@@ -16,6 +16,7 @@ from typing import Any
 from jupyter_server.base.handlers import JupyterHandler
 from tornado.web import HTTPError
 
+from jupyter_mcp_server.__version__ import __version__
 from jupyter_mcp_server.identity import (
     identity_from_jupyter_user,
     reset_current_identity,
@@ -131,7 +132,7 @@ class MCPSSEHandler(JupyterHandler):
                     "result": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {"tools": {}, "prompts": {}, "resources": {}},
-                        "serverInfo": {"name": "Jupyter MCP Server", "version": "0.20.0"},
+                        "serverInfo": {"name": "Jupyter MCP Server", "version": __version__},
                     },
                 }
                 logger.info(f"Sending initialize response: {response}")

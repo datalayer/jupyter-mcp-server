@@ -40,8 +40,8 @@ source and construct an accurate old_string.
   "required": [
     "result"
   ],
-  "title": "edit_cell_sourceOutput",
-  "type": "object"
+  "type": "object",
+  "title": "edit_cell_sourceOutput"
 }
 ```
 

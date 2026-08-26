@@ -3,7 +3,7 @@
   "mcpVersion": "2025-11-25",
   "server": {
     "name": "Jupyter MCP Server",
-    "version": "1.29.1"
+    "version": "2.0.0"
   },
   "capabilities": {
     "experimental": {},
@@ -11,8 +11,8 @@
       "listChanged": false
     },
     "resources": {
-      "subscribe": false,
-      "listChanged": false
+      "listChanged": false,
+      "subscribe": false
     },
     "tools": {
       "listChanged": false
@@ -30,7 +30,10 @@
   },
   "tools": [
     {
-      "name": "list_files",
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "List Files"
+      },
       "description": "\nList all files and directories recursively in the Jupyter server's file system.\nUsed to explore the file system structure of the Jupyter server or to find specific files or directories.\n",
       "inputSchema": {
         "properties": {
@@ -69,9 +72,10 @@
             "type": "string"
           }
         },
-        "title": "list_filesArguments",
-        "type": "object"
+        "type": "object",
+        "title": "list_filesArguments"
       },
+      "name": "list_files",
       "outputSchema": {
         "properties": {
           "result": {
@@ -83,22 +87,22 @@
         "required": [
           "result"
         ],
-        "title": "list_filesOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "List Files",
-        "readOnlyHint": true
+        "type": "object",
+        "title": "list_filesOutput"
       }
     },
     {
-      "name": "list_kernels",
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "List Kernels"
+      },
       "description": "List all available kernels in the Jupyter server.\n\nThis tool shows all running and available kernel sessions on the Jupyter server,\nincluding their IDs, names, states, connection information, and kernel specifications.\nUseful for monitoring kernel resources and identifying specific kernels for connection.\n",
       "inputSchema": {
         "properties": {},
-        "title": "list_kernelsArguments",
-        "type": "object"
+        "type": "object",
+        "title": "list_kernelsArguments"
       },
+      "name": "list_kernels",
       "outputSchema": {
         "properties": {
           "result": {
@@ -110,16 +114,15 @@
         "required": [
           "result"
         ],
-        "title": "list_kernelsOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "List Kernels",
-        "readOnlyHint": true
+        "type": "object",
+        "title": "list_kernelsOutput"
       }
     },
     {
-      "name": "use_notebook",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Use Notebook"
+      },
       "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n",
       "inputSchema": {
         "properties": {
@@ -154,9 +157,10 @@
           "notebook_name",
           "notebook_path"
         ],
-        "title": "use_notebookArguments",
-        "type": "object"
+        "type": "object",
+        "title": "use_notebookArguments"
       },
+      "name": "use_notebook",
       "outputSchema": {
         "properties": {
           "result": {
@@ -168,22 +172,22 @@
         "required": [
           "result"
         ],
-        "title": "use_notebookOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Use Notebook",
-        "destructiveHint": true
+        "type": "object",
+        "title": "use_notebookOutput"
       }
     },
     {
-      "name": "list_notebooks",
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "List Notebooks"
+      },
       "description": "List all notebooks that have been used via use_notebook tool",
       "inputSchema": {
         "properties": {},
-        "title": "list_notebooksArguments",
-        "type": "object"
+        "type": "object",
+        "title": "list_notebooksArguments"
       },
+      "name": "list_notebooks",
       "outputSchema": {
         "properties": {
           "result": {
@@ -195,16 +199,15 @@
         "required": [
           "result"
         ],
-        "title": "list_notebooksOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "List Notebooks",
-        "readOnlyHint": true
+        "type": "object",
+        "title": "list_notebooksOutput"
       }
     },
     {
-      "name": "restart_notebook",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Restart Notebook"
+      },
       "description": "Restart the kernel for a specific notebook.",
       "inputSchema": {
         "properties": {
@@ -217,9 +220,10 @@
         "required": [
           "notebook_name"
         ],
-        "title": "restart_notebookArguments",
-        "type": "object"
+        "type": "object",
+        "title": "restart_notebookArguments"
       },
+      "name": "restart_notebook",
       "outputSchema": {
         "properties": {
           "result": {
@@ -231,16 +235,15 @@
         "required": [
           "result"
         ],
-        "title": "restart_notebookOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Restart Notebook",
-        "destructiveHint": true
+        "type": "object",
+        "title": "restart_notebookOutput"
       }
     },
     {
-      "name": "unuse_notebook",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Unuse Notebook"
+      },
       "description": "Unuse from a specific notebook and release its resources.",
       "inputSchema": {
         "properties": {
@@ -253,9 +256,10 @@
         "required": [
           "notebook_name"
         ],
-        "title": "unuse_notebookArguments",
-        "type": "object"
+        "type": "object",
+        "title": "unuse_notebookArguments"
       },
+      "name": "unuse_notebook",
       "outputSchema": {
         "properties": {
           "result": {
@@ -267,16 +271,15 @@
         "required": [
           "result"
         ],
-        "title": "unuse_notebookOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Unuse Notebook",
-        "destructiveHint": true
+        "type": "object",
+        "title": "unuse_notebookOutput"
       }
     },
     {
-      "name": "read_notebook",
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "Read Notebook"
+      },
       "description": "Read a notebook and return index, source content, type, execution count of each cell.\n\nUsing brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.\nUsing detailed format to get detailed information of the notebook and it's useful for debugging and analysis.\n\nIt is recommended to use brief format with larger limit to get a overview of the notebook structure,\nthen use detailed format with exact index and limit to get the detailed information of some specific cells.\n",
       "inputSchema": {
         "properties": {
@@ -313,9 +316,10 @@
         "required": [
           "notebook_name"
         ],
-        "title": "read_notebookArguments",
-        "type": "object"
+        "type": "object",
+        "title": "read_notebookArguments"
       },
+      "name": "read_notebook",
       "outputSchema": {
         "properties": {
           "result": {
@@ -327,16 +331,15 @@
         "required": [
           "result"
         ],
-        "title": "read_notebookOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Read Notebook",
-        "readOnlyHint": true
+        "type": "object",
+        "title": "read_notebookOutput"
       }
     },
     {
-      "name": "insert_cell",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Insert Cell"
+      },
       "description": "Insert a cell to specified position from the currently activated notebook.",
       "inputSchema": {
         "properties": {
@@ -379,9 +382,10 @@
           "cell_type",
           "cell_source"
         ],
-        "title": "insert_cellArguments",
-        "type": "object"
+        "type": "object",
+        "title": "insert_cellArguments"
       },
+      "name": "insert_cell",
       "outputSchema": {
         "properties": {
           "result": {
@@ -393,16 +397,15 @@
         "required": [
           "result"
         ],
-        "title": "insert_cellOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Insert Cell",
-        "destructiveHint": true
+        "type": "object",
+        "title": "insert_cellOutput"
       }
     },
     {
-      "name": "overwrite_cell_source",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Overwrite Cell Source"
+      },
       "description": "Replace the entire source of a cell in the currently activated notebook.\nReturns a diff showing the changes made.\n\nUse this when rewriting a cell completely. For small, targeted changes,\nprefer edit_cell_source instead — it is safer for partial edits.",
       "inputSchema": {
         "properties": {
@@ -435,9 +438,10 @@
           "cell_index",
           "cell_source"
         ],
-        "title": "overwrite_cell_sourceArguments",
-        "type": "object"
+        "type": "object",
+        "title": "overwrite_cell_sourceArguments"
       },
+      "name": "overwrite_cell_source",
       "outputSchema": {
         "properties": {
           "result": {
@@ -449,16 +453,15 @@
         "required": [
           "result"
         ],
-        "title": "overwrite_cell_sourceOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Overwrite Cell Source",
-        "destructiveHint": true
+        "type": "object",
+        "title": "overwrite_cell_sourceOutput"
       }
     },
     {
-      "name": "edit_cell_source",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Edit Cell Source"
+      },
       "description": "Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).\nFinds `old_string` in the cell and replaces it with `new_string`. Matching is literal\n(not regex) and may span multiple lines. By default, `old_string` must appear exactly once;\nset `replace_all=True` for multiple occurrences. Returns a diff of the changes made.\n\nPrefer this over overwrite_cell_source for small, targeted edits — it is safer because\nunchanged parts of the cell are left untouched. Use read_cell first to see the current\nsource and construct an accurate old_string.",
       "inputSchema": {
         "properties": {
@@ -503,9 +506,10 @@
           "old_string",
           "new_string"
         ],
-        "title": "edit_cell_sourceArguments",
-        "type": "object"
+        "type": "object",
+        "title": "edit_cell_sourceArguments"
       },
+      "name": "edit_cell_source",
       "outputSchema": {
         "properties": {
           "result": {
@@ -517,16 +521,15 @@
         "required": [
           "result"
         ],
-        "title": "edit_cell_sourceOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Edit Cell Source",
-        "destructiveHint": true
+        "type": "object",
+        "title": "edit_cell_sourceOutput"
       }
     },
     {
-      "name": "execute_cell",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Execute Cell"
+      },
       "description": "Execute a cell from the currently activated notebook with timeout and return it's outputs",
       "inputSchema": {
         "properties": {
@@ -558,16 +561,16 @@
         "required": [
           "cell_index"
         ],
-        "title": "execute_cellArguments",
-        "type": "object"
+        "type": "object",
+        "title": "execute_cellArguments"
       },
-      "annotations": {
-        "title": "Execute Cell",
-        "destructiveHint": true
-      }
+      "name": "execute_cell"
     },
     {
-      "name": "insert_execute_code_cell",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Insert and Execute Code Cell"
+      },
       "description": "Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs\nIt is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time",
       "inputSchema": {
         "properties": {
@@ -605,16 +608,16 @@
           "cell_index",
           "cell_source"
         ],
-        "title": "insert_execute_code_cellArguments",
-        "type": "object"
+        "type": "object",
+        "title": "insert_execute_code_cellArguments"
       },
-      "annotations": {
-        "title": "Insert and Execute Code Cell",
-        "destructiveHint": true
-      }
+      "name": "insert_execute_code_cell"
     },
     {
-      "name": "read_cell",
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "Read Cell"
+      },
       "description": "Read a cell as readable text entries.\n\nIncludes metadata and source, plus optional formatted output text rather\nthan raw nbformat objects.\n",
       "inputSchema": {
         "properties": {
@@ -647,16 +650,16 @@
         "required": [
           "cell_index"
         ],
-        "title": "read_cellArguments",
-        "type": "object"
+        "type": "object",
+        "title": "read_cellArguments"
       },
-      "annotations": {
-        "title": "Read Cell",
-        "readOnlyHint": true
-      }
+      "name": "read_cell"
     },
     {
-      "name": "delete_cell",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Delete Cell"
+      },
       "description": "Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).",
       "inputSchema": {
         "properties": {
@@ -692,9 +695,10 @@
         "required": [
           "cell_indices"
         ],
-        "title": "delete_cellArguments",
-        "type": "object"
+        "type": "object",
+        "title": "delete_cellArguments"
       },
+      "name": "delete_cell",
       "outputSchema": {
         "properties": {
           "result": {
@@ -706,16 +710,15 @@
         "required": [
           "result"
         ],
-        "title": "delete_cellOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Delete Cell",
-        "destructiveHint": true
+        "type": "object",
+        "title": "delete_cellOutput"
       }
     },
     {
-      "name": "clear_cell_output",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Clear Cell Output"
+      },
       "description": "Clear the outputs and execution count of a single code cell in the currently\nactivated notebook, without deleting the cell itself.",
       "inputSchema": {
         "properties": {
@@ -742,9 +745,10 @@
         "required": [
           "cell_index"
         ],
-        "title": "clear_cell_outputArguments",
-        "type": "object"
+        "type": "object",
+        "title": "clear_cell_outputArguments"
       },
+      "name": "clear_cell_output",
       "outputSchema": {
         "properties": {
           "result": {
@@ -756,16 +760,15 @@
         "required": [
           "result"
         ],
-        "title": "clear_cell_outputOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Clear Cell Output",
-        "destructiveHint": true
+        "type": "object",
+        "title": "clear_cell_outputOutput"
       }
     },
     {
-      "name": "move_cell",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Move Cell"
+      },
       "description": "Move a cell from source_index to target_index within the currently activated notebook.\n\nThe cell is removed from source_index and placed at target_index. Cells in between shift\nto fill the gap. The cell's type, source, and outputs are preserved.\nExample: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].\n\nUse this tool instead of manually deleting and re-inserting a cell — it is atomic and\npreserves cell metadata. Use read_notebook first to see cell indices if needed.",
       "inputSchema": {
         "properties": {
@@ -799,9 +802,10 @@
           "source_index",
           "target_index"
         ],
-        "title": "move_cellArguments",
-        "type": "object"
+        "type": "object",
+        "title": "move_cellArguments"
       },
+      "name": "move_cell",
       "outputSchema": {
         "properties": {
           "result": {
@@ -813,16 +817,15 @@
         "required": [
           "result"
         ],
-        "title": "move_cellOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Move Cell",
-        "destructiveHint": true
+        "type": "object",
+        "title": "move_cellOutput"
       }
     },
     {
-      "name": "execute_code",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Execute Code"
+      },
       "description": "Execute code directly in a kernel (not saved to notebook).\n\nIf `use_sandbox` selected an active sandbox, this tool executes on that\nsandbox instead of a Jupyter kernel. This allows agents to switch between\nkernel-backed and sandbox-backed execution using the same execute_code API.\n\nTargets the current activated notebook's kernel by default. Pass kernel_id\nto execute in a specific kernel directly — including raw kernels with no\nnotebook attached.\n\nRecommended to use in following cases:\n1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)\n2. Performance profiling and debugging.\n3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)\n4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)\n5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)\n\nUnder no circumstances should you use this tool to:\n1. Import new modules or perform variable assignments that affect subsequent Notebook execution\n2. Execute dangerous code that may harm the Jupyter server or the user's data without permission\n",
       "inputSchema": {
         "properties": {
@@ -860,16 +863,16 @@
         "required": [
           "code"
         ],
-        "title": "execute_codeArguments",
-        "type": "object"
+        "type": "object",
+        "title": "execute_codeArguments"
       },
-      "annotations": {
-        "title": "Execute Code",
-        "destructiveHint": true
-      }
+      "name": "execute_code"
     },
     {
-      "name": "connect_to_jupyter",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Connect to Jupyter Server"
+      },
       "description": "Connect to a Jupyter server dynamically with URL and token.\n\nThis tool allows you to connect to different Jupyter servers without needing to\nrestart the MCP server or modify configuration files. Particularly useful when:\n- Working with multiple Jupyter servers with different ports/tokens\n- Jupyter server token changes dynamically\n- Need to switch between different Jupyter instances\n\nExample usage:\n- \"Connect to http://localhost:8888 with token abc123\"\n- \"Connect to http://localhost:8889 without authentication\"\n",
       "inputSchema": {
         "properties": {
@@ -901,9 +904,10 @@
         "required": [
           "jupyter_url"
         ],
-        "title": "connect_to_jupyterArguments",
-        "type": "object"
+        "type": "object",
+        "title": "connect_to_jupyterArguments"
       },
+      "name": "connect_to_jupyter",
       "outputSchema": {
         "properties": {
           "result": {
@@ -915,16 +919,15 @@
         "required": [
           "result"
         ],
-        "title": "connect_to_jupyterOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Connect to Jupyter Server",
-        "destructiveHint": true
+        "type": "object",
+        "title": "connect_to_jupyterOutput"
       }
     },
     {
-      "name": "launch_sandbox",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Launch Sandbox"
+      },
       "description": "Launch a code sandbox that can be used instead of Jupyter kernels.\n\nAfter launch, call use_sandbox to make execute_code run on this sandbox\n(as an alternative to notebook-bound kernel execution). Works in both\nMCP_SERVER and JUPYTER_SERVER modes.\n",
       "inputSchema": {
         "properties": {
@@ -1088,22 +1091,23 @@
         "required": [
           "sandbox_name"
         ],
-        "title": "launch_sandboxArguments",
-        "type": "object"
+        "type": "object",
+        "title": "launch_sandboxArguments"
       },
-      "annotations": {
-        "title": "Launch Sandbox",
-        "destructiveHint": true
-      }
+      "name": "launch_sandbox"
     },
     {
-      "name": "list_sandboxes",
+      "annotations": {
+        "readOnlyHint": true,
+        "title": "List Sandboxes"
+      },
       "description": "List launched code sandboxes that can be used as alternatives to kernels.",
       "inputSchema": {
         "properties": {},
-        "title": "list_sandboxesArguments",
-        "type": "object"
+        "type": "object",
+        "title": "list_sandboxesArguments"
       },
+      "name": "list_sandboxes",
       "outputSchema": {
         "properties": {
           "result": {
@@ -1119,16 +1123,15 @@
         "required": [
           "result"
         ],
-        "title": "list_sandboxesOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "List Sandboxes",
-        "readOnlyHint": true
+        "type": "object",
+        "title": "list_sandboxesOutput"
       }
     },
     {
-      "name": "use_sandbox",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Use Sandbox"
+      },
       "description": "Select which launched sandbox execute_code should use instead of kernels.",
       "inputSchema": {
         "properties": {
@@ -1146,9 +1149,10 @@
             "title": "Sandbox Name"
           }
         },
-        "title": "use_sandboxArguments",
-        "type": "object"
+        "type": "object",
+        "title": "use_sandboxArguments"
       },
+      "name": "use_sandbox",
       "outputSchema": {
         "properties": {
           "result": {
@@ -1160,16 +1164,15 @@
         "required": [
           "result"
         ],
-        "title": "use_sandboxOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Use Sandbox",
-        "destructiveHint": true
+        "type": "object",
+        "title": "use_sandboxOutput"
       }
     },
     {
-      "name": "terminate_sandbox",
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Terminate Sandbox"
+      },
       "description": "Terminate a launched code sandbox.",
       "inputSchema": {
         "properties": {
@@ -1182,9 +1185,10 @@
         "required": [
           "sandbox_name"
         ],
-        "title": "terminate_sandboxArguments",
-        "type": "object"
+        "type": "object",
+        "title": "terminate_sandboxArguments"
       },
+      "name": "terminate_sandbox",
       "outputSchema": {
         "properties": {
           "result": {
@@ -1196,36 +1200,32 @@
         "required": [
           "result"
         ],
-        "title": "terminate_sandboxOutput",
-        "type": "object"
-      },
-      "annotations": {
-        "title": "Terminate Sandbox",
-        "destructiveHint": true
+        "type": "object",
+        "title": "terminate_sandboxOutput"
       }
     }
   ],
   "prompts": [
     {
-      "name": "jupyter_cite",
-      "description": "\nLike @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.\n",
       "arguments": [
         {
-          "name": "prompt",
           "description": "User prompt for the cited cells",
+          "name": "prompt",
           "required": true
         },
         {
-          "name": "cell_indices",
           "description": "Cell indices to cite (0-based),supporting flexible range format, e.g., '0,1,2', '0-2' or '0-2,4'",
+          "name": "cell_indices",
           "required": true
         },
         {
-          "name": "notebook_name",
           "description": "Name of the notebook to cite cells from, default (empty) to current activated notebook",
+          "name": "notebook_name",
           "required": false
         }
-      ]
+      ],
+      "description": "\nLike @ or # in Coding IDE or CLI, cite specific cells from specified notebook and insert them into the prompt.\n",
+      "name": "jupyter_cite"
     }
   ],
   "description": "Read, edit and run Jupyter notebooks over MCP. Cells are addressed by index within a notebook opened with use_notebook, and execution happens on the server, so a long computation keeps running after the session ends."
