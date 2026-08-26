@@ -102,6 +102,12 @@ first execution with `Unknown sandbox variant: jupyter`.
 
 [![Built on MCP 2 in v2.0.0](https://img.shields.io/badge/%F0%9F%9A%80%20Built%20on%20MCP%202%20in-v2.0.0-1ABC9C?style=for-the-badge&labelColor=0B6E4F)](https://github.com/datalayer/jupyter-mcp-server/releases#release-v2.0.0)
 
+<div align="center">
+
+![Jupyter MCP Server 2](https://images.datalayer.io/marketing/jupyter-mcp-server/SvgJupyterMcp2.gif)
+
+</div>
+
 **Jupyter MCP Server 2 runs on the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) 2**
 (`mcp>=2,<3`), the SDK's first major release. Nothing changes in how you start or
 configure the server, in the tools, or for the MCP clients connecting to it — the protocol
