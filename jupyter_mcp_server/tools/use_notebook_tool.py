@@ -4,6 +4,7 @@
 
 """Use notebook tool implementation."""
 
+import importlib.metadata
 import inspect
 import logging
 from pathlib import Path
@@ -19,6 +20,64 @@ from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
 logger = logging.getLogger(__name__)
+
+COLLABORATION_EXTENSION = "jupyter-collaboration-extension"
+
+# Verdict per document server URL, so the extension list is fetched once rather
+# than on every use_notebook call. Only a verdict the probe actually reached is
+# stored: a server does not change its installed extensions while it runs, but a
+# probe that failed says nothing, and caching that silence would retire the
+# warning for the rest of the process over one timeout.
+_COLLABORATION_VERDICTS: dict[str, str | None] = {}
+
+
+def _major(version: str | None) -> int | None:
+    """Leading integer of a version string, or None when it does not start with one."""
+    head = str(version).split(".", 1)[0]
+    return int(head) if head.isdigit() else None
+
+
+def _outdated_collaboration_warning(
+    server_client: JupyterServerClient, server_url: str
+) -> str | None:
+    """Warn when the document server's collaboration stack predates ours.
+
+    Returns None when the remote is current or its version could not be read: a
+    probe that fails is not evidence of a match, so the caller stays silent
+    rather than reporting a healthy server.
+
+    The answer is cached under `server_url` after the first successful read. The
+    lookup and the store sit either side of a synchronous request, so no other
+    coroutine runs in between and a plain dict needs no lock here.
+    """
+    if server_url in _COLLABORATION_VERDICTS:
+        return _COLLABORATION_VERDICTS[server_url]
+    try:
+        local = importlib.metadata.version("jupyter-collaboration")
+        extensions = server_client.http_client.request(
+            "GET", "/lab/api/extensions", timeout=10
+        )
+        remote = next(
+            entry.get("installed_version")
+            for entry in extensions
+            if entry.get("name") == COLLABORATION_EXTENSION
+        )
+    except Exception as error:
+        logger.debug("Could not read the document server's collaboration version: %s", error)
+        return None
+    local_major, remote_major = _major(local), _major(remote)
+    if local_major is None or remote_major is None or remote_major >= local_major:
+        _COLLABORATION_VERDICTS[server_url] = None
+        return None
+    warning = (
+        f"[WARNING] The document server runs {COLLABORATION_EXTENSION} {remote}, older than "
+        f"this MCP server's jupyter-collaboration {local}. Cell metadata written in place is "
+        f"dropped before it reaches the saved notebook, so an executed cell loses its "
+        f"execution_count and the file stops validating against nbformat. "
+        f"See https://github.com/datalayer/jupyter-mcp-server/issues/263."
+    )
+    _COLLABORATION_VERDICTS[server_url] = warning
+    return warning
 
 
 class UseNotebookTool(BaseTool):
@@ -245,6 +304,20 @@ class UseNotebookTool(BaseTool):
             return error_msg
 
         info_list = []
+
+        # A pre-5 collaboration server applies an in-place scalar write to a cell
+        # as a deletion of that key, so execute_cell's execution_count never
+        # reaches the saved notebook and nbformat then rejects it.
+        if (
+            mode == ServerMode.MCP_SERVER
+            and document_server_client is not None
+            and config.document_provider == "jupyter"
+        ):
+            outdated = _outdated_collaboration_warning(
+                document_server_client, config.document_url or config.code_sandbox_url
+            )
+            if outdated is not None:
+                info_list.append(outdated)
 
         # Check if notebook already in notebook_manager (Cober all cases)
         if notebook_name in notebook_manager:
