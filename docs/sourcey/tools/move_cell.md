@@ -38,8 +38,8 @@ preserves cell metadata. Use read_notebook first to see cell indices if needed.
   "required": [
     "result"
   ],
-  "title": "move_cellOutput",
-  "type": "object"
+  "type": "object",
+  "title": "move_cellOutput"
 }
 ```
 

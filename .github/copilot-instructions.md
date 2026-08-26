@@ -1,3 +1,9 @@
+<!--
+  ~ Copyright (c) 2024- Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
 # Jupyter MCP Server
 
 **Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
@@ -182,7 +188,7 @@ docker run -i --rm \
 ### Key Directories
 
 - **`jupyter_mcp_server/`**: Main Python package
-  - `server.py`: Core MCP server implementation with FastMCP integration
+  - `server.py`: Core MCP server implementation with MCPServer integration
   - `models.py`: Pydantic data models for document and code sandbox handling
   - `utils.py`: Utility functions for output extraction and processing
   - `tests/`: Unit tests (internal package tests)

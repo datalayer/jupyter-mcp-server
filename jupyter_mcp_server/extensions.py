@@ -50,7 +50,7 @@ class JupyterMCPExtension:
         raise NotImplementedError
 
     def register_tools(self, mcp: Any) -> None:
-        """Register MCP tools on the given ``FastMCP`` instance.
+        """Register MCP tools on the given ``MCPServer`` instance.
 
         Called once during server startup, after the core tools are registered.
         """

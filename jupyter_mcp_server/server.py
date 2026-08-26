@@ -13,9 +13,10 @@ from urllib.parse import urlsplit
 
 from code_sandboxes import CodeSandboxClient
 from fastapi import Request
-from mcp.server import FastMCP
+from mcp.server import MCPServer
 from mcp.server.auth.provider import AccessToken
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
+from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.types import ImageContent, ToolAnnotations
 from pydantic import Field
 from starlette.applications import Starlette
@@ -23,6 +24,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
+from jupyter_mcp_server.__version__ import __version__
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
@@ -152,9 +154,34 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-class FastMCPWithCORS(FastMCP):
-    def streamable_http_app(self) -> Starlette:
+class MCPServerWithCORS(MCPServer):
+    async def call_tool(self, name, arguments, context=None):
+        """Call a tool, keeping the reason when it fails.
+
+        mcp 2 treats anything a tool raises other than ``ToolError`` as a crash
+        and tells the client only ``Error executing tool <name>``. The tools
+        here raise plain ``ValueError``/``RuntimeError`` carrying exactly what
+        the agent needs in order to recover — which notebook is not connected,
+        which index is out of range, what the kernel said — so that text is put
+        back, in the form mcp 1 used: ``Error executing tool <name>: <reason>``.
+        """
+        try:
+            return await super().call_tool(name, arguments, context)
+        except UnexpectedToolError as exc:
+            cause = exc.__cause__
+            logger.debug("Tool %r failed: %s", name, cause, exc_info=cause)
+            raise ToolError(f"{exc}: {cause}") from cause
+
+    def streamable_http_app(
+        self, *, json_response: bool = False, stateless_http: bool = True, **kwargs
+    ) -> Starlette:
         """Return StreamableHTTP server app with CORS and auth middleware.
+
+        The transport options were set on the server at construction in
+        mcp 1; mcp 2 takes them here. The defaults are what this server
+        needs: stateless, so that each request runs in its own context and
+        :class:`~jupyter_mcp_server.identity.IdentityMiddleware` sees the
+        caller of *that* request rather than whoever opened the session.
 
         See: https://github.com/modelcontextprotocol/python-sdk/issues/187
         """
@@ -162,7 +189,9 @@ class FastMCPWithCORS(FastMCP):
         # when _token_verifier is set, but NOT the AuthenticationMiddleware
         # that actually validates Bearer tokens — that requires settings.auth
         # which we don't use). Add it here directly.
-        app = super().streamable_http_app()
+        app = super().streamable_http_app(
+            json_response=json_response, stateless_http=stateless_http, **kwargs
+        )
 
         # Added first, so it ends up innermost: Starlette builds the stack with
         # the last added outermost, and this has to run *after* the
@@ -207,11 +236,10 @@ INSTRUCTIONS = (
     "server, so a long computation keeps running after this session ends."
 )
 
-mcp = FastMCPWithCORS(
+mcp = MCPServerWithCORS(
     name="Jupyter MCP Server",
+    version=__version__,
     instructions=INSTRUCTIONS,
-    json_response=False,
-    stateless_http=True,
 )
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
@@ -1231,7 +1259,7 @@ async def get_registered_tools():
     the tool registry without hardcoding tool names and parameters.
 
     For JUPYTER_SERVER mode, it queries the jupyter-mcp-tools extension.
-    For MCP_SERVER mode, it uses the local FastMCP registry.
+    For MCP_SERVER mode, it uses the local MCPServer registry.
 
     Returns:
         list: List of tool dictionaries with name, description, and inputSchema
@@ -1239,7 +1267,7 @@ async def get_registered_tools():
     context = ServerContext.get_instance()
     mode = context._mode
 
-    # For JUPYTER_SERVER mode, expose BOTH FastMCP tools AND jupyter-mcp-tools (when enabled)
+    # For JUPYTER_SERVER mode, expose BOTH MCPServer tools AND jupyter-mcp-tools (when enabled)
     if mode == ServerMode.JUPYTER_SERVER:
         all_tools = []
         jupyter_tool_names = set()
@@ -1349,7 +1377,7 @@ async def get_registered_tools():
 
             except Exception as e:
                 logger.error(f"Error querying jupyter-mcp-tools extension: {e}", exc_info=True)
-                # Continue to add FastMCP tools even if jupyter-mcp-tools fails
+                # Continue to add MCPServer tools even if jupyter-mcp-tools fails
         else:
             logger.info(
                 "Skipping jupyter-mcp-tools integration "
@@ -1357,10 +1385,10 @@ async def get_registered_tools():
                 f"allowed={allowed_jupyter_mcp_tools})"
             )
 
-        # Second, add FastMCP tools
+        # Second, add MCPServer tools
         try:
             tools_list = await mcp.list_tools()
-            logger.info(f"Retrieved {len(tools_list)} tools from FastMCP registry")
+            logger.info(f"Retrieved {len(tools_list)} tools from MCPServer registry")
 
             for tool in tools_list:
                 logger.info(f"Processing tool: {tool.name}, mode: {mode}")
@@ -1371,15 +1399,15 @@ async def get_registered_tools():
                     logger.info("Skipping connect_to_jupyter tool in JUPYTER_SERVER mode")
                     continue
 
-                # Add FastMCP tool
+                # Add MCPServer tool
                 tool_dict = {
                     "name": tool.name,
                     "description": tool.description,
                 }
 
                 # Extract parameter names from inputSchema
-                if hasattr(tool, "inputSchema") and tool.inputSchema:
-                    input_schema = tool.inputSchema
+                if tool.input_schema:
+                    input_schema = tool.input_schema
                     if "properties" in input_schema:
                         tool_dict["parameters"] = list(input_schema["properties"].keys())
                     else:
@@ -1393,16 +1421,16 @@ async def get_registered_tools():
                 all_tools.append(tool_dict)
 
             logger.info(
-                f"Added {len(all_tools) - len(jupyter_tool_names)} FastMCP tool(s), total: {len(all_tools)}"
+                f"Added {len(all_tools) - len(jupyter_tool_names)} MCPServer tool(s), total: {len(all_tools)}"
             )
 
         except Exception as e:
-            logger.error(f"Error retrieving FastMCP tools: {e}", exc_info=True)
+            logger.error(f"Error retrieving MCPServer tools: {e}", exc_info=True)
 
         return all_tools
 
-    # For MCP_SERVER mode, use local FastMCP registry
-    # Use FastMCP's list_tools method which returns Tool objects
+    # For MCP_SERVER mode, use local MCPServer registry
+    # Use MCPServer's list_tools method which returns Tool objects
     tools_list = await mcp.list_tools()
 
     tools = []
@@ -1413,8 +1441,8 @@ async def get_registered_tools():
         }
 
         # Extract parameter names from inputSchema
-        if hasattr(tool, "inputSchema") and tool.inputSchema:
-            input_schema = tool.inputSchema
+        if tool.input_schema:
+            input_schema = tool.input_schema
             if "properties" in input_schema:
                 tool_dict["parameters"] = list(input_schema["properties"].keys())
             else:
@@ -1426,8 +1454,8 @@ async def get_registered_tools():
             tool_dict["parameters"] = []
 
         # Include full outputSchema for MCP protocol compatibility
-        if hasattr(tool, "outputSchema") and tool.outputSchema:
-            tool_dict["outputSchema"] = tool.outputSchema
+        if tool.output_schema:
+            tool_dict["outputSchema"] = tool.output_schema
         else:
             tool_dict["outputSchema"] = []
 

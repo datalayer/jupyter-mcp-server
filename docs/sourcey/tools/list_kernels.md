@@ -31,8 +31,8 @@ This tool takes no parameters.
   "required": [
     "result"
   ],
-  "title": "list_kernelsOutput",
-  "type": "object"
+  "type": "object",
+  "title": "list_kernelsOutput"
 }
 ```
 

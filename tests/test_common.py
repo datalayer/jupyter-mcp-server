@@ -115,14 +115,14 @@ class MCPClient:
     async def __aenter__(self):
         """Initiate the session (enter session context)"""
         if self.token:
-            import httpx
+            import httpx2
 
-            self._http_client = httpx.AsyncClient(
+            self._http_client = httpx2.AsyncClient(
                 headers={"Authorization": f"Bearer {self.token}"},
-                timeout=httpx.Timeout(30, read=None),
+                timeout=httpx2.Timeout(30, read=None),
             )
         streams_context = streamable_http_client(self.url, http_client=self._http_client)
-        read_stream, write_stream, _ = await self._exit_stack.enter_async_context(streams_context)
+        read_stream, write_stream = await self._exit_stack.enter_async_context(streams_context)
         session_context = ClientSession(read_stream, write_stream)
         self._session = await self._exit_stack.enter_async_context(session_context)
         await self._session.initialize()
@@ -198,7 +198,7 @@ class MCPClient:
 
     def _get_structured_content_safe(self, result):
         """Safely get structured content with fallback to text content parsing"""
-        content = getattr(result, "structuredContent", None)
+        content = getattr(result, "structured_content", None)
         if content is None:
             # Try to extract from text content as fallback
             text_content = self._extract_text_content(result)
@@ -255,7 +255,7 @@ class MCPClient:
                                 {
                                     "type": "image",
                                     "data": item.data,
-                                    "mimeType": item.mimeType,
+                                    "mimeType": item.mime_type,
                                     "annotations": getattr(item, "annotations", None),
                                     "meta": getattr(item, "meta", None),
                                 }

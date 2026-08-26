@@ -31,8 +31,8 @@ Delete specific cells from the currently activated notebook and return the cell 
   "required": [
     "result"
   ],
-  "title": "delete_cellOutput",
-  "type": "object"
+  "type": "object",
+  "title": "delete_cellOutput"
 }
 ```
 

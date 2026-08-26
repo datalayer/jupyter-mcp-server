@@ -49,6 +49,11 @@ For local-only testing, `start-noauth` runs MCP with `--insecure-mcp-noauth`.
 make install
 ```
 
+This installs `jupyter-mcp-server` from this checkout and the example's own
+dependencies from `requirements.txt`: pydantic-ai 2.35 or later, whose MCP
+capability runs on fastmcp's client — fastmcp-slim 4.x, the line built on
+mcp 2 like the server, so both fit in one environment.
+
 ### 2. Run everything
 
 ```bash
@@ -154,7 +159,21 @@ The CLI targets export Bedrock credentials from these environment variables:
 ## Files
 
 - `Makefile`: installs dependencies and orchestrates startup
-- `agent.py`: pydantic-ai CLI connected to Jupyter MCP Server via `MCPToolset`
+- `agent.py`: pydantic-ai CLI connected to Jupyter MCP Server via its `MCP` capability
+- `requirements.txt`: the example's dependencies
+- `test_agent.py`, `conftest.py`: the example's tests, see below
+
+## Tests
+
+```bash
+make test
+```
+
+The tests start a JupyterLab and a Jupyter MCP Server the way `make start`
+does, and drive `agent.py` with pydantic-ai's test models in place of an LLM:
+they check that the agent connects, is offered the Jupyter tools, sends its
+bearer token, and that a scripted tool call runs on a real kernel. No API key
+is needed, so they also run in CI (`make test-examples` from the repository root).
 
 ## Useful Commands
 
@@ -163,5 +182,6 @@ make help
 make start
 make start-noauth
 make start-noauth-agent
+make test
 make clean
 ```

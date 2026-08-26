@@ -34,8 +34,8 @@ Used to explore the file system structure of the Jupyter server or to find speci
   "required": [
     "result"
   ],
-  "title": "list_filesOutput",
-  "type": "object"
+  "type": "object",
+  "title": "list_filesOutput"
 }
 ```
 

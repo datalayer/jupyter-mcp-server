@@ -100,6 +100,26 @@ first execution with `Unknown sandbox variant: jupyter`.
 
 ---
 
+[![Built on MCP 2 in v2.0.0](https://img.shields.io/badge/%F0%9F%9A%80%20Built%20on%20MCP%202%20in-v2.0.0-1ABC9C?style=for-the-badge&labelColor=0B6E4F)](https://github.com/datalayer/jupyter-mcp-server/releases#release-v2.0.0)
+
+**Jupyter MCP Server 2 runs on the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) 2**
+(`mcp>=2,<3`), the SDK's first major release. Nothing changes in how you start or
+configure the server, in the tools, or for the MCP clients connecting to it — the protocol
+is negotiated with each client as before. What changes is the Python environment:
+
+| Your `jupyter-mcp-server` | `mcp` SDK |
+| ------------------------- | --------- |
+| **>= 2.0.0**              | `mcp >= 2` |
+| **< 2.0.0**               | `mcp < 2`  |
+
+Both are pinned in the package, so `pip` sorts it out; an environment holding another
+package that still pins `mcp<2` has to stay on `jupyter-mcp-server<2` until that package
+moves. Writing an extension or a custom token verifier against the SDK? See the
+[release notes](https://jupyter-mcp-server.datalayer.tech/releases) for the renamed
+imports.
+
+---
+
 [![Renamed in v1.3.2](https://img.shields.io/badge/%F0%9F%94%84%20Renamed%20in-v1.3.2-D35400?style=for-the-badge&labelColor=7E3F14)](https://github.com/datalayer/jupyter-mcp-server/releases#release-v1.3.2)
 
 **`--provider` is now `--document-provider`** (env var `PROVIDER` → `DOCUMENT_PROVIDER`).

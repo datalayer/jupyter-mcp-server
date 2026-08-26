@@ -35,8 +35,8 @@ Reactivate previously activated notebook using same notebook_name and notebook_p
   "required": [
     "result"
   ],
-  "title": "use_notebookOutput",
-  "type": "object"
+  "type": "object",
+  "title": "use_notebookOutput"
 }
 ```
 

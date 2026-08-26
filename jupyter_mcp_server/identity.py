@@ -8,7 +8,7 @@ The server runs in two modes, and each authenticates through a different
 mechanism of the stack it is embedded in:
 
 ``MCP_SERVER``
-    A FastMCP application over streamable HTTP. The MCP SDK authenticates a
+    An ``MCPServer`` application over streamable HTTP. The MCP SDK authenticates a
     request with a *token verifier*: an object with
     ``async verify_token(token) -> AccessToken | None``. When one is set, the
     SDK installs its bearer-auth middleware and refuses anything unverified.
@@ -134,7 +134,7 @@ class TokenVerifier(Protocol):
     """What MCP_SERVER mode needs to authenticate a bearer token.
 
     The shape is the MCP SDK's, so anything satisfying it can be handed
-    straight to FastMCP.
+    straight to ``MCPServer``.
     """
 
     async def verify_token(self, token: str) -> AccessToken | None:

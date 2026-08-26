@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from jupyter_mcp_spaces import SpacesExtension
 from jupyter_mcp_spaces.extension import JUPYTER_ONLY_TOOLS
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 
 @pytest.fixture(autouse=True)
@@ -34,9 +34,9 @@ def _config(monkeypatch):
     reset_config()
 
 
-def _server_with_upstream_tools() -> FastMCP:
+def _server_with_upstream_tools() -> MCPServer:
     """A server carrying the tools the open source project registers."""
-    mcp = FastMCP("test")
+    mcp = MCPServer("test")
 
     @mcp.tool()
     def list_files() -> str:
@@ -61,7 +61,7 @@ def _server_with_upstream_tools() -> FastMCP:
     return mcp
 
 
-async def _names(mcp: FastMCP) -> list[str]:
+async def _names(mcp: MCPServer) -> list[str]:
     return [tool.name for tool in await mcp.list_tools()]
 
 
@@ -78,7 +78,7 @@ class TestTheToolList:
     async def test_list_notebooks_is_replaced_not_shadowed(self):
         """The failure this guards against is silent.
 
-        FastMCP warns "Tool already exists" and *keeps the original*, so a
+        MCPServer warns "Tool already exists" and *keeps the original*, so a
         replacement registered on a live name does nothing at all — the agent
         still gets the session registry, still reports no notebooks, and
         nothing in the logs says why.
@@ -115,7 +115,7 @@ class TestTheToolList:
 
     @pytest.mark.asyncio
     async def test_registering_twice_is_harmless(self):
-        # Removing a tool that is already gone raises in FastMCP, so a second
+        # Removing a tool that is already gone raises in MCPServer, so a second
         # pass must not take the server down.
         mcp = _server_with_upstream_tools()
         extension = SpacesExtension()
@@ -126,7 +126,7 @@ class TestTheToolList:
     @pytest.mark.asyncio
     async def test_a_server_without_those_tools_is_fine(self):
         # An upstream release may rename one. That must not stop startup.
-        mcp = FastMCP("bare")
+        mcp = MCPServer("bare")
         SpacesExtension().register_tools(mcp)
         assert "list_notebooks" in await _names(mcp)
 
@@ -241,14 +241,14 @@ class TestUseNotebookByName:
     @pytest.mark.asyncio
     async def test_a_display_name_becomes_a_uid(self, monkeypatch):
         called = {}
-        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        fn = self._wire(MCPServer("t"), monkeypatch, called)
         await fn(notebook_name="nb", notebook_path="Sales forecast")
         assert called["path"] == "ntb-2"
 
     @pytest.mark.asyncio
     async def test_the_file_name_works_too(self, monkeypatch):
         called = {}
-        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        fn = self._wire(MCPServer("t"), monkeypatch, called)
         await fn(notebook_name="nb", notebook_path="welcome_to_datalayer")
         assert called["path"] == "ntb-1"
 
@@ -256,14 +256,14 @@ class TestUseNotebookByName:
     async def test_a_uid_is_passed_straight_through(self, monkeypatch):
         # Already an identifier: resolving it again would be a wasted call.
         called = {}
-        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        fn = self._wire(MCPServer("t"), monkeypatch, called)
         await fn(notebook_name="nb", notebook_path="ntb-3")
         assert called["path"] == "ntb-3"
 
     @pytest.mark.asyncio
     async def test_an_ambiguous_name_asks_rather_than_opens(self, monkeypatch):
         called = {}
-        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        fn = self._wire(MCPServer("t"), monkeypatch, called)
         with pytest.raises(ValueError) as caught:
             await fn(notebook_name="nb", notebook_path="Sales")
         assert "2 notebooks match" in str(caught.value)
@@ -273,7 +273,7 @@ class TestUseNotebookByName:
     @pytest.mark.asyncio
     async def test_an_unknown_name_says_so(self, monkeypatch):
         called = {}
-        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        fn = self._wire(MCPServer("t"), monkeypatch, called)
         with pytest.raises(ValueError) as caught:
             await fn(notebook_name="nb", notebook_path="nothing like this")
         assert "list_notebooks" in str(caught.value)
@@ -283,6 +283,6 @@ class TestUseNotebookByName:
         # A notebook being created does not exist yet, so there is nothing to
         # match and the name given is the name wanted.
         called = {}
-        fn = self._wire(FastMCP("t"), monkeypatch, called)
+        fn = self._wire(MCPServer("t"), monkeypatch, called)
         await fn(notebook_name="nb", notebook_path="brand new.ipynb", mode="create")
         assert called["path"] == "brand new.ipynb"

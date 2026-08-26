@@ -8,7 +8,7 @@ from typing import Any
 
 from jupyter_core.utils import ensure_async
 from jupyter_server_client import JupyterServerClient
-from mcp.server.fastmcp.prompts.base import UserMessage
+from mcp.server.mcpserver import UserMessage
 
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager

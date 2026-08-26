@@ -364,7 +364,7 @@ def do_start(
     if transport == "stdio":
         mcp.run(transport="stdio")
     elif transport == "streamable-http":
-        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=port)  # noqa: S104
+        uvicorn.run(mcp.streamable_http_app(), host="0.0.0.0", port=port)  # noqa: S104
     else:
         raise Exception("Transport should be `stdio` or `streamable-http`.")
 
@@ -413,7 +413,7 @@ def extract_output(output: dict | Any) -> str | ImageContent:
         if "image/png" in data:
             if ALLOW_IMG_OUTPUT:
                 try:
-                    return ImageContent(type="image", data=data["image/png"], mimeType="image/png")
+                    return ImageContent(type="image", data=data["image/png"], mime_type="image/png")
                 except Exception:
                     # Fallback to text placeholder on error
                     return "[Image Output (PNG) - Error processing image]"

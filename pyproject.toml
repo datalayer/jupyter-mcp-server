@@ -28,7 +28,7 @@ dependencies = [
     "jupyter-server-client>=0.1.1",
     "jupyter_server>=2.10,<3",
     "jupyter-collaboration>=5",
-    "mcp[cli]>=1.10.1,<2",
+    "mcp[cli]>=2,<3",
     "pycrdt>=0.14.3",
     "pydantic",
     "uvicorn",
@@ -52,6 +52,7 @@ e2b = ["code-sandboxes[e2b]"]
 sandboxes = ["code-sandboxes[all]"]
 jupyterlab = ["jupyter-mcp-tools>=0.1.7"]
 test = [
+    "httpx2",
     "ipykernel",
     "jupyter_server>=1.6,<3",
     "pytest>=7.0",
@@ -145,3 +146,7 @@ ignore = [
 # The extensions under ext/ keep their tests beside them, and they are
 # tests like any other.
 "ext/*/tests/*" = ["S101", "S106", "RUF012"]
+# The examples carry their tests beside them too; the fixtures start real
+# servers with a fixed test token.
+"examples/*/test_*.py" = ["S101", "S105", "S106", "RUF012"]
+"examples/*/conftest.py" = ["S105", "S603"]

@@ -29,8 +29,8 @@ Unuse from a specific notebook and release its resources.
   "required": [
     "result"
   ],
-  "title": "unuse_notebookOutput",
-  "type": "object"
+  "type": "object",
+  "title": "unuse_notebookOutput"
 }
 ```
 

@@ -32,8 +32,8 @@ Insert a cell to specified position from the currently activated notebook.
   "required": [
     "result"
   ],
-  "title": "insert_cellOutput",
-  "type": "object"
+  "type": "object",
+  "title": "insert_cellOutput"
 }
 ```
 

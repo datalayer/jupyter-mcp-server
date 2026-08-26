@@ -6,7 +6,7 @@
 Tornado request handlers for the Jupyter MCP Server extension.
 
 This module provides handlers that bridge between Tornado (Jupyter Server) and
-FastMCP, managing the MCP protocol lifecycle and request proxying.
+MCPServer, managing the MCP protocol lifecycle and request proxying.
 """
 
 import json
@@ -16,6 +16,7 @@ from typing import Any
 from jupyter_server.base.handlers import JupyterHandler
 from tornado.web import HTTPError
 
+from jupyter_mcp_server.__version__ import __version__
 from jupyter_mcp_server.identity import (
     identity_from_jupyter_user,
     reset_current_identity,
@@ -25,7 +26,7 @@ from jupyter_mcp_server.jupyter_extension.backends.local_backend import LocalBac
 from jupyter_mcp_server.jupyter_extension.backends.remote_backend import RemoteBackend
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.server_context import ServerContext
-from jupyter_mcp_server.utils import clean_mcp_response, clean_mcp_response_content
+from jupyter_mcp_server.utils import clean_mcp_response
 
 logger = logging.getLogger(__name__)
 
@@ -131,20 +132,20 @@ class MCPSSEHandler(JupyterHandler):
                     "result": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {"tools": {}, "prompts": {}, "resources": {}},
-                        "serverInfo": {"name": "Jupyter MCP Server", "version": "0.20.0"},
+                        "serverInfo": {"name": "Jupyter MCP Server", "version": __version__},
                     },
                 }
                 logger.info(f"Sending initialize response: {response}")
             elif method == "tools/list":
-                # List available tools from FastMCP and jupyter_mcp_tools
+                # List available tools from MCPServer and jupyter_mcp_tools
                 from jupyter_mcp_server.server import mcp
 
-                logger.info("Listing tools from FastMCP and jupyter_mcp_tools...")
+                logger.info("Listing tools from MCPServer and jupyter_mcp_tools...")
 
                 try:
-                    # Get FastMCP tools first
+                    # Get MCPServer tools first
                     tools_list = await mcp.list_tools()
-                    logger.info(f"Got {len(tools_list)} tools from FastMCP")
+                    logger.info(f"Got {len(tools_list)} tools from MCPServer")
 
                     # Track jupyter_mcp_tools tool names
                     jupyter_tool_names = set()
@@ -242,12 +243,12 @@ class MCPSSEHandler(JupyterHandler):
                         )
 
                     except Exception as jupyter_error:
-                        # Log but don't fail - just return FastMCP tools
+                        # Log but don't fail - just return MCPServer tools
                         logger.warning(
                             f"Could not fetch tools from jupyter_mcp_tools: {jupyter_error}"
                         )
 
-                    # Convert FastMCP tools to MCP protocol format
+                    # Convert MCPServer tools to MCP protocol format
                     tools = []
                     for tool in tools_list:
                         # Skip connect_to_jupyter tool when running as Jupyter extension
@@ -267,7 +268,7 @@ class MCPSSEHandler(JupyterHandler):
                             {
                                 "name": tool.name,
                                 "description": tool.description,
-                                "inputSchema": tool.inputSchema,
+                                "inputSchema": tool.input_schema,
                             }
                         )
 
@@ -386,72 +387,24 @@ class MCPSSEHandler(JupyterHandler):
                                 "isError": True,
                             }
                     else:
-                        # Use FastMCP's call_tool method for regular tools
+                        # Use MCPServer's call_tool method for regular tools
                         logger.info(
-                            f"Routing {tool_name} to FastMCP (not in jupyter_mcp_tools cache)"
+                            f"Routing {tool_name} to MCPServer (not in jupyter_mcp_tools cache)"
                         )
                         result = await mcp.call_tool(tool_name, tool_arguments)
 
-                        # Handle tuple results from FastMCP
-                        if isinstance(result, tuple) and len(result) >= 1:
-                            # FastMCP returns (content_list, metadata_dict)
-                            content_list = result[0]
-                            if isinstance(content_list, list):
-                                # Serialize TextContent objects to dicts
-                                serialized_content = []
-                                for item in content_list:
-                                    if hasattr(item, "model_dump"):
-                                        serialized_item = clean_mcp_response_content(
-                                            item.model_dump()
-                                        )
-                                        serialized_content.append(serialized_item)
-                                    elif hasattr(item, "dict"):
-                                        serialized_item = clean_mcp_response_content(item.dict())
-                                        serialized_content.append(serialized_item)
-                                    elif isinstance(item, dict):
-                                        serialized_item = clean_mcp_response_content(item)
-                                        serialized_content.append(serialized_item)
-                                    else:
-                                        serialized_content.append(
-                                            {"type": "text", "text": str(item)}
-                                        )
-                                result_dict = {"content": serialized_content}
-                            else:
-                                result_dict = {"content": [{"type": "text", "text": str(result)}]}
-                        # Handle bare list results from FastMCP (structured_output=False)
-                        elif isinstance(result, list):
-                            serialized_content = []
-                            for item in result:
-                                if hasattr(item, "model_dump"):
-                                    serialized_item = clean_mcp_response_content(item.model_dump())
-                                    serialized_content.append(serialized_item)
-                                elif hasattr(item, "dict"):
-                                    serialized_item = clean_mcp_response_content(item.dict())
-                                    serialized_content.append(serialized_item)
-                                elif isinstance(item, dict):
-                                    serialized_item = clean_mcp_response_content(item)
-                                    serialized_content.append(serialized_item)
-                                else:
-                                    serialized_content.append({"type": "text", "text": str(item)})
-                            result_dict = {"content": serialized_content}
-                        # Convert result to dict - it's a CallToolResult with content list
-                        elif hasattr(result, "model_dump"):
-                            result_dict = clean_mcp_response(result.model_dump())
-                        elif hasattr(result, "dict"):
-                            result_dict = clean_mcp_response(result.dict())
-                        elif hasattr(result, "content"):
-                            # Extract content directly if it has a content attribute
-                            result_dict = {"content": result.content}
-                        else:
-                            # Last resort: check if it's already a string
-                            if isinstance(result, str):
-                                result_dict = {"content": [{"type": "text", "text": result}]}
-                            else:
-                                # If it's some other type, try to serialize it
-                                result_dict = {"content": [{"type": "text", "text": str(result)}]}
-                                logger.warning(
-                                    f"Used fallback str() conversion for type {type(result)}"
-                                )
+                        # A `CallToolResult`. Put it on the wire the way the SDK
+                        # does: camelCase keys, nothing null. `resultType` is
+                        # left out because it belongs to a newer protocol
+                        # revision than the one this handler announces.
+                        result_dict = clean_mcp_response(
+                            result.model_dump(
+                                by_alias=True,
+                                mode="json",
+                                exclude_none=True,
+                                exclude={"result_type"},
+                            )
+                        )
 
                     logger.info("Converted result to dict")
 

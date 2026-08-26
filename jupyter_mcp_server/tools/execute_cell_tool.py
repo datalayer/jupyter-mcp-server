@@ -157,7 +157,7 @@ class ExecuteCellTool(BaseTool):
                     cell.outputs.append(
                         nbformat.v4.new_output(
                             output_type="display_data",
-                            data={output.mimeType: output.data},
+                            data={output.mime_type: output.data},
                             metadata={},
                         )
                     )

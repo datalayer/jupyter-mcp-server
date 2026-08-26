@@ -36,6 +36,12 @@ test-extensions: ## run the unit tests of the extensions under ext/
 	@# These need no Jupyter server and take seconds.
 	pytest ext/sandboxes/tests ext/spaces/tests
 
+test-examples: ## run the tests of the examples under examples/
+	@# Each example has a test module beside it, driven by pydantic-ai's test
+	@# models, so no LLM credentials are needed. They need the example's own
+	@# dependencies: `pip install -r examples/cli/requirements.txt`.
+	pytest examples
+
 test-mcp-server: ## run the unit tests for mcp server
 	git checkout ./dev/content && \
 	TEST_MCP_SERVER=true \
