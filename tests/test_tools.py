@@ -777,9 +777,9 @@ def test_server_tool_registration():
 
         logging.info(f"Registered tools: {tool_names}")
 
-        # Check that FastMCP tools are always present
-        fastmcp_tools = [name for name in tool_names if not name.startswith("notebook_")]
-        assert len(fastmcp_tools) > 0, "FastMCP tools should always be present"
+        # Check that the tools registered on the MCPServer are always present
+        mcp_server_tools = [name for name in tool_names if not name.startswith("notebook_")]
+        assert len(mcp_server_tools) > 0, "MCPServer tools should always be present"
 
         logging.info("✅ Server tool registration test completed")
 

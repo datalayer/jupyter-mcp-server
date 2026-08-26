@@ -1,7 +1,7 @@
 """Map every MCP-registered name in the checkout to the file that defines it.
 
 Scans for @mcp.tool / @mcp.prompt decorators and takes the name of the first
-`def`/`async def` after each decorator (FastMCP registers under the function
+`def`/`async def` after each decorator (MCPServer registers under the function
 name when no name= override is given; this repo uses none). Output feeds
 build_pages.mjs so each generated page carries a source link.
 

@@ -92,7 +92,7 @@ class SpacesExtension(JupyterMCPExtension):
             return
 
         _remove(mcp, JUPYTER_ONLY_TOOLS)
-        # Removed before registering, not merely re-declared: FastMCP warns
+        # Removed before registering, not merely re-declared: MCPServer warns
         # "Tool already exists" and *keeps the original*, so a replacement
         # registered on top of a live name silently does nothing.
         _remove(mcp, ("list_notebooks",))

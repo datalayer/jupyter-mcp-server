@@ -182,7 +182,7 @@ docker run -i --rm \
 ### Key Directories
 
 - **`jupyter_mcp_server/`**: Main Python package
-  - `server.py`: Core MCP server implementation with FastMCP integration
+  - `server.py`: Core MCP server implementation with MCPServer integration
   - `models.py`: Pydantic data models for document and code sandbox handling
   - `utils.py`: Utility functions for output extraction and processing
   - `tests/`: Unit tests (internal package tests)

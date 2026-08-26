@@ -7,7 +7,7 @@
 
 SHELL := /bin/bash
 
-.PHONY: help install start start-noauth start-noauth-agent clean
+.PHONY: help install start start-noauth start-noauth-agent test clean
 
 JUPYTER_PORT ?= 8888
 MCP_PORT ?= 4040
@@ -36,6 +36,7 @@ help:
 	@echo "  start    - Start JupyterLab, MCP server, and pydantic-ai CLI"
 	@echo "  start-noauth - Start everything with --insecure-mcp-noauth (local dev only)"
 	@echo "  start-noauth-agent - Run only the CLI against an existing no-auth MCP endpoint"
+	@echo "  test     - Run the example's tests (no LLM credentials needed)"
 	@echo "  clean    - Remove local logs"
 	@echo ""
 	@echo "Important variables (override with VAR=value make start):"
@@ -49,7 +50,10 @@ help:
 
 install:
 	pip install -e ../..
-	pip install 'pydantic-ai[mcp]' jupyterlab jupyter-collaboration 'jupyter-mcp-tools' ipykernel
+	pip install -r requirements.txt
+
+test:
+	pytest -p no:cacheprovider .
 
 start:
 	@set -euo pipefail; \

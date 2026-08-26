@@ -1,0 +1,13 @@
+# The CLI example. `make install` installs these on top of jupyter-mcp-server
+# from this checkout (`pip install -e ../..`).
+#
+# pydantic-ai 2.35 or later, with `bedrock` for the default model and `mcp`
+# for its MCP capability. That capability's client is fastmcp's, and
+# fastmcp-slim 4.x is the line built on mcp 2 — the SDK the server is on —
+# so the two can share an environment.
+pydantic-ai[bedrock,mcp]>=2.35.0
+fastmcp-slim[client]>=4.0.0b1,<5
+jupyterlab
+jupyter-collaboration
+jupyter-mcp-tools
+ipykernel

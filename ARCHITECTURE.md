@@ -39,7 +39,7 @@ Both modes share the same tool implementations, with automatic backend selection
     │   Server Layer      │          │   Extension Context     │
     │  (server.py)        │          │  (context.py)           │
     │                     │          │                         │
-    │  - FastMCP Server   │          │  - ServerApp Access     │
+    │  - MCPServer Server   │          │  - ServerApp Access     │
     │  - Tool Wrappers    │          │  - Manager Access       │
     │  - Error Handling   │          │  - Backend Selection    │
     └──────────┬──────────┘          └──────────┬──────────────┘
@@ -137,13 +137,13 @@ Both modes share the same tool implementations, with automatic backend selection
 - **JUPYTER_SERVER**: When running as extension, serverapp available
 - **MCP_SERVER**: When running standalone, connects via HTTP
 
-### 4. FastMCP Server Layer (`server.py`)
+### 4. MCPServer Server Layer (`server.py`)
 
-**FastMCP Integration** - Core MCP protocol implementation:
+**MCPServer Integration** - Core MCP protocol implementation:
 
 ```python
 # Global MCP server instance with CORS support
-mcp = FastMCPWithCORS(name="Jupyter MCP Server", json_response=False, stateless_http=True)
+mcp = MCPServerWithCORS(name="Jupyter MCP Server", instructions=INSTRUCTIONS)
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 
@@ -165,7 +165,7 @@ async def list_files(path: str = "", max_depth: int = 1, ...) -> str:
 
 **Key Responsibilities**:
 
-- **Tool Registration**: All 14 MCP tools are registered as FastMCP decorators
+- **Tool Registration**: All 14 MCP tools are registered as MCPServer decorators
 - **Mode Detection**: Automatically detects and initializes appropriate server mode
 - **Error Handling**: Provides `safe_notebook_operation()` wrapper with retry logic
 - **Resource Management**: Manages notebook connections and kernel lifecycle
@@ -220,10 +220,10 @@ class InsertExecuteCodeCellTool(BaseTool): # Combined insert+execute
 
 **Dynamic Tool Registry** (`get_registered_tools()`):
 
-- Queries FastMCP's `list_tools()` to get all registered tools
+- Queries MCPServer's `list_tools()` to get all registered tools
 - Returns tool metadata (name, description, parameters, inputSchema)
 - Used by Jupyter extension to expose tools without hardcoding
-- Supports both FastMCP tools and jupyter-mcp-tools integration
+- Supports both MCPServer tools and jupyter-mcp-tools integration
 
 ### 6. Jupyter Extension Layer (`jupyter_extension/`)
 
@@ -391,7 +391,7 @@ c.JupyterMCPServerExtensionApp.code_sandbox_url = "local"
 MCP Client
   → POST /mcp/tools/call {"tool_name": "list_notebooks"}
     → MCPSSEHandler (or MCPToolsCallHandler)
-      → FastMCP calls @mcp.tool() wrapper
+      → MCPServer calls @mcp.tool() wrapper
         → ListNotebooksTool().execute(
             mode=JUPYTER_SERVER,
             notebook_manager=notebook_manager
@@ -411,7 +411,7 @@ MCP Client
 MCP Client
   → POST /mcp/tools/call {"tool_name": "read_cell", "arguments": {"cell_index": 0}}
     → MCPSSEHandler (or MCPToolsCallHandler)
-      → FastMCP calls @mcp.tool() wrapper
+      → MCPServer calls @mcp.tool() wrapper
         → ReadCellTool().execute(
             mode=JUPYTER_SERVER,
             contents_manager=serverapp.contents_manager,
@@ -434,7 +434,7 @@ MCP Client
 ```
 MCP Client
   → POST /mcp/tools/call {"tool_name": "execute_cell", "arguments": {"cell_index": 0}}
-    → FastMCP calls @mcp.tool() wrapper
+    → MCPServer calls @mcp.tool() wrapper
       → ExecuteCellTool().execute(
           mode=MCP_SERVER,
           notebook_manager=notebook_manager
@@ -460,13 +460,13 @@ MCP Client
    ↓
 3. ServerContext initialization with mode detection
    ↓
-4. FastMCP server initialization (server.py)
+4. MCPServer server initialization (server.py)
    ↓
 5. Tool instance creation (14 tool implementations)
    ↓
 6. @mcp.tool() wrapper registration
    ↓
-7. FastMCP internal tool registry
+7. MCPServer internal tool registry
    ↓
 8. Dynamic tool discovery via get_registered_tools()
    ↓
@@ -487,7 +487,7 @@ jupyter_mcp_server/
 │   ├── cli.py                  # Root app + entrypoint composition
 │   └── commands/               # Separated command handlers (serve/connect/stop)
 │
-├── server.py                   # 🔧 FastMCP Server Layer
+├── server.py                   # 🔧 MCPServer Server Layer
 │   ├── MCP protocol implementation
 │   ├── Tool registration (14 @mcp.tool decorators)
 │   ├── Error handling with safe_notebook_operation()
@@ -579,7 +579,7 @@ jupyter_mcp_server/
 
 - [MCP Specification](https://modelcontextprotocol.io/specification)
 - [Jupyter Server Extension Guide](https://jupyter-server.readthedocs.io/en/latest/developers/extensions.html)
-- [FastMCP Documentation](https://github.com/jlowin/fastmcp)
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
 - [Y.js Collaborative Editing](https://github.com/yjs/yjs)
 
 ______________________________________________________________________

@@ -57,3 +57,30 @@ jobs:
           make test-extensions
           make test-mcp-server
           make test-jupyter-server
+
+  test_examples:
+    # Each example carries its own tests, driven by pydantic-ai's test models
+    # in place of an LLM, so they need no credentials — only the example's
+    # dependencies and the servers it starts itself.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the examples
+        run: |
+          python -m pip install ".[test]"
+          python -m pip install -r examples/cli/requirements.txt
+
+      - name: Test the examples
+        run: make test-examples

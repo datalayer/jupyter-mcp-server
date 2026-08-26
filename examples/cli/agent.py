@@ -3,7 +3,12 @@
 #
 # BSD 3-Clause License
 
-"""Interactive pydantic-ai CLI connected to Jupyter MCP Server."""
+"""Interactive pydantic-ai CLI connected to Jupyter MCP Server.
+
+The agent reaches the server through pydantic-ai's ``MCP`` capability, whose
+client is fastmcp's; that needs fastmcp-slim 4.x, the line built on mcp 2 like
+the server (see ``requirements.txt``). Needs pydantic-ai >= 2.35.
+"""
 
 from __future__ import annotations
 
@@ -12,24 +17,19 @@ import os
 import sys
 
 import anyio
+from prompt_toolkit.formatted_text import ANSI
 from pydantic_ai import Agent
 from pydantic_ai._cli import (
-    CustomAutoSuggest,
-    FileHistory,
     PROMPT_HISTORY_FILENAME,
     PYDANTIC_AI_HOME,
+    CustomAutoSuggest,
+    FileHistory,
     PromptSession,
     ask_agent,
     handle_slash_command,
 )
-
-try:
-    # pydantic-ai >= 2.x MCP capability API
-    from pydantic_ai.capabilities.mcp import MCP as MCPCapability
-except ImportError:  # pragma: no cover - depends on installed pydantic-ai version
-    MCPCapability = None
-
-from prompt_toolkit.formatted_text import ANSI
+from pydantic_ai.capabilities.mcp import MCP
+from pydantic_ai.models import Model
 from rich.console import Console
 
 DEFAULT_MODEL = "bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0"
@@ -63,30 +63,25 @@ def build_cli_prog_name(
     return _fmt(base, variant)
 
 
-def create_agent(model: str, mcp_url: str, mcp_token: str) -> Agent:
-    headers = None
-    if mcp_token:
-        headers = {"Authorization": f"Bearer {mcp_token}"}
+def create_mcp_capability(mcp_url: str, mcp_token: str) -> MCP:
+    """The Jupyter MCP Server as a pydantic-ai capability.
 
+    The token travels as a bearer header on every request; without one (the
+    ``--insecure-mcp-noauth`` server) no header is sent at all.
+    """
+    headers = {"Authorization": f"Bearer {mcp_token}"} if mcp_token else None
+    return MCP(url=mcp_url, headers=headers)
+
+
+def create_agent(model: str | Model, mcp_url: str, mcp_token: str) -> Agent:
     system_prompt = (
         "You are a helpful assistant with access to Jupyter tools through MCP. "
         "Use tools when notebook state, files, code execution, or cell operations are needed."
     )
-
-    if MCPCapability is not None:
-        mcp_capability = MCPCapability(
-            url=mcp_url,
-            headers=headers,
-        )
-        return Agent(
-            model=model,
-            capabilities=[mcp_capability],
-            system_prompt=system_prompt,
-        )
-
-    raise ImportError(
-        "pydantic-ai 2.x MCP capability API not found. "
-        "Install/upgrade with MCP support, e.g. `pip install -U 'pydantic-ai[mcp]'`."
+    return Agent(
+        model=model,
+        capabilities=[create_mcp_capability(mcp_url, mcp_token)],
+        system_prompt=system_prompt,
     )
 
 
@@ -111,7 +106,9 @@ async def _run_colored_chat(agent: Agent, prog_name: str, prompt_label: str) -> 
     while True:
         try:
             auto_suggest = CustomAutoSuggest(["/markdown", "/multiline", "/exit", "/cp"])
-            text = await session.prompt_async(prompt, auto_suggest=auto_suggest, multiline=multiline)
+            text = await session.prompt_async(
+                prompt, auto_suggest=auto_suggest, multiline=multiline
+            )
         except (KeyboardInterrupt, EOFError):
             return 0
 
