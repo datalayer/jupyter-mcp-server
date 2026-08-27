@@ -157,6 +157,22 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
 
 
 class MCPServerWithCORS(MCPServer):
+    async def list_tools(self, *arguments, **keywords):
+        """The tools, in a deterministic order — by name.
+
+        Registration order is deterministic for one build and nothing more.
+        It moves when a tool is added, when one is moved in this file, and
+        now that extensions register after configuration rather than at
+        import, it moves depending on *when* an extension got its turn. A
+        client that caches a tool list and compares it then sees a change
+        that is not one, and re-reads a catalogue that did not move.
+
+        Sorting by name is stable across all of that, and the specification
+        recommends a deterministic order for exactly this reason.
+        """
+        listed = await super().list_tools(*arguments, **keywords)
+        return sorted(listed, key=lambda tool: tool.name)
+
     async def call_tool(self, name, arguments, context=None):
         """Call a tool, keeping the reason when it fails.
 
@@ -435,6 +451,8 @@ async def health_check(request: Request):
     annotations=ToolAnnotations(
         title="List Files",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("list_files")
@@ -481,6 +499,8 @@ async def list_files(
     annotations=ToolAnnotations(
         title="List Kernels",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("list_kernels")
@@ -516,6 +536,8 @@ async def list_kernels() -> (
     annotations=ToolAnnotations(
         title="Use Notebook",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("use_notebook")
@@ -575,6 +597,8 @@ async def use_notebook(
     annotations=ToolAnnotations(
         title="List Notebooks",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("list_notebooks")
@@ -593,6 +617,8 @@ async def list_notebooks() -> (
     annotations=ToolAnnotations(
         title="Restart Notebook",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
 @with_hooks("restart_notebook")
@@ -620,6 +646,8 @@ async def restart_notebook(
     annotations=ToolAnnotations(
         title="Unuse Notebook",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("unuse_notebook")
@@ -647,6 +675,8 @@ async def unuse_notebook(
     annotations=ToolAnnotations(
         title="Read Notebook",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("read_notebook")
@@ -695,6 +725,8 @@ async def read_notebook(
     annotations=ToolAnnotations(
         title="Insert Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
 @with_hooks("insert_cell")
@@ -736,6 +768,8 @@ async def insert_cell(
     annotations=ToolAnnotations(
         title="Overwrite Cell Source",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("overwrite_cell_source")
@@ -772,6 +806,8 @@ async def overwrite_cell_source(
     annotations=ToolAnnotations(
         title="Edit Cell Source",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
 async def edit_cell_source(
@@ -816,6 +852,8 @@ async def edit_cell_source(
     annotations=ToolAnnotations(
         title="Execute Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
     ),
     structured_output=False,
 )
@@ -869,6 +907,8 @@ async def execute_cell(
     annotations=ToolAnnotations(
         title="Insert and Execute Code Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
     ),
     structured_output=False,
 )
@@ -947,6 +987,8 @@ async def insert_execute_code_cell(
     annotations=ToolAnnotations(
         title="Read Cell",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
     structured_output=False,
 )
@@ -993,6 +1035,8 @@ async def read_cell(
     annotations=ToolAnnotations(
         title="Delete Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
 @with_hooks("delete_cell")
@@ -1034,6 +1078,8 @@ async def delete_cell(
     annotations=ToolAnnotations(
         title="Clear Cell Output",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("clear_cell_output")
@@ -1067,6 +1113,8 @@ async def clear_cell_output(
     annotations=ToolAnnotations(
         title="Move Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
 async def move_cell(
@@ -1109,6 +1157,8 @@ async def move_cell(
     annotations=ToolAnnotations(
         title="Execute Code",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
     ),
     structured_output=False,
 )
@@ -1198,6 +1248,8 @@ async def execute_code(
     annotations=ToolAnnotations(
         title="Connect to Jupyter Server",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
 @with_hooks("connect_to_jupyter")
