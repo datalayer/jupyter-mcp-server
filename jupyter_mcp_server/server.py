@@ -306,6 +306,14 @@ mcp = MCPServerWithCORS(
     name="Jupyter MCP Server",
     version=__version__,
     instructions=INSTRUCTIONS,
+    # No `middleware=` here on purpose. mcp 2 installs its own
+    # `OpenTelemetryMiddleware` by default, which is the span per inbound
+    # message — `tools/list`, `tools/call`, the `gen_ai.*` attributes, the
+    # client's `traceparent` continued. Passing one as well appends a second
+    # instance and every message is traced twice, which reads as double the
+    # traffic on every dashboard built from it. The hook-based OTel handler
+    # beside it traces what happens *inside* a call, which the protocol layer
+    # cannot see.
 )
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()

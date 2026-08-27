@@ -352,6 +352,14 @@ def do_start(
 
     maybe_register_otel(otel_file or None)
 
+    # Where this deployment sends its record of who asked for what. Nothing
+    # is registered unless JUPYTER_MCP_AUDIT_SINK_CLASS names something; a
+    # name that cannot be loaded stops the server rather than running without
+    # the auditing somebody deliberately configured.
+    from jupyter_mcp_server.audit import register_audit_sink
+
+    register_audit_sink()
+
     if transport == "streamable-http":
         # A deployment can supply its own verifier — an OAuth resource server,
         # a platform identity — by naming it in
