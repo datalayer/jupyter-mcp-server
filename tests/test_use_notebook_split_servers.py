@@ -62,7 +62,7 @@ class FakeServerClient:
         self.http_client = SimpleNamespace(session=SimpleNamespace(headers={}))
 
     def get_status(self):
-        return {"version": "2.0.0"}
+        return {"version": "2.1.0"}
 
 
 class FakeKernel:
