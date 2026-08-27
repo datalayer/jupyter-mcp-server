@@ -40,6 +40,15 @@ logger = logging.getLogger(__name__)
 AUDIENCE_ASSISTANT = "assistant"
 AUDIENCE_USER = "user"
 
+#: Where a result's cache hints live (SEP-2549). The protocol's namespace,
+#: not this server's: a client caches on the standard key or not at all.
+CACHE_META_KEY = "io.modelcontextprotocol/cache"
+
+#: Caching scopes. `session` is the same answer for everyone talking to this
+#: server; `private` is one caller's and must never be shared by a proxy.
+SCOPE_SESSION = "session"
+SCOPE_PRIVATE = "private"
+
 #: The namespace this server's own `_meta` keys live under. Namespaced because
 #: `_meta` is shared with the protocol and with every other extension: a bare
 #: `cell_id` would be a collision waiting to happen.
@@ -133,6 +142,8 @@ def answer(
     meta: dict[str, Any] | None = None,
     audience: Sequence[str] = (),
     priority: float | None = None,
+    ttl_ms: int | None = None,
+    cache_scope: str = SCOPE_PRIVATE,
 ) -> CallToolResult:
     """Build the one result shape from what a tool returned.
 
@@ -147,6 +158,13 @@ def answer(
         meta: Facts to attach beyond the ones the tool attached itself.
         audience: Who the content is for.
         priority: How important it is, 0 to 1.
+        ttl_ms: How long the answer is worth holding (SEP-2549). Only for a
+            tool whose answer is worth holding at all: an agent listing the
+            same notebooks four times while it works should not ask four
+            times, but a hint on an answer that moves is worse than none.
+        cache_scope: `private` unless the answer genuinely is the same for
+            every caller. A shared cache holding one person's notebooks for
+            another is the failure this exists to prevent.
     """
     annotations = _annotations(audience, priority)
     structured: dict[str, Any] = {"kind": kind}
@@ -161,6 +179,8 @@ def answer(
         structured["result"] = shaped
     collected = dict(_pending.get() or {})
     collected.update(meta or {})
+    if ttl_ms is not None:
+        collected[CACHE_META_KEY] = {"ttlMs": ttl_ms, "cacheScope": cache_scope}
     return CallToolResult(
         content=_content_of(value, annotations=annotations),
         structured_content=structured,
@@ -174,6 +194,8 @@ def structured(
     shape: Callable[[Any], Any] | None = None,
     audience: Sequence[str] = (),
     priority: float | None = None,
+    ttl_ms: int | None = None,
+    cache_scope: str = SCOPE_PRIVATE,
 ) -> Callable:
     """Wrap a tool so its answer comes back in the one shape.
 
@@ -196,7 +218,13 @@ def structured(
             try:
                 value = await function(*arguments, **keywords)
                 return answer(
-                    value, kind=kind, shape=shape, audience=audience, priority=priority
+                    value,
+                    kind=kind,
+                    shape=shape,
+                    audience=audience,
+                    priority=priority,
+                    ttl_ms=ttl_ms,
+                    cache_scope=cache_scope,
                 )
             finally:
                 _pending.reset(token)

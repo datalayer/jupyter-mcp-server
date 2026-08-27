@@ -503,7 +503,7 @@ async def health_check(request: Request):
     ),
     structured_output=False,
 )
-@structured("files.list", shape=_rows)
+@structured("files.list", shape=_rows, ttl_ms=30000)
 @with_hooks("list_files")
 async def list_files(
     path: Annotated[
@@ -553,7 +553,7 @@ async def list_files(
     ),
     structured_output=False,
 )
-@structured("kernels.list", shape=_rows)
+@structured("kernels.list", shape=_rows, ttl_ms=10000)
 @with_hooks("list_kernels")
 async def list_kernels() -> (
     Annotated[
@@ -655,7 +655,7 @@ async def use_notebook(
     ),
     structured_output=False,
 )
-@structured("notebooks.list", shape=_rows)
+@structured("notebooks.list", shape=_rows, ttl_ms=30000)
 @with_hooks("list_notebooks")
 async def list_notebooks() -> (
     Annotated[str, Field(description="TSV formatted table with notebook information")]

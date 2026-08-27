@@ -274,3 +274,51 @@ class TestEveryToolGoesThroughIt:
         assert shaped["result"] == ["before", "after"]
         assert [entry["type"] for entry in shaped["outputs"]] == ["text", "image", "text"]
         assert shaped["images"] == 1
+
+
+class TestCacheHints:
+    """How long an answer is worth holding, and who may hold it (SEP-2549)."""
+
+    def test_a_listing_says_how_long_it_is_worth_holding(self):
+        built = answer("x", kind="notebooks.list", ttl_ms=30_000)
+        assert built.meta[results.CACHE_META_KEY]["ttlMs"] == 30_000
+
+    def test_the_default_scope_is_private(self):
+        """A shared cache holding one person's notebooks for another is the
+        failure this exists to prevent, so the safe scope is the default and
+        a wider one has to be asked for."""
+        built = answer("x", kind="notebooks.list", ttl_ms=1000)
+        assert built.meta[results.CACHE_META_KEY]["cacheScope"] == results.SCOPE_PRIVATE
+
+    def test_no_hint_means_no_cache_block(self):
+        """A hint on an answer that moves is worse than no hint: the client
+        holds a stale one and has no way to know."""
+        assert answer("x", kind="cell.read").meta is None
+
+    def test_the_hint_travels_beside_a_tools_own_facts(self):
+        @structured("notebooks.list", ttl_ms=1000)
+        async def listing():
+            add_meta(notebook="nb")
+            return "x"
+
+        meta = asyncio.run(listing()).meta
+        assert meta[results.CACHE_META_KEY]["ttlMs"] == 1000
+        assert meta[meta_key("notebook")] == "nb"
+
+    def test_it_is_the_protocols_key_not_this_servers(self):
+        """A client caches on the standard key or not at all."""
+        assert results.CACHE_META_KEY == "io.modelcontextprotocol/cache"
+        assert not results.CACHE_META_KEY.startswith(results.META_NAMESPACE)
+
+    def test_only_listings_are_hinted(self):
+        """Reading a cell, executing code and every edit answer something
+        that has just moved or is about to. Hinting those would hand an agent
+        a stale notebook and no way to tell."""
+        import pathlib
+        import re
+
+        import jupyter_mcp_server.server as server_module
+
+        source = pathlib.Path(server_module.__file__).read_text()
+        hinted = set(re.findall(r'@structured\("([\w.]+)"[^)]*ttl_ms=', source))
+        assert hinted == {"files.list", "kernels.list", "notebooks.list"}, hinted
