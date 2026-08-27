@@ -1,0 +1,107 @@
+# Audit
+
+Jupyter MCP Server keeps no audit record of its own, and that is deliberate.
+
+A notebook on a laptop needs none. A hosted deployment needs a durable,
+queryable record with a retention policy. A regulated one needs it in a SIEM,
+in that SIEM's format, with that SIEM's guarantees. Building any one of those
+into the server would be wrong for the other two, and building all three would
+be three subsystems to maintain in a server whose job is notebooks.
+
+So there is a seam. You name a class; the server loads it, registers it, and
+sends it every tool call.
+
+## Turning it on
+
+```bash
+export JUPYTER_MCP_AUDIT_SINK_CLASS="my_package.audit:MySink"
+jupyter-mcp-server start
+```
+
+The class path is spelled `package.module:ClassName` or
+`package.module.ClassName` — the same two spellings
+[`JUPYTER_MCP_TOKEN_VERIFIER_CLASS`](/security/identity) accepts, so a
+deployment configuring both does not have to remember two conventions.
+
+Nothing is registered when the variable is unset. A laptop pays nothing.
+
+## Writing a sink
+
+A sink needs one method. Subclassing `AuditSink` is optional; the shape is
+not.
+
+```python
+import logging
+from jupyter_mcp_server.audit import AuditSink
+from jupyter_mcp_server.hooks import HookEvent
+
+
+class MySink(AuditSink):
+    async def on_event(self, event: HookEvent, **details) -> None:
+        if event is HookEvent.BEFORE_TOOL_CALL:
+            details["context"]["started_at"] = time.monotonic()
+            return
+        if event is HookEvent.AFTER_TOOL_CALL:
+            started = details["context"].get("started_at")
+            await write_somewhere(
+                tool=details.get("tool_name"),
+                arguments=details.get("arguments"),
+                error=details.get("error"),
+                seconds=None if started is None else time.monotonic() - started,
+            )
+```
+
+The events, and what each carries, are the
+[hook events](/operations/hooks#hook-events). A sink sees all of them, so it
+can record kernel executions and kernel lifecycle as well as tool calls.
+
+### The `context` is how you pair a before with an after
+
+Both halves of a call are handed the same `context` dictionary. It is where a
+start time, or the id you assigned to the call, belongs — there is no other
+way to join the two events.
+
+## What the server guarantees
+
+**A failing sink never fails the call it was describing.** An audit outage
+that took the server down with it would be an outage caused by the thing meant
+to make outages explicable. The sink is *wrapped* rather than trusted, so a
+sink that sets `propagate_errors = True` — the
+[hook registry's](/operations/hooks#handler-error-behavior) escape hatch for
+handlers that must be fatal — does not get it. Auditing is precisely the
+handler that must not be.
+
+**A failing sink is logged at `ERROR`, every time.** Not at `DEBUG`, where the
+optional hook handlers log. A silently dropped audit record is worse than a
+missing one: it looks exactly like nothing having happened, and nobody
+investigates a quiet log.
+
+```
+ERROR Audit sink my_package.audit:MySink failed on after_tool_call;
+      the call was not recorded
+```
+
+If you are aggregating logs, alert on that line. It is the only signal that
+your record has a hole in it.
+
+**A sink that cannot be loaded stops the server.** A misspelt class path, a
+module that will not import, a class with no `on_event` — each refuses at
+startup, naming the variable and the path. An operator who configured auditing
+and got a server that started without it has the worst of both outcomes: they
+believe calls are being recorded, and they are not.
+
+## Audit is not telemetry
+
+They answer different questions and have different rules, and sharing a
+transport does not make them one thing.
+
+| | Audit | [Observability](/operations/observability) |
+|---|---|---|
+| Answers | Who asked for what, and was it allowed | Why is it slow, what broke |
+| Retention | As long as the policy says | Short |
+| Completeness | A missing record is an incident | A dropped span is a gap |
+| Sampling | Never | Expected |
+
+Send them to different places. A sink that writes into a tracing backend
+inherits that backend's sampling and retention, and neither is what an audit
+record needs.
