@@ -11,8 +11,9 @@ server is required.
 """
 
 from types import SimpleNamespace
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.server_context import ServerContext

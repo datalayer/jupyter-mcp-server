@@ -97,7 +97,7 @@ class _Guarded:
     async def on_event(self, event: HookEvent, **details: Any) -> None:
         try:
             await self._sink.on_event(event, **details)
-        except Exception:  # noqa: BLE001 - the whole point of the wrapper
+        except Exception:  # the whole point of the wrapper
             logger.error(
                 "Audit sink %s failed on %s; the call was not recorded",
                 self._name,
@@ -142,5 +142,5 @@ def register_audit_sink() -> Any | None:
     if sink is None:
         return None
     HookRegistry.get_instance().register(sink)
-    logger.info("📋 Auditing tool calls through %s", sink._name)
+    logger.info("Auditing tool calls through %s", sink._name)
     return sink

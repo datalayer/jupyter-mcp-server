@@ -15,6 +15,11 @@ from code_sandboxes import CodeSandboxClient
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
+# The capability name is declared once, where the registry declares it: two
+# spellings would drift, and the one that drifted would silently govern
+# nothing.
+from jupyter_mcp_server.capabilities import KERNEL_AUTO_RESTART
+from jupyter_mcp_server.capabilities import enabled as capabilities_enabled
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 
@@ -699,9 +704,6 @@ def code_sandbox_is_alive(code_sandbox: Any) -> bool:
     return any(kernel.id == kernel_id for kernel in kernels)
 
 
-KERNEL_AUTO_RESTART = "kernel.auto-restart"
-
-
 class KernelGoneError(RuntimeError):
     """The kernel this notebook was using is gone, and nothing replaced it.
 
@@ -712,13 +714,6 @@ class KernelGoneError(RuntimeError):
     agent — believing in a session that no longer exists, and the next
     execution behaves as if there had never been one (#398).
     """
-
-
-def capability_enabled(name: str) -> bool:
-    """Whether a capability is on, imported late to avoid an import cycle."""
-    from jupyter_mcp_server.capabilities import enabled  # noqa: PLC0415
-
-    return enabled(name)
 
 
 def ensure_code_sandbox_alive(
@@ -741,7 +736,7 @@ def ensure_code_sandbox_alive(
             behind somebody's back.
     """
     if allow_restart is None:
-        allow_restart = capability_enabled(KERNEL_AUTO_RESTART)
+        allow_restart = capabilities_enabled(KERNEL_AUTO_RESTART)
     if not allow_restart:
         existing = notebook_manager.get_code_sandbox(current_notebook)
         if existing is not None and not code_sandbox_is_alive(existing):

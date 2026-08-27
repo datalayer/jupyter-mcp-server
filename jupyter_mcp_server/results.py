@@ -174,7 +174,7 @@ def answer(
     structured: dict[str, Any] = {"kind": kind}
     try:
         shaped = shape(value) if shape is not None else {"result": as_text(value)}
-    except Exception:  # noqa: BLE001 - a shaping bug must not lose the answer
+    except Exception:  # a shaping bug must not lose the answer
         logger.exception("Could not shape the result of %s; answering text only", kind)
         shaped = {"result": as_text(value)}
     if isinstance(shaped, dict):

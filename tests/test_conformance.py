@@ -55,7 +55,7 @@ def _all_scenarios() -> set[str]:
         return set()
     try:
         answer = subprocess.run([*runner, "list"], capture_output=True, text=True, timeout=120)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return set()
     return set(re.findall(r"^\s+-\s+([a-z0-9-]+)\s", answer.stdout, re.M))
 
@@ -77,7 +77,7 @@ def _available() -> bool:
         answer = subprocess.run(
             [*runner, "--version"], capture_output=True, text=True, timeout=120
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         return False
     return answer.returncode == 0
 

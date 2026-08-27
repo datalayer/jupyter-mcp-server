@@ -62,7 +62,7 @@ def _id_of(cell: Any) -> str:
     if callable(getter):
         try:
             return str(getter("id") or "")
-        except Exception:  # noqa: BLE001 - fall through to attribute access
+        except Exception:  # fall through to attribute access
             pass
     return str(getattr(cell, "id", "") or "")
 
@@ -146,7 +146,7 @@ async def resolve(
         )
     except UnknownCellId:
         raise
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         if cell_id is not None:
             # There is no index to fall back to that means anything, and
             # guessing one would edit an arbitrary cell.

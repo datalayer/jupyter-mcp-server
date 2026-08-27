@@ -18,17 +18,19 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.types import ImageContent, ToolAnnotations
-
-from jupyter_mcp_server.capabilities import CAPABILITIES_RESOURCE, get_capabilities
-from jupyter_mcp_server import cell_ids
-from jupyter_mcp_server.results import as_text, structured
 from pydantic import Field
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
+from jupyter_mcp_server import cell_ids
 from jupyter_mcp_server.__version__ import __version__
+from jupyter_mcp_server.capabilities import (
+    CAPABILITIES_RESOURCE,
+    capabilities_extension,
+    get_capabilities,
+)
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
@@ -37,6 +39,7 @@ from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.results import as_text, structured
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.tools import (
     ClearCellOutputTool,
@@ -306,6 +309,10 @@ mcp = MCPServerWithCORS(
     name="Jupyter MCP Server",
     version=__version__,
     instructions=INSTRUCTIONS,
+    # The capability registry, advertised where a client will find it
+    # rather than only at `capabilities://`, which a client has to know to
+    # ask for. See `jupyter_mcp_server.capabilities`.
+    extensions=[capabilities_extension()],
     # No `middleware=` here on purpose. mcp 2 installs its own
     # `OpenTelemetryMiddleware` by default, which is the span per inbound
     # message — `tools/list`, `tools/call`, the `gen_ai.*` attributes, the

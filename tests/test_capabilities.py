@@ -204,6 +204,26 @@ class TestAdvertising:
         assert [entry["name"] for entry in block["declared"]] == [KERNEL_AUTO_RESTART]
         assert block["declared"][0]["enabled"] is False
 
+    def test_the_registry_is_advertised_on_the_server(self):
+        """Not only readable at `capabilities://`, which a client has to know
+        to ask for. Advertised as an SDK extension it appears in the server's
+        own capabilities, where a client finds it without being told.
+
+        This is the gap a review caught: the extension id existed, the
+        docstrings said it was advertised, and nothing advertised it — so the
+        only way to the registry was a resource nobody would look for."""
+        from jupyter_mcp_server.server import mcp
+
+        advertised = {extension.identifier for extension in mcp._extensions}
+        assert CAPABILITIES_EXTENSION in advertised, sorted(advertised)
+
+    def test_what_is_advertised_is_what_the_registry_says(self):
+        """Two sources for one answer would drift, and the drifting one would
+        be the one a client reads."""
+        from jupyter_mcp_server.capabilities import capabilities_extension
+
+        assert capabilities_extension().settings() == get_capabilities().advertise()
+
     def test_the_extension_id_is_namespaced(self):
         """A bare `capabilities` key would collide with the protocol's own."""
         assert "/" in CAPABILITIES_EXTENSION

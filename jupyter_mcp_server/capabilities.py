@@ -39,8 +39,9 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
-from typing import Any, Iterable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -246,3 +247,27 @@ def reset_capabilities() -> CapabilityRegistry:
 def enabled(name: str) -> bool:
     """Whether this capability is on — what a tool calls."""
     return get_capabilities().enabled(name)
+
+
+def capabilities_extension() -> Any:
+    """The SDK extension that advertises this registry to a client.
+
+    Without it the registry is readable only by asking for the
+    ``capabilities://`` resource — which a client has to know to look for.
+    Advertised as an extension it appears in the server's own capabilities,
+    where a client discovers it without being told.
+
+    The settings are computed once, at construction, because that is when the
+    SDK reads them. A capability turned on later by an extension's
+    ``capabilities()`` will not appear here; the resource is the live answer
+    and says so.
+    """
+    from mcp.server.mcpserver import Extension
+
+    class CapabilitiesExtension(Extension):
+        identifier = CAPABILITIES_EXTENSION
+
+        def settings(self) -> dict[str, Any]:
+            return get_capabilities().advertise()
+
+    return CapabilitiesExtension()
