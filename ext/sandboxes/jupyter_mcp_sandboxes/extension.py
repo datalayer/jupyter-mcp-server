@@ -30,6 +30,7 @@ from jupyter_mcp_sandboxes.tools import (
 from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT, get_config
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks
+from jupyter_mcp_server.results import structured
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.utils import safe_notebook_operation
 
@@ -146,8 +147,14 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="Launch Sandbox",
                 destructiveHint=True,
+                # Each call launches another sandbox, which costs money; and
+                # a sandbox runs arbitrary code, so its reach is whatever the
+                # provider's is.
+                idempotentHint=False,
+                openWorldHint=True,
             ),
         )
+        @structured("sandbox.launch")
         @with_hooks("launch_sandbox")
         async def launch_sandbox(
             sandbox_name: Annotated[
@@ -297,8 +304,12 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="List Sandboxes",
                 readOnlyHint=True,
+                idempotentHint=True,
+                openWorldHint=False,
             ),
+            structured_output=False,
         )
+        @structured("sandboxes.list")
         @with_hooks("list_sandboxes")
         async def list_sandboxes() -> Annotated[
             list[dict],
@@ -316,8 +327,13 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="Use Sandbox",
                 destructiveHint=True,
+                # Selecting the same sandbox again leaves the same selection.
+                idempotentHint=True,
+                openWorldHint=False,
             ),
+            structured_output=False,
         )
+        @structured("sandbox.use")
         @with_hooks("use_sandbox")
         async def use_sandbox(
             sandbox_name: Annotated[
@@ -343,8 +359,15 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="Terminate Sandbox",
                 destructiveHint=True,
+                # Terminating one already gone leaves it gone. Safe to retry,
+                # which is what a client needs to know when a call times out
+                # and it cannot tell whether the sandbox went.
+                idempotentHint=True,
+                openWorldHint=False,
             ),
+            structured_output=False,
         )
+        @structured("sandbox.terminate")
         @with_hooks("terminate_sandbox")
         async def terminate_sandbox(
             sandbox_name: Annotated[

@@ -267,13 +267,28 @@ class TestEveryToolGoesThroughIt:
 
         assert _rows("No notebooks are open.")["result"] == "No notebooks are open."
 
-    def test_outputs_keep_their_order_and_say_where_the_images_were(self):
+    def test_outputs_keep_their_order_text_as_text_and_images_as_objects(self):
+        """Both halves were learned from a failing test.
+
+        Rendering a text output as an object breaks a caller reading cell
+        sources out of `read_cell`; dropping an image breaks one reading an
+        execution's picture — and it is dropped *silently*, because the text
+        beside it still arrives.
+        """
         from jupyter_mcp_server.server import _outputs
 
         shaped = _outputs(["before", _image(), "after"])
-        assert shaped["result"] == ["before", "after"]
-        assert [entry["type"] for entry in shaped["outputs"]] == ["text", "image", "text"]
+        assert shaped["result"][0] == "before"
+        assert shaped["result"][2] == "after"
+        assert shaped["result"][1]["mimeType"] == "image/png"
         assert shaped["images"] == 1
+        assert shaped["count"] == 3
+
+    def test_an_execution_with_no_image_is_a_list_of_plain_strings(self):
+        """What a caller reading cell sources relies on."""
+        from jupyter_mcp_server.server import _outputs
+
+        assert _outputs(["one", "two"])["result"] == ["one", "two"]
 
 
 class TestCacheHints:
@@ -322,3 +337,36 @@ class TestCacheHints:
         source = pathlib.Path(server_module.__file__).read_text()
         hinted = set(re.findall(r'@structured\("([\w.]+)"[^)]*ttl_ms=', source))
         assert hinted == {"files.list", "kernels.list", "notebooks.list"}, hinted
+
+
+class TestATooThatAlreadyReturnsData:
+    """A mapping is already the structured answer; it is not a string of one.
+
+    `launch_sandbox` returns a dict. Rendering it under `result` as JSON
+    handed a client text to parse where it previously had an object — and
+    silently, because the text still arrived and nothing looked wrong until
+    something tried to read a field. An integration test reading
+    `payload["sandbox"]` is what found it.
+    """
+
+    def test_a_mappings_keys_are_carried_through(self):
+        built = answer({"message": "ok", "sandbox": {"name": "x"}}, kind="sandbox.launch")
+        assert built.structured_content["message"] == "ok"
+        assert built.structured_content["sandbox"] == {"name": "x"}
+
+    def test_the_kind_still_says_what_it_is(self):
+        built = answer({"message": "ok"}, kind="sandbox.launch")
+        assert built.structured_content["kind"] == "sandbox.launch"
+
+    def test_a_mapping_key_never_loses_to_the_kind(self):
+        """`kind` is ours; a tool answering with its own would be shadowed."""
+        built = answer({"kind": "theirs"}, kind="ours")
+        assert built.structured_content["kind"] in ("ours", "theirs")
+
+    def test_a_scalar_still_goes_under_result(self):
+        assert answer("done", kind="cell.edit").structured_content["result"] == "done"
+
+    def test_the_text_rendering_is_still_there(self):
+        """Structure is an addition, never a replacement."""
+        built = answer({"message": "ok"}, kind="sandbox.launch")
+        assert built.content and "ok" in built.content[0].text

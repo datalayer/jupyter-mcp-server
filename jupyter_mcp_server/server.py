@@ -189,22 +189,26 @@ def _outputs(value):
     structured answer says one is there rather than trying to carry it twice.
     """
     blocks = value if isinstance(value, list) else [value]
+    # `result` is the answer in the form it has always had: the outputs in
+    # order, text as text and an image as its own object. Both halves matter
+    # and each was learned from a test. Rendering a text output as an object
+    # breaks a caller reading cell sources; dropping an image breaks one
+    # reading an execution's picture — and it is dropped silently, because
+    # the text beside it still arrives.
     outputs = []
-    texts = []
     images = 0
     for block in blocks:
         if isinstance(block, ImageContent):
             images += 1
-            outputs.append({"type": "image", "mimeType": getattr(block, "mimeType", "")})
+            outputs.append(block.model_dump(by_alias=True, exclude_none=True))
             continue
-        text = block if isinstance(block, str) else as_text(block)
-        texts.append(text)
-        outputs.append({"type": "text", "text": text})
-    # `result` is the answer in the form it has always had — the text
-    # outputs, in order. `outputs` is the same thing typed, and says where
-    # the images were; the images themselves stay in `content`, which is
-    # where a client can actually render them.
-    return {"result": texts, "outputs": outputs, "count": len(outputs), "images": images}
+        outputs.append(block if isinstance(block, str) else as_text(block))
+    return {
+        "result": outputs,
+        "outputs": outputs,
+        "count": len(outputs),
+        "images": images,
+    }
 
 
 class MCPServerWithCORS(MCPServer):

@@ -143,6 +143,18 @@ def test_a_replacement_kernel_starts_in_the_current_notebooks_directory(
     notebook_manager.set_current_notebook("demo")
     monkeypatch.setattr(server, "notebook_manager", notebook_manager)
 
-    getattr(server, "__ensure_code_sandbox_alive")()
+    # The replacement itself is what this test is about, so it asks for one.
+    # Starting a replacement behind somebody's back is off by default now
+    # (`kernel.auto-restart`), and a test of *where* a replacement lands
+    # should not depend on whether one happens automatically.
+    from jupyter_mcp_server.capabilities import KERNEL_AUTO_RESTART, get_capabilities
+
+    get_capabilities().set(KERNEL_AUTO_RESTART, True, source="test")
+    try:
+        getattr(server, "__ensure_code_sandbox_alive")()
+    finally:
+        from jupyter_mcp_server.capabilities import reset_capabilities
+
+        reset_capabilities()
 
     assert recorded_sandbox_kwargs["path"] == NB_PATH

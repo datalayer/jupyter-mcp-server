@@ -32,7 +32,7 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from functools import wraps
 from typing import Any
 
@@ -138,6 +138,23 @@ def _annotations(audience: Sequence[str], priority: float | None) -> Annotations
     )
 
 
+def _default_shape(value: Any) -> dict[str, Any]:
+    """The structured answer for a tool that did not ask for a particular one.
+
+    A tool already returning a mapping *is* the structured answer, and its
+    keys are carried through. Rendering it as a string under ``result`` would
+    hand a client JSON to parse where it previously had an object — a silent
+    break, because the text still arrives and nothing looks wrong until
+    something tries to read a field.
+
+    Anything else goes under ``result``, the key the SDK's own
+    ``wrap_output`` used for a scalar answer.
+    """
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {"result": as_text(value)}
+
+
 def answer(
     value: Any,
     *,
@@ -173,7 +190,7 @@ def answer(
     annotations = _annotations(audience, priority)
     structured: dict[str, Any] = {"kind": kind}
     try:
-        shaped = shape(value) if shape is not None else {"result": as_text(value)}
+        shaped = shape(value) if shape is not None else _default_shape(value)
     except Exception:  # a shaping bug must not lose the answer
         logger.exception("Could not shape the result of %s; answering text only", kind)
         shaped = {"result": as_text(value)}
