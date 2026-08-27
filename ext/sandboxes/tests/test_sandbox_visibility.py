@@ -66,3 +66,57 @@ class TestTheMessagesMatchTheRouting:
         # was unrelated and tried to attach sandboxes as kernel ids.
         assert "execute_cell" in reply
         assert "kernel_id" not in reply
+
+
+class TestTheToolSurfaceIsProviderNeutral:
+    """What the launch tool offers an agent, and what it deliberately does not.
+
+    This extension can launch on a dozen backends, and its tool says so. What
+    it must not carry is one provider's private plumbing: an argument that
+    means something for exactly one backend is an argument every agent using
+    every other backend has to read, understand and decline.
+
+    `run_url` was that. It overrode the Datalayer run URL, and an operator
+    pointing this server at Datalayer sets `--code-sandbox-url` instead —
+    which the kernel factory already reads. So it was a Datalayer-only knob in
+    a shared surface, redundant with configuration.
+    """
+
+    @staticmethod
+    def _launch_arguments() -> set[str]:
+        import inspect
+
+        from jupyter_mcp_sandboxes.tools import LaunchSandboxTool
+
+        return set(inspect.signature(LaunchSandboxTool.execute).parameters)
+
+    def test_the_datalayer_run_url_override_is_gone(self):
+        assert "run_url" not in self._launch_arguments()
+
+    def test_the_arguments_every_provider_shares_are_kept(self):
+        """`environment` and `gpu` are not Datalayer's: modal, daytona,
+        coreweave and kaggle all take them, and `code_sandboxes` is where the
+        answer about each lives."""
+        assert {"environment", "gpu", "variant", "timeout"} <= self._launch_arguments()
+
+    def test_the_datalayer_variant_still_works(self):
+        """Reduced, not removed. `code_sandboxes` supports the variant, and a
+        self-hosting user pointing this server at Datalayer is doing something
+        the project supports — making it the one backend of twelve this tool
+        could not reach would be a regression, not a tidy-up."""
+        import inspect
+
+        from jupyter_mcp_sandboxes.kernel import build_sandbox_client
+
+        assert "datalayer" in inspect.getsource(build_sandbox_client)
+
+    def test_the_token_argument_no_longer_claims_two_meanings(self):
+        """It said "Datalayer API token override, or Kaggle API token". One
+        argument meaning two unrelated things across two providers is one an
+        agent cannot use correctly without knowing which backend it is on."""
+        import inspect
+
+        from jupyter_mcp_sandboxes import extension
+
+        source = inspect.getsource(extension.SandboxesExtension.register_tools)
+        assert "Datalayer API token override" not in source

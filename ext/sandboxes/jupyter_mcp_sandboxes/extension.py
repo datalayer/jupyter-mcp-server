@@ -244,12 +244,11 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Datalayer API token override, or Kaggle API token for the"
-                        " kaggle variant (falls back to KAGGLE_API_TOKEN)"
+                        "Kaggle API token for the kaggle variant (falls back to "
+                        "KAGGLE_API_TOKEN)"
                     )
                 ),
             ] = None,
-            run_url: Annotated[str | None, Field(description="Datalayer run URL override")] = None,
             python_version: Annotated[
                 str | None,
                 Field(
@@ -290,7 +289,6 @@ class SandboxesExtension(JupyterMCPExtension):
                     proxy_token=proxy_token,
                     channels_url=channels_url,
                     token=token,
-                    run_url=run_url,
                     python_version=python_version,
                 )
             )

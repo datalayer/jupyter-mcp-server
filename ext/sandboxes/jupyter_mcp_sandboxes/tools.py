@@ -32,7 +32,6 @@ class LaunchSandboxTool(BaseTool):
         proxy_token: str | None = None,
         channels_url: str | None = None,
         token: str | None = None,
-        run_url: str | None = None,
         python_version: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:
@@ -52,7 +51,6 @@ class LaunchSandboxTool(BaseTool):
             proxy_token=proxy_token,
             channels_url=channels_url,
             token=token,
-            run_url=run_url,
             python_version=python_version,
         )
 
