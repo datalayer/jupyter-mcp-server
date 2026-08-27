@@ -41,6 +41,11 @@ class InsertCellTool(BaseTool):
             IndexError: When cell_index is out of valid range
             ValueError: When cell_type is invalid
         """
+        if cell_type not in ("code", "markdown"):
+            raise ValueError(
+                f"Invalid cell type {cell_type!r}; expected 'code' or 'markdown'."
+            )
+
         if cell_index < -1 or cell_index > total_cells:
             raise IndexError(
                 f"Index {cell_index} is outside valid range [-1, {total_cells}]. "
