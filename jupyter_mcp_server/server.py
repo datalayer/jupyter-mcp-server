@@ -39,7 +39,13 @@ from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.notebook_manager import NotebookManager
-from jupyter_mcp_server.results import as_text, structured
+from jupyter_mcp_server.results import (
+    OutputsAnswer,
+    TableAnswer,
+    ToolAnswer,
+    as_text,
+    structured,
+)
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.tools import (
     ClearCellOutputTool,
@@ -521,7 +527,6 @@ async def health_check(request: Request):
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("files.list", shape=_rows, ttl_ms=30000)
 @with_hooks("list_files")
@@ -540,12 +545,7 @@ async def list_files(
         int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)
     ] = 25,
     pattern: Annotated[str, Field(description="Glob pattern to filter file paths")] = "",
-) -> Annotated[
-    str,
-    Field(
-        description="Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header."
-    ),
-]:
+) -> TableAnswer:
     """
     List all files and directories recursively in the Jupyter server's file system.
     Used to explore the file system structure of the Jupyter server or to find specific files or directories.
@@ -571,17 +571,11 @@ async def list_files(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("kernels.list", shape=_rows, ttl_ms=10000)
 @with_hooks("list_kernels")
 async def list_kernels() -> (
-    Annotated[
-        str,
-        Field(
-            description="Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment"
-        ),
-    ]
+    TableAnswer
 ):
     """List all available kernels in the Jupyter server.
 
@@ -610,7 +604,6 @@ async def list_kernels() -> (
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("notebook.use")
 @with_hooks("use_notebook")
@@ -631,7 +624,7 @@ async def use_notebook(
     kernel_id: Annotated[
         str, Field(description="Specific kernel ID to use (will create new if skipped)")
     ] = None,
-) -> Annotated[str, Field(description="Success message with notebook information")]:
+) -> ToolAnswer:
     """Use a notebook and activate it for following cell operations.
     All cell operations will be performed on the currently activated notebook.
     Activate new notebook will deactivate the previously activated notebook.
@@ -673,12 +666,11 @@ async def use_notebook(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("notebooks.list", shape=_rows, ttl_ms=30000)
 @with_hooks("list_notebooks")
 async def list_notebooks() -> (
-    Annotated[str, Field(description="TSV formatted table with notebook information")]
+    TableAnswer
 ):
     """List all notebooks that have been used via use_notebook tool"""
     return await ListNotebooksTool().execute(
@@ -695,13 +687,12 @@ async def list_notebooks() -> (
         idempotentHint=False,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("notebook.restart")
 @with_hooks("restart_notebook")
 async def restart_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to restart")],
-) -> Annotated[str, Field(description="Success message")]:
+) -> ToolAnswer:
     """Restart the kernel for a specific notebook."""
     result = await RestartNotebookTool().execute(
         mode=server_context.mode,
@@ -726,13 +717,12 @@ async def restart_notebook(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("notebook.unuse")
 @with_hooks("unuse_notebook")
 async def unuse_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
-) -> Annotated[str, Field(description="Success message")]:
+) -> ToolAnswer:
     """Unuse from a specific notebook and release its resources."""
     kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
     result = await UnuseNotebookTool().execute(
@@ -757,7 +747,6 @@ async def unuse_notebook(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("notebook.read")
 @with_hooks("read_notebook")
@@ -775,7 +764,7 @@ async def read_notebook(
     limit: Annotated[
         int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)
     ] = 20,
-) -> Annotated[str, Field(description="Notebook content in the requested format")]:
+) -> ToolAnswer:
     """Read a notebook and return index, source content, type, execution count of each cell.
 
     Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
@@ -809,7 +798,6 @@ async def read_notebook(
         idempotentHint=False,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("cell.insert")
 @with_hooks("insert_cell")
@@ -828,9 +816,7 @@ async def insert_cell(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[
-    str, Field(description="Success message and the structure of its surrounding cells")
-]:
+) -> ToolAnswer:
     """Insert a cell to specified position from the currently activated notebook."""
     return await safe_notebook_operation(
         lambda: InsertCellTool().execute(
@@ -854,7 +840,6 @@ async def insert_cell(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("cell.overwrite")
 @with_hooks("overwrite_cell_source")
@@ -883,7 +868,7 @@ async def overwrite_cell_source(
             )
         ),
     ] = None,
-) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
+) -> ToolAnswer:
     """Replace the entire source of a cell in the currently activated notebook.
     Returns a diff showing the changes made.
 
@@ -918,7 +903,6 @@ async def overwrite_cell_source(
         idempotentHint=False,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("cell.edit")
 async def edit_cell_source(
@@ -950,7 +934,7 @@ async def edit_cell_source(
             )
         ),
     ] = None,
-) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
+) -> ToolAnswer:
     """Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
     Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
     (not regex) and may span multiple lines. By default, `old_string` must appear exactly once;
@@ -990,7 +974,6 @@ async def edit_cell_source(
         idempotentHint=False,
         openWorldHint=True,
     ),
-    structured_output=False,
 )
 @structured("cell.execute", shape=_outputs)
 @with_hooks("execute_cell")
@@ -1026,9 +1009,7 @@ async def execute_cell(
             )
         ),
     ] = None,
-) -> Annotated[
-    list[str | ImageContent], Field(description="List of outputs from the executed cell")
-]:
+) -> OutputsAnswer:
     """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
     cell_index = await cell_ids.resolve(
         cell_index=cell_index,
@@ -1072,7 +1053,6 @@ async def execute_cell(
         idempotentHint=False,
         openWorldHint=True,
     ),
-    structured_output=False,
 )
 @structured("cell.insert_execute", shape=_outputs)
 @with_hooks("insert_execute_code_cell")
@@ -1095,9 +1075,7 @@ async def insert_execute_code_cell(
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
     ] = 5,
     ctx: Context | None = None,
-) -> Annotated[
-    list[str | ImageContent], Field(description="List of outputs from the executed cell")
-]:
+) -> OutputsAnswer:
     """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
     It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
     config = get_config()
@@ -1153,7 +1131,6 @@ async def insert_execute_code_cell(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("cell.read", shape=_outputs)
 @with_hooks("read_cell")
@@ -1184,15 +1161,7 @@ async def read_cell(
             )
         ),
     ] = None,
-) -> Annotated[
-    list[str | ImageContent],
-    Field(
-        description=(
-            "Readable text entries containing cell metadata, source, and optional "
-            "code-cell outputs"
-        )
-    ),
-]:
+) -> OutputsAnswer:
     """Read a cell as readable text entries.
 
     Includes metadata and source, plus optional formatted output text rather
@@ -1226,7 +1195,6 @@ async def read_cell(
         idempotentHint=False,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("cell.delete")
 @with_hooks("delete_cell")
@@ -1260,12 +1228,7 @@ async def delete_cell(
             )
         ),
     ] = None,
-) -> Annotated[
-    str,
-    Field(
-        description="Success message with list of deleted cells and their source (if include_source=True)"
-    ),
-]:
+) -> ToolAnswer:
     """Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True)."""
     cell_indices = await cell_ids.resolve_many(
         cell_indices=cell_indices,
@@ -1296,7 +1259,6 @@ async def delete_cell(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("cell.clear_output")
 @with_hooks("clear_cell_output")
@@ -1327,7 +1289,7 @@ async def clear_cell_output(
             )
         ),
     ] = None,
-) -> Annotated[str, Field(description="Success message with the number of outputs removed")]:
+) -> ToolAnswer:
     """Clear the outputs and execution count of a single code cell in the currently
     activated notebook, without deleting the cell itself."""
     cell_index = await cell_ids.resolve(
@@ -1358,7 +1320,6 @@ async def clear_cell_output(
         idempotentHint=False,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("cell.move")
 async def move_cell(
@@ -1393,9 +1354,7 @@ async def move_cell(
             )
         ),
     ] = None,
-) -> Annotated[
-    str, Field(description="Success message with moved cell info and surrounding context")
-]:
+) -> ToolAnswer:
     """Move a cell from source_index to target_index within the currently activated notebook.
 
     The cell is removed from source_index and placed at target_index. Cells in between shift
@@ -1444,7 +1403,6 @@ async def move_cell(
         idempotentHint=False,
         openWorldHint=True,
     ),
-    structured_output=False,
 )
 @structured("code.execute", shape=_outputs)
 @with_hooks("execute_code")
@@ -1471,9 +1429,7 @@ async def execute_code(
         ),
     ] = 5,
     ctx: Context | None = None,
-) -> Annotated[
-    list[str | ImageContent], Field(description="List of outputs from the executed code")
-]:
+) -> OutputsAnswer:
     """Execute code directly in a kernel (not saved to notebook).
 
     If `use_sandbox` selected an active sandbox, this tool executes on that
@@ -1536,7 +1492,6 @@ async def execute_code(
         idempotentHint=True,
         openWorldHint=False,
     ),
-    structured_output=False,
 )
 @structured("jupyter.connect")
 @with_hooks("connect_to_jupyter")
@@ -1550,7 +1505,7 @@ async def connect_to_jupyter(
     document_provider: Annotated[
         str, Field(description="Which backend holds the notebook documents")
     ] = "jupyter",
-) -> Annotated[str, Field(description="Connection status message")]:
+) -> ToolAnswer:
     """Connect to a Jupyter server dynamically with URL and token.
 
     This tool allows you to connect to different Jupyter servers without needing to

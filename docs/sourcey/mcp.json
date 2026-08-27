@@ -83,7 +83,28 @@
         "type": "object",
         "title": "clear_cell_outputArguments"
       },
-      "name": "clear_cell_output"
+      "name": "clear_cell_output",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -126,7 +147,28 @@
         "type": "object",
         "title": "connect_to_jupyterArguments"
       },
-      "name": "connect_to_jupyter"
+      "name": "connect_to_jupyter",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -194,7 +236,28 @@
         "type": "object",
         "title": "delete_cellArguments"
       },
-      "name": "delete_cell"
+      "name": "delete_cell",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -270,7 +333,28 @@
         "type": "object",
         "title": "edit_cell_sourceArguments"
       },
-      "name": "edit_cell_source"
+      "name": "edit_cell_source",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -331,7 +415,46 @@
         "type": "object",
         "title": "execute_cellArguments"
       },
-      "name": "execute_cell"
+      "name": "execute_cell",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          },
+          "outputs": {
+            "description": "The outputs in order: text as text, an image as its own object.",
+            "items": {},
+            "title": "Outputs",
+            "type": "array"
+          },
+          "count": {
+            "default": 0,
+            "description": "How many outputs.",
+            "title": "Count",
+            "type": "integer"
+          },
+          "images": {
+            "default": 0,
+            "description": "How many of them are images.",
+            "title": "Images",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Cell or execution outputs, in order.",
+        "title": "OutputsAnswer"
+      }
     },
     {
       "annotations": {
@@ -380,7 +503,46 @@
         "type": "object",
         "title": "execute_codeArguments"
       },
-      "name": "execute_code"
+      "name": "execute_code",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          },
+          "outputs": {
+            "description": "The outputs in order: text as text, an image as its own object.",
+            "items": {},
+            "title": "Outputs",
+            "type": "array"
+          },
+          "count": {
+            "default": 0,
+            "description": "How many outputs.",
+            "title": "Count",
+            "type": "integer"
+          },
+          "images": {
+            "default": 0,
+            "description": "How many of them are images.",
+            "title": "Images",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Cell or execution outputs, in order.",
+        "title": "OutputsAnswer"
+      }
     },
     {
       "annotations": {
@@ -435,7 +597,28 @@
         "type": "object",
         "title": "insert_cellArguments"
       },
-      "name": "insert_cell"
+      "name": "insert_cell",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -484,7 +667,46 @@
         "type": "object",
         "title": "insert_execute_code_cellArguments"
       },
-      "name": "insert_execute_code_cell"
+      "name": "insert_execute_code_cell",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          },
+          "outputs": {
+            "description": "The outputs in order: text as text, an image as its own object.",
+            "items": {},
+            "title": "Outputs",
+            "type": "array"
+          },
+          "count": {
+            "default": 0,
+            "description": "How many outputs.",
+            "title": "Count",
+            "type": "integer"
+          },
+          "images": {
+            "default": 0,
+            "description": "How many of them are images.",
+            "title": "Images",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Cell or execution outputs, in order.",
+        "title": "OutputsAnswer"
+      }
     },
     {
       "annotations": {
@@ -646,7 +868,28 @@
         "type": "object",
         "title": "launch_sandboxArguments"
       },
-      "name": "launch_sandbox"
+      "name": "launch_sandbox",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -696,7 +939,51 @@
         "type": "object",
         "title": "list_filesArguments"
       },
-      "name": "list_files"
+      "name": "list_files",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          },
+          "columns": {
+            "description": "The header, in order.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "items": {
+            "description": "One object per row, keyed by the header.",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "count": {
+            "default": 0,
+            "description": "How many rows.",
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "A listing that also comes back as rows keyed by its header.",
+        "title": "TableAnswer"
+      }
     },
     {
       "annotations": {
@@ -711,7 +998,51 @@
         "type": "object",
         "title": "list_kernelsArguments"
       },
-      "name": "list_kernels"
+      "name": "list_kernels",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          },
+          "columns": {
+            "description": "The header, in order.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "items": {
+            "description": "One object per row, keyed by the header.",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "count": {
+            "default": 0,
+            "description": "How many rows.",
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "A listing that also comes back as rows keyed by its header.",
+        "title": "TableAnswer"
+      }
     },
     {
       "annotations": {
@@ -726,7 +1057,51 @@
         "type": "object",
         "title": "list_notebooksArguments"
       },
-      "name": "list_notebooks"
+      "name": "list_notebooks",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          },
+          "columns": {
+            "description": "The header, in order.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "items": {
+            "description": "One object per row, keyed by the header.",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "count": {
+            "default": 0,
+            "description": "How many rows.",
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "A listing that also comes back as rows keyed by its header.",
+        "title": "TableAnswer"
+      }
     },
     {
       "annotations": {
@@ -741,7 +1116,28 @@
         "type": "object",
         "title": "list_sandboxesArguments"
       },
-      "name": "list_sandboxes"
+      "name": "list_sandboxes",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -824,7 +1220,28 @@
         "type": "object",
         "title": "move_cellArguments"
       },
-      "name": "move_cell"
+      "name": "move_cell",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -888,7 +1305,28 @@
         "type": "object",
         "title": "overwrite_cell_sourceArguments"
       },
-      "name": "overwrite_cell_source"
+      "name": "overwrite_cell_source",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -950,7 +1388,46 @@
         "type": "object",
         "title": "read_cellArguments"
       },
-      "name": "read_cell"
+      "name": "read_cell",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          },
+          "outputs": {
+            "description": "The outputs in order: text as text, an image as its own object.",
+            "items": {},
+            "title": "Outputs",
+            "type": "array"
+          },
+          "count": {
+            "default": 0,
+            "description": "How many outputs.",
+            "title": "Count",
+            "type": "integer"
+          },
+          "images": {
+            "default": 0,
+            "description": "How many of them are images.",
+            "title": "Images",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Cell or execution outputs, in order.",
+        "title": "OutputsAnswer"
+      }
     },
     {
       "annotations": {
@@ -998,7 +1475,28 @@
         "type": "object",
         "title": "read_notebookArguments"
       },
-      "name": "read_notebook"
+      "name": "read_notebook",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -1022,7 +1520,28 @@
         "type": "object",
         "title": "restart_notebookArguments"
       },
-      "name": "restart_notebook"
+      "name": "restart_notebook",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -1046,7 +1565,28 @@
         "type": "object",
         "title": "terminate_sandboxArguments"
       },
-      "name": "terminate_sandbox"
+      "name": "terminate_sandbox",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -1070,7 +1610,28 @@
         "type": "object",
         "title": "unuse_notebookArguments"
       },
-      "name": "unuse_notebook"
+      "name": "unuse_notebook",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -1116,7 +1677,28 @@
         "type": "object",
         "title": "use_notebookArguments"
       },
-      "name": "use_notebook"
+      "name": "use_notebook",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     },
     {
       "annotations": {
@@ -1145,7 +1727,28 @@
         "type": "object",
         "title": "use_sandboxArguments"
       },
-      "name": "use_sandbox"
+      "name": "use_sandbox",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
     }
   ],
   "resources": [

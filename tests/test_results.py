@@ -232,16 +232,41 @@ class TestEveryToolGoesThroughIt:
         source = pathlib.Path(server_module.__file__).read_text()
         assert source.count("@mcp.tool(") == source.count("@structured(")
 
-    def test_no_tool_advertises_an_output_schema_it_does_not_build(self):
-        """`structured` builds the structured answer itself, so the SDK must
-        not also check it against a schema derived from a return annotation
-        that describes a string."""
+    def test_every_tool_advertises_what_it_returns(self):
+        """A tool with no output schema documents nothing: the generated
+        reference loses its Output section and a client has to call the tool
+        to learn the shape. Once, seventeen pages lost theirs this way."""
         import asyncio as _asyncio
 
-        from jupyter_mcp_server.server import mcp
+        from jupyter_mcp_server.server import mcp, register_extension_tools
 
+        register_extension_tools()
         listed = _asyncio.run(mcp.list_tools())
-        assert not [tool.name for tool in listed if tool.output_schema]
+        assert [tool.name for tool in listed if not tool.output_schema] == []
+
+    def test_the_advertised_schema_accepts_what_the_helper_builds(self):
+        """The schema and the answer come from two different places, so they
+        can disagree — and the SDK validates the answer against the schema on
+        every call, turning a disagreement into a broken tool."""
+        from jupyter_mcp_server.results import (
+            OutputsAnswer,
+            TableAnswer,
+            ToolAnswer,
+            answer,
+        )
+        from jupyter_mcp_server.server import _outputs, _rows
+
+        def built(value, **kwargs):
+            return answer(value, **kwargs).structured_content
+
+        OutputsAnswer.model_validate(
+            built(["a", _image()], kind="cell.read", shape=_outputs)
+        )
+        TableAnswer.model_validate(
+            built("A\tB\n1\t2", kind="kernels.list", shape=_rows)
+        )
+        ToolAnswer.model_validate(built("Cell 3 deleted.", kind="cell.delete"))
+        ToolAnswer.model_validate(built({"sandbox": {"id": "s-1"}}, kind="sandbox.launch"))
 
     def test_the_shapes_all_keep_the_answer_under_result(self):
         """Whatever a tool is, one key holds its answer. A client that reads

@@ -37,6 +37,7 @@ from functools import wraps
 from typing import Any
 
 from mcp.types import Annotations, CallToolResult, ImageContent, TextContent
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +139,58 @@ def _annotations(audience: Sequence[str], priority: float | None) -> Annotations
     )
 
 
+class ToolAnswer(BaseModel):
+    """What every tool of this server answers with.
+
+    Declared so the shape is *advertised* rather than merely produced. A tool
+    that returns structure without saying what it will return leaves a client
+    nothing to validate against and the generated reference nothing to show —
+    the call works and the contract is invisible, which is the worst of both.
+
+    Extra fields are allowed on purpose. A tool that already answers with a
+    mapping keeps its own keys (see :func:`_default_shape`), and those are the
+    interesting part of its answer; forbidding them would mean either
+    flattening every tool into one shape or declaring nothing at all.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    kind: str = Field(
+        description=(
+            "What this result is — 'cell.read', 'notebooks.list' and so on. "
+            "Lets a client tell one answer from another without matching prose."
+        )
+    )
+    result: Any = Field(
+        default=None,
+        description=(
+            "The answer itself: a message, the rows of a listing, or the "
+            "outputs of an execution in order."
+        ),
+    )
+
+
+class TableAnswer(ToolAnswer):
+    """A listing that also comes back as rows keyed by its header."""
+
+    columns: list[str] = Field(default_factory=list, description="The header, in order.")
+    items: list[dict[str, Any]] = Field(
+        default_factory=list, description="One object per row, keyed by the header."
+    )
+    count: int = Field(default=0, description="How many rows.")
+
+
+class OutputsAnswer(ToolAnswer):
+    """Cell or execution outputs, in order."""
+
+    outputs: list[Any] = Field(
+        default_factory=list,
+        description="The outputs in order: text as text, an image as its own object.",
+    )
+    count: int = Field(default=0, description="How many outputs.")
+    images: int = Field(default=0, description="How many of them are images.")
+
+
 def _default_shape(value: Any) -> dict[str, Any]:
     """The structured answer for a tool that did not ask for a particular one.
 
@@ -225,11 +278,13 @@ def structured(
     format. It also means a tool that raises still raises — the failure path
     is the SDK's, untouched.
 
-    Applied under ``@mcp.tool``, so the signature the schema is built from is
-    the tool's own; the return annotation is left alone for the same reason,
-    and the tool declares ``structured_output=False`` so the SDK does not
-    check the structured answer against a schema derived from that
-    annotation. What this builds *is* the structured answer.
+    Applied under ``@mcp.tool``, so the signature the schema is built from
+    is the tool's own. The tool annotates its return type with the model
+    matching its ``shape`` — :class:`ToolAnswer`, :class:`TableAnswer` or
+    :class:`OutputsAnswer` — which both advertises an output schema to
+    clients and has the SDK validate what this builds against it. Returning
+    nothing there advertises nothing: the reference loses its Output section
+    and a client must call the tool to learn what comes back.
     """
 
     def decorate(function: Callable) -> Callable:

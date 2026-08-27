@@ -30,7 +30,7 @@ from jupyter_mcp_sandboxes.tools import (
 from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT, get_config
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks
-from jupyter_mcp_server.results import structured
+from jupyter_mcp_server.results import ToolAnswer, structured
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.utils import safe_notebook_operation
 
@@ -264,7 +264,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     )
                 ),
             ] = None,
-        ) -> Annotated[dict, Field(description="Launch status and code sandbox metadata")]:
+        ) -> ToolAnswer:
             """Launch a code sandbox that can be used instead of Jupyter kernels.
 
             After launch, call use_sandbox to make execute_code run on this sandbox
@@ -307,14 +307,10 @@ class SandboxesExtension(JupyterMCPExtension):
                 idempotentHint=True,
                 openWorldHint=False,
             ),
-            structured_output=False,
         )
         @structured("sandboxes.list")
         @with_hooks("list_sandboxes")
-        async def list_sandboxes() -> Annotated[
-            list[dict],
-            Field(description="All launched sandboxes with name, variant, status, and active flag"),
-        ]:
+        async def list_sandboxes() -> ToolAnswer:
             """List launched code sandboxes that can be used as alternatives to kernels."""
             return await safe_notebook_operation(
                 lambda: ListSandboxesTool().execute(
@@ -331,7 +327,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 idempotentHint=True,
                 openWorldHint=False,
             ),
-            structured_output=False,
         )
         @structured("sandbox.use")
         @with_hooks("use_sandbox")
@@ -345,7 +340,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     )
                 ),
             ] = None,
-        ) -> Annotated[str, Field(description="Sandbox routing status")]:
+        ) -> ToolAnswer:
             """Select which launched sandbox execute_code should use instead of kernels."""
             return await safe_notebook_operation(
                 lambda: UseSandboxTool().execute(
@@ -365,7 +360,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 idempotentHint=True,
                 openWorldHint=False,
             ),
-            structured_output=False,
         )
         @structured("sandbox.terminate")
         @with_hooks("terminate_sandbox")
@@ -373,7 +367,7 @@ class SandboxesExtension(JupyterMCPExtension):
             sandbox_name: Annotated[
                 str, Field(description="Sandbox name to terminate and unregister")
             ],
-        ) -> Annotated[str, Field(description="Termination status message")]:
+        ) -> ToolAnswer:
             """Terminate a launched code sandbox."""
             return await safe_notebook_operation(
                 lambda: TerminateSandboxTool().execute(
