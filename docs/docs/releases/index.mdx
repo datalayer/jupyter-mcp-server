@@ -120,6 +120,14 @@ another's tool silently did nothing if it happened to run first.
 Extensions can also declare capabilities now. See
 [Extensions](/operations/extensions).
 
+**`jupyter-mcp-spaces` no longer ships from this repository.** The extension
+for the `datalayer` document provider now lives in the Datalayer gateway that
+serves it, where the code it talks to already lives. Nothing about how it is
+loaded changed — it is the same `jupyter_mcp_server.extensions` entry-point
+group — so a deployment that gets it from the gateway sees the same tools.
+Only `pip install ./ext/spaces` against a checkout of this repository has gone
+away; there is no replacement package to install here.
+
 ### Conformance
 
 The server is tested against the

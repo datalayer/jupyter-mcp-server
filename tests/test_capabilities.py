@@ -247,9 +247,9 @@ class TestExtensionsRegisterAfterConfiguration:
     extensions registered while the command line was still being parsed and
     before `set_config` had been called. An extension asking "what am I
     pointed at?" was told the default however the server had been invoked —
-    and the only place the intent existed yet was `sys.argv`, which
-    `jupyter_mcp_spaces` had to go and read for itself, with a comment saying
-    it was waiting on exactly this change.
+    and the only place the intent existed yet was `sys.argv`, which the
+    Datalayer spaces extension had to go and read for itself, with a comment
+    saying it was waiting on exactly this change.
     """
 
     def test_importing_the_server_does_not_register_anything(self):

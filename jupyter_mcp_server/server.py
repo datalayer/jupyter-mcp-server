@@ -1798,9 +1798,9 @@ def register_extension_tools() -> None:
     while the command line was still being parsed and before ``set_config``
     had been called. An extension asking "what am I pointed at?" was told
     "jupyter" however the server had been invoked, and the only way one could
-    find out otherwise was to read ``sys.argv`` itself — which
-    ``jupyter_mcp_spaces`` had to do, and documented as a workaround waiting
-    on exactly this change.
+    find out otherwise was to read ``sys.argv`` itself — which the
+    Datalayer spaces extension had to do, and documented as a workaround
+    waiting on exactly this change.
 
     Called after configuration by every entry point, and idempotent, so none
     of them has to know whether another got there first. Extensions are

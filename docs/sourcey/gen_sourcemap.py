@@ -26,13 +26,16 @@ SRC, OUT = sys.argv[1], sys.argv[2]
 #: a default snapshot.
 #:
 #: The reference documents the server as it runs out of the box: a Jupyter
-#: backend, with the tools that implies. `jupyter-mcp-spaces` only registers
-#: when the server is pointed at Datalayer, and it *hides* `list_files`,
-#: `list_kernels` and `connect_to_jupyter` when it does — so no single snapshot
-#: can contain both sets, and including these here would make the reference
-#: permanently stale against itself. They are documented with the extension
-#: that provides them.
-CONDITIONAL_EXTENSIONS = {"spaces"}
+#: backend, with the tools that implies. An extension that only registers when
+#: the server is pointed somewhere else — the Datalayer spaces extension does,
+#: and *hides* `list_files`, `list_kernels` and `connect_to_jupyter` when it
+#: does — cannot share a snapshot with the default set, and including its tools
+#: here would make the reference permanently stale against itself. They are
+#: documented with the extension that provides them. Empty now that the one
+#: such extension lives in the Datalayer gateway; kept because the next one
+#: will need it, and because the scanner would otherwise silently start
+#: demanding pages for tools this server does not register.
+CONDITIONAL_EXTENSIONS: set[str] = set()
 
 SKIP_DIRS = {
     ".git", ".tox", ".venv", ".eggs", "__pycache__", "build", "dist",

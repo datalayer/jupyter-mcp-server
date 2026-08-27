@@ -34,7 +34,7 @@ test-extensions: ## run the unit tests of the extensions under ext/
 	@# but twice — once per server mode — and reports them under whichever
 	@# mode happened to run, which is neither true nor useful when one fails.
 	@# These need no Jupyter server and take seconds.
-	pytest ext/sandboxes/tests ext/spaces/tests
+	pytest ext/sandboxes/tests
 
 test-examples: ## run the tests of the examples under examples/
 	@# Each example has a test module beside it, driven by pydantic-ai's test

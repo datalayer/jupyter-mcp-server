@@ -319,7 +319,7 @@ def do_start(
     # After `set_config`, deliberately. An extension asked at import time what
     # this server is pointed at was told "jupyter" however it had been
     # invoked, because the command line had not been read yet — which is why
-    # `jupyter_mcp_spaces` had to go and read `sys.argv` for itself.
+    # the Datalayer spaces extension had to go and read `sys.argv` for itself.
     register_extension_tools()
 
     try:
