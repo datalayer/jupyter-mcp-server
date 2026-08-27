@@ -155,3 +155,9 @@ publish-pypi: # publish the pypi package
 	@exec echo twine upload ./dist/*-py3-none-any.whl
 	@exec echo
 	@exec echo https://pypi.org/project/jupyter-mcp-server/#history
+
+.PHONY: test-conformance
+test-conformance: ## Run the MCP specification's own conformance suite
+	@exec echo "Installing @modelcontextprotocol/conformance (npm, not saved)"
+	npm install --no-save @modelcontextprotocol/conformance
+	pytest tests/test_conformance.py -v

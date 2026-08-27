@@ -1,0 +1,49 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+# Conformance scenarios this server does not pass today.
+#
+# Every entry is a debt with a name. The suite is adopted with a baseline so
+# that a *new* failure blocks the release without the ones already there
+# drowning it out -- and so that a scenario which starts passing shows up as a
+# stale entry to delete rather than sitting here forever.
+#
+# What these are, as of the run that generated this file (9 passed, 21 failed
+# at 2025-11-25): almost all of them are the suite's own scenario *fixtures*
+# rather than protocol violations. `tools-call-mixed-content` fails with
+# "Expected multiple content items; Missing image content" because it looks
+# for a tool that returns those, and this server's tools return notebook
+# results. The same for the audio, image and embedded-resource variants, for
+# the elicitation and sampling scenarios, and for the prompts and resources
+# reads: they expect fixtures a Jupyter server has no reason to expose.
+#
+# That is worth revisiting rather than accepting forever. If the suite grows a
+# way to point a scenario at a real tool, or this server grows a conformance
+# fixture surface, these become real signal.
+#
+# Regenerate after a run with the scenario names the report marks FAILURE.
+
+server:
+  - completion-complete
+  - elicitation-sep1034-defaults
+  - elicitation-sep1330-enums
+  - logging-set-level
+  - prompts-get-embedded-resource
+  - prompts-get-simple
+  - prompts-get-with-args
+  - prompts-get-with-image
+  - resources-read-binary
+  - resources-read-text
+  - resources-subscribe
+  - resources-templates-read
+  - resources-unsubscribe
+  - server-sse-multiple-streams
+  - tools-call-audio
+  - tools-call-elicitation
+  - tools-call-embedded-resource
+  - tools-call-image
+  - tools-call-mixed-content
+  - tools-call-sampling
+  - tools-call-with-logging
+  - tools-call-with-progress
