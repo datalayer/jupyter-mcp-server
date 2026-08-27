@@ -18,6 +18,8 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.types import ImageContent, ToolAnnotations
+
+from jupyter_mcp_server.capabilities import CAPABILITIES_RESOURCE, get_capabilities
 from pydantic import Field
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -244,6 +246,25 @@ mcp = MCPServerWithCORS(
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()
+
+
+@mcp.resource(CAPABILITIES_RESOURCE)
+def capabilities_resource() -> dict:
+    """What this server can do, and where each answer came from.
+
+    A server does things a client cannot see and did not ask for — replacing
+    a dead kernel with an empty one is the clearest case. Reading this is how
+    a client finds out which of those are on, and an operator finds out *why*
+    a capability is on, which is the first question asked when one surprises
+    somebody.
+
+    A resource as well as a `server/discover` field, because a client may
+    want to re-read it without re-discovering the server, and because a
+    person can open a resource and look.
+    """
+    registry = get_capabilities()
+    extension_manager.collect_capabilities(registry)
+    return registry.advertise()
 
 
 def __start_code_sandbox():

@@ -11,6 +11,7 @@ server is required.
 """
 
 from types import SimpleNamespace
+import pytest
 from unittest.mock import MagicMock
 
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -55,16 +56,75 @@ def teardown_function():
 
 
 def test_ensure_replaces_sandbox_whose_kernel_the_server_dropped():
-    """The kernel is gone from the server, so the guard provisions a new sandbox."""
+    """The kernel is gone from the server, so the guard provisions a new sandbox.
+
+    Only when it is allowed to. A replacement kernel is empty, and handing
+    one over without saying so is what `kernel.auto-restart` governs (#398).
+    """
     _install_server_client(_server_client_listing())
     nm = NotebookManager()
     stale = FakeSandbox("culled-kernel")
     nm.add_notebook("nb", stale)
 
-    result = ensure_code_sandbox_alive(nm, "nb", lambda: FakeSandbox("fresh-kernel"))
+    result = ensure_code_sandbox_alive(
+        nm, "nb", lambda: FakeSandbox("fresh-kernel"), allow_restart=True
+    )
 
     assert result.id == "fresh-kernel"
     assert nm.get_code_sandbox_id("nb") == "fresh-kernel"
+
+
+def test_a_dropped_kernel_is_reported_rather_than_replaced_by_default():
+    """The default is to say so. A caller told nothing goes on believing in
+    a session that no longer exists, and the next execution behaves as if
+    there had never been one."""
+    from jupyter_mcp_server.capabilities import reset_capabilities
+    from jupyter_mcp_server.utils import KernelGoneError
+
+    reset_capabilities()
+    _install_server_client(_server_client_listing())
+    nm = NotebookManager()
+    nm.add_notebook("nb", FakeSandbox("culled-kernel"))
+
+    with pytest.raises(KernelGoneError) as raised:
+        ensure_code_sandbox_alive(nm, "nb", lambda: FakeSandbox("fresh-kernel"))
+
+    # Names the way out, both of them.
+    assert "restart_notebook" in str(raised.value)
+    assert "kernel.auto-restart" in str(raised.value)
+
+
+def test_the_capability_turns_the_replacement_back_on():
+    from jupyter_mcp_server.capabilities import (
+        KERNEL_AUTO_RESTART,
+        get_capabilities,
+        reset_capabilities,
+    )
+
+    reset_capabilities()
+    get_capabilities().set(KERNEL_AUTO_RESTART, True, source="cli")
+    try:
+        _install_server_client(_server_client_listing())
+        nm = NotebookManager()
+        nm.add_notebook("nb", FakeSandbox("culled-kernel"))
+        result = ensure_code_sandbox_alive(nm, "nb", lambda: FakeSandbox("fresh-kernel"))
+        assert result.id == "fresh-kernel"
+    finally:
+        reset_capabilities()
+
+
+def test_the_first_attach_is_never_refused():
+    """Attaching a sandbox for the first time is not a restart: there was no
+    session to lose. Refusing it would stop a notebook working at all."""
+    from jupyter_mcp_server.capabilities import reset_capabilities
+
+    reset_capabilities()
+    _install_server_client(_server_client_listing())
+    nm = NotebookManager()
+
+    result = ensure_code_sandbox_alive(nm, "nb", lambda: FakeSandbox("first-kernel"))
+
+    assert result.id == "first-kernel"
 
 
 def test_ensure_keeps_sandbox_the_server_still_lists():

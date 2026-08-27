@@ -74,6 +74,16 @@ class JupyterMCPExtension:
         """
         return None
 
+    def capabilities(self) -> list[Any]:
+        """Declare what this extension lets the server do.
+
+        Return :class:`jupyter_mcp_server.capabilities.Capability` values. An
+        extension that genuinely adds an ability says so here rather than the
+        core guessing from what is installed — and a client then sees the same
+        named thing whether it came from the core, a flag or a plugin.
+        """
+        return []
+
     def on_start(self) -> None:
         """Called when the extension platform starts."""
 
@@ -140,6 +150,28 @@ class ExtensionManager:
                 logger.exception(
                     "Failed to load Jupyter MCP extension '%s'", entry_point.name
                 )
+
+    def collect_capabilities(self, registry: Any) -> None:
+        """Ask every extension what it adds, and record it.
+
+        One extension raising must not cost the others their declarations, so
+        each is asked on its own: a plugin with a broken `capabilities()`
+        loses only its own, and says so in the log.
+        """
+        for name, extension in self._extensions.items():
+            try:
+                declared = extension.capabilities() or []
+            except Exception:  # noqa: BLE001 - one plugin never breaks the rest
+                logger.exception("Extension %s could not declare its capabilities", name)
+                continue
+            for capability in declared:
+                try:
+                    registry.declare(capability)
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "Extension %s declared something that is not a capability: %r",
+                        name, capability,
+                    )
 
     def register_tools(self, mcp: Any) -> None:
         """Discover extensions (if needed) and register all their tools."""

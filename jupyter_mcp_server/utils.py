@@ -680,10 +680,58 @@ def code_sandbox_is_alive(code_sandbox: Any) -> bool:
     return any(kernel.id == kernel_id for kernel in kernels)
 
 
+KERNEL_AUTO_RESTART = "kernel.auto-restart"
+
+
+class KernelGoneError(RuntimeError):
+    """The kernel this notebook was using is gone, and nothing replaced it.
+
+    Raised instead of quietly starting another, unless the
+    ``kernel.auto-restart`` capability is on. A replacement kernel is empty:
+    every variable, import and definition of the session has gone with the
+    old one. Doing that without saying so leaves the caller — a person or an
+    agent — believing in a session that no longer exists, and the next
+    execution behaves as if there had never been one (#398).
+    """
+
+
+def capability_enabled(name: str) -> bool:
+    """Whether a capability is on, imported late to avoid an import cycle."""
+    from jupyter_mcp_server.capabilities import enabled  # noqa: PLC0415
+
+    return enabled(name)
+
+
 def ensure_code_sandbox_alive(
-    notebook_manager, current_notebook, create_code_sandbox_fn: Callable[[], CodeSandboxClient]
+    notebook_manager,
+    current_notebook,
+    create_code_sandbox_fn: Callable[[], CodeSandboxClient],
+    *,
+    allow_restart: bool | None = None,
 ) -> CodeSandboxClient:
-    """Ensure the notebook's code sandbox is running, restart if needed."""
+    """Ensure the notebook's code sandbox is running, restarting it if allowed.
+
+    Attaching a sandbox for the first time is never a restart and always
+    happens: there was no state to lose. Replacing one that has *died* is the
+    surprising case, and it is what ``kernel.auto-restart`` governs.
+
+    Args:
+        allow_restart: Overrides the capability, for a caller that has
+            already decided — ``restart_notebook`` is a caller asking for
+            exactly this, and must not be refused by a switch about doing it
+            behind somebody's back.
+    """
+    if allow_restart is None:
+        allow_restart = capability_enabled(KERNEL_AUTO_RESTART)
+    if not allow_restart:
+        existing = notebook_manager.get_code_sandbox(current_notebook)
+        if existing is not None and not code_sandbox_is_alive(existing):
+            raise KernelGoneError(
+                f"The kernel of {current_notebook!r} is gone, and its session — every "
+                "variable, import and definition — went with it. Call restart_notebook "
+                "to start a fresh one, or enable the 'kernel.auto-restart' capability "
+                "to have replacements started automatically."
+            )
     return cast(
         CodeSandboxClient,
         notebook_manager.ensure_code_sandbox_alive(
