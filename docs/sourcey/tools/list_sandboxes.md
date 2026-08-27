@@ -7,34 +7,11 @@ description: "List launched code sandboxes that can be used as alternatives to k
 
 List launched code sandboxes that can be used as alternatives to kernels.
 
-> read-only: **yes**
+> read-only: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
 This tool takes no parameters.
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "All launched sandboxes with name, variant, status, and active flag",
-      "items": {
-        "additionalProperties": true,
-        "type": "object"
-      },
-      "title": "Result",
-      "type": "array"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "list_sandboxesOutput"
-}
-```
 
 ## Call it
 

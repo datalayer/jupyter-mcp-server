@@ -7,32 +7,13 @@ description: "Terminate a launched code sandbox."
 
 Terminate a launched code sandbox.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `sandbox_name` | string | yes | — | Sandbox name to terminate and unregister |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Termination status message",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "terminate_sandboxOutput"
-}
-```
 
 ## Call it
 

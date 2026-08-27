@@ -489,6 +489,8 @@
     {
       "annotations": {
         "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
         "title": "Launch Sandbox"
       },
       "description": "Launch a code sandbox that can be used instead of Jupyter kernels.\n\nAfter launch, call use_sandbox to make execute_code run on this sandbox\n(as an alternative to notebook-bound kernel execution). Works in both\nMCP_SERVER and JUPYTER_SERVER modes.\n",
@@ -728,6 +730,8 @@
     },
     {
       "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false,
         "readOnlyHint": true,
         "title": "List Sandboxes"
       },
@@ -737,25 +741,7 @@
         "type": "object",
         "title": "list_sandboxesArguments"
       },
-      "name": "list_sandboxes",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "All launched sandboxes with name, variant, status, and active flag",
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Result",
-            "type": "array"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "list_sandboxesOutput"
-      }
+      "name": "list_sandboxes"
     },
     {
       "annotations": {
@@ -1041,6 +1027,8 @@
     {
       "annotations": {
         "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
         "title": "Terminate Sandbox"
       },
       "description": "Terminate a launched code sandbox.",
@@ -1058,21 +1046,7 @@
         "type": "object",
         "title": "terminate_sandboxArguments"
       },
-      "name": "terminate_sandbox",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Termination status message",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "terminate_sandboxOutput"
-      }
+      "name": "terminate_sandbox"
     },
     {
       "annotations": {
@@ -1147,6 +1121,8 @@
     {
       "annotations": {
         "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
         "title": "Use Sandbox"
       },
       "description": "Select which launched sandbox execute_code should use instead of kernels.",
@@ -1169,21 +1145,7 @@
         "type": "object",
         "title": "use_sandboxArguments"
       },
-      "name": "use_sandbox",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Sandbox routing status",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "use_sandboxOutput"
-      }
+      "name": "use_sandbox"
     }
   ],
   "resources": [

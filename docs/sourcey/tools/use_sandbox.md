@@ -7,32 +7,13 @@ description: "Select which launched sandbox execute_code should use instead of k
 
 Select which launched sandbox execute_code should use instead of kernels.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `sandbox_name` | string \| null | no | `null` | Sandbox name to activate for execute_code. Pass null/empty to disable sandbox routing and return to Jupyter kernels. |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Sandbox routing status",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "use_sandboxOutput"
-}
-```
 
 ## Call it
 

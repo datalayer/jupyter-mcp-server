@@ -11,7 +11,7 @@ After launch, call use_sandbox to make execute_code run on this sandbox
 (as an alternative to notebook-bound kernel execution). Works in both
 MCP_SERVER and JUPYTER_SERVER modes.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **yes**
 
 ## Parameters
 
