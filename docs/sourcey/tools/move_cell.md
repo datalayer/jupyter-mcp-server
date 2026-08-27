@@ -14,34 +14,17 @@ Example: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].
 Use this tool instead of manually deleting and re-inserting a cell — it is atomic and
 preserves cell metadata. Use read_notebook first to see cell indices if needed.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **no**
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `source_index` | integer | yes | — | Index of the cell to move (0-based) |
-| `target_index` | integer | yes | — | Destination index where the cell will end up (0-based) |
+| `source_index` | integer \| null | no | `null` | Index of the cell to move (0-based). Omit when passing source_cell_id. |
+| `target_index` | integer \| null | no | `null` | Destination index where the cell will end up (0-based). Omit when passing target_cell_id. |
 | `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Success message with moved cell info and surrounding context",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "move_cellOutput"
-}
-```
+| `source_cell_id` | string \| null | no | `null` | Address the cell to move by its id rather than its index. |
+| `target_cell_id` | string \| null | no | `null` | Put the moved cell where this cell is now, addressed by id rather than by an index that the move itself will shift. |
 
 ## Call it
 
@@ -53,16 +36,18 @@ preserves cell metadata. Use read_notebook first to see cell indices if needed.
   "params": {
     "name": "move_cell",
     "arguments": {
-      "source_index": 0,
-      "target_index": 0,
-      "notebook_name": null
+      "source_index": null,
+      "target_index": null,
+      "notebook_name": null,
+      "source_cell_id": null,
+      "target_cell_id": null
     }
   }
 }
 ```
 
 ```python
-result = await session.call_tool("move_cell", arguments={"source_index": 0, "target_index": 0, "notebook_name": None})
+result = await session.call_tool("move_cell", arguments={"source_index": None, "target_index": None, "notebook_name": None, "source_cell_id": None, "target_cell_id": None})
 ```
 
 ## Source

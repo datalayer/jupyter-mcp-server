@@ -31,313 +31,362 @@
   "tools": [
     {
       "annotations": {
-        "readOnlyHint": true,
-        "title": "List Files"
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "title": "Clear Cell Output"
       },
-      "description": "\nList all files and directories recursively in the Jupyter server's file system.\nUsed to explore the file system structure of the Jupyter server or to find specific files or directories.\n",
+      "description": "Clear the outputs and execution count of a single code cell in the currently\nactivated notebook, without deleting the cell itself.",
       "inputSchema": {
         "properties": {
-          "path": {
-            "default": "",
-            "description": "The starting path to list from (empty string means root directory)",
-            "title": "Path",
-            "type": "string"
+          "cell_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Index of the code cell to clear (0-based). Omit when passing cell_id.",
+            "title": "Cell Index"
           },
-          "max_depth": {
-            "default": 1,
-            "description": "Maximum depth to recurse into subdirectories",
-            "maximum": 3,
-            "minimum": 0,
-            "title": "Max Depth",
-            "type": "integer"
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
           },
-          "start_index": {
-            "default": 0,
-            "description": "Starting index for pagination (0-based)",
-            "minimum": 0,
-            "title": "Start Index",
-            "type": "integer"
-          },
-          "limit": {
-            "default": 25,
-            "description": "Maximum number of items to return (0 means no limit)",
-            "minimum": 0,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "pattern": {
-            "default": "",
-            "description": "Glob pattern to filter file paths",
-            "title": "Pattern",
-            "type": "string"
+          "cell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Address the cell by its notebook cell id instead of its index. An index is a position, and a position stops being true the moment anyone inserts a cell above it; an id does not. Every result says which id it acted on, so read a cell once and address it by id afterwards. Given both, the id wins.",
+            "title": "Cell Id"
           }
         },
         "type": "object",
-        "title": "list_filesArguments"
+        "title": "clear_cell_outputArguments"
       },
-      "name": "list_files",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header.",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "list_filesOutput"
-      }
-    },
-    {
-      "annotations": {
-        "readOnlyHint": true,
-        "title": "List Kernels"
-      },
-      "description": "List all available kernels in the Jupyter server.\n\nThis tool shows all running and available kernel sessions on the Jupyter server,\nincluding their IDs, names, states, connection information, and kernel specifications.\nUseful for monitoring kernel resources and identifying specific kernels for connection.\n",
-      "inputSchema": {
-        "properties": {},
-        "type": "object",
-        "title": "list_kernelsArguments"
-      },
-      "name": "list_kernels",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "list_kernelsOutput"
-      }
+      "name": "clear_cell_output"
     },
     {
       "annotations": {
         "destructiveHint": true,
-        "title": "Use Notebook"
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "title": "Connect to Jupyter Server"
       },
-      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n",
+      "description": "Connect to a Jupyter server dynamically with URL and token.\n\nThis tool allows you to connect to different Jupyter servers without needing to\nrestart the MCP server or modify configuration files. Particularly useful when:\n- Working with multiple Jupyter servers with different ports/tokens\n- Jupyter server token changes dynamically\n- Need to switch between different Jupyter instances\n\nExample usage:\n- \"Connect to http://localhost:8888 with token abc123\"\n- \"Connect to http://localhost:8889 without authentication\"\n",
       "inputSchema": {
         "properties": {
-          "notebook_name": {
-            "description": "Unique identifier for the notebook",
-            "title": "Notebook Name",
+          "jupyter_url": {
+            "description": "Jupyter server URL to connect to (e.g., 'http://localhost:8888')",
+            "title": "Jupyter Url",
             "type": "string"
           },
-          "notebook_path": {
-            "description": "Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')",
-            "title": "Notebook Path",
-            "type": "string"
-          },
-          "mode": {
-            "default": "connect",
-            "description": "Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it",
-            "enum": [
-              "connect",
-              "create"
+          "jupyter_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Mode",
+            "default": null,
+            "description": "Jupyter server authentication token",
+            "title": "Jupyter Token"
+          },
+          "document_provider": {
+            "default": "jupyter",
+            "description": "Which backend holds the notebook documents",
+            "title": "Document Provider",
             "type": "string"
+          }
+        },
+        "required": [
+          "jupyter_url"
+        ],
+        "type": "object",
+        "title": "connect_to_jupyterArguments"
+      },
+      "name": "connect_to_jupyter"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "title": "Delete Cell"
+      },
+      "description": "Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).",
+      "inputSchema": {
+        "properties": {
+          "cell_indices": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "List of cell indices to delete (0-based). Omit when passing cell_ids_to_delete.",
+            "title": "Cell Indices"
+          },
+          "include_source": {
+            "default": true,
+            "description": "Whether to include the source of deleted cells",
+            "title": "Include Source",
+            "type": "boolean"
+          },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
+          },
+          "cell_ids_to_delete": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Address the cells by their notebook cell ids instead of their indices. Safer for a multi-cell delete than indices, which shift as earlier cells go. Given both, the ids win; every id is checked before any cell is deleted, so a bad one fails the whole call rather than half-deleting the notebook.",
+            "title": "Cell Ids To Delete"
+          }
+        },
+        "type": "object",
+        "title": "delete_cellArguments"
+      },
+      "name": "delete_cell"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "title": "Edit Cell Source"
+      },
+      "description": "Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).\nFinds `old_string` in the cell and replaces it with `new_string`. Matching is literal\n(not regex) and may span multiple lines. By default, `old_string` must appear exactly once;\nset `replace_all=True` for multiple occurrences. Returns a diff of the changes made.\n\nPrefer this over overwrite_cell_source for small, targeted edits — it is safer because\nunchanged parts of the cell are left untouched. Use read_cell first to see the current\nsource and construct an accurate old_string.",
+      "inputSchema": {
+        "properties": {
+          "cell_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Index of the cell to edit (0-based). Omit when passing cell_id.",
+            "title": "Cell Index"
+          },
+          "old_string": {
+            "description": "Exact string to find in cell source",
+            "title": "Old String",
+            "type": "string"
+          },
+          "new_string": {
+            "description": "Replacement string",
+            "title": "New String",
+            "type": "string"
+          },
+          "replace_all": {
+            "default": false,
+            "description": "Replace all occurrences (default: first only)",
+            "title": "Replace All",
+            "type": "boolean"
+          },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
+          },
+          "cell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Address the cell by its notebook cell id instead of its index. An index is a position, and a position stops being true the moment anyone inserts a cell above it; an id does not. Every result says which id it acted on, so read a cell once and address it by id afterwards. Given both, the id wins.",
+            "title": "Cell Id"
+          }
+        },
+        "required": [
+          "old_string",
+          "new_string"
+        ],
+        "type": "object",
+        "title": "edit_cell_sourceArguments"
+      },
+      "name": "edit_cell_source"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "title": "Execute Cell"
+      },
+      "description": "Execute a cell from the currently activated notebook with timeout and return it's outputs",
+      "inputSchema": {
+        "properties": {
+          "cell_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Index of the cell to execute (0-based). Omit when passing cell_id.",
+            "title": "Cell Index"
+          },
+          "timeout": {
+            "default": 0,
+            "description": "Maximum seconds to wait for execution (0 = use config default)",
+            "title": "Timeout",
+            "type": "integer"
+          },
+          "stream": {
+            "default": true,
+            "description": "Enable streaming progress (including time indicator) updates for long-running cells",
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "progress_interval": {
+            "default": 5,
+            "description": "Seconds between progress updates (MCP keepalive + optional stream log)",
+            "title": "Progress Interval",
+            "type": "integer"
+          },
+          "cell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Address the cell by its notebook cell id instead of its index. An index is a position, and a position stops being true the moment anyone inserts a cell above it; an id does not. Every result says which id it acted on, so read a cell once and address it by id afterwards. Given both, the id wins.",
+            "title": "Cell Id"
+          }
+        },
+        "type": "object",
+        "title": "execute_cellArguments"
+      },
+      "name": "execute_cell"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "title": "Execute Code"
+      },
+      "description": "Execute code directly in a kernel (not saved to notebook).\n\nIf `use_sandbox` selected an active sandbox, this tool executes on that\nsandbox instead of a Jupyter kernel. This allows agents to switch between\nkernel-backed and sandbox-backed execution using the same execute_code API.\n\nTargets the current activated notebook's kernel by default. Pass kernel_id\nto execute in a specific kernel directly — including raw kernels with no\nnotebook attached.\n\nRecommended to use in following cases:\n1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)\n2. Performance profiling and debugging.\n3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)\n4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)\n5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)\n\nUnder no circumstances should you use this tool to:\n1. Import new modules or perform variable assignments that affect subsequent Notebook execution\n2. Execute dangerous code that may harm the Jupyter server or the user's data without permission\n",
+      "inputSchema": {
+        "properties": {
+          "code": {
+            "description": "Code to execute (supports magic commands with %, shell commands with !)",
+            "title": "Code",
+            "type": "string"
+          },
+          "timeout": {
+            "default": 30,
+            "description": "Maximum seconds to wait for execution (0 = use config default)",
+            "title": "Timeout",
+            "type": "integer"
           },
           "kernel_id": {
-            "default": null,
-            "description": "Specific kernel ID to use (will create new if skipped)",
-            "title": "Kernel Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "notebook_name",
-          "notebook_path"
-        ],
-        "type": "object",
-        "title": "use_notebookArguments"
-      },
-      "name": "use_notebook",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message with notebook information",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "use_notebookOutput"
-      }
-    },
-    {
-      "annotations": {
-        "readOnlyHint": true,
-        "title": "List Notebooks"
-      },
-      "description": "List all notebooks that have been used via use_notebook tool",
-      "inputSchema": {
-        "properties": {},
-        "type": "object",
-        "title": "list_notebooksArguments"
-      },
-      "name": "list_notebooks",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "TSV formatted table with notebook information",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "list_notebooksOutput"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Restart Notebook"
-      },
-      "description": "Restart the kernel for a specific notebook.",
-      "inputSchema": {
-        "properties": {
-          "notebook_name": {
-            "description": "Notebook identifier to restart",
-            "title": "Notebook Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "notebook_name"
-        ],
-        "type": "object",
-        "title": "restart_notebookArguments"
-      },
-      "name": "restart_notebook",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "restart_notebookOutput"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Unuse Notebook"
-      },
-      "description": "Unuse from a specific notebook and release its resources.",
-      "inputSchema": {
-        "properties": {
-          "notebook_name": {
-            "description": "Notebook identifier to disconnect",
-            "title": "Notebook Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "notebook_name"
-        ],
-        "type": "object",
-        "title": "unuse_notebookArguments"
-      },
-      "name": "unuse_notebook",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "unuse_notebookOutput"
-      }
-    },
-    {
-      "annotations": {
-        "readOnlyHint": true,
-        "title": "Read Notebook"
-      },
-      "description": "Read a notebook and return index, source content, type, execution count of each cell.\n\nUsing brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.\nUsing detailed format to get detailed information of the notebook and it's useful for debugging and analysis.\n\nIt is recommended to use brief format with larger limit to get a overview of the notebook structure,\nthen use detailed format with exact index and limit to get the detailed information of some specific cells.\n",
-      "inputSchema": {
-        "properties": {
-          "notebook_name": {
-            "description": "Notebook identifier to read",
-            "title": "Notebook Name",
-            "type": "string"
-          },
-          "response_format": {
-            "default": "brief",
-            "description": "Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source",
-            "enum": [
-              "brief",
-              "detailed"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Response Format",
-            "type": "string"
+            "default": null,
+            "description": "Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.",
+            "title": "Kernel Id"
           },
-          "start_index": {
-            "default": 0,
-            "description": "Starting index for pagination (0-based)",
-            "minimum": 0,
-            "title": "Start Index",
-            "type": "integer"
-          },
-          "limit": {
-            "default": 20,
-            "description": "Maximum number of items to return (0 means no limit)",
-            "minimum": 0,
-            "title": "Limit",
+          "progress_interval": {
+            "default": 5,
+            "description": "Seconds between MCP progress keepalive updates during long-running execution",
+            "title": "Progress Interval",
             "type": "integer"
           }
         },
         "required": [
-          "notebook_name"
+          "code"
         ],
         "type": "object",
-        "title": "read_notebookArguments"
+        "title": "execute_codeArguments"
       },
-      "name": "read_notebook",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Notebook content in the requested format",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "read_notebookOutput"
-      }
+      "name": "execute_code"
     },
     {
       "annotations": {
         "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
         "title": "Insert Cell"
       },
       "description": "Insert a cell to specified position from the currently activated notebook.",
@@ -386,190 +435,13 @@
         "type": "object",
         "title": "insert_cellArguments"
       },
-      "name": "insert_cell",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message and the structure of its surrounding cells",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "insert_cellOutput"
-      }
+      "name": "insert_cell"
     },
     {
       "annotations": {
         "destructiveHint": true,
-        "title": "Overwrite Cell Source"
-      },
-      "description": "Replace the entire source of a cell in the currently activated notebook.\nReturns a diff showing the changes made.\n\nUse this when rewriting a cell completely. For small, targeted changes,\nprefer edit_cell_source instead — it is safer for partial edits.",
-      "inputSchema": {
-        "properties": {
-          "cell_index": {
-            "description": "Index of the cell to overwrite (0-based)",
-            "minimum": 0,
-            "title": "Cell Index",
-            "type": "integer"
-          },
-          "cell_source": {
-            "description": "New complete cell source",
-            "title": "Cell Source",
-            "type": "string"
-          },
-          "notebook_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
-            "title": "Notebook Name"
-          }
-        },
-        "required": [
-          "cell_index",
-          "cell_source"
-        ],
-        "type": "object",
-        "title": "overwrite_cell_sourceArguments"
-      },
-      "name": "overwrite_cell_source",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message with diff showing changes made",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "overwrite_cell_sourceOutput"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Edit Cell Source"
-      },
-      "description": "Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).\nFinds `old_string` in the cell and replaces it with `new_string`. Matching is literal\n(not regex) and may span multiple lines. By default, `old_string` must appear exactly once;\nset `replace_all=True` for multiple occurrences. Returns a diff of the changes made.\n\nPrefer this over overwrite_cell_source for small, targeted edits — it is safer because\nunchanged parts of the cell are left untouched. Use read_cell first to see the current\nsource and construct an accurate old_string.",
-      "inputSchema": {
-        "properties": {
-          "cell_index": {
-            "description": "Index of the cell to edit (0-based)",
-            "minimum": 0,
-            "title": "Cell Index",
-            "type": "integer"
-          },
-          "old_string": {
-            "description": "Exact string to find in cell source",
-            "title": "Old String",
-            "type": "string"
-          },
-          "new_string": {
-            "description": "Replacement string",
-            "title": "New String",
-            "type": "string"
-          },
-          "replace_all": {
-            "default": false,
-            "description": "Replace all occurrences (default: first only)",
-            "title": "Replace All",
-            "type": "boolean"
-          },
-          "notebook_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
-            "title": "Notebook Name"
-          }
-        },
-        "required": [
-          "cell_index",
-          "old_string",
-          "new_string"
-        ],
-        "type": "object",
-        "title": "edit_cell_sourceArguments"
-      },
-      "name": "edit_cell_source",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message with diff showing changes made",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "edit_cell_sourceOutput"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Execute Cell"
-      },
-      "description": "Execute a cell from the currently activated notebook with timeout and return it's outputs",
-      "inputSchema": {
-        "properties": {
-          "cell_index": {
-            "description": "Index of the cell to execute (0-based)",
-            "minimum": 0,
-            "title": "Cell Index",
-            "type": "integer"
-          },
-          "timeout": {
-            "default": 0,
-            "description": "Maximum seconds to wait for execution (0 = use config default)",
-            "title": "Timeout",
-            "type": "integer"
-          },
-          "stream": {
-            "default": true,
-            "description": "Enable streaming progress (including time indicator) updates for long-running cells",
-            "title": "Stream",
-            "type": "boolean"
-          },
-          "progress_interval": {
-            "default": 5,
-            "description": "Seconds between progress updates (MCP keepalive + optional stream log)",
-            "title": "Progress Interval",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "cell_index"
-        ],
-        "type": "object",
-        "title": "execute_cellArguments"
-      },
-      "name": "execute_cell"
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
         "title": "Insert and Execute Code Cell"
       },
       "description": "Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs\nIt is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time",
@@ -613,316 +485,6 @@
         "title": "insert_execute_code_cellArguments"
       },
       "name": "insert_execute_code_cell"
-    },
-    {
-      "annotations": {
-        "readOnlyHint": true,
-        "title": "Read Cell"
-      },
-      "description": "Read a cell as readable text entries.\n\nIncludes metadata and source, plus optional formatted output text rather\nthan raw nbformat objects.\n",
-      "inputSchema": {
-        "properties": {
-          "cell_index": {
-            "description": "Index of the cell to read (0-based)",
-            "minimum": 0,
-            "title": "Cell Index",
-            "type": "integer"
-          },
-          "include_outputs": {
-            "default": true,
-            "description": "Include outputs in the response (only for code cells)",
-            "title": "Include Outputs",
-            "type": "boolean"
-          },
-          "notebook_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
-            "title": "Notebook Name"
-          }
-        },
-        "required": [
-          "cell_index"
-        ],
-        "type": "object",
-        "title": "read_cellArguments"
-      },
-      "name": "read_cell"
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Delete Cell"
-      },
-      "description": "Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).",
-      "inputSchema": {
-        "properties": {
-          "cell_indices": {
-            "description": "List of cell indices to delete (0-based)",
-            "items": {
-              "type": "integer"
-            },
-            "minItems": 1,
-            "title": "Cell Indices",
-            "type": "array"
-          },
-          "include_source": {
-            "default": true,
-            "description": "Whether to include the source of deleted cells",
-            "title": "Include Source",
-            "type": "boolean"
-          },
-          "notebook_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
-            "title": "Notebook Name"
-          }
-        },
-        "required": [
-          "cell_indices"
-        ],
-        "type": "object",
-        "title": "delete_cellArguments"
-      },
-      "name": "delete_cell",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message with list of deleted cells and their source (if include_source=True)",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "delete_cellOutput"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Clear Cell Output"
-      },
-      "description": "Clear the outputs and execution count of a single code cell in the currently\nactivated notebook, without deleting the cell itself.",
-      "inputSchema": {
-        "properties": {
-          "cell_index": {
-            "description": "Index of the code cell to clear (0-based)",
-            "minimum": 0,
-            "title": "Cell Index",
-            "type": "integer"
-          },
-          "notebook_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
-            "title": "Notebook Name"
-          }
-        },
-        "required": [
-          "cell_index"
-        ],
-        "type": "object",
-        "title": "clear_cell_outputArguments"
-      },
-      "name": "clear_cell_output",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message with the number of outputs removed",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "clear_cell_outputOutput"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Move Cell"
-      },
-      "description": "Move a cell from source_index to target_index within the currently activated notebook.\n\nThe cell is removed from source_index and placed at target_index. Cells in between shift\nto fill the gap. The cell's type, source, and outputs are preserved.\nExample: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].\n\nUse this tool instead of manually deleting and re-inserting a cell — it is atomic and\npreserves cell metadata. Use read_notebook first to see cell indices if needed.",
-      "inputSchema": {
-        "properties": {
-          "source_index": {
-            "description": "Index of the cell to move (0-based)",
-            "minimum": 0,
-            "title": "Source Index",
-            "type": "integer"
-          },
-          "target_index": {
-            "description": "Destination index where the cell will end up (0-based)",
-            "minimum": 0,
-            "title": "Target Index",
-            "type": "integer"
-          },
-          "notebook_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
-            "title": "Notebook Name"
-          }
-        },
-        "required": [
-          "source_index",
-          "target_index"
-        ],
-        "type": "object",
-        "title": "move_cellArguments"
-      },
-      "name": "move_cell",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Success message with moved cell info and surrounding context",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "move_cellOutput"
-      }
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Execute Code"
-      },
-      "description": "Execute code directly in a kernel (not saved to notebook).\n\nIf `use_sandbox` selected an active sandbox, this tool executes on that\nsandbox instead of a Jupyter kernel. This allows agents to switch between\nkernel-backed and sandbox-backed execution using the same execute_code API.\n\nTargets the current activated notebook's kernel by default. Pass kernel_id\nto execute in a specific kernel directly — including raw kernels with no\nnotebook attached.\n\nRecommended to use in following cases:\n1. Execute Jupyter magic commands(e.g., `%timeit`, `%pip install xxx`)\n2. Performance profiling and debugging.\n3. View intermediate variable values(e.g., `print(xxx)`, `df.head()`)\n4. Temporary calculations and quick tests(e.g., `np.mean(df['xxx'])`)\n5. Execute Shell commands in Jupyter server(e.g., `!git xxx`)\n\nUnder no circumstances should you use this tool to:\n1. Import new modules or perform variable assignments that affect subsequent Notebook execution\n2. Execute dangerous code that may harm the Jupyter server or the user's data without permission\n",
-      "inputSchema": {
-        "properties": {
-          "code": {
-            "description": "Code to execute (supports magic commands with %, shell commands with !)",
-            "title": "Code",
-            "type": "string"
-          },
-          "timeout": {
-            "default": 30,
-            "description": "Maximum seconds to wait for execution (0 = use config default)",
-            "title": "Timeout",
-            "type": "integer"
-          },
-          "kernel_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Target an existing kernel by ID (e.g. a raw kernel with no notebook). If omitted, uses the current notebook's kernel.",
-            "title": "Kernel Id"
-          },
-          "progress_interval": {
-            "default": 5,
-            "description": "Seconds between MCP progress keepalive updates during long-running execution",
-            "title": "Progress Interval",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "code"
-        ],
-        "type": "object",
-        "title": "execute_codeArguments"
-      },
-      "name": "execute_code"
-    },
-    {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Connect to Jupyter Server"
-      },
-      "description": "Connect to a Jupyter server dynamically with URL and token.\n\nThis tool allows you to connect to different Jupyter servers without needing to\nrestart the MCP server or modify configuration files. Particularly useful when:\n- Working with multiple Jupyter servers with different ports/tokens\n- Jupyter server token changes dynamically\n- Need to switch between different Jupyter instances\n\nExample usage:\n- \"Connect to http://localhost:8888 with token abc123\"\n- \"Connect to http://localhost:8889 without authentication\"\n",
-      "inputSchema": {
-        "properties": {
-          "jupyter_url": {
-            "description": "Jupyter server URL to connect to (e.g., 'http://localhost:8888')",
-            "title": "Jupyter Url",
-            "type": "string"
-          },
-          "jupyter_token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Jupyter server authentication token",
-            "title": "Jupyter Token"
-          },
-          "document_provider": {
-            "default": "jupyter",
-            "description": "Which backend holds the notebook documents",
-            "title": "Document Provider",
-            "type": "string"
-          }
-        },
-        "required": [
-          "jupyter_url"
-        ],
-        "type": "object",
-        "title": "connect_to_jupyterArguments"
-      },
-      "name": "connect_to_jupyter",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Connection status message",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "connect_to_jupyterOutput"
-      }
     },
     {
       "annotations": {
@@ -1059,21 +621,8 @@
               }
             ],
             "default": null,
-            "description": "Datalayer API token override, or Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN)",
+            "description": "Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN)",
             "title": "Token"
-          },
-          "run_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Datalayer run URL override",
-            "title": "Run Url"
           },
           "python_version": {
             "anyOf": [
@@ -1096,6 +645,86 @@
         "title": "launch_sandboxArguments"
       },
       "name": "launch_sandbox"
+    },
+    {
+      "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "List Files"
+      },
+      "description": "\nList all files and directories recursively in the Jupyter server's file system.\nUsed to explore the file system structure of the Jupyter server or to find specific files or directories.\n",
+      "inputSchema": {
+        "properties": {
+          "path": {
+            "default": "",
+            "description": "The starting path to list from (empty string means root directory)",
+            "title": "Path",
+            "type": "string"
+          },
+          "max_depth": {
+            "default": 1,
+            "description": "Maximum depth to recurse into subdirectories",
+            "maximum": 3,
+            "minimum": 0,
+            "title": "Max Depth",
+            "type": "integer"
+          },
+          "start_index": {
+            "default": 0,
+            "description": "Starting index for pagination (0-based)",
+            "minimum": 0,
+            "title": "Start Index",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 25,
+            "description": "Maximum number of items to return (0 means no limit)",
+            "minimum": 0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "pattern": {
+            "default": "",
+            "description": "Glob pattern to filter file paths",
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "title": "list_filesArguments"
+      },
+      "name": "list_files"
+    },
+    {
+      "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "List Kernels"
+      },
+      "description": "List all available kernels in the Jupyter server.\n\nThis tool shows all running and available kernel sessions on the Jupyter server,\nincluding their IDs, names, states, connection information, and kernel specifications.\nUseful for monitoring kernel resources and identifying specific kernels for connection.\n",
+      "inputSchema": {
+        "properties": {},
+        "type": "object",
+        "title": "list_kernelsArguments"
+      },
+      "name": "list_kernels"
+    },
+    {
+      "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "List Notebooks"
+      },
+      "description": "List all notebooks that have been used via use_notebook tool",
+      "inputSchema": {
+        "properties": {},
+        "type": "object",
+        "title": "list_notebooksArguments"
+      },
+      "name": "list_notebooks"
     },
     {
       "annotations": {
@@ -1127,6 +756,393 @@
         "type": "object",
         "title": "list_sandboxesOutput"
       }
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "title": "Move Cell"
+      },
+      "description": "Move a cell from source_index to target_index within the currently activated notebook.\n\nThe cell is removed from source_index and placed at target_index. Cells in between shift\nto fill the gap. The cell's type, source, and outputs are preserved.\nExample: in a notebook [A, B, C, D], move_cell(1, 3) produces [A, C, D, B].\n\nUse this tool instead of manually deleting and re-inserting a cell — it is atomic and\npreserves cell metadata. Use read_notebook first to see cell indices if needed.",
+      "inputSchema": {
+        "properties": {
+          "source_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Index of the cell to move (0-based). Omit when passing source_cell_id.",
+            "title": "Source Index"
+          },
+          "target_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Destination index where the cell will end up (0-based). Omit when passing target_cell_id.",
+            "title": "Target Index"
+          },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
+          },
+          "source_cell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Address the cell to move by its id rather than its index.",
+            "title": "Source Cell Id"
+          },
+          "target_cell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Put the moved cell where this cell is now, addressed by id rather than by an index that the move itself will shift.",
+            "title": "Target Cell Id"
+          }
+        },
+        "type": "object",
+        "title": "move_cellArguments"
+      },
+      "name": "move_cell"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "title": "Overwrite Cell Source"
+      },
+      "description": "Replace the entire source of a cell in the currently activated notebook.\nReturns a diff showing the changes made.\n\nUse this when rewriting a cell completely. For small, targeted changes,\nprefer edit_cell_source instead — it is safer for partial edits.",
+      "inputSchema": {
+        "properties": {
+          "cell_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Index of the cell to overwrite (0-based). Omit when passing cell_id.",
+            "title": "Cell Index"
+          },
+          "cell_source": {
+            "description": "New complete cell source",
+            "title": "Cell Source",
+            "type": "string"
+          },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
+          },
+          "cell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Address the cell by its notebook cell id instead of its index. An index is a position, and a position stops being true the moment anyone inserts a cell above it; an id does not. Every result says which id it acted on, so read a cell once and address it by id afterwards. Given both, the id wins.",
+            "title": "Cell Id"
+          }
+        },
+        "required": [
+          "cell_source"
+        ],
+        "type": "object",
+        "title": "overwrite_cell_sourceArguments"
+      },
+      "name": "overwrite_cell_source"
+    },
+    {
+      "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Read Cell"
+      },
+      "description": "Read a cell as readable text entries.\n\nIncludes metadata and source, plus optional formatted output text rather\nthan raw nbformat objects.\n",
+      "inputSchema": {
+        "properties": {
+          "cell_index": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Index of the cell to read (0-based). Omit when passing cell_id.",
+            "title": "Cell Index"
+          },
+          "include_outputs": {
+            "default": true,
+            "description": "Include outputs in the response (only for code cells)",
+            "title": "Include Outputs",
+            "type": "boolean"
+          },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
+          },
+          "cell_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Address the cell by its notebook cell id instead of its index. An index is a position, and a position stops being true the moment anyone inserts a cell above it; an id does not. Every result says which id it acted on, so read a cell once and address it by id afterwards. Given both, the id wins.",
+            "title": "Cell Id"
+          }
+        },
+        "type": "object",
+        "title": "read_cellArguments"
+      },
+      "name": "read_cell"
+    },
+    {
+      "annotations": {
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Read Notebook"
+      },
+      "description": "Read a notebook and return index, source content, type, execution count of each cell.\n\nUsing brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.\nUsing detailed format to get detailed information of the notebook and it's useful for debugging and analysis.\n\nIt is recommended to use brief format with larger limit to get a overview of the notebook structure,\nthen use detailed format with exact index and limit to get the detailed information of some specific cells.\n",
+      "inputSchema": {
+        "properties": {
+          "notebook_name": {
+            "description": "Notebook identifier to read",
+            "title": "Notebook Name",
+            "type": "string"
+          },
+          "response_format": {
+            "default": "brief",
+            "description": "Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source",
+            "enum": [
+              "brief",
+              "detailed"
+            ],
+            "title": "Response Format",
+            "type": "string"
+          },
+          "start_index": {
+            "default": 0,
+            "description": "Starting index for pagination (0-based)",
+            "minimum": 0,
+            "title": "Start Index",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Maximum number of items to return (0 means no limit)",
+            "minimum": 0,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "notebook_name"
+        ],
+        "type": "object",
+        "title": "read_notebookArguments"
+      },
+      "name": "read_notebook"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "title": "Restart Notebook"
+      },
+      "description": "Restart the kernel for a specific notebook.",
+      "inputSchema": {
+        "properties": {
+          "notebook_name": {
+            "description": "Notebook identifier to restart",
+            "title": "Notebook Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_name"
+        ],
+        "type": "object",
+        "title": "restart_notebookArguments"
+      },
+      "name": "restart_notebook"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "title": "Terminate Sandbox"
+      },
+      "description": "Terminate a launched code sandbox.",
+      "inputSchema": {
+        "properties": {
+          "sandbox_name": {
+            "description": "Sandbox name to terminate and unregister",
+            "title": "Sandbox Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sandbox_name"
+        ],
+        "type": "object",
+        "title": "terminate_sandboxArguments"
+      },
+      "name": "terminate_sandbox",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "description": "Termination status message",
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object",
+        "title": "terminate_sandboxOutput"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "title": "Unuse Notebook"
+      },
+      "description": "Unuse from a specific notebook and release its resources.",
+      "inputSchema": {
+        "properties": {
+          "notebook_name": {
+            "description": "Notebook identifier to disconnect",
+            "title": "Notebook Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_name"
+        ],
+        "type": "object",
+        "title": "unuse_notebookArguments"
+      },
+      "name": "unuse_notebook"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "title": "Use Notebook"
+      },
+      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n",
+      "inputSchema": {
+        "properties": {
+          "notebook_name": {
+            "description": "Unique identifier for the notebook",
+            "title": "Notebook Name",
+            "type": "string"
+          },
+          "notebook_path": {
+            "description": "Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')",
+            "title": "Notebook Path",
+            "type": "string"
+          },
+          "mode": {
+            "default": "connect",
+            "description": "Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it",
+            "enum": [
+              "connect",
+              "create"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "kernel_id": {
+            "default": null,
+            "description": "Specific kernel ID to use (will create new if skipped)",
+            "title": "Kernel Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_name",
+          "notebook_path"
+        ],
+        "type": "object",
+        "title": "use_notebookArguments"
+      },
+      "name": "use_notebook"
     },
     {
       "annotations": {
@@ -1168,42 +1184,14 @@
         "type": "object",
         "title": "use_sandboxOutput"
       }
-    },
+    }
+  ],
+  "resources": [
     {
-      "annotations": {
-        "destructiveHint": true,
-        "title": "Terminate Sandbox"
-      },
-      "description": "Terminate a launched code sandbox.",
-      "inputSchema": {
-        "properties": {
-          "sandbox_name": {
-            "description": "Sandbox name to terminate and unregister",
-            "title": "Sandbox Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "sandbox_name"
-        ],
-        "type": "object",
-        "title": "terminate_sandboxArguments"
-      },
-      "name": "terminate_sandbox",
-      "outputSchema": {
-        "properties": {
-          "result": {
-            "description": "Termination status message",
-            "title": "Result",
-            "type": "string"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object",
-        "title": "terminate_sandboxOutput"
-      }
+      "description": "What this server can do, and where each answer came from.\n\nA server does things a client cannot see and did not ask for — replacing\na dead kernel with an empty one is the clearest case. Reading this is how\na client finds out which of those are on, and an operator finds out *why*\na capability is on, which is the first question asked when one surprises\nsomebody.\n\nA resource as well as a `server/discover` field, because a client may\nwant to re-read it without re-discovering the server, and because a\nperson can open a resource and look.\n",
+      "mimeType": "text/plain",
+      "name": "capabilities_resource",
+      "uri": "capabilities://"
     }
   ],
   "prompts": [

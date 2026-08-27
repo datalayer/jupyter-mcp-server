@@ -7,32 +7,13 @@ description: "Restart the kernel for a specific notebook."
 
 Restart the kernel for a specific notebook.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **no**
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `notebook_name` | string | yes | — | Notebook identifier to restart |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Success message",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "restart_notebookOutput"
-}
-```
 
 ## Call it
 

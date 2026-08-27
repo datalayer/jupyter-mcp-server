@@ -7,30 +7,11 @@ description: "List all notebooks that have been used via use_notebook tool"
 
 List all notebooks that have been used via use_notebook tool
 
-> read-only: **yes**
+> read-only: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
 This tool takes no parameters.
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "TSV formatted table with notebook information",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "list_notebooksOutput"
-}
-```
 
 ## Call it
 

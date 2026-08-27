@@ -7,7 +7,7 @@ description: "Insert a cell to specified position from the currently activated n
 
 Insert a cell to specified position from the currently activated notebook.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **no**
 
 ## Parameters
 
@@ -17,25 +17,6 @@ Insert a cell to specified position from the currently activated notebook.
 | `cell_type` | `code` · `markdown` · `raw` | yes | — | Type of cell to insert |
 | `cell_source` | string | yes | — | Source content for the cell |
 | `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Success message and the structure of its surrounding cells",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "insert_cellOutput"
-}
-```
 
 ## Call it
 

@@ -8,7 +8,7 @@ description: "List all files and directories recursively in the Jupyter server's
 List all files and directories recursively in the Jupyter server's file system.
 Used to explore the file system structure of the Jupyter server or to find specific files or directories.
 
-> read-only: **yes**
+> read-only: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
@@ -19,25 +19,6 @@ Used to explore the file system structure of the Jupyter server or to find speci
 | `start_index` | integer | no | `0` | Starting index for pagination (0-based) |
 | `limit` | integer | no | `25` | Maximum number of items to return (0 means no limit) |
 | `pattern` | string | no | `""` | Glob pattern to filter file paths |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header.",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "list_filesOutput"
-}
-```
 
 ## Call it
 

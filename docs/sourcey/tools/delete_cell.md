@@ -7,34 +7,16 @@ description: "Delete specific cells from the currently activated notebook and re
 
 Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True).
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **no**
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `cell_indices` | array<integer> | yes | — | List of cell indices to delete (0-based) |
+| `cell_indices` | array<integer> \| null | no | `null` | List of cell indices to delete (0-based). Omit when passing cell_ids_to_delete. |
 | `include_source` | boolean | no | `true` | Whether to include the source of deleted cells |
 | `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Success message with list of deleted cells and their source (if include_source=True)",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "delete_cellOutput"
-}
-```
+| `cell_ids_to_delete` | array<string> \| null | no | `null` | Address the cells by their notebook cell ids instead of their indices. Safer for a multi-cell delete than indices, which shift as earlier cells go. Given both, the ids win; every id is checked before any cell is deleted, so a bad one fails the whole call rather than half-deleting the notebook. |
 
 ## Call it
 
@@ -46,16 +28,17 @@ Delete specific cells from the currently activated notebook and return the cell 
   "params": {
     "name": "delete_cell",
     "arguments": {
-      "cell_indices": "<cell_indices>",
+      "cell_indices": null,
       "include_source": true,
-      "notebook_name": null
+      "notebook_name": null,
+      "cell_ids_to_delete": null
     }
   }
 }
 ```
 
 ```python
-result = await session.call_tool("delete_cell", arguments={"cell_indices": "<cell_indices>", "include_source": True, "notebook_name": None})
+result = await session.call_tool("delete_cell", arguments={"cell_indices": None, "include_source": True, "notebook_name": None, "cell_ids_to_delete": None})
 ```
 
 ## Source

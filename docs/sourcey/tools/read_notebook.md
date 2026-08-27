@@ -13,7 +13,7 @@ Using detailed format to get detailed information of the notebook and it's usefu
 It is recommended to use brief format with larger limit to get a overview of the notebook structure,
 then use detailed format with exact index and limit to get the detailed information of some specific cells.
 
-> read-only: **yes**
+> read-only: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
@@ -23,25 +23,6 @@ then use detailed format with exact index and limit to get the detailed informat
 | `response_format` | `brief` · `detailed` | no | `"brief"` | Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source |
 | `start_index` | integer | no | `0` | Starting index for pagination (0-based) |
 | `limit` | integer | no | `20` | Maximum number of items to return (0 means no limit) |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Notebook content in the requested format",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "read_notebookOutput"
-}
-```
 
 ## Call it
 

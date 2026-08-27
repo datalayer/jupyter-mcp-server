@@ -26,8 +26,7 @@ MCP_SERVER and JUPYTER_SERVER modes.
 | `kernel_id` | string \| null | no | `null` | Kernel ID when using the google-colab or kaggle variant |
 | `proxy_token` | string \| null | no | `null` | Google Colab code sandbox proxy token when using google-colab variant |
 | `channels_url` | string \| null | no | `null` | Notebook session WebSocket channels URL to derive server_url/kernel_id (google-colab or kaggle variant) |
-| `token` | string \| null | no | `null` | Datalayer API token override, or Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN) |
-| `run_url` | string \| null | no | `null` | Datalayer run URL override |
+| `token` | string \| null | no | `null` | Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN) |
 | `python_version` | string \| null | no | `null` | Modal Python version override (e.g. 3.12). Only used for modal variant. |
 
 ## Call it
@@ -50,7 +49,6 @@ MCP_SERVER and JUPYTER_SERVER modes.
       "proxy_token": null,
       "channels_url": null,
       "token": null,
-      "run_url": null,
       "python_version": null
     }
   }
@@ -58,7 +56,7 @@ MCP_SERVER and JUPYTER_SERVER modes.
 ```
 
 ```python
-result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<sandbox_name>", "variant": None, "timeout": 60, "environment": None, "gpu": None, "server_url": None, "kernel_id": None, "proxy_token": None, "channels_url": None, "token": None, "run_url": None, "python_version": None})
+result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<sandbox_name>", "variant": None, "timeout": 60, "environment": None, "gpu": None, "server_url": None, "kernel_id": None, "proxy_token": None, "channels_url": None, "token": None, "python_version": None})
 ```
 
 ## Source

@@ -8,7 +8,7 @@ description: "Insert a cell at specified index from the currently activated note
 Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
 It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **yes**
 
 ## Parameters
 

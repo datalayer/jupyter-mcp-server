@@ -26,7 +26,7 @@ Under no circumstances should you use this tool to:
 1. Import new modules or perform variable assignments that affect subsequent Notebook execution
 2. Execute dangerous code that may harm the Jupyter server or the user's data without permission
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **yes**
 
 ## Parameters
 

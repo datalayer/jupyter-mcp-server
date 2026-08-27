@@ -7,32 +7,13 @@ description: "Unuse from a specific notebook and release its resources."
 
 Unuse from a specific notebook and release its resources.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `notebook_name` | string | yes | — | Notebook identifier to disconnect |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Success message",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "unuse_notebookOutput"
-}
-```
 
 ## Call it
 

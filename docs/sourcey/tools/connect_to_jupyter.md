@@ -17,7 +17,7 @@ Example usage:
 - "Connect to http://localhost:8888 with token abc123"
 - "Connect to http://localhost:8889 without authentication"
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
@@ -26,25 +26,6 @@ Example usage:
 | `jupyter_url` | string | yes | — | Jupyter server URL to connect to (e.g., 'http://localhost:8888') |
 | `jupyter_token` | string \| null | no | `null` | Jupyter server authentication token |
 | `document_provider` | string | no | `"jupyter"` | Which backend holds the notebook documents |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Connection status message",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "connect_to_jupyterOutput"
-}
-```
 
 ## Call it
 

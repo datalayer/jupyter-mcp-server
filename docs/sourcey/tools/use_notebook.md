@@ -10,7 +10,7 @@ All cell operations will be performed on the currently activated notebook.
 Activate new notebook will deactivate the previously activated notebook.
 Reactivate previously activated notebook using same notebook_name and notebook_path.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
@@ -20,25 +20,6 @@ Reactivate previously activated notebook using same notebook_name and notebook_p
 | `notebook_path` | string | yes | — | Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb') |
 | `mode` | `connect` · `create` | no | `"connect"` | Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it |
 | `kernel_id` | string | no | `null` | Specific kernel ID to use (will create new if skipped) |
-
-## Output
-
-```json
-{
-  "properties": {
-    "result": {
-      "description": "Success message with notebook information",
-      "title": "Result",
-      "type": "string"
-    }
-  },
-  "required": [
-    "result"
-  ],
-  "type": "object",
-  "title": "use_notebookOutput"
-}
-```
 
 ## Call it
 
