@@ -134,7 +134,19 @@ class ExtensionManager:
         logger.info("Registered Jupyter MCP extension: %s", manifest.name)
 
     def discover(self) -> None:
-        """Discover extensions published on the entry-point group."""
+        """Discover extensions published on the entry-point group.
+
+        Registered in **name order**. `importlib.metadata` returns entry
+        points in whatever order the installation happens to produce, which
+        varies between machines and between a wheel and an editable install —
+        so two extensions that interact would work on one and not the other,
+        and nothing would say why.
+
+        Order matters because registration is not independent: an extension
+        may *replace* a tool another registered, and the SDK keeps the
+        original when a name is registered twice. Sorting by name gives such
+        an extension something it can rely on.
+        """
         if self._discovered:
             return
         self._discovered = True
@@ -142,7 +154,7 @@ class ExtensionManager:
             entry_points = metadata.entry_points(group=ENTRY_POINT_GROUP)
         except TypeError:  # pragma: no cover - Python < 3.10 compatibility
             entry_points = metadata.entry_points().get(ENTRY_POINT_GROUP, [])
-        for entry_point in entry_points:
+        for entry_point in sorted(entry_points, key=lambda point: point.name):
             try:
                 factory = entry_point.load()
                 extension = factory() if callable(factory) else factory

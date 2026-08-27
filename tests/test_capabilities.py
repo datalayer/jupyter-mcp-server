@@ -303,3 +303,58 @@ class TestExtensionsRegisterAfterConfiguration:
         from jupyter_mcp_server.server import get_registered_tools
 
         assert "register_extension_tools()" in inspect.getsource(get_registered_tools)
+
+
+class TestExtensionsRegisterInAOrderTheyCanRelyOn:
+    """Registration is not independent, so the order cannot be accidental.
+
+    An extension may replace a tool another registered — the hosted gateway's
+    sandboxes extension narrows the scaffold's `launch_sandbox` — and the SDK
+    keeps the *original* when a name is registered twice. So a replacement
+    that runs first silently does nothing.
+
+    `importlib.metadata` returns entry points in whatever order the
+    installation produced. It varies between machines and between a wheel and
+    an editable install, which is the worst kind of ordering bug: it works
+    where it was written.
+    """
+
+    def test_they_are_registered_in_name_order(self):
+        import inspect
+
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        source = inspect.getsource(ExtensionManager.discover)
+        assert "sorted(" in source, "entry points are registered in arbitrary order"
+
+    def test_the_order_is_the_one_extensions_are_told_about(self, monkeypatch):
+        """Sorted by name, so an extension wanting to run after another can
+        be named to. Proven by driving the manager rather than by reading it."""
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        registered: list[str] = []
+
+        class _Point:
+            def __init__(self, name):
+                self.name = name
+
+            def load(self):
+                def factory():
+                    registered.append(self.name)
+                    return _Noop()
+
+                return factory
+
+        class _Noop:
+            def manifest(self):
+                from reactor import PluginManifest
+
+                return PluginManifest(name=registered[-1], version="0.0.1")
+
+        manager = ExtensionManager()
+        monkeypatch.setattr(
+            "jupyter_mcp_server.extensions.metadata.entry_points",
+            lambda group=None: [_Point("zebra"), _Point("alpha"), _Point("middle")],
+        )
+        manager.discover()
+        assert registered == ["alpha", "middle", "zebra"]
