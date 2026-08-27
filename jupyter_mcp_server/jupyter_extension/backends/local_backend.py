@@ -330,6 +330,9 @@ class LocalBackend(Backend):
         cell = cells[cell_index]
         source = "".join(cell["source"]) if isinstance(cell["source"], list) else cell["source"]
 
+        if kernel_id not in self.kernel_manager:
+            raise RuntimeError(f"Kernel '{kernel_id}' is not running")
+
         # Get kernel client. Its ZMQ identity must not collide with any
         # long-lived client on the same kernel (see create_isolated_kernel_client).
         kernel = self.kernel_manager.get_kernel(kernel_id)
