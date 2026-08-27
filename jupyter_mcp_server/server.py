@@ -20,6 +20,7 @@ from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.types import ImageContent, ToolAnnotations
 
 from jupyter_mcp_server.capabilities import CAPABILITIES_RESOURCE, get_capabilities
+from jupyter_mcp_server.results import as_text, structured
 from pydantic import Field
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -154,6 +155,52 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
                 )
 
         return await call_next(request)
+
+
+def _rows(value):
+    """A tab-separated table, as rows a client can use without parsing prose.
+
+    Several tools answer with a TSV table because that is compact for a model
+    to read. An agent that wants one field out of it has to split the text and
+    hope the columns did not move; this hands it the same table as data, with
+    the header as keys, and leaves the text exactly as it was.
+    """
+    text = value if isinstance(value, str) else as_text(value)
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) < 2 or "\t" not in lines[0]:
+        return {"result": text}
+    header = [column.strip() for column in lines[0].split("\t")]
+    items = [
+        dict(zip(header, (cell.strip() for cell in line.split("\t"))))
+        for line in lines[1:]
+        if "\t" in line
+    ]
+    return {"result": text, "columns": header, "items": items, "count": len(items)}
+
+
+def _outputs(value):
+    """Execution or cell outputs, split into what is text and what is not.
+
+    An image is left in `content` where a client can render it; the
+    structured answer says one is there rather than trying to carry it twice.
+    """
+    blocks = value if isinstance(value, list) else [value]
+    outputs = []
+    texts = []
+    images = 0
+    for block in blocks:
+        if isinstance(block, ImageContent):
+            images += 1
+            outputs.append({"type": "image", "mimeType": getattr(block, "mimeType", "")})
+            continue
+        text = block if isinstance(block, str) else as_text(block)
+        texts.append(text)
+        outputs.append({"type": "text", "text": text})
+    # `result` is the answer in the form it has always had — the text
+    # outputs, in order. `outputs` is the same thing typed, and says where
+    # the images were; the images themselves stay in `content`, which is
+    # where a client can actually render them.
+    return {"result": texts, "outputs": outputs, "count": len(outputs), "images": images}
 
 
 class MCPServerWithCORS(MCPServer):
@@ -454,7 +501,9 @@ async def health_check(request: Request):
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("files.list", shape=_rows)
 @with_hooks("list_files")
 async def list_files(
     path: Annotated[
@@ -502,7 +551,9 @@ async def list_files(
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("kernels.list", shape=_rows)
 @with_hooks("list_kernels")
 async def list_kernels() -> (
     Annotated[
@@ -539,7 +590,9 @@ async def list_kernels() -> (
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("notebook.use")
 @with_hooks("use_notebook")
 async def use_notebook(
     notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
@@ -600,7 +653,9 @@ async def use_notebook(
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("notebooks.list", shape=_rows)
 @with_hooks("list_notebooks")
 async def list_notebooks() -> (
     Annotated[str, Field(description="TSV formatted table with notebook information")]
@@ -620,7 +675,9 @@ async def list_notebooks() -> (
         idempotentHint=False,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("notebook.restart")
 @with_hooks("restart_notebook")
 async def restart_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to restart")],
@@ -649,7 +706,9 @@ async def restart_notebook(
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("notebook.unuse")
 @with_hooks("unuse_notebook")
 async def unuse_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
@@ -678,7 +737,9 @@ async def unuse_notebook(
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("notebook.read")
 @with_hooks("read_notebook")
 async def read_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to read")],
@@ -728,7 +789,9 @@ async def read_notebook(
         idempotentHint=False,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("cell.insert")
 @with_hooks("insert_cell")
 async def insert_cell(
     cell_index: Annotated[
@@ -771,7 +834,9 @@ async def insert_cell(
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("cell.overwrite")
 @with_hooks("overwrite_cell_source")
 async def overwrite_cell_source(
     cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
@@ -809,7 +874,9 @@ async def overwrite_cell_source(
         idempotentHint=False,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("cell.edit")
 async def edit_cell_source(
     cell_index: Annotated[int, Field(description="Index of the cell to edit (0-based)", ge=0)],
     old_string: Annotated[str, Field(description="Exact string to find in cell source")],
@@ -857,6 +924,7 @@ async def edit_cell_source(
     ),
     structured_output=False,
 )
+@structured("cell.execute", shape=_outputs)
 @with_hooks("execute_cell")
 async def execute_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
@@ -912,6 +980,7 @@ async def execute_cell(
     ),
     structured_output=False,
 )
+@structured("cell.insert_execute", shape=_outputs)
 @with_hooks("insert_execute_code_cell")
 async def insert_execute_code_cell(
     cell_index: Annotated[
@@ -992,6 +1061,7 @@ async def insert_execute_code_cell(
     ),
     structured_output=False,
 )
+@structured("cell.read", shape=_outputs)
 @with_hooks("read_cell")
 async def read_cell(
     cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
@@ -1038,7 +1108,9 @@ async def read_cell(
         idempotentHint=False,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("cell.delete")
 @with_hooks("delete_cell")
 async def delete_cell(
     cell_indices: Annotated[
@@ -1081,7 +1153,9 @@ async def delete_cell(
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("cell.clear_output")
 @with_hooks("clear_cell_output")
 async def clear_cell_output(
     cell_index: Annotated[
@@ -1116,7 +1190,9 @@ async def clear_cell_output(
         idempotentHint=False,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("cell.move")
 async def move_cell(
     source_index: Annotated[int, Field(description="Index of the cell to move (0-based)", ge=0)],
     target_index: Annotated[
@@ -1162,6 +1238,7 @@ async def move_cell(
     ),
     structured_output=False,
 )
+@structured("code.execute", shape=_outputs)
 @with_hooks("execute_code")
 async def execute_code(
     code: Annotated[
@@ -1251,7 +1328,9 @@ async def execute_code(
         idempotentHint=True,
         openWorldHint=False,
     ),
+    structured_output=False,
 )
+@structured("jupyter.connect")
 @with_hooks("connect_to_jupyter")
 async def connect_to_jupyter(
     jupyter_url: Annotated[

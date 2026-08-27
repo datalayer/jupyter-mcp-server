@@ -1,0 +1,206 @@
+# Copyright (c) 2023-2026 Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""One place that knows what a tool result looks like on the wire.
+
+A ``tools/call`` may answer with ``content`` — text and images, for a person
+and for the model to read — and with ``structuredContent``, the same answer as
+data. A server cannot know which of the two a client puts in front of the
+model, and the Core Primitives Working Group is redesigning that contract for
+exactly that reason. Content annotations (``audience``, ``priority``) are in
+the same discussion, and may be deprecated outright if nobody adopts them.
+
+So the shape is built here and nowhere else. When the redesign lands, or
+annotations go, this file changes and the eighteen tools do not.
+
+The tools keep returning what they already return — a string, or a list of
+text and images. The :func:`structured` decorator turns that into the one
+shape, and a tool that has something to add attaches it through
+:func:`add_meta` from wherever it runs, without threading a return value back
+up through helpers that have no business carrying it.
+
+@module jupyter_mcp_server.results
+"""
+
+from __future__ import annotations
+
+import contextvars
+import json
+import logging
+from collections.abc import Callable, Iterable, Sequence
+from functools import wraps
+from typing import Any
+
+from mcp.types import Annotations, CallToolResult, ImageContent, TextContent
+
+logger = logging.getLogger(__name__)
+
+#: Who a piece of content is for. The specification's two audiences.
+AUDIENCE_ASSISTANT = "assistant"
+AUDIENCE_USER = "user"
+
+#: The namespace this server's own `_meta` keys live under. Namespaced because
+#: `_meta` is shared with the protocol and with every other extension: a bare
+#: `cell_id` would be a collision waiting to happen.
+META_NAMESPACE = "io.jupyter-mcp"
+
+
+def meta_key(name: str) -> str:
+    """A `_meta` key of this server's, namespaced."""
+    return f"{META_NAMESPACE}/{name}"
+
+
+#: What the tool running right now has attached to its result. A context
+#: variable rather than an argument because the facts worth attaching — the id
+#: of the cell that was actually edited, the notebook it was resolved to — are
+#: known deep inside helpers whose signatures should not have to carry a
+#: result object up and down for the sake of one dictionary.
+_pending: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "jupyter_mcp_result_meta", default=None
+)
+
+
+def add_meta(**values: Any) -> None:
+    """Attach facts to the result of the tool call running right now.
+
+    Silently does nothing outside a tool call, so a helper shared with a
+    non-tool code path — the Jupyter Server extension's handlers, a test —
+    does not have to know whether it is inside one.
+    """
+    pending = _pending.get()
+    if pending is None:
+        return
+    for name, value in values.items():
+        if value is not None:
+            pending[meta_key(name)] = value
+
+
+def as_text(value: Any) -> str:
+    """The text rendering of a structured answer.
+
+    Text is what most clients still show the model, so it is never omitted:
+    a result with `structuredContent` and empty `content` is invisible to a
+    client that has not adopted the former.
+    """
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    try:
+        return json.dumps(value, indent=2, default=str)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return str(value)
+
+
+def _content_of(value: Any, *, annotations: Annotations | None) -> list[Any]:
+    """The `content` blocks for a tool's return value.
+
+    Images are passed through as they are: they are already content blocks,
+    and re-rendering one as text would throw the image away.
+    """
+    if isinstance(value, str):
+        return [TextContent(type="text", text=value, annotations=annotations)]
+    if isinstance(value, ImageContent):
+        return [value]
+    if isinstance(value, Iterable) and not isinstance(value, (bytes, dict)):
+        blocks: list[Any] = []
+        for item in value:
+            blocks.extend(_content_of(item, annotations=annotations))
+        return blocks
+    return [TextContent(type="text", text=as_text(value), annotations=annotations)]
+
+
+def _annotations(audience: Sequence[str], priority: float | None) -> Annotations | None:
+    """The content annotations, or none at all when there is nothing to say.
+
+    Set here and nowhere else. If the Working Group deprecates annotations,
+    this function stops returning them and no tool changes.
+    """
+    if not audience and priority is None:
+        return None
+    return Annotations(
+        audience=list(audience) or None,
+        priority=priority,
+    )
+
+
+def answer(
+    value: Any,
+    *,
+    kind: str,
+    shape: Callable[[Any], Any] | None = None,
+    meta: dict[str, Any] | None = None,
+    audience: Sequence[str] = (),
+    priority: float | None = None,
+) -> CallToolResult:
+    """Build the one result shape from what a tool returned.
+
+    Args:
+        value: What the tool answered — a string, or content blocks.
+        kind: What this result *is*, carried in `structuredContent` so a
+            client can tell one answer from another without matching prose.
+        shape: Turns the tool's return value into the structured answer.
+            Defaults to carrying it under ``result`` — the key the SDK's own
+            ``wrap_output`` uses for a scalar answer, so a tool whose answer
+            really is one string keeps the key a client already reads.
+        meta: Facts to attach beyond the ones the tool attached itself.
+        audience: Who the content is for.
+        priority: How important it is, 0 to 1.
+    """
+    annotations = _annotations(audience, priority)
+    structured: dict[str, Any] = {"kind": kind}
+    try:
+        shaped = shape(value) if shape is not None else {"result": as_text(value)}
+    except Exception:  # noqa: BLE001 - a shaping bug must not lose the answer
+        logger.exception("Could not shape the result of %s; answering text only", kind)
+        shaped = {"result": as_text(value)}
+    if isinstance(shaped, dict):
+        structured.update(shaped)
+    else:
+        structured["result"] = shaped
+    collected = dict(_pending.get() or {})
+    collected.update(meta or {})
+    return CallToolResult(
+        content=_content_of(value, annotations=annotations),
+        structured_content=structured,
+        meta=collected or None,
+    )
+
+
+def structured(
+    kind: str,
+    *,
+    shape: Callable[[Any], Any] | None = None,
+    audience: Sequence[str] = (),
+    priority: float | None = None,
+) -> Callable:
+    """Wrap a tool so its answer comes back in the one shape.
+
+    A decorator rather than a change to each body: the bodies already return
+    the right *information*, and what has to be centralised is the wire
+    format. It also means a tool that raises still raises — the failure path
+    is the SDK's, untouched.
+
+    Applied under ``@mcp.tool``, so the signature the schema is built from is
+    the tool's own; the return annotation is left alone for the same reason,
+    and the tool declares ``structured_output=False`` so the SDK does not
+    check the structured answer against a schema derived from that
+    annotation. What this builds *is* the structured answer.
+    """
+
+    def decorate(function: Callable) -> Callable:
+        @wraps(function)
+        async def wrapper(*arguments: Any, **keywords: Any) -> CallToolResult:
+            token = _pending.set({})
+            try:
+                value = await function(*arguments, **keywords)
+                return answer(
+                    value, kind=kind, shape=shape, audience=audience, priority=priority
+                )
+            finally:
+                _pending.reset(token)
+
+        return wrapper
+
+    return decorate
