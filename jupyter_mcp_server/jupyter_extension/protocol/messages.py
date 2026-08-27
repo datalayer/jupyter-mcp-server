@@ -80,7 +80,7 @@ class AppendCellRequest(BaseModel):
     """Request to append a cell"""
 
     path: str | None = Field(None, description="Notebook path")
-    cell_type: Literal["code", "markdown"] = Field(..., description="Cell type")
+    cell_type: Literal["code", "markdown", "raw"] = Field(..., description="Cell type")
     source: str | list[str] = Field(..., description="Cell source")
 
 
@@ -96,7 +96,7 @@ class InsertCellRequest(BaseModel):
 
     path: str | None = Field(None, description="Notebook path")
     cell_index: int = Field(..., description="Index where to insert")
-    cell_type: Literal["code", "markdown"] = Field(..., description="Cell type")
+    cell_type: Literal["code", "markdown", "raw"] = Field(..., description="Cell type")
     source: str | list[str] = Field(..., description="Cell source")
 
 

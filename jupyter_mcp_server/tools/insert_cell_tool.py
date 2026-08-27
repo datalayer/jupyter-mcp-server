@@ -41,6 +41,11 @@ class InsertCellTool(BaseTool):
             IndexError: When cell_index is out of valid range
             ValueError: When cell_type is invalid
         """
+        if cell_type not in ("code", "markdown", "raw"):
+            raise ValueError(
+                f"Invalid cell type {cell_type!r}; expected 'code', 'markdown', or 'raw'."
+            )
+
         if cell_index < -1 or cell_index > total_cells:
             raise IndexError(
                 f"Index {cell_index} is outside valid range [-1, {total_cells}]. "
@@ -56,7 +61,7 @@ class InsertCellTool(BaseTool):
         serverapp: Any,
         notebook_path: str,
         cell_index: int,
-        cell_type: Literal["code", "markdown"],
+        cell_type: Literal["code", "markdown", "raw"],
         cell_source: str,
     ) -> tuple[Notebook, int, int]:
         """Insert cell using YDoc (collaborative editing mode).
@@ -94,7 +99,7 @@ class InsertCellTool(BaseTool):
         self,
         notebook_path: str,
         cell_index: int,
-        cell_type: Literal["code", "markdown"],
+        cell_type: Literal["code", "markdown", "raw"],
         cell_source: str,
     ) -> tuple[Notebook, int, int]:
         """Insert cell using file operations (non-collaborative mode).
@@ -131,6 +136,8 @@ class InsertCellTool(BaseTool):
             new_cell = nbformat.v4.new_code_cell(source=cell_source or "")
         elif cell_type == "markdown":
             new_cell = nbformat.v4.new_markdown_cell(source=cell_source or "")
+        elif cell_type == "raw":
+            new_cell = nbformat.v4.new_raw_cell(source=cell_source or "")
         notebook.cells.insert(actual_index, new_cell)
 
         # Write back to file
@@ -145,7 +152,7 @@ class InsertCellTool(BaseTool):
         self,
         notebook_manager: NotebookManager,
         cell_index: int,
-        cell_type: Literal["code", "markdown"],
+        cell_type: Literal["code", "markdown", "raw"],
         cell_source: str,
         notebook_name: str | None = None,
     ) -> tuple[Notebook, int, int]:
@@ -187,7 +194,7 @@ class InsertCellTool(BaseTool):
         notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
         cell_index: int = None,
-        cell_type: Literal["code", "markdown"] = None,
+        cell_type: Literal["code", "markdown", "raw"] = None,
         cell_source: str = None,
         notebook_name: str | None = None,
         **kwargs,

@@ -682,7 +682,9 @@ async def insert_cell(
         int,
         Field(description="Target index for insertion (0-based), use -1 to append at end", ge=-1),
     ],
-    cell_type: Annotated[Literal["code", "markdown"], Field(description="Type of cell to insert")],
+    cell_type: Annotated[
+        Literal["code", "markdown", "raw"], Field(description="Type of cell to insert")
+    ],
     cell_source: Annotated[str, Field(description="Source content for the cell")],
     notebook_name: Annotated[
         str | None,

@@ -14,7 +14,7 @@ Insert a cell to specified position from the currently activated notebook.
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `cell_index` | integer | yes | — | Target index for insertion (0-based), use -1 to append at end |
-| `cell_type` | `code` · `markdown` | yes | — | Type of cell to insert |
+| `cell_type` | `code` · `markdown` · `raw` | yes | — | Type of cell to insert |
 | `cell_source` | string | yes | — | Source content for the cell |
 | `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 
