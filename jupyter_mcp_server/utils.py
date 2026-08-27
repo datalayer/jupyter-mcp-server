@@ -255,7 +255,12 @@ def do_start(
     from jupyter_mcp_server.config import set_config
     from jupyter_mcp_server.identity import TOKEN_VERIFIER_CLASS_ENV
     from jupyter_mcp_server.log import logger
-    from jupyter_mcp_server.server import __auto_enroll_document, __start_code_sandbox, mcp
+    from jupyter_mcp_server.server import (
+        __auto_enroll_document,
+        __start_code_sandbox,
+        mcp,
+        register_extension_tools,
+    )
     from jupyter_mcp_server.server_context import ServerContext
 
     has_custom_verifier = bool((os.environ.get(TOKEN_VERIFIER_CLASS_ENV) or "").strip())
@@ -305,6 +310,12 @@ def do_start(
     )
 
     ServerContext.reset()
+
+    # After `set_config`, deliberately. An extension asked at import time what
+    # this server is pointed at was told "jupyter" however it had been
+    # invoked, because the command line had not been read yet — which is why
+    # `jupyter_mcp_spaces` had to go and read `sys.argv` for itself.
+    register_extension_tools()
 
     try:
         from jupyter_mcp_server.jupyter_extension.context import get_server_context

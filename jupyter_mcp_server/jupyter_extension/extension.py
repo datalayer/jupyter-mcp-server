@@ -191,6 +191,14 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
                 notebook_manager.set_current_notebook("default")
                 logger.info(f"Auto-enrolled document '{self.document_id}' as 'default'")
 
+        # Extensions register their tools here rather than at import, so
+        # they see this server's configuration when they are asked what it
+        # is pointed at. Idempotent, so it does not matter whether the CLI
+        # already did it.
+        from jupyter_mcp_server.server import register_extension_tools
+
+        register_extension_tools()
+
         logger.info("Jupyter MCP Server Extension settings initialized")
 
     def initialize_handlers(self):

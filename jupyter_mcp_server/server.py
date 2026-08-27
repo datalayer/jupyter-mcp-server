@@ -1287,6 +1287,11 @@ async def get_registered_tools():
     Returns:
         list: List of tool dictionaries with name, description, and inputSchema
     """
+    # Last line of defence: whoever asks for the tool list gets a complete
+    # one, whichever entry point started this process and whether or not it
+    # remembered. Idempotent, so asking twice costs nothing.
+    register_extension_tools()
+
     context = ServerContext.get_instance()
     mode = context._mode
 
@@ -1490,8 +1495,22 @@ async def get_registered_tools():
 ###############################################################################
 # Extension registration.
 
-# Discover installed extensions (for example jupyter_mcp_sandboxes) and let
-# them contribute their MCP tools to the server. Extensions are resolved via
-# the "jupyter_mcp_server.extensions" entry-point group and coordinated through
-# the reactor plugin platform.
-extension_manager.register_tools(mcp)
+
+def register_extension_tools() -> None:
+    """Let installed extensions contribute their tools — after configuration.
+
+    This used to run at module scope, which is earlier than it looks: the CLI
+    imports this module in order to start the server, so extensions registered
+    while the command line was still being parsed and before ``set_config``
+    had been called. An extension asking "what am I pointed at?" was told
+    "jupyter" however the server had been invoked, and the only way one could
+    find out otherwise was to read ``sys.argv`` itself — which
+    ``jupyter_mcp_spaces`` had to do, and documented as a workaround waiting
+    on exactly this change.
+
+    Called after configuration by every entry point, and idempotent, so none
+    of them has to know whether another got there first. Extensions are
+    resolved through the ``jupyter_mcp_server.extensions`` entry-point group
+    and coordinated by the reactor plugin platform.
+    """
+    extension_manager.register_tools(mcp, once=True)

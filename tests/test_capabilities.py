@@ -217,3 +217,89 @@ class TestAdvertising:
 
     def test_the_resource_has_a_uri(self):
         assert CAPABILITIES_RESOURCE.endswith("://")
+
+
+class TestExtensionsRegisterAfterConfiguration:
+    """When an extension gets to contribute its tools, and what it knows by then.
+
+    Registration used to happen at module scope. That is earlier than it
+    looks: the CLI imports the server module *in order to start it*, so
+    extensions registered while the command line was still being parsed and
+    before `set_config` had been called. An extension asking "what am I
+    pointed at?" was told the default however the server had been invoked —
+    and the only place the intent existed yet was `sys.argv`, which
+    `jupyter_mcp_spaces` had to go and read for itself, with a comment saying
+    it was waiting on exactly this change.
+    """
+
+    def test_importing_the_server_does_not_register_anything(self):
+        """The bug, stated as a property. If this ever passes again by
+        accident, the extension is back to guessing from argv."""
+        import subprocess
+        import sys
+
+        answer = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import jupyter_mcp_server.server as s;"
+                "print(s.extension_manager._tools_registered)",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert answer.stdout.strip().endswith("False"), answer.stdout
+
+    def test_registering_is_idempotent(self):
+        """Every entry point calls it — the CLI after configuring, the
+        Jupyter Server extension, the tool listing — and none of them has to
+        know whether another got there first."""
+        from jupyter_mcp_server.extensions import ExtensionManager, JupyterMCPExtension
+
+        class Counting(JupyterMCPExtension):
+            def __init__(self):
+                self.times = 0
+
+            def manifest(self):
+                from reactor import PluginManifest
+
+                return PluginManifest(name="counting", version="1.0.0")
+
+            def register_tools(self, mcp):
+                self.times += 1
+
+        manager = ExtensionManager()
+        counting = Counting()
+        manager._extensions = {"counting": counting}
+        manager._discovered = True
+        manager.register_tools(object(), once=True)
+        manager.register_tools(object(), once=True)
+        assert counting.times == 1
+
+    def test_the_cli_registers_after_it_has_configured(self):
+        """The fix itself, and the order is the whole of it.
+
+        `do_start` imports the server module (which no longer registers
+        anything), then calls `set_config`, and only then lets extensions
+        register. Register before `set_config` and every extension is back to
+        being told the default; do not register at all and their tools are
+        missing entirely.
+        """
+        import inspect
+
+        from jupyter_mcp_server.utils import do_start
+
+        source = inspect.getsource(do_start)
+        assert "register_extension_tools()" in source, "the CLI never registers them"
+        assert source.index("config = set_config(") < source.index(
+            "register_extension_tools()"
+        ), "extensions register before the server is configured"
+
+    def test_asking_for_the_tool_list_registers_them(self):
+        """Last line of defence: whoever asks gets a complete list, whichever
+        entry point started the process and whether or not it remembered."""
+        import inspect
+
+        from jupyter_mcp_server.server import get_registered_tools
+
+        assert "register_extension_tools()" in inspect.getsource(get_registered_tools)

@@ -134,61 +134,38 @@ class TestTheToolList:
 class TestActivationAtImportTime:
     """When the extension decides, and what it can know by then.
 
-    The open source server registers extensions at module scope, so this runs
-    while the CLI is still parsing arguments — before `set_config`. Asking the
-    configuration alone always answers "jupyter", so the extension registered
-    nothing, hid nothing, and said nothing about why. The agent then reported
-    "no managed notebooks" and offered to connect to a local Jupyter.
+    This used to be decided at *import* time, which was earlier than it
+    looked: the server registered extensions at module scope, so the decision
+    ran while the CLI was still parsing arguments and before `set_config`.
+    Asking the configuration alone always answered "jupyter", so the
+    extension registered nothing, hid nothing, and said nothing about why —
+    the agent then reported "no managed notebooks" and offered to connect to
+    a local Jupyter. The workaround was to read `sys.argv` here.
+
+    Registration now happens after configuration
+    (`jupyter_mcp_server.server.register_extension_tools`), so the
+    configuration is simply the answer and `sys.argv` is not consulted at all.
     """
 
-    def test_the_command_line_is_enough(self, monkeypatch):
+    def test_the_configuration_decides(self, monkeypatch):
         from jupyter_mcp_spaces.extension import _serving_datalayer
 
-        from jupyter_mcp_server.config import reset_config
-
-        reset_config()  # as at import: the default, "jupyter"
-        monkeypatch.setattr(
-            "sys.argv", ["jupyter-mcp-server", "start", "--document-provider", "datalayer"]
-        )
-        assert _serving_datalayer()
-
-    def test_the_joined_form_is_accepted(self, monkeypatch):
-        from jupyter_mcp_spaces.extension import _serving_datalayer
-
-        from jupyter_mcp_server.config import reset_config
+        from jupyter_mcp_server.config import reset_config, set_config
 
         reset_config()
-        monkeypatch.setattr(
-            "sys.argv", ["jupyter-mcp-server", "--document-provider=datalayer"]
-        )
+        monkeypatch.delenv("DOCUMENT_PROVIDER", raising=False)
+        set_config(document_provider="datalayer")
         assert _serving_datalayer()
 
     def test_the_environment_is_enough(self, monkeypatch):
+        """A deployment sets it, and it is read before the CLI has been given
+        anything to configure from."""
         from jupyter_mcp_spaces.extension import _serving_datalayer
 
         from jupyter_mcp_server.config import reset_config
 
         reset_config()
-        monkeypatch.setattr("sys.argv", ["jupyter-mcp-server"])
         monkeypatch.setenv("DOCUMENT_PROVIDER", "datalayer")
-        assert _serving_datalayer()
-
-    def test_the_default_configuration_does_not_veto(self, monkeypatch):
-        """The regression, exactly.
-
-        `document_provider` defaults to "jupyter" — it is never empty — so
-        treating the configuration as authoritative means the command line is
-        never consulted and the answer is always "no".
-        """
-        from jupyter_mcp_spaces.extension import _serving_datalayer
-
-        from jupyter_mcp_server.config import get_config, reset_config
-
-        reset_config()
-        assert get_config().document_provider == "jupyter"
-        monkeypatch.setattr(
-            "sys.argv", ["jupyter-mcp-server", "--document-provider", "datalayer"]
-        )
         assert _serving_datalayer()
 
     def test_a_jupyter_server_stays_a_jupyter_server(self, monkeypatch):
@@ -197,9 +174,39 @@ class TestActivationAtImportTime:
         from jupyter_mcp_server.config import reset_config
 
         reset_config()
-        monkeypatch.setattr("sys.argv", ["jupyter-mcp-server", "start"])
         monkeypatch.delenv("DOCUMENT_PROVIDER", raising=False)
         assert not _serving_datalayer()
+
+    def test_the_command_line_is_no_longer_read(self, monkeypatch):
+        """The workaround is gone, and must not creep back. Reading argv
+        here was always wrong — it duplicated the CLI's own parsing, and got
+        the short forms and joined forms right only by luck."""
+        import ast
+        import inspect
+
+        from jupyter_mcp_spaces import extension
+
+        # The body, not the docstring: the docstring says what it used to do,
+        # and that history is worth keeping.
+        tree = ast.parse(inspect.getsource(extension._serving_datalayer))
+        body = ast.dump(ast.Module(body=tree.body[0].body[1:], type_ignores=[]))
+        assert "argv" not in body
+        assert not hasattr(extension, "sys"), "the module no longer needs sys at all"
+
+        from jupyter_mcp_server.config import reset_config
+
+        reset_config()
+        monkeypatch.delenv("DOCUMENT_PROVIDER", raising=False)
+        monkeypatch.setattr(
+            "sys.argv", ["jupyter-mcp-server", "start", "--document-provider", "datalayer"]
+        )
+        # The command line no longer decides it; the configuration the CLI
+        # builds from that command line does, and it has not been built yet.
+        assert not _serving_datalayer_of(extension)
+
+
+def _serving_datalayer_of(module):
+    return module._serving_datalayer()
 
 
 class TestUseNotebookByName:

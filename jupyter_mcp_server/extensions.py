@@ -105,6 +105,7 @@ class ExtensionManager:
         self._platform: Any = None
         self._started = False
         self._discovered = False
+        self._tools_registered = False
 
     def _ensure_platform(self) -> Any:
         if self._platform is None:
@@ -173,9 +174,20 @@ class ExtensionManager:
                         name, capability,
                     )
 
-    def register_tools(self, mcp: Any) -> None:
-        """Discover extensions (if needed) and register all their tools."""
+    def register_tools(self, mcp: Any, *, once: bool = False) -> None:
+        """Discover extensions (if needed) and register all their tools.
+
+        Args:
+            once: Do nothing if tools have already been registered on this
+                manager. What makes it safe to call this from every entry
+                point — the CLI after it has configured the server, the
+                Jupyter Server extension, a test — without any of them having
+                to know whether another got there first.
+        """
+        if once and self._tools_registered:
+            return
         self.discover()
+        self._tools_registered = True
         for name, extension in self._extensions.items():
             try:
                 extension.register_tools(mcp)

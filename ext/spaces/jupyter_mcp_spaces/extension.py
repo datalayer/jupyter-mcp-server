@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
 from typing import Annotated, Any
 
 from mcp.types import ToolAnnotations
@@ -176,55 +175,26 @@ class SpacesExtension(JupyterMCPExtension):
 def _serving_datalayer() -> bool:
     """Whether this server is pointed at Datalayer rather than a Jupyter.
 
-    Asked at *import* time, which is earlier than it looks. The open source
-    server registers extensions at module scope, so this runs while the CLI is
-    still parsing its arguments and before ``set_config`` has been called —
-    meaning the configuration says ``jupyter`` however the server was invoked.
-    Reading only the configuration therefore always answers "no", and the
-    extension silently does nothing.
+    The configuration, and then the environment a deployment controls.
 
-    So three sources, in the order they become trustworthy:
-
-    1. the configuration, when something has already set it — programmatic
-       callers and tests;
-    2. ``DOCUMENT_PROVIDER`` in the environment, which a deployment controls;
-    3. the command line, which is what the CLI is about to configure from.
-
-    Reading ``sys.argv`` is not elegant. It is, at this point in startup, the
-    only place the intent exists. The proper fix belongs upstream — register
-    extensions after configuration rather than at import — and when that lands
-    the first source alone will do.
+    This used to read ``sys.argv`` as a third source, and said so as a
+    workaround waiting on an upstream change. The reason was that the server
+    registered extensions at module scope, so this ran while the CLI was
+    still parsing its arguments and before ``set_config`` had been called:
+    the configuration answered ``jupyter`` however the server had been
+    invoked, and the command line was the only place the intent existed yet.
+    Registration now happens after configuration
+    (``jupyter_mcp_server.server.register_extension_tools``), so the
+    configuration is the answer and the workaround is gone.
     """
-    # Any of them naming Datalayer is enough, rather than the first that
-    # answers winning. The configuration is never silent — it defaults to
-    # "jupyter" — so treating it as authoritative here would mean the later
-    # sources are never reached, and this would answer "no" at import however
-    # the server was started.
     try:
         configured = (get_config().document_provider or "").lower()
     except Exception:
         configured = ""
-    sources = (
-        configured,
-        (os.environ.get("DOCUMENT_PROVIDER") or "").lower(),
-        _provider_from_argv(),
-    )
+    # The environment still counts: a deployment sets it, and it is read
+    # before the CLI has been given anything to configure from.
+    sources = (configured, (os.environ.get("DOCUMENT_PROVIDER") or "").lower())
     return "datalayer" in sources
-
-
-def _provider_from_argv() -> str:
-    """The provider named on the command line, if one was.
-
-    Accepts ``--document-provider datalayer`` and
-    ``--document-provider=datalayer``, and the short form the CLI also takes.
-    """
-    argv = sys.argv[1:]
-    for index, argument in enumerate(argv):
-        if argument.startswith("--document-provider="):
-            return argument.split("=", 1)[1].strip().lower()
-        if argument in ("--document-provider", "-dp") and index + 1 < len(argv):
-            return argv[index + 1].strip().lower()
-    return ""
 
 
 def _remove(mcp: Any, names: tuple[str, ...]) -> None:
