@@ -52,7 +52,7 @@ flowchart TB
     client -- "stdio / Streamable HTTP" --> mw
     client -- "HTTP, Jupyter token" --> handlers
 
-    tools["Tool layer<br/>tools/ — 18 tools + jupyter_cite prompt<br/>BaseTool.execute(mode, …)"]
+    tools["Tool layer<br/>tools/ — 22 tools + jupyter_cite prompt<br/>BaseTool.execute(mode, …)"]
     server --> tools
     handlers --> tools
 

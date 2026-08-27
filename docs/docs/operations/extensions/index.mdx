@@ -1,0 +1,148 @@
+# Extensions
+
+An extension adds tools, replaces tools, provides a kernel, or declares a
+capability — without a fork. `jupyter-mcp-sandboxes`, which adds the sandbox
+lifecycle tools, is one.
+
+## The shape
+
+Subclass `JupyterMCPExtension` and override only what you need. Every hook has
+a default.
+
+```python
+from typing import Any
+
+from reactor import PluginCompatibility, PluginManifest
+
+from jupyter_mcp_server.extensions import JupyterMCPExtension
+
+
+class MyExtension(JupyterMCPExtension):
+    def manifest(self) -> PluginManifest:
+        return PluginManifest(
+            name="my-extension",
+            version="1.0.0",
+            description="What it adds.",
+            author="You",
+            compatibility=PluginCompatibility(api_version="v1"),
+        )
+
+    def register_tools(self, mcp: Any) -> None:
+        @mcp.tool()
+        async def my_tool(argument: str) -> str:
+            """What it does."""
+            return "…"
+```
+
+Publish it on the entry-point group:
+
+```toml
+[project.entry-points."jupyter_mcp_server.extensions"]
+my-extension = "my_package:MyExtension"
+```
+
+Being installed is all it takes. The server discovers extensions at startup.
+
+## When your extension runs, and why it matters
+
+**After the server is configured.** Extensions used to register at import,
+which is earlier than it sounds: the CLI imports the server module *in order
+to start it*, so extensions registered while the command line was still being
+parsed. An extension asking what the server was pointed at was told the
+default however the server had been invoked — and the only place the intent
+existed yet was `sys.argv`.
+
+That is fixed. `get_config()` inside `register_tools` gives you the truth. If
+you read `sys.argv` to work around it, you can stop.
+
+**In name order.** This is not cosmetic. Registration is not independent: an
+extension may replace a tool another registered, and the SDK keeps the
+**original** when a name is registered twice. So a replacement that happens to
+run first silently does nothing — no error, no log line, the old tool still
+there.
+
+`importlib.metadata` returns entry points in whatever order the installation
+produced, which varies between a wheel and an editable install. Sorting by
+name makes it something you can rely on: an extension that must run after
+another can be *named* to.
+
+```
+sandboxes            registers launch_sandbox
+sandboxes-datalayer  sorts after it, so it can replace it
+```
+
+## Replacing a tool rather than adding one
+
+Remove it first. Registering over a live name does nothing:
+
+```python
+def register_tools(self, mcp: Any) -> None:
+    manager = getattr(mcp, "_tool_manager", None)
+    if manager is not None:
+        try:
+            manager.remove_tool("list_notebooks")
+        except Exception:
+            pass  # never registered; an upstream rename must not stop startup
+
+    @mcp.tool()
+    async def list_notebooks() -> list[dict]:
+        """Yours instead."""
+```
+
+To *wrap* rather than replace — keeping everything the original does after
+some argument is resolved — take its function before removing it:
+
+```python
+original = manager._tools["use_notebook"].fn
+manager.remove_tool("use_notebook")
+
+@mcp.tool()
+async def use_notebook(notebook_name: str, notebook_path: str = "", **rest):
+    """Accepts a name as well as a uid."""
+    return await original(notebook_name=notebook_name,
+                          notebook_path=resolve(notebook_path), **rest)
+```
+
+Wrapping is usually the better bargain: everything after the part you care
+about stays upstream's, and does not rot when upstream changes it.
+
+## Declaring a capability
+
+If your extension genuinely lets the server do something, say so, rather than
+leaving the core to guess from what is installed:
+
+```python
+from jupyter_mcp_server.capabilities import Capability
+
+
+def capabilities(self) -> list[Capability]:
+    return [
+        Capability(
+            name="myext.snapshots",
+            description="Snapshot and restore the sandbox filesystem.",
+            enabled=True,
+            source="my-extension",
+        )
+    ]
+```
+
+Namespace the name; the registry is shared. It then appears in the server's
+advertised capabilities and at `capabilities://`, where a client finds it. See
+[Capabilities](/operations/capabilities).
+
+One extension raising in `capabilities()` costs only its own declarations —
+the others are still collected, and the failure is logged.
+
+## The other hooks
+
+| Hook | For |
+|---|---|
+| `register_tools(mcp)` | Add, replace or wrap tools |
+| `capabilities()` | Declare what the server can now do |
+| `create_code_sandbox(config, logger)` | Provide a kernel for a sandbox variant |
+| `intercept_execute_code(code, timeout)` | Handle `execute_code` yourself |
+| `on_start()` / `on_stop()` | Acquire and release resources |
+
+For observing calls rather than changing them — logging, metrics, auditing —
+use [Hooks](/operations/hooks) instead: they fire around every tool call and
+kernel execution without an extension having to own a tool.

@@ -177,6 +177,74 @@ class TestTheCapabilitiesPage:
             assert fragment in message, f"the raised message does not mention {fragment}"
 
 
+class TestTheExtensionsPage:
+    @pytest.fixture(scope="class")
+    def page(self):
+        return _page("operations", "extensions", "index.mdx")
+
+    def test_it_names_the_entry_point_group(self, page):
+        """Get this wrong and an extension is installed and never loaded."""
+        from jupyter_mcp_server.extensions import ENTRY_POINT_GROUP
+
+        assert ENTRY_POINT_GROUP in page
+
+    def test_every_hook_it_documents_exists(self, page):
+        """A table of hooks is a promise about the base class."""
+        import re
+
+        from jupyter_mcp_server.extensions import JupyterMCPExtension
+
+        documented = set(re.findall(r"`(\w+)\(", page))
+        hooks = {
+            name for name in documented
+            if name in {"register_tools", "capabilities", "create_code_sandbox",
+                        "intercept_execute_code", "on_start", "on_stop"}
+        }
+        assert hooks, "the page documents no hook at all"
+        for name in hooks:
+            assert hasattr(JupyterMCPExtension, name), name
+
+    def test_it_says_registration_is_in_name_order(self, page):
+        """The claim an extension is invited to rely on, so it had better
+        stay true."""
+        import inspect
+
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        assert "name order" in page
+        assert "sorted(" in inspect.getsource(ExtensionManager.discover)
+
+    def test_the_class_it_tells_you_to_subclass_exists(self, page):
+        from jupyter_mcp_server.extensions import JupyterMCPExtension
+
+        assert "JupyterMCPExtension" in page
+        assert callable(JupyterMCPExtension)
+
+
+class TestTheReleaseNotes:
+    @pytest.fixture(scope="class")
+    def page(self):
+        return _page("releases", "index.mdx")
+
+    def test_this_version_has_a_note(self, page):
+        """A release nobody wrote up is a release nobody can adopt."""
+        from jupyter_mcp_server.__version__ import __version__
+
+        series = ".".join(__version__.split(".")[:2])
+        assert f"Jupyter MCP Server {series}" in page, series
+
+    def test_the_flag_it_tells_you_to_use_is_the_flag(self, page):
+        """Somebody restoring the old kernel behaviour types this line."""
+        from jupyter_mcp_server.capabilities import KERNEL_AUTO_RESTART
+
+        assert f"--capability {KERNEL_AUTO_RESTART}" in page
+
+    def test_the_meta_key_it_shows_is_the_one_emitted(self, page):
+        from jupyter_mcp_server.results import meta_key
+
+        assert meta_key("cell_id") in page
+
+
 class TestTheIdentityPage:
     @pytest.fixture(scope="class")
     def page(self):

@@ -4,6 +4,130 @@
 
 See the latest release notes on the [GitHub Releases page](https://github.com/datalayer/jupyter-mcp-server/releases).
 
+## Jupyter MCP Server 2.1
+
+Most of 2.1 is about the same thing: **a server does work a client cannot see,
+and the failures that follow are quiet ones.** Nothing here changes an existing
+tool call, and the command line, the configuration and the transports are
+unchanged.
+
+### A dead kernel is now reported, not replaced
+
+When a kernel died the server quietly started another. Every variable, import
+and definition of the session went with the old one, the notebook's state was
+not what the agent believed it was, and nothing said so — the next
+`execute_cell` simply behaved as though the session had always been empty.
+
+A fresh kernel is often exactly what somebody wants, so the behaviour is not
+gone; it is **off by default** and named:
+
+```
+The kernel of 'analysis.ipynb' is gone, and its session — every variable,
+import and definition — went with it. Call restart_notebook to start a fresh
+one, or enable the 'kernel.auto-restart' capability to have replacements
+started automatically.
+```
+
+To keep the old behaviour:
+
+```bash
+jupyter-mcp-server start --capability kernel.auto-restart
+```
+
+Attaching a kernel for the *first* time is not a restart and is never refused,
+and `restart_notebook` is never blocked — it is a caller asking for exactly
+this. See [Capabilities](/operations/capabilities).
+
+### Addressing a cell that has moved
+
+A cell index is a *position*, and a position stops being true the moment
+anyone inserts a cell above it. In a notebook a person and an agent are both
+working in, that is constantly — and the failure is silent, because an index
+stays valid; it just stops meaning the same cell.
+
+Every result now says which cell it acted on:
+
+```json
+{ "_meta": { "io.jupyter-mcp/cell_id": "a1b2c3d4" } }
+```
+
+and every cell tool accepts that id in place of an index:
+
+```
+overwrite_cell_source(cell_id: "a1b2c3d4", cell_source: "…")
+```
+
+Given both, the id wins. An id that is no longer in the notebook is an **error
+naming it**, never a quiet fall back to the index it arrived with. For
+`delete_cell`, every id is checked before any cell is deleted, so one bad id
+fails the call rather than half-deleting a notebook.
+
+:::note
+
+Cell ids arrived in nbformat 4.5. A notebook saved before that has none, and
+the server reports none rather than inventing one — an id generated on read
+differs on the next read, so it would name a cell only until somebody looked
+again. Addressing by index still works.
+
+:::
+
+### Tools say whether they are safe to repeat
+
+All tools now answer `idempotentHint` and `openWorldHint`. The direction that
+matters is the unsafe one: `idempotentHint: true` on `insert_cell` or
+`delete_cell` would invite a client to retry a timed-out call and insert the
+cell twice, or delete a second, different cell. Positional edits and restarts
+say `false`; setting a value says `true`; only the three tools that run
+arbitrary code are open-world.
+
+`tools/list` is also **sorted by name** now, so a client that caches the list
+stops seeing changes that are not changes.
+
+### Results carry data as well as text
+
+Every tool result now carries `structuredContent` beside its text, built in one
+place. A tab-separated listing also comes back as rows keyed by its header, so
+an agent wanting one field stops splitting text and hoping the columns have not
+moved. Text is never dropped: a result with structure and no content is
+invisible to a client that has not adopted the former.
+
+The three listings carry cache hints ([SEP-2549](https://modelcontextprotocol.io/seps/2549-TTL-for-list-results)).
+Nothing that changes carries one — a cell read or an edit answers something
+that has just moved, and a stale hint is worse than none.
+
+### Auditing, for deployments that need it
+
+`JUPYTER_MCP_AUDIT_SINK_CLASS` names a class and every tool call reaches it.
+A sink that fails never fails the call it was describing, and says so at
+`ERROR` every time — a silently dropped audit record looks exactly like
+nothing having happened. See [Audit](/operations/audit).
+
+### For extension authors
+
+Two things changed, and both were bugs you may have worked around.
+
+**Extensions register after the server is configured**, not at import. They
+used to register while the command line was still being parsed, so an
+extension asking what the server was pointed at got the default however it had
+been invoked. If you read `sys.argv` to find out, you can stop.
+
+**Extensions register in name order.** `importlib.metadata` returns entry
+points in whatever order the installation produced — it varies between a wheel
+and an editable install — and registration is not independent: the SDK keeps
+the *original* when a tool name is registered twice, so an extension replacing
+another's tool silently did nothing if it happened to run first.
+
+Extensions can also declare capabilities now. See
+[Extensions](/operations/extensions).
+
+### Conformance
+
+The server is tested against the
+[MCP conformance suite](https://www.npmjs.com/package/@modelcontextprotocol/conformance)
+on every pull request, at each protocol version it serves. Known gaps are
+listed by name in `tests/conformance-baseline.yaml`; a new failure blocks the
+merge.
+
 ## Jupyter MCP Server 2.0: Built on MCP 2
 
 Version 2.0.0 moves the server to the
