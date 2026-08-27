@@ -350,7 +350,8 @@
             "description": "Type of cell to insert",
             "enum": [
               "code",
-              "markdown"
+              "markdown",
+              "raw"
             ],
             "title": "Cell Type",
             "type": "string"
