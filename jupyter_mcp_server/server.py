@@ -20,6 +20,7 @@ from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.types import ImageContent, ToolAnnotations
 
 from jupyter_mcp_server.capabilities import CAPABILITIES_RESOURCE, get_capabilities
+from jupyter_mcp_server import cell_ids
 from jupyter_mcp_server.results import as_text, structured
 from pydantic import Field
 from starlette.applications import Starlette
@@ -839,12 +840,28 @@ async def insert_cell(
 @structured("cell.overwrite")
 @with_hooks("overwrite_cell_source")
 async def overwrite_cell_source(
-    cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to overwrite (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     cell_source: Annotated[str, Field(description="New complete cell source")],
     notebook_name: Annotated[
         str | None,
         Field(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
         ),
     ] = None,
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
@@ -853,6 +870,14 @@ async def overwrite_cell_source(
 
     Use this when rewriting a cell completely. For small, targeted changes,
     prefer edit_cell_source instead — it is safer for partial edits."""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: OverwriteCellSourceTool().execute(
             mode=server_context.mode,
@@ -878,7 +903,11 @@ async def overwrite_cell_source(
 )
 @structured("cell.edit")
 async def edit_cell_source(
-    cell_index: Annotated[int, Field(description="Index of the cell to edit (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to edit (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     old_string: Annotated[str, Field(description="Exact string to find in cell source")],
     new_string: Annotated[str, Field(description="Replacement string")],
     replace_all: Annotated[
@@ -890,6 +919,18 @@ async def edit_cell_source(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
 ) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
     """Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
     Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
@@ -899,6 +940,14 @@ async def edit_cell_source(
     Prefer this over overwrite_cell_source for small, targeted edits — it is safer because
     unchanged parts of the cell are left untouched. Use read_cell first to see the current
     source and construct an accurate old_string."""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: EditCellSourceTool().execute(
             mode=server_context.mode,
@@ -927,7 +976,11 @@ async def edit_cell_source(
 @structured("cell.execute", shape=_outputs)
 @with_hooks("execute_cell")
 async def execute_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to execute (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     timeout: Annotated[
         int, Field(description="Maximum seconds to wait for execution (0 = use config default)")
     ] = 0,
@@ -942,10 +995,32 @@ async def execute_cell(
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
     ] = 5,
     ctx: Context | None = None,
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
 ) -> Annotated[
     list[str | ImageContent], Field(description="List of outputs from the executed cell")
 ]:
     """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        # `execute_cell` always acts on the currently activated notebook; it
+        # takes no `notebook_name`, so the resolver reads that same one.
+        notebook_name=None,
+    )
     config = get_config()
     # Use config default if timeout is 0, otherwise clamp to max
     effective_timeout = (
@@ -1064,7 +1139,11 @@ async def insert_execute_code_cell(
 @structured("cell.read", shape=_outputs)
 @with_hooks("read_cell")
 async def read_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to read (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     include_outputs: Annotated[
         bool, Field(description="Include outputs in the response (only for code cells)")
     ] = True,
@@ -1072,6 +1151,18 @@ async def read_cell(
         str | None,
         Field(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
         ),
     ] = None,
 ) -> Annotated[
@@ -1088,6 +1179,14 @@ async def read_cell(
     Includes metadata and source, plus optional formatted output text rather
     than raw nbformat objects.
     """
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
             mode=server_context.mode,
@@ -1113,9 +1212,14 @@ async def read_cell(
 @structured("cell.delete")
 @with_hooks("delete_cell")
 async def delete_cell(
+    *,
     cell_indices: Annotated[
-        list[int], Field(description="List of cell indices to delete (0-based)", min_length=1)
-    ],
+        list[int] | None,
+        Field(
+            description="List of cell indices to delete (0-based). Omit when passing cell_ids_to_delete.",
+            min_length=1,
+        ),
+    ] = None,
     include_source: Annotated[
         bool, Field(description="Whether to include the source of deleted cells")
     ] = True,
@@ -1125,6 +1229,18 @@ async def delete_cell(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
+    cell_ids_to_delete: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Address the cells by their notebook cell ids instead of their "
+                "indices. Safer for a multi-cell delete than indices, which shift "
+                "as earlier cells go. Given both, the ids win; every id is checked "
+                "before any cell is deleted, so a bad one fails the whole call "
+                "rather than half-deleting the notebook."
+            )
+        ),
+    ] = None,
 ) -> Annotated[
     str,
     Field(
@@ -1132,6 +1248,14 @@ async def delete_cell(
     ),
 ]:
     """Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True)."""
+    cell_indices = await cell_ids.resolve_many(
+        cell_indices=cell_indices,
+        cell_ids_wanted=cell_ids_to_delete,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: DeleteCellTool().execute(
             mode=server_context.mode,
@@ -1158,18 +1282,43 @@ async def delete_cell(
 @structured("cell.clear_output")
 @with_hooks("clear_cell_output")
 async def clear_cell_output(
+    *,
     cell_index: Annotated[
-        int, Field(description="Index of the code cell to clear (0-based)", ge=0)
-    ],
+        int | None,
+        Field(
+            description="Index of the code cell to clear (0-based). Omit when passing cell_id.",
+            ge=0,
+        ),
+    ] = None,
     notebook_name: Annotated[
         str | None,
         Field(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
 ) -> Annotated[str, Field(description="Success message with the number of outputs removed")]:
     """Clear the outputs and execution count of a single code cell in the currently
     activated notebook, without deleting the cell itself."""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: ClearCellOutputTool().execute(
             mode=server_context.mode,
@@ -1194,14 +1343,35 @@ async def clear_cell_output(
 )
 @structured("cell.move")
 async def move_cell(
-    source_index: Annotated[int, Field(description="Index of the cell to move (0-based)", ge=0)],
+    *,
+    source_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to move (0-based). Omit when passing source_cell_id.", ge=0),
+    ] = None,
     target_index: Annotated[
-        int, Field(description="Destination index where the cell will end up (0-based)", ge=0)
-    ],
+        int | None,
+        Field(
+            description="Destination index where the cell will end up (0-based). Omit when passing target_cell_id.",
+            ge=0,
+        ),
+    ] = None,
     notebook_name: Annotated[
         str | None,
         Field(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
+    source_cell_id: Annotated[
+        str | None,
+        Field(description="Address the cell to move by its id rather than its index."),
+    ] = None,
+    target_cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Put the moved cell where this cell is now, addressed by id rather "
+                "than by an index that the move itself will shift."
+            )
         ),
     ] = None,
 ) -> Annotated[
@@ -1215,6 +1385,25 @@ async def move_cell(
 
     Use this tool instead of manually deleting and re-inserting a cell — it is atomic and
     preserves cell metadata. Use read_notebook first to see cell indices if needed."""
+    # Both resolved against the notebook as it is now, before anything
+    # moves: resolving the target afterwards would resolve it against a
+    # notebook the source had already left.
+    source_index = await cell_ids.resolve(
+        cell_index=source_index,
+        cell_id=source_cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
+    if target_cell_id is not None:
+        target_index = await cell_ids.resolve(
+            cell_id=target_cell_id,
+            mode=server_context.mode,
+            contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
+            notebook_name=notebook_name,
+        )
     return await safe_notebook_operation(
         lambda: MoveCellTool().execute(
             mode=server_context.mode,
