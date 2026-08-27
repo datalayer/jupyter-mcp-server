@@ -86,6 +86,14 @@ class _FakeServerApp:
         self.kernel_spec_manager = None
 
 
+class _KernelManagerWithoutKernel:
+    def __contains__(self, kernel_id):
+        return False
+
+    def get_kernel(self, kernel_id):
+        raise AssertionError("a missing kernel must be rejected before lookup")
+
+
 MANAGERS = [
     pytest.param(SyncContentsManager, id="sync"),
     pytest.param(AsyncContentsManager, id="async"),
@@ -137,3 +145,12 @@ async def test_append_cell_saves_with_sync_and_async_managers(manager_cls):
     index = await backend.append_cell("notebook.ipynb", "code", "print(2)")
     assert index == len(_CELLS)
     assert cm.saved and cm.saved[-1][0] == "notebook.ipynb"
+
+
+@pytest.mark.asyncio
+async def test_execute_cell_rejects_missing_kernel_before_client_creation():
+    backend = LocalBackend(_FakeServerApp(SyncContentsManager()))
+    backend.kernel_manager = _KernelManagerWithoutKernel()
+
+    with pytest.raises(RuntimeError, match="Kernel 'missing' is not running"):
+        await backend.execute_cell("notebook.ipynb", 0, "missing")
