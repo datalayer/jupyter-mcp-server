@@ -188,3 +188,108 @@ class TestTheIdentityPage:
         assert identity.TOKEN_VERIFIER_CLASS_ENV in page
         assert "current_identity" in page
         assert callable(identity.current_identity)
+
+
+class TestTheGeneratedReferenceFindsTheRealTools:
+    """The reference is generated from the source, so its scanner is code too.
+
+    It used to find `@mcp.tool` with a regex, which matches the decorator
+    wherever it appears — including in prose. `results.py` describes the
+    decorator it wraps, so the scanner read that sentence as a registration
+    and indexed the next function, `decorate`, as a tool. The docs build then
+    failed comparing its list against a live snapshot of the server, which of
+    course had no such tool.
+
+    A scanner that reads syntax cannot make that mistake, and these say so.
+    """
+
+    @staticmethod
+    def _scan(source: str):
+        import importlib.util
+        import pathlib
+
+        generator = (
+            pathlib.Path(__file__).resolve().parents[1]
+            / "docs" / "sourcey" / "gen_sourcemap.py"
+        )
+        if not generator.is_file():
+            pytest.skip("the docs generator is not in this checkout")
+        # Imported for its function only; running the module walks the tree.
+        text = generator.read_text()
+        namespace: dict = {}
+        start = text.index("def decorated_functions(")
+        end = text.index("\nentries = {}")
+        exec("import ast\n" + text[start:end], namespace)  # noqa: S102
+        return list(namespace["decorated_functions"](source))
+
+    def test_a_decorator_named_in_prose_is_not_a_tool(self):
+        """The bug, exactly."""
+        source = '''
+def structured(kind):
+    """Applied under `@mcp.tool`, so the schema comes from the signature."""
+    def decorate(function):
+        return function
+    return decorate
+'''
+        assert self._scan(source) == []
+
+    def test_a_real_registration_is_found(self):
+        source = '''
+@mcp.tool()
+async def read_cell(cell_index: int) -> str:
+    """Read a cell."""
+'''
+        assert self._scan(source) == [("tool", "read_cell")]
+
+    def test_a_prompt_is_found_and_named_as_one(self):
+        source = '''
+@mcp.prompt()
+def jupyter_cite(cells: list) -> str:
+    """Cite cells."""
+'''
+        assert self._scan(source) == [("prompt", "jupyter_cite")]
+
+    def test_a_decorator_split_across_lines_is_found(self):
+        """Which the line-window scan could miss entirely."""
+        source = '''
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Read Cell",
+    ),
+    structured_output=False,
+)
+@with_hooks("read_cell")
+async def read_cell() -> str:
+    """Read."""
+'''
+        assert self._scan(source) == [("tool", "read_cell")]
+
+    def test_a_resource_is_not_indexed_as_a_tool(self):
+        """This server registers `capabilities://` with `@mcp.resource`. The
+        reference counts tools and resources separately and checks its list
+        against a live snapshot, so a resource counted as a tool fails the
+        docs build the same way `decorate` did."""
+        source = '''
+@mcp.resource("capabilities://")
+def capabilities_resource() -> dict:
+    """What this server can do."""
+'''
+        assert self._scan(source) == []
+
+    def test_the_real_capabilities_resource_is_not_in_the_reference(self):
+        """The case above, against the actual file rather than a sample."""
+        import pathlib as _pathlib
+
+        server = _pathlib.Path(__file__).resolve().parents[1] / "jupyter_mcp_server" / "server.py"
+        found = {name for _kind, name in self._scan(server.read_text())}
+        assert "capabilities_resource" not in found
+
+    def test_somebody_elses_tool_decorator_is_not_ours(self):
+        """`other.tool` is not `mcp.tool`, and indexing it would document a
+        tool this server does not serve."""
+        source = '''
+@other.tool()
+def not_ours() -> str:
+    """No."""
+'''
+        assert self._scan(source) == []
