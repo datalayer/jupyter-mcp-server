@@ -25,7 +25,19 @@ class OverwriteCellSourceTool(BaseTool):
     """Tool to overwrite the source of an existing cell."""
 
     def _generate_diff(self, old_source: str, new_source: str) -> str:
-        """Generate unified diff between old and new source."""
+        """Generate unified diff between old and new source.
+
+        Whether anything changed is decided by comparing the two sources, not by
+        the size of the line diff. str.splitlines() drops the final line
+        terminator and treats "\\r\\n", "\\f", "\\v", "\\x1c"-"\\x1e", "\\x85",
+        "\\u2028" and "\\u2029" as line breaks, so an edit confined to those
+        characters leaves both sides splitting identically and unified_diff
+        returns nothing. Reporting that as "no changes detected" tells the caller
+        the cell was untouched when it has in fact been rewritten.
+        """
+        if old_source == new_source:
+            return "no changes detected"
+
         old_lines = old_source.splitlines(keepends=False)
         new_lines = new_source.splitlines(keepends=False)
 
@@ -38,9 +50,12 @@ class OverwriteCellSourceTool(BaseTool):
             )
         )
 
-        if len(diff_lines) > 3:
-            return "\n".join(diff_lines)
-        return "no changes detected"
+        if not diff_lines:
+            # The sources differ only in characters splitlines() consumes, so
+            # there is nothing to show line by line. Show the escaped forms
+            # instead, which is the only rendering the change is visible in.
+            return f"@@ line terminators changed @@\n-{old_source!r}\n+{new_source!r}"
+        return "\n".join(diff_lines)
 
     async def _overwrite_cell_ydoc(
         self, serverapp: Any, notebook_path: str, cell_index: int, cell_source: str
