@@ -22,6 +22,7 @@ $ pytest tests/test_documented_features.py -v
 import asyncio
 import pathlib
 import re
+import typing
 
 import pytest
 
@@ -33,6 +34,69 @@ def _page(*parts: str) -> str:
     if not path.is_file():
         pytest.skip(f"{path} is not in this checkout")
     return path.read_text()
+
+
+class TestTheTasksPage:
+    @pytest.fixture(scope="class")
+    def page(self):
+        return _page("architecture", "tasks", "index.mdx")
+
+    def test_it_names_the_variable_the_server_reads(self, page):
+        """Whole-word, not a substring: a page naming a prefix of the real
+        variable passes a loose check while telling the reader to set
+        something nothing reads."""
+        from jupyter_mcp_server.tasks import TASK_STORE_CLASS_ENV
+
+        assert re.search(rf"\b{re.escape(TASK_STORE_CLASS_ENV)}\b", page)
+
+    def test_it_names_the_extension_identifier_the_server_advertises(self, page):
+        from jupyter_mcp_server.tasks import TASKS_EXTENSION
+
+        assert TASKS_EXTENSION in page
+
+    def test_it_documents_the_methods_the_server_actually_binds(self, page):
+        """Both ways. A method on the page that is not bound sends somebody to
+        a `METHOD_NOT_FOUND`; one bound but undocumented is a feature nobody
+        can find."""
+        from jupyter_mcp_server.tasks import TasksExtension
+
+        bound = {binding.method for binding in TasksExtension().methods()}
+        # From the methods table alone. The page also *names* `tasks/update`
+        # in order to say it does not exist, and reading that as a documented
+        # method would make the page contradict itself here.
+        documented = set(re.findall(r"^\| `(tasks/[a-z]+)` \|", page, re.MULTILINE))
+        assert documented == bound
+
+    def test_it_says_there_is_no_tasks_update_and_there_is_not(self, page):
+        """The page makes a negative claim, which is the kind most likely to
+        stop being true without anyone noticing."""
+        from jupyter_mcp_server.tasks import TasksExtension
+
+        assert "no `tasks/update`" in page
+        assert "tasks/update" not in {b.method for b in TasksExtension().methods()}
+
+    def test_the_statuses_it_lists_are_the_protocol_s(self, page):
+        import mcp.types as types
+
+        for status in typing.get_args(types.TaskStatus):
+            assert re.search(rf"`{status}`", page), status
+
+    def test_the_retention_numbers_are_the_ones_the_server_uses(self, page):
+        """A page that says fifteen minutes while the code says five sends
+        somebody looking for a bug in their client."""
+        from jupyter_mcp_server.tasks import DEFAULT_TTL_MS, MAX_TTL_MS
+
+        # Whitespace-tolerant: prose wraps, and reflowing a paragraph to
+        # satisfy a test is the test telling the page how to look.
+        assert re.search(rf"{DEFAULT_TTL_MS // 60000}\s+minutes", page)
+        assert re.search(rf"{MAX_TTL_MS // 3600000}\s+hours", page)
+
+    def test_the_store_methods_it_tells_you_to_write_are_the_ones_called(self, page):
+        from jupyter_mcp_server.tasks import TaskStore
+
+        for method in ("create", "get", "list", "update"):
+            assert f"async def {method}(" in page
+            assert hasattr(TaskStore, method)
 
 
 class TestTheAuditPage:
