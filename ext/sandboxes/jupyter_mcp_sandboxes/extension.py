@@ -30,6 +30,7 @@ from jupyter_mcp_sandboxes.tools import (
 from jupyter_mcp_server.config import JUPYTER_SERVER_VARIANT, get_config
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 from jupyter_mcp_server.hooks import with_hooks
+from jupyter_mcp_server.results import ToolAnswer, structured
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.utils import safe_notebook_operation
 
@@ -146,8 +147,14 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="Launch Sandbox",
                 destructiveHint=True,
+                # Each call launches another sandbox, which costs money; and
+                # a sandbox runs arbitrary code, so its reach is whatever the
+                # provider's is.
+                idempotentHint=False,
+                openWorldHint=True,
             ),
         )
+        @structured("sandbox.launch")
         @with_hooks("launch_sandbox")
         async def launch_sandbox(
             sandbox_name: Annotated[
@@ -244,12 +251,11 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Datalayer API token override, or Kaggle API token for the"
-                        " kaggle variant (falls back to KAGGLE_API_TOKEN)"
+                        "Kaggle API token for the kaggle variant (falls back to "
+                        "KAGGLE_API_TOKEN)"
                     )
                 ),
             ] = None,
-            run_url: Annotated[str | None, Field(description="Datalayer run URL override")] = None,
             python_version: Annotated[
                 str | None,
                 Field(
@@ -258,7 +264,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     )
                 ),
             ] = None,
-        ) -> Annotated[dict, Field(description="Launch status and code sandbox metadata")]:
+        ) -> ToolAnswer:
             """Launch a code sandbox that can be used instead of Jupyter kernels.
 
             After launch, call use_sandbox to make execute_code run on this sandbox
@@ -290,7 +296,6 @@ class SandboxesExtension(JupyterMCPExtension):
                     proxy_token=proxy_token,
                     channels_url=channels_url,
                     token=token,
-                    run_url=run_url,
                     python_version=python_version,
                 )
             )
@@ -299,13 +304,13 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="List Sandboxes",
                 readOnlyHint=True,
+                idempotentHint=True,
+                openWorldHint=False,
             ),
         )
+        @structured("sandboxes.list")
         @with_hooks("list_sandboxes")
-        async def list_sandboxes() -> Annotated[
-            list[dict],
-            Field(description="All launched sandboxes with name, variant, status, and active flag"),
-        ]:
+        async def list_sandboxes() -> ToolAnswer:
             """List launched code sandboxes that can be used as alternatives to kernels."""
             return await safe_notebook_operation(
                 lambda: ListSandboxesTool().execute(
@@ -318,8 +323,12 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="Use Sandbox",
                 destructiveHint=True,
+                # Selecting the same sandbox again leaves the same selection.
+                idempotentHint=True,
+                openWorldHint=False,
             ),
         )
+        @structured("sandbox.use")
         @with_hooks("use_sandbox")
         async def use_sandbox(
             sandbox_name: Annotated[
@@ -331,7 +340,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     )
                 ),
             ] = None,
-        ) -> Annotated[str, Field(description="Sandbox routing status")]:
+        ) -> ToolAnswer:
             """Select which launched sandbox execute_code should use instead of kernels."""
             return await safe_notebook_operation(
                 lambda: UseSandboxTool().execute(
@@ -345,14 +354,20 @@ class SandboxesExtension(JupyterMCPExtension):
             annotations=ToolAnnotations(
                 title="Terminate Sandbox",
                 destructiveHint=True,
+                # Terminating one already gone leaves it gone. Safe to retry,
+                # which is what a client needs to know when a call times out
+                # and it cannot tell whether the sandbox went.
+                idempotentHint=True,
+                openWorldHint=False,
             ),
         )
+        @structured("sandbox.terminate")
         @with_hooks("terminate_sandbox")
         async def terminate_sandbox(
             sandbox_name: Annotated[
                 str, Field(description="Sandbox name to terminate and unregister")
             ],
-        ) -> Annotated[str, Field(description="Termination status message")]:
+        ) -> ToolAnswer:
             """Terminate a launched code sandbox."""
             return await safe_notebook_operation(
                 lambda: TerminateSandboxTool().execute(

@@ -1,0 +1,80 @@
+# Cell ids
+
+Addressing a cell by something that survives an edit.
+
+Every cell tool takes a `cell_index`. An index is a position, and a position is
+only true until somebody inserts a cell above it — which, in a notebook a
+person and an agent are both working in, is constantly.
+
+The failure this produces is the quiet kind. The agent reads cell 3, decides to
+fix it, and by the time the edit lands cell 3 is a different cell. Nothing
+errors. The wrong cell is overwritten, and the only sign is a notebook that
+stops making sense some time later.
+
+nbformat 4.5 gave every cell an `id` for exactly this. So every cell tool also
+takes a **`cell_id`**, and every result says which id it acted on.
+
+## Using it
+
+Read a cell, and the result tells you what you read:
+
+```json
+{
+  "structuredContent": { "kind": "cell.read", "result": ["..."] },
+  "_meta": { "io.jupyter-mcp/cell_id": "a1b2c3d4" }
+}
+```
+
+Come back to *that* cell by passing it back:
+
+```json
+{ "cell_id": "a1b2c3d4", "cell_source": "..." }
+```
+
+Pass `cell_index` or `cell_id` — either names the cell, and given both, **the
+id wins**: it is the one that still means what the caller meant. The id is
+attached to the result **both ways**: address a cell by index and the id is
+read back and returned, because an agent can only use ids it has been given. Reading the
+notebook to attach one is not free, and it is worth it — the alternative is an
+agent whose only way to refer to a cell is a number that goes stale the moment
+anyone types.
+
+`delete_cell` takes `cell_ids_to_delete`, and `move_cell` takes
+`source_cell_id` and `target_cell_id`, on the same terms.
+
+## An unknown id is an error
+
+```
+No cell 'a1b2c3d4' in this notebook. It was deleted, or it belongs to another
+notebook. Read the notebook again for current cell ids.
+```
+
+It never falls back to the `cell_index` that came with it. Falling back would
+edit an arbitrary cell in the name of robustness, which is the whole failure
+this exists to prevent. That holds even when the notebook cannot be read at
+all: given an id, an unreadable notebook is an error naming the id, not a
+guess.
+
+Given only an index, the same unreadable notebook is *not* an error — the tool
+is about to read it its own way and will report properly. All that is lost is
+the id on the result, which is not worth failing a call for.
+
+When several cells are named at once, every id is resolved before any is used,
+so a list with one bad id fails whole rather than half-deleting a notebook.
+
+## Notebooks without ids
+
+A notebook written before nbformat 4.5 has no cell ids, and no `cell_id` comes
+back for it. Addressing by id is simply unavailable there.
+
+The server does not invent one. An id generated at read time is different on
+the next read, so it would name a cell only until somebody looked again —
+which is worse than saying nothing, because it looks like it works.
+
+## Why `_meta` and not the result body
+
+`_meta` is where facts *about* a result go, as opposed to the answer itself,
+and the key is namespaced — `io.jupyter-mcp/cell_id` — because `_meta` is
+shared with the protocol and with every extension. A bare `cell_id` there
+would be a collision waiting to happen. The rest of what a result carries is
+described in [Results](/operations/results).

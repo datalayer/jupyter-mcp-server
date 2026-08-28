@@ -52,7 +52,7 @@ flowchart TB
     client -- "stdio / Streamable HTTP" --> mw
     client -- "HTTP, Jupyter token" --> handlers
 
-    tools["Tool layer<br/>tools/ — 18 tools + jupyter_cite prompt<br/>BaseTool.execute(mode, …)"]
+    tools["Tool layer<br/>tools/ — 22 tools + jupyter_cite prompt<br/>BaseTool.execute(mode, …)"]
     server --> tools
     handlers --> tools
 
@@ -279,17 +279,18 @@ needs — `manifest()`, `register_tools(mcp)`, `create_code_sandbox(config)`,
 tools after the core ones, and asks them, in turn, whether they want to
 provide the code sandbox or handle an `execute_code` call.
 
-Two Python extensions ship in `ext/`:
+One Python extension ships in `ext/`:
 
 - **jupyter-mcp-sandboxes** (`ext/sandboxes`) — the sandbox lifecycle tools
   (`launch_sandbox`, `list_sandboxes`, `use_sandbox`, `terminate_sandbox`),
   routing of `execute_code` to the selected sandbox, and sandbox-backed
   kernels for the non-Jupyter variants.
-- **jupyter-mcp-spaces** (`ext/spaces`) — for the `datalayer` document
-  provider: replaces `list_notebooks` with one that lists the notebooks in the
-  user's spaces, teaches `use_notebook` to accept a name or a uid, and removes
-  the tools that assume a Jupyter server so an agent is never offered a tool
-  that cannot work.
+
+The extension for the `datalayer` document provider — listing the notebooks in
+a user's spaces, resolving a notebook by name — lives in the Datalayer gateway
+that serves it, not here. It is the same entry-point group: nothing about this
+repository knows the difference between an extension shipped alongside it and
+one installed from elsewhere, which is the point of the group.
 
 `ext/` also holds packaging that is not Python — the MCPB bundle for one-click
 installation in Claude Desktop (`ext/mcpb`), a Claude plugin
@@ -410,7 +411,6 @@ jupyter_mcp_server/
 
 ext/
 ├── sandboxes/               jupyter-mcp-sandboxes extension
-├── spaces/                  jupyter-mcp-spaces extension
 ├── mcpb/                    MCPB bundle for Claude Desktop
 ├── claude-plugin/           Claude plugin
 └── prompt-templates/        Prompt templates

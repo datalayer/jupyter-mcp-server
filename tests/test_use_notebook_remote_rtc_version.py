@@ -69,7 +69,7 @@ class FakeServerClient:
         self.http_client = FakeHTTPClient(extensions=extensions, error=error)
 
     def get_status(self):
-        return {"version": "2.0.0"}
+        return {"version": "2.1.0"}
 
 
 class FakeKernel:

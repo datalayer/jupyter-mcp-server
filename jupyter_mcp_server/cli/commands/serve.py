@@ -7,6 +7,8 @@
 from enum import Enum
 from typing import Annotated
 
+from jupyter_mcp_server.capabilities import get_capabilities
+
 import typer
 
 from jupyter_mcp_server.cli.commands.connect import DocumentProvider
@@ -54,7 +56,16 @@ def _resolve_and_start(
     code_sandbox_channels_url: str | None = None,
     sandbox_environment: str | None = None,
     sandbox_gpu: str | None = None,
+    capability: list[str] | None = None,
 ) -> None:
+    # Applied before anything starts, so a tool that consults a capability
+    # sees the operator's answer on its very first call. An unknown name
+    # stops the server rather than being dropped: a misspelt --capability
+    # that is silently ignored leaves an operator certain they changed
+    # something they did not, and the behaviour they meant to change
+    # unchanged.
+    get_capabilities().apply(capability or [], source="cli")
+
     (
         resolved_document_url,
         resolved_document_token,
@@ -131,6 +142,17 @@ def server_callback(
             help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.",
         ),
     ] = 4040,
+    capability: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--capability",
+            help=(
+                "Turn a server capability on or off: --capability name, or "
+                "--capability name=off. Repeatable. The names a server knows "
+                "are in its server/discover answer and at capabilities://."
+            ),
+        ),
+    ] = None,
     otel_file: Annotated[
         str,
         typer.Option(
@@ -380,6 +402,7 @@ def server_callback(
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
+        capability=capability,
         otel_file=otel_file,
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,
@@ -417,6 +440,17 @@ def start_command(
             help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.",
         ),
     ] = 4040,
+    capability: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--capability",
+            help=(
+                "Turn a server capability on or off: --capability name, or "
+                "--capability name=off. Repeatable. The names a server knows "
+                "are in its server/discover answer and at capabilities://."
+            ),
+        ),
+    ] = None,
     otel_file: Annotated[
         str,
         typer.Option(
@@ -663,6 +697,7 @@ def start_command(
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
         allowed_jupyter_mcp_tools=allowed_jupyter_mcp_tools,
+        capability=capability,
         otel_file=otel_file,
         reconnect_interval=reconnect_interval,
         execution_timeout=execution_timeout,

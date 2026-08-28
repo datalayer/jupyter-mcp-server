@@ -2,7 +2,7 @@
 
 ## Overview
 
-Jupyter MCP Server includes a **hook system** that fires events before and after MCP tool calls and kernel executions. This enables auditing and custom integrations without modifying core server code. For built-in tracing, see [Observability](/operations/observability).
+Jupyter MCP Server includes a **hook system** that fires events before and after MCP tool calls and kernel executions. This enables auditing and custom integrations without modifying core server code. For built-in tracing, see [Observability](/operations/observability); for the ready-made seam that sends every call to your own audit record, see [Audit](/operations/audit), which is a hook handler with two extra guarantees.
 
 ## Hook Events
 
@@ -37,7 +37,7 @@ Before/after event pairs share a `context` dictionary. Handlers can store data i
 
 ## Writing a Custom Hook Handler
 
-You can create custom handlers for logging, metrics, auditing, or any other purpose.
+You can create custom handlers for logging, metrics, auditing, or any other purpose. A hook *observes* calls; to add, replace or wrap a tool, write an [extension](/operations/extensions) instead.
 
 ### Handler Interface
 

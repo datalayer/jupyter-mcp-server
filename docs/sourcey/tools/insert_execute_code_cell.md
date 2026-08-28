@@ -8,7 +8,7 @@ description: "Insert a cell at specified index from the currently activated note
 Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
 It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **no** · open-world: **yes**
 
 ## Parameters
 
@@ -19,6 +19,50 @@ It is a shortcut tool for insert_cell and execute_cell tools, recommended to use
 | `timeout` | integer | no | `0` | Maximum seconds to wait for execution (0 = use config default) |
 | `stream` | boolean | no | `true` | Enable streaming progress (including time indicator) updates for long-running cells |
 | `progress_interval` | integer | no | `5` | Seconds between progress updates (MCP keepalive + optional stream log) |
+
+## Output
+
+```json
+{
+  "properties": {
+    "kind": {
+      "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+      "title": "Kind",
+      "type": "string"
+    },
+    "result": {
+      "default": null,
+      "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+      "title": "Result"
+    },
+    "outputs": {
+      "description": "The outputs in order: text as text, an image as its own object.",
+      "items": {},
+      "title": "Outputs",
+      "type": "array"
+    },
+    "count": {
+      "default": 0,
+      "description": "How many outputs.",
+      "title": "Count",
+      "type": "integer"
+    },
+    "images": {
+      "default": 0,
+      "description": "How many of them are images.",
+      "title": "Images",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "type": "object",
+  "additionalProperties": true,
+  "description": "Cell or execution outputs, in order.",
+  "title": "OutputsAnswer"
+}
+```
 
 ## Call it
 

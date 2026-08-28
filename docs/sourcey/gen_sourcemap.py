@@ -1,7 +1,7 @@
 """Map every MCP-registered name in the checkout to the file that defines it.
 
-Scans for @mcp.tool / @mcp.prompt decorators and takes the name of the first
-`def`/`async def` after each decorator (MCPServer registers under the function
+Reads each module and takes the name of every function actually decorated
+with @mcp.tool / @mcp.prompt (MCPServer registers under the function
 name when no name= override is given; this repo uses none). Output feeds
 build_pages.mjs so each generated page carries a source link.
 
@@ -11,14 +11,12 @@ difference between the checked-in generation and a fresh one.
 
     python gen_sourcemap.py <src-root> <out.json>
 """
+import ast
 import json
 import os
-import re
 import sys
 
 SRC, OUT = sys.argv[1], sys.argv[2]
-DECOR = re.compile(r"@mcp\.(tool|prompt)\b")
-DEF = re.compile(r"\s*(?:async\s+)?def\s+(\w+)")
 
 # Directories that never hold canonical sources. "build" and "dist" matter in
 # particular: `pip install ./ext/sandboxes` leaves a setuptools copy of the
@@ -28,22 +26,48 @@ DEF = re.compile(r"\s*(?:async\s+)?def\s+(\w+)")
 #: a default snapshot.
 #:
 #: The reference documents the server as it runs out of the box: a Jupyter
-#: backend, with the tools that implies. `jupyter-mcp-spaces` only registers
-#: when the server is pointed at Datalayer, and it *hides* `list_files`,
-#: `list_kernels` and `connect_to_jupyter` when it does — so no single snapshot
-#: can contain both sets, and including these here would make the reference
-#: permanently stale against itself. They are documented with the extension
-#: that provides them.
-CONDITIONAL_EXTENSIONS = {"spaces"}
+#: backend, with the tools that implies. An extension that only registers when
+#: the server is pointed somewhere else — the Datalayer spaces extension does,
+#: and *hides* `list_files`, `list_kernels` and `connect_to_jupyter` when it
+#: does — cannot share a snapshot with the default set, and including its tools
+#: here would make the reference permanently stale against itself. They are
+#: documented with the extension that provides them. Empty now that the one
+#: such extension lives in the Datalayer gateway; kept because the next one
+#: will need it, and because the scanner would otherwise silently start
+#: demanding pages for tools this server does not register.
+CONDITIONAL_EXTENSIONS: set[str] = set()
 
 SKIP_DIRS = {
     ".git", ".tox", ".venv", ".eggs", "__pycache__", "build", "dist",
-    # This directory included: the scanner would otherwise read its own
-    # source, match the decorator pattern inside the regex that defines it,
-    # and index the next function as a tool.
-    "docs",
-    "node_modules", "site-packages", "tests", "venv",
+    "docs", "node_modules", "site-packages", "tests", "venv",
 }
+
+
+def decorated_functions(source: str):
+    """Every function this module decorates with `@mcp.tool` / `@mcp.prompt`.
+
+    Parsed rather than matched. A regex for the decorator finds it in prose
+    too — a docstring saying "applied under `@mcp.tool`" reads as a
+    registration, and the next `def` after it gets indexed as a tool that does
+    not exist. That is not hypothetical: `results.py` describes the decorator
+    it wraps, and the scanner indexed its inner `decorate` function.
+
+    Reading the syntax tree also means a decorator split across lines, or one
+    inside an `if`, is found without a window to scan forward through.
+    """
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for decorator in node.decorator_list:
+            call = decorator.func if isinstance(decorator, ast.Call) else decorator
+            if (
+                isinstance(call, ast.Attribute)
+                and isinstance(call.value, ast.Name)
+                and call.value.id == "mcp"
+                and call.attr in ("tool", "prompt")
+            ):
+                yield call.attr, node.name
+                break
 
 
 
@@ -59,36 +83,32 @@ for base, dirs, files in os.walk(SRC):
             continue
         path = os.path.join(base, fn)
         rel = os.path.relpath(path, SRC).replace("\\", "/")
-        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
-        for i, line in enumerate(lines):
-            m = DECOR.search(line)
-            if not m:
-                continue
-            kind = m.group(1)
-            # find the def after the decorator (skip decorator args/other decorators)
-            for j in range(i + 1, min(i + 40, len(lines))):
-                d = DEF.match(lines[j])
-                if d:
-                    name = d.group(1)
-                    prev = entries.get(name)
-                    if prev and prev["file"] != rel:
-                        # Fail loudly rather than let os.walk order pick a
-                        # winner. Two causes: a stale build tree holding a
-                        # second copy, or an extension registering a name the
-                        # core server already uses. An extension that does
-                        # that on purpose — replacing a tool rather than
-                        # adding one — belongs in CONDITIONAL_EXTENSIONS, so
-                        # the reference documents one of them and not a
-                        # contradiction.
-                        raise SystemExit(
-                            f"{name} is registered in two files: "
-                            f"{prev['file']} and {rel}. Remove the stray copy "
-                            "(a stale build/ tree?), or list the extension in "
-                            "CONDITIONAL_EXTENSIONS if it replaces the tool "
-                            "deliberately, and re-run."
-                        )
-                    entries[name] = {"kind": kind, "file": rel}
-                    break
+        source = open(path, encoding="utf-8", errors="replace").read()
+        try:
+            found = list(decorated_functions(source))
+        except SyntaxError as error:
+            # A file this interpreter cannot parse is a file whose tools
+            # cannot be indexed. Saying so beats silently documenting fewer
+            # tools than the server has.
+            raise SystemExit(f"{rel} could not be parsed: {error}") from error
+        for kind, name in found:
+            prev = entries.get(name)
+            if prev and prev["file"] != rel:
+                # Fail loudly rather than let os.walk order pick a winner.
+                # Two causes: a stale build tree holding a second copy, or an
+                # extension registering a name the core server already uses.
+                # An extension that does that on purpose — replacing a tool
+                # rather than adding one — belongs in CONDITIONAL_EXTENSIONS,
+                # so the reference documents one of them and not a
+                # contradiction.
+                raise SystemExit(
+                    f"{name} is registered in two files: "
+                    f"{prev['file']} and {rel}. Remove the stray copy "
+                    "(a stale build/ tree?), or list the extension in "
+                    "CONDITIONAL_EXTENSIONS if it replaces the tool "
+                    "deliberately, and re-run."
+                )
+            entries[name] = {"kind": kind, "file": rel}
 
 # Sorted so the output is byte-stable whatever order os.walk yields.
 entries = dict(sorted(entries.items()))

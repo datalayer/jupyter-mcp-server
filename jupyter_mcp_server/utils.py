@@ -15,6 +15,11 @@ from code_sandboxes import CodeSandboxClient
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
+# The capability name is declared once, where the registry declares it: two
+# spellings would drift, and the one that drifted would silently govern
+# nothing.
+from jupyter_mcp_server.capabilities import KERNEL_AUTO_RESTART
+from jupyter_mcp_server.capabilities import enabled as capabilities_enabled
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 
@@ -255,7 +260,12 @@ def do_start(
     from jupyter_mcp_server.config import set_config
     from jupyter_mcp_server.identity import TOKEN_VERIFIER_CLASS_ENV
     from jupyter_mcp_server.log import logger
-    from jupyter_mcp_server.server import __auto_enroll_document, __start_code_sandbox, mcp
+    from jupyter_mcp_server.server import (
+        __auto_enroll_document,
+        __start_code_sandbox,
+        mcp,
+        register_extension_tools,
+    )
     from jupyter_mcp_server.server_context import ServerContext
 
     has_custom_verifier = bool((os.environ.get(TOKEN_VERIFIER_CLASS_ENV) or "").strip())
@@ -306,6 +316,12 @@ def do_start(
 
     ServerContext.reset()
 
+    # After `set_config`, deliberately. An extension asked at import time what
+    # this server is pointed at was told "jupyter" however it had been
+    # invoked, because the command line had not been read yet — which is why
+    # the Datalayer spaces extension had to go and read `sys.argv` for itself.
+    register_extension_tools()
+
     try:
         from jupyter_mcp_server.jupyter_extension.context import get_server_context
 
@@ -340,6 +356,14 @@ def do_start(
     from jupyter_mcp_server.otel_hook import maybe_register_otel
 
     maybe_register_otel(otel_file or None)
+
+    # Where this deployment sends its record of who asked for what. Nothing
+    # is registered unless JUPYTER_MCP_AUDIT_SINK_CLASS names something; a
+    # name that cannot be loaded stops the server rather than running without
+    # the auditing somebody deliberately configured.
+    from jupyter_mcp_server.audit import register_audit_sink
+
+    register_audit_sink()
 
     if transport == "streamable-http":
         # A deployment can supply its own verifier — an OAuth resource server,
@@ -680,10 +704,48 @@ def code_sandbox_is_alive(code_sandbox: Any) -> bool:
     return any(kernel.id == kernel_id for kernel in kernels)
 
 
+class KernelGoneError(RuntimeError):
+    """The kernel this notebook was using is gone, and nothing replaced it.
+
+    Raised instead of quietly starting another, unless the
+    ``kernel.auto-restart`` capability is on. A replacement kernel is empty:
+    every variable, import and definition of the session has gone with the
+    old one. Doing that without saying so leaves the caller — a person or an
+    agent — believing in a session that no longer exists, and the next
+    execution behaves as if there had never been one (#398).
+    """
+
+
 def ensure_code_sandbox_alive(
-    notebook_manager, current_notebook, create_code_sandbox_fn: Callable[[], CodeSandboxClient]
+    notebook_manager,
+    current_notebook,
+    create_code_sandbox_fn: Callable[[], CodeSandboxClient],
+    *,
+    allow_restart: bool | None = None,
 ) -> CodeSandboxClient:
-    """Ensure the notebook's code sandbox is running, restart if needed."""
+    """Ensure the notebook's code sandbox is running, restarting it if allowed.
+
+    Attaching a sandbox for the first time is never a restart and always
+    happens: there was no state to lose. Replacing one that has *died* is the
+    surprising case, and it is what ``kernel.auto-restart`` governs.
+
+    Args:
+        allow_restart: Overrides the capability, for a caller that has
+            already decided — ``restart_notebook`` is a caller asking for
+            exactly this, and must not be refused by a switch about doing it
+            behind somebody's back.
+    """
+    if allow_restart is None:
+        allow_restart = capabilities_enabled(KERNEL_AUTO_RESTART)
+    if not allow_restart:
+        existing = notebook_manager.get_code_sandbox(current_notebook)
+        if existing is not None and not code_sandbox_is_alive(existing):
+            raise KernelGoneError(
+                f"The kernel of {current_notebook!r} is gone, and its session — every "
+                "variable, import and definition — went with it. Call restart_notebook "
+                "to start a fresh one, or enable the 'kernel.auto-restart' capability "
+                "to have replacements started automatically."
+            )
     return cast(
         CodeSandboxClient,
         notebook_manager.ensure_code_sandbox_alive(

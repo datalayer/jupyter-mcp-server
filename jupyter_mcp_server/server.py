@@ -24,7 +24,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
+from jupyter_mcp_server import cell_ids
 from jupyter_mcp_server.__version__ import __version__
+from jupyter_mcp_server.capabilities import (
+    CAPABILITIES_RESOURCE,
+    capabilities_extension,
+    get_capabilities,
+)
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
@@ -33,6 +39,13 @@ from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentCodeSandbox
 from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.results import (
+    OutputsAnswer,
+    TableAnswer,
+    ToolAnswer,
+    as_text,
+    structured,
+)
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.tools import (
     ClearCellOutputTool,
@@ -154,7 +167,73 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def _rows(value):
+    """A tab-separated table, as rows a client can use without parsing prose.
+
+    Several tools answer with a TSV table because that is compact for a model
+    to read. An agent that wants one field out of it has to split the text and
+    hope the columns did not move; this hands it the same table as data, with
+    the header as keys, and leaves the text exactly as it was.
+    """
+    text = value if isinstance(value, str) else as_text(value)
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) < 2 or "\t" not in lines[0]:
+        return {"result": text}
+    header = [column.strip() for column in lines[0].split("\t")]
+    items = [
+        dict(zip(header, (cell.strip() for cell in line.split("\t"))))
+        for line in lines[1:]
+        if "\t" in line
+    ]
+    return {"result": text, "columns": header, "items": items, "count": len(items)}
+
+
+def _outputs(value):
+    """Execution or cell outputs, split into what is text and what is not.
+
+    An image is left in `content` where a client can render it; the
+    structured answer says one is there rather than trying to carry it twice.
+    """
+    blocks = value if isinstance(value, list) else [value]
+    # `result` is the answer in the form it has always had: the outputs in
+    # order, text as text and an image as its own object. Both halves matter
+    # and each was learned from a test. Rendering a text output as an object
+    # breaks a caller reading cell sources; dropping an image breaks one
+    # reading an execution's picture — and it is dropped silently, because
+    # the text beside it still arrives.
+    outputs = []
+    images = 0
+    for block in blocks:
+        if isinstance(block, ImageContent):
+            images += 1
+            outputs.append(block.model_dump(by_alias=True, exclude_none=True))
+            continue
+        outputs.append(block if isinstance(block, str) else as_text(block))
+    return {
+        "result": outputs,
+        "outputs": outputs,
+        "count": len(outputs),
+        "images": images,
+    }
+
+
 class MCPServerWithCORS(MCPServer):
+    async def list_tools(self, *arguments, **keywords):
+        """The tools, in a deterministic order — by name.
+
+        Registration order is deterministic for one build and nothing more.
+        It moves when a tool is added, when one is moved in this file, and
+        now that extensions register after configuration rather than at
+        import, it moves depending on *when* an extension got its turn. A
+        client that caches a tool list and compares it then sees a change
+        that is not one, and re-reads a catalogue that did not move.
+
+        Sorting by name is stable across all of that, and the specification
+        recommends a deterministic order for exactly this reason.
+        """
+        listed = await super().list_tools(*arguments, **keywords)
+        return sorted(listed, key=lambda tool: tool.name)
+
     async def call_tool(self, name, arguments, context=None):
         """Call a tool, keeping the reason when it fails.
 
@@ -240,10 +319,41 @@ mcp = MCPServerWithCORS(
     name="Jupyter MCP Server",
     version=__version__,
     instructions=INSTRUCTIONS,
+    # The capability registry, advertised where a client will find it
+    # rather than only at `capabilities://`, which a client has to know to
+    # ask for. See `jupyter_mcp_server.capabilities`.
+    extensions=[capabilities_extension()],
+    # No `middleware=` here on purpose. mcp 2 installs its own
+    # `OpenTelemetryMiddleware` by default, which is the span per inbound
+    # message — `tools/list`, `tools/call`, the `gen_ai.*` attributes, the
+    # client's `traceparent` continued. Passing one as well appends a second
+    # instance and every message is traced twice, which reads as double the
+    # traffic on every dashboard built from it. The hook-based OTel handler
+    # beside it traces what happens *inside* a call, which the protocol layer
+    # cannot see.
 )
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()
+
+
+@mcp.resource(CAPABILITIES_RESOURCE)
+def capabilities_resource() -> dict:
+    """What this server can do, and where each answer came from.
+
+    A server does things a client cannot see and did not ask for — replacing
+    a dead kernel with an empty one is the clearest case. Reading this is how
+    a client finds out which of those are on, and an operator finds out *why*
+    a capability is on, which is the first question asked when one surprises
+    somebody.
+
+    A resource as well as a `server/discover` field, because a client may
+    want to re-read it without re-discovering the server, and because a
+    person can open a resource and look.
+    """
+    registry = get_capabilities()
+    extension_manager.collect_capabilities(registry)
+    return registry.advertise()
 
 
 def __start_code_sandbox():
@@ -414,8 +524,11 @@ async def health_check(request: Request):
     annotations=ToolAnnotations(
         title="List Files",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("files.list", shape=_rows, ttl_ms=30000)
 @with_hooks("list_files")
 async def list_files(
     path: Annotated[
@@ -432,12 +545,7 @@ async def list_files(
         int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)
     ] = 25,
     pattern: Annotated[str, Field(description="Glob pattern to filter file paths")] = "",
-) -> Annotated[
-    str,
-    Field(
-        description="Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header."
-    ),
-]:
+) -> TableAnswer:
     """
     List all files and directories recursively in the Jupyter server's file system.
     Used to explore the file system structure of the Jupyter server or to find specific files or directories.
@@ -460,16 +568,14 @@ async def list_files(
     annotations=ToolAnnotations(
         title="List Kernels",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("kernels.list", shape=_rows, ttl_ms=10000)
 @with_hooks("list_kernels")
 async def list_kernels() -> (
-    Annotated[
-        str,
-        Field(
-            description="Tab-separated table with columns: ID, Name, Display_Name, Language, State, Connections, Last_Activity, Environment"
-        ),
-    ]
+    TableAnswer
 ):
     """List all available kernels in the Jupyter server.
 
@@ -495,8 +601,11 @@ async def list_kernels() -> (
     annotations=ToolAnnotations(
         title="Use Notebook",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("notebook.use")
 @with_hooks("use_notebook")
 async def use_notebook(
     notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
@@ -515,7 +624,7 @@ async def use_notebook(
     kernel_id: Annotated[
         str, Field(description="Specific kernel ID to use (will create new if skipped)")
     ] = None,
-) -> Annotated[str, Field(description="Success message with notebook information")]:
+) -> ToolAnswer:
     """Use a notebook and activate it for following cell operations.
     All cell operations will be performed on the currently activated notebook.
     Activate new notebook will deactivate the previously activated notebook.
@@ -554,11 +663,14 @@ async def use_notebook(
     annotations=ToolAnnotations(
         title="List Notebooks",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("notebooks.list", shape=_rows, ttl_ms=30000)
 @with_hooks("list_notebooks")
 async def list_notebooks() -> (
-    Annotated[str, Field(description="TSV formatted table with notebook information")]
+    TableAnswer
 ):
     """List all notebooks that have been used via use_notebook tool"""
     return await ListNotebooksTool().execute(
@@ -572,12 +684,15 @@ async def list_notebooks() -> (
     annotations=ToolAnnotations(
         title="Restart Notebook",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
+@structured("notebook.restart")
 @with_hooks("restart_notebook")
 async def restart_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to restart")],
-) -> Annotated[str, Field(description="Success message")]:
+) -> ToolAnswer:
     """Restart the kernel for a specific notebook."""
     result = await RestartNotebookTool().execute(
         mode=server_context.mode,
@@ -599,12 +714,15 @@ async def restart_notebook(
     annotations=ToolAnnotations(
         title="Unuse Notebook",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("notebook.unuse")
 @with_hooks("unuse_notebook")
 async def unuse_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
-) -> Annotated[str, Field(description="Success message")]:
+) -> ToolAnswer:
     """Unuse from a specific notebook and release its resources."""
     kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
     result = await UnuseNotebookTool().execute(
@@ -626,8 +744,11 @@ async def unuse_notebook(
     annotations=ToolAnnotations(
         title="Read Notebook",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("notebook.read")
 @with_hooks("read_notebook")
 async def read_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to read")],
@@ -643,7 +764,7 @@ async def read_notebook(
     limit: Annotated[
         int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)
     ] = 20,
-) -> Annotated[str, Field(description="Notebook content in the requested format")]:
+) -> ToolAnswer:
     """Read a notebook and return index, source content, type, execution count of each cell.
 
     Using brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.
@@ -674,8 +795,11 @@ async def read_notebook(
     annotations=ToolAnnotations(
         title="Insert Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
+@structured("cell.insert")
 @with_hooks("insert_cell")
 async def insert_cell(
     cell_index: Annotated[
@@ -692,9 +816,7 @@ async def insert_cell(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[
-    str, Field(description="Success message and the structure of its surrounding cells")
-]:
+) -> ToolAnswer:
     """Insert a cell to specified position from the currently activated notebook."""
     return await safe_notebook_operation(
         lambda: InsertCellTool().execute(
@@ -715,11 +837,18 @@ async def insert_cell(
     annotations=ToolAnnotations(
         title="Overwrite Cell Source",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("cell.overwrite")
 @with_hooks("overwrite_cell_source")
 async def overwrite_cell_source(
-    cell_index: Annotated[int, Field(description="Index of the cell to overwrite (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to overwrite (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     cell_source: Annotated[str, Field(description="New complete cell source")],
     notebook_name: Annotated[
         str | None,
@@ -727,12 +856,32 @@ async def overwrite_cell_source(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
+) -> ToolAnswer:
     """Replace the entire source of a cell in the currently activated notebook.
     Returns a diff showing the changes made.
 
     Use this when rewriting a cell completely. For small, targeted changes,
     prefer edit_cell_source instead — it is safer for partial edits."""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: OverwriteCellSourceTool().execute(
             mode=server_context.mode,
@@ -751,10 +900,17 @@ async def overwrite_cell_source(
     annotations=ToolAnnotations(
         title="Edit Cell Source",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
+@structured("cell.edit")
 async def edit_cell_source(
-    cell_index: Annotated[int, Field(description="Index of the cell to edit (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to edit (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     old_string: Annotated[str, Field(description="Exact string to find in cell source")],
     new_string: Annotated[str, Field(description="Replacement string")],
     replace_all: Annotated[
@@ -766,7 +922,19 @@ async def edit_cell_source(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[str, Field(description="Success message with diff showing changes made")]:
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
+) -> ToolAnswer:
     """Perform a surgical find-and-replace within a cell's source (like an editor's Edit tool).
     Finds `old_string` in the cell and replaces it with `new_string`. Matching is literal
     (not regex) and may span multiple lines. By default, `old_string` must appear exactly once;
@@ -775,6 +943,14 @@ async def edit_cell_source(
     Prefer this over overwrite_cell_source for small, targeted edits — it is safer because
     unchanged parts of the cell are left untouched. Use read_cell first to see the current
     source and construct an accurate old_string."""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: EditCellSourceTool().execute(
             mode=server_context.mode,
@@ -795,12 +971,18 @@ async def edit_cell_source(
     annotations=ToolAnnotations(
         title="Execute Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
     ),
-    structured_output=False,
 )
+@structured("cell.execute", shape=_outputs)
 @with_hooks("execute_cell")
 async def execute_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to execute (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to execute (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     timeout: Annotated[
         int, Field(description="Maximum seconds to wait for execution (0 = use config default)")
     ] = 0,
@@ -815,10 +997,30 @@ async def execute_cell(
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
     ] = 5,
     ctx: Context | None = None,
-) -> Annotated[
-    list[str | ImageContent], Field(description="List of outputs from the executed cell")
-]:
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
+) -> OutputsAnswer:
     """Execute a cell from the currently activated notebook with timeout and return it's outputs"""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        # `execute_cell` always acts on the currently activated notebook; it
+        # takes no `notebook_name`, so the resolver reads that same one.
+        notebook_name=None,
+    )
     config = get_config()
     # Use config default if timeout is 0, otherwise clamp to max
     effective_timeout = (
@@ -848,9 +1050,11 @@ async def execute_cell(
     annotations=ToolAnnotations(
         title="Insert and Execute Code Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
     ),
-    structured_output=False,
 )
+@structured("cell.insert_execute", shape=_outputs)
 @with_hooks("insert_execute_code_cell")
 async def insert_execute_code_cell(
     cell_index: Annotated[
@@ -871,9 +1075,7 @@ async def insert_execute_code_cell(
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
     ] = 5,
     ctx: Context | None = None,
-) -> Annotated[
-    list[str | ImageContent], Field(description="List of outputs from the executed cell")
-]:
+) -> OutputsAnswer:
     """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
     It is a shortcut tool for insert_cell and execute_cell tools, recommended to use if you want to insert a cell and execute it at the same time"""
     config = get_config()
@@ -926,12 +1128,18 @@ async def insert_execute_code_cell(
     annotations=ToolAnnotations(
         title="Read Cell",
         readOnlyHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
-    structured_output=False,
 )
+@structured("cell.read", shape=_outputs)
 @with_hooks("read_cell")
 async def read_cell(
-    cell_index: Annotated[int, Field(description="Index of the cell to read (0-based)", ge=0)],
+    *,
+    cell_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to read (0-based). Omit when passing cell_id.", ge=0),
+    ] = None,
     include_outputs: Annotated[
         bool, Field(description="Include outputs in the response (only for code cells)")
     ] = True,
@@ -941,20 +1149,32 @@ async def read_cell(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[
-    list[str | ImageContent],
-    Field(
-        description=(
-            "Readable text entries containing cell metadata, source, and optional "
-            "code-cell outputs"
-        )
-    ),
-]:
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
+) -> OutputsAnswer:
     """Read a cell as readable text entries.
 
     Includes metadata and source, plus optional formatted output text rather
     than raw nbformat objects.
     """
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: ReadCellTool().execute(
             mode=server_context.mode,
@@ -972,13 +1192,21 @@ async def read_cell(
     annotations=ToolAnnotations(
         title="Delete Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
+@structured("cell.delete")
 @with_hooks("delete_cell")
 async def delete_cell(
+    *,
     cell_indices: Annotated[
-        list[int], Field(description="List of cell indices to delete (0-based)", min_length=1)
-    ],
+        list[int] | None,
+        Field(
+            description="List of cell indices to delete (0-based). Omit when passing cell_ids_to_delete.",
+            min_length=1,
+        ),
+    ] = None,
     include_source: Annotated[
         bool, Field(description="Whether to include the source of deleted cells")
     ] = True,
@@ -988,13 +1216,28 @@ async def delete_cell(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[
-    str,
-    Field(
-        description="Success message with list of deleted cells and their source (if include_source=True)"
-    ),
-]:
+    cell_ids_to_delete: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Address the cells by their notebook cell ids instead of their "
+                "indices. Safer for a multi-cell delete than indices, which shift "
+                "as earlier cells go. Given both, the ids win; every id is checked "
+                "before any cell is deleted, so a bad one fails the whole call "
+                "rather than half-deleting the notebook."
+            )
+        ),
+    ] = None,
+) -> ToolAnswer:
     """Delete specific cells from the currently activated notebook and return the cell source of deleted cells (if include_source=True)."""
+    cell_indices = await cell_ids.resolve_many(
+        cell_indices=cell_indices,
+        cell_ids_wanted=cell_ids_to_delete,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: DeleteCellTool().execute(
             mode=server_context.mode,
@@ -1013,22 +1256,50 @@ async def delete_cell(
     annotations=ToolAnnotations(
         title="Clear Cell Output",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("cell.clear_output")
 @with_hooks("clear_cell_output")
 async def clear_cell_output(
+    *,
     cell_index: Annotated[
-        int, Field(description="Index of the code cell to clear (0-based)", ge=0)
-    ],
+        int | None,
+        Field(
+            description="Index of the code cell to clear (0-based). Omit when passing cell_id.",
+            ge=0,
+        ),
+    ] = None,
     notebook_name: Annotated[
         str | None,
         Field(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[str, Field(description="Success message with the number of outputs removed")]:
+    cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Address the cell by its notebook cell id instead of its index. An "
+                "index is a position, and a position stops being true the moment "
+                "anyone inserts a cell above it; an id does not. Every result says "
+                "which id it acted on, so read a cell once and address it by id "
+                "afterwards. Given both, the id wins."
+            )
+        ),
+    ] = None,
+) -> ToolAnswer:
     """Clear the outputs and execution count of a single code cell in the currently
     activated notebook, without deleting the cell itself."""
+    cell_index = await cell_ids.resolve(
+        cell_index=cell_index,
+        cell_id=cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
     return await safe_notebook_operation(
         lambda: ClearCellOutputTool().execute(
             mode=server_context.mode,
@@ -1046,22 +1317,44 @@ async def clear_cell_output(
     annotations=ToolAnnotations(
         title="Move Cell",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
     ),
 )
+@structured("cell.move")
 async def move_cell(
-    source_index: Annotated[int, Field(description="Index of the cell to move (0-based)", ge=0)],
+    *,
+    source_index: Annotated[
+        int | None,
+        Field(description="Index of the cell to move (0-based). Omit when passing source_cell_id.", ge=0),
+    ] = None,
     target_index: Annotated[
-        int, Field(description="Destination index where the cell will end up (0-based)", ge=0)
-    ],
+        int | None,
+        Field(
+            description="Destination index where the cell will end up (0-based). Omit when passing target_cell_id.",
+            ge=0,
+        ),
+    ] = None,
     notebook_name: Annotated[
         str | None,
         Field(
             description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
         ),
     ] = None,
-) -> Annotated[
-    str, Field(description="Success message with moved cell info and surrounding context")
-]:
+    source_cell_id: Annotated[
+        str | None,
+        Field(description="Address the cell to move by its id rather than its index."),
+    ] = None,
+    target_cell_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Put the moved cell where this cell is now, addressed by id rather "
+                "than by an index that the move itself will shift."
+            )
+        ),
+    ] = None,
+) -> ToolAnswer:
     """Move a cell from source_index to target_index within the currently activated notebook.
 
     The cell is removed from source_index and placed at target_index. Cells in between shift
@@ -1070,6 +1363,25 @@ async def move_cell(
 
     Use this tool instead of manually deleting and re-inserting a cell — it is atomic and
     preserves cell metadata. Use read_notebook first to see cell indices if needed."""
+    # Both resolved against the notebook as it is now, before anything
+    # moves: resolving the target afterwards would resolve it against a
+    # notebook the source had already left.
+    source_index = await cell_ids.resolve(
+        cell_index=source_index,
+        cell_id=source_cell_id,
+        mode=server_context.mode,
+        contents_manager=server_context.contents_manager,
+        notebook_manager=notebook_manager,
+        notebook_name=notebook_name,
+    )
+    if target_cell_id is not None:
+        target_index = await cell_ids.resolve(
+            cell_id=target_cell_id,
+            mode=server_context.mode,
+            contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
+            notebook_name=notebook_name,
+        )
     return await safe_notebook_operation(
         lambda: MoveCellTool().execute(
             mode=server_context.mode,
@@ -1088,9 +1400,11 @@ async def move_cell(
     annotations=ToolAnnotations(
         title="Execute Code",
         destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
     ),
-    structured_output=False,
 )
+@structured("code.execute", shape=_outputs)
 @with_hooks("execute_code")
 async def execute_code(
     code: Annotated[
@@ -1115,9 +1429,7 @@ async def execute_code(
         ),
     ] = 5,
     ctx: Context | None = None,
-) -> Annotated[
-    list[str | ImageContent], Field(description="List of outputs from the executed code")
-]:
+) -> OutputsAnswer:
     """Execute code directly in a kernel (not saved to notebook).
 
     If `use_sandbox` selected an active sandbox, this tool executes on that
@@ -1177,8 +1489,11 @@ async def execute_code(
     annotations=ToolAnnotations(
         title="Connect to Jupyter Server",
         destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
     ),
 )
+@structured("jupyter.connect")
 @with_hooks("connect_to_jupyter")
 async def connect_to_jupyter(
     jupyter_url: Annotated[
@@ -1190,7 +1505,7 @@ async def connect_to_jupyter(
     document_provider: Annotated[
         str, Field(description="Which backend holds the notebook documents")
     ] = "jupyter",
-) -> Annotated[str, Field(description="Connection status message")]:
+) -> ToolAnswer:
     """Connect to a Jupyter server dynamically with URL and token.
 
     This tool allows you to connect to different Jupyter servers without needing to
@@ -1266,6 +1581,11 @@ async def get_registered_tools():
     Returns:
         list: List of tool dictionaries with name, description, and inputSchema
     """
+    # Last line of defence: whoever asks for the tool list gets a complete
+    # one, whichever entry point started this process and whether or not it
+    # remembered. Idempotent, so asking twice costs nothing.
+    register_extension_tools()
+
     context = ServerContext.get_instance()
     mode = context._mode
 
@@ -1469,8 +1789,22 @@ async def get_registered_tools():
 ###############################################################################
 # Extension registration.
 
-# Discover installed extensions (for example jupyter_mcp_sandboxes) and let
-# them contribute their MCP tools to the server. Extensions are resolved via
-# the "jupyter_mcp_server.extensions" entry-point group and coordinated through
-# the reactor plugin platform.
-extension_manager.register_tools(mcp)
+
+def register_extension_tools() -> None:
+    """Let installed extensions contribute their tools — after configuration.
+
+    This used to run at module scope, which is earlier than it looks: the CLI
+    imports this module in order to start the server, so extensions registered
+    while the command line was still being parsed and before ``set_config``
+    had been called. An extension asking "what am I pointed at?" was told
+    "jupyter" however the server had been invoked, and the only way one could
+    find out otherwise was to read ``sys.argv`` itself — which the
+    Datalayer spaces extension had to do, and documented as a workaround
+    waiting on exactly this change.
+
+    Called after configuration by every entry point, and idempotent, so none
+    of them has to know whether another got there first. Extensions are
+    resolved through the ``jupyter_mcp_server.extensions`` entry-point group
+    and coordinated by the reactor plugin platform.
+    """
+    extension_manager.register_tools(mcp, once=True)

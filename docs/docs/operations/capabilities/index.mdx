@@ -1,0 +1,131 @@
+# Capabilities
+
+A server does things a client cannot see and did not ask for. Capabilities are
+how those become visible and switchable.
+
+The clearest example, and the one this mechanism was built for: when a kernel
+dies, the server used to quietly start another. Every variable, import and
+definition the person had went with the old one. The notebook's state was not
+what the agent believed it was, and nothing anywhere said so — the next
+`execute_cell` simply behaved as if the session had always been empty
+([#398](https://github.com/datalayer/jupyter-mcp-server/issues/398)).
+
+That is not a behaviour to delete. A fresh kernel is often exactly what
+somebody wants. It was a bug because it was *invisible* and *not optional*.
+
+## Seeing what a server can do
+
+Two ways, both reporting the same thing.
+
+Over the protocol, in `server/discover` under the
+`io.jupyter-mcp/capabilities` extension. Or as a resource, at
+`capabilities://`, for a client that wants to re-read it without
+re-discovering the server — or a person who wants to open it and look.
+
+```json
+{
+  "version": "1",
+  "capabilities": ["kernel.auto-restart"],
+  "declared": [
+    {
+      "name": "kernel.auto-restart",
+      "description": "Start a replacement kernel when the current one is gone. …",
+      "enabled": true,
+      "source": "cli"
+    }
+  ]
+}
+```
+
+`capabilities` is what is **on**. `declared` is everything the server knows
+about, on or off — a client that saw only what is on could not tell a
+capability this server does not have from one it has and is not using, and
+that difference decides whether asking an operator is worth it.
+
+`source` says *why* a capability is on. It is the first question anybody asks
+when one surprises them.
+
+## Turning one on or off
+
+Four places, later ones winning:
+
+1. the defaults the server declares;
+2. `JUPYTER_MCP_CAPABILITIES` in the environment;
+3. `--capability` on the command line;
+4. each installed extension's `capabilities()`.
+
+```bash
+# On.
+jupyter-mcp-server start --capability kernel.auto-restart
+
+# Off again, explicitly.
+jupyter-mcp-server start --capability kernel.auto-restart=off
+
+# Several, through the environment.
+export JUPYTER_MCP_CAPABILITIES="kernel.auto-restart,some.other=off"
+```
+
+`--capability` repeats. `name` alone means on. To turn one off, give it a
+value: `off`, `false`, `0`, `no` or `disabled`. Any other value means on.
+
+**A name the server does not know stops it.** A misspelt
+`--capability kernel.autorestart` that was quietly dropped would leave you
+certain you had changed something, with the behaviour you meant to change
+unchanged. The error names the capabilities that do exist.
+
+## The capabilities
+
+### `kernel.auto-restart`
+
+**Off by default.**
+
+Off, a tool call that finds the kernel gone fails and says so, naming both
+ways forward:
+
+```
+The kernel of 'notebook.ipynb' is gone, and its session — every variable,
+import and definition — went with it. Call restart_notebook to start a fresh
+one, or enable the 'kernel.auto-restart' capability to have replacements
+started automatically.
+```
+
+On, the server starts a replacement and the call proceeds, as it used to.
+
+Two things it deliberately does not govern. Attaching a kernel for the *first*
+time is not a restart — there was no session to lose — and is never refused.
+And `restart_notebook` is a caller asking for exactly this, so it is never
+blocked by a switch about doing it behind somebody's back.
+
+## Declaring one from an extension
+
+An extension that genuinely adds an ability says so, rather than the core
+guessing from what is installed (see [Extensions](/operations/extensions)):
+
+```python
+from jupyter_mcp_server.capabilities import Capability
+from jupyter_mcp_server.extensions import JupyterMCPExtension
+
+
+class MyExtension(JupyterMCPExtension):
+    def capabilities(self):
+        return [
+            Capability(
+                name="myext.snapshots",
+                description="Snapshot and restore the sandbox filesystem.",
+                enabled=True,
+                source="my-extension",
+            )
+        ]
+```
+
+The name is namespaced, because the registry is shared. One extension raising
+in `capabilities()` costs only its own declarations — the others are still
+collected, and the failure is logged.
+
+## The same words elsewhere
+
+The vocabulary is shared with [Datalayer](https://datalayer.ai)'s hosted
+Jupyter MCP Server, which reads a capability set off a running runtime rather
+than off a flag, and filters the tool list by it. A name means one thing
+whether it came from `--capability` on your laptop or from an environment
+definition on a platform.

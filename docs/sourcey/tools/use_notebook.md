@@ -10,7 +10,7 @@ All cell operations will be performed on the currently activated notebook.
 Activate new notebook will deactivate the previously activated notebook.
 Reactivate previously activated notebook using same notebook_name and notebook_path.
 
-> destructive: **yes**
+> destructive: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
@@ -26,17 +26,24 @@ Reactivate previously activated notebook using same notebook_name and notebook_p
 ```json
 {
   "properties": {
-    "result": {
-      "description": "Success message with notebook information",
-      "title": "Result",
+    "kind": {
+      "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+      "title": "Kind",
       "type": "string"
+    },
+    "result": {
+      "default": null,
+      "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+      "title": "Result"
     }
   },
   "required": [
-    "result"
+    "kind"
   ],
   "type": "object",
-  "title": "use_notebookOutput"
+  "additionalProperties": true,
+  "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+  "title": "ToolAnswer"
 }
 ```
 

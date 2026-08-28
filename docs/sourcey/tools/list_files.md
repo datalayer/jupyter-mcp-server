@@ -8,7 +8,7 @@ description: "List all files and directories recursively in the Jupyter server's
 List all files and directories recursively in the Jupyter server's file system.
 Used to explore the file system structure of the Jupyter server or to find specific files or directories.
 
-> read-only: **yes**
+> read-only: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
 
@@ -25,17 +25,47 @@ Used to explore the file system structure of the Jupyter server or to find speci
 ```json
 {
   "properties": {
-    "result": {
-      "description": "Tab-separated table with columns: Path, Type, Size, Last_Modified. Includes pagination info header.",
-      "title": "Result",
+    "kind": {
+      "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+      "title": "Kind",
       "type": "string"
+    },
+    "result": {
+      "default": null,
+      "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+      "title": "Result"
+    },
+    "columns": {
+      "description": "The header, in order.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+    },
+    "items": {
+      "description": "One object per row, keyed by the header.",
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "count": {
+      "default": 0,
+      "description": "How many rows.",
+      "title": "Count",
+      "type": "integer"
     }
   },
   "required": [
-    "result"
+    "kind"
   ],
   "type": "object",
-  "title": "list_filesOutput"
+  "additionalProperties": true,
+  "description": "A listing that also comes back as rows keyed by its header.",
+  "title": "TableAnswer"
 }
 ```
 

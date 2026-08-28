@@ -74,6 +74,16 @@ class JupyterMCPExtension:
         """
         return None
 
+    def capabilities(self) -> list[Any]:
+        """Declare what this extension lets the server do.
+
+        Return :class:`jupyter_mcp_server.capabilities.Capability` values. An
+        extension that genuinely adds an ability says so here rather than the
+        core guessing from what is installed — and a client then sees the same
+        named thing whether it came from the core, a flag or a plugin.
+        """
+        return []
+
     def on_start(self) -> None:
         """Called when the extension platform starts."""
 
@@ -95,6 +105,7 @@ class ExtensionManager:
         self._platform: Any = None
         self._started = False
         self._discovered = False
+        self._tools_registered = False
 
     def _ensure_platform(self) -> Any:
         if self._platform is None:
@@ -123,7 +134,19 @@ class ExtensionManager:
         logger.info("Registered Jupyter MCP extension: %s", manifest.name)
 
     def discover(self) -> None:
-        """Discover extensions published on the entry-point group."""
+        """Discover extensions published on the entry-point group.
+
+        Registered in **name order**. `importlib.metadata` returns entry
+        points in whatever order the installation happens to produce, which
+        varies between machines and between a wheel and an editable install —
+        so two extensions that interact would work on one and not the other,
+        and nothing would say why.
+
+        Order matters because registration is not independent: an extension
+        may *replace* a tool another registered, and the SDK keeps the
+        original when a name is registered twice. Sorting by name gives such
+        an extension something it can rely on.
+        """
         if self._discovered:
             return
         self._discovered = True
@@ -131,7 +154,7 @@ class ExtensionManager:
             entry_points = metadata.entry_points(group=ENTRY_POINT_GROUP)
         except TypeError:  # pragma: no cover - Python < 3.10 compatibility
             entry_points = metadata.entry_points().get(ENTRY_POINT_GROUP, [])
-        for entry_point in entry_points:
+        for entry_point in sorted(entry_points, key=lambda point: point.name):
             try:
                 factory = entry_point.load()
                 extension = factory() if callable(factory) else factory
@@ -141,9 +164,42 @@ class ExtensionManager:
                     "Failed to load Jupyter MCP extension '%s'", entry_point.name
                 )
 
-    def register_tools(self, mcp: Any) -> None:
-        """Discover extensions (if needed) and register all their tools."""
+    def collect_capabilities(self, registry: Any) -> None:
+        """Ask every extension what it adds, and record it.
+
+        One extension raising must not cost the others their declarations, so
+        each is asked on its own: a plugin with a broken `capabilities()`
+        loses only its own, and says so in the log.
+        """
+        for name, extension in self._extensions.items():
+            try:
+                declared = extension.capabilities() or []
+            except Exception:  # noqa: BLE001 - one plugin never breaks the rest
+                logger.exception("Extension %s could not declare its capabilities", name)
+                continue
+            for capability in declared:
+                try:
+                    registry.declare(capability)
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "Extension %s declared something that is not a capability: %r",
+                        name, capability,
+                    )
+
+    def register_tools(self, mcp: Any, *, once: bool = False) -> None:
+        """Discover extensions (if needed) and register all their tools.
+
+        Args:
+            once: Do nothing if tools have already been registered on this
+                manager. What makes it safe to call this from every entry
+                point — the CLI after it has configured the server, the
+                Jupyter Server extension, a test — without any of them having
+                to know whether another got there first.
+        """
+        if once and self._tools_registered:
+            return
         self.discover()
+        self._tools_registered = True
         for name, extension in self._extensions.items():
             try:
                 extension.register_tools(mcp)

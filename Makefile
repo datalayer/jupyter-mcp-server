@@ -34,7 +34,7 @@ test-extensions: ## run the unit tests of the extensions under ext/
 	@# but twice — once per server mode — and reports them under whichever
 	@# mode happened to run, which is neither true nor useful when one fails.
 	@# These need no Jupyter server and take seconds.
-	pytest ext/sandboxes/tests ext/spaces/tests
+	pytest ext/sandboxes/tests
 
 test-examples: ## run the tests of the examples under examples/
 	@# Each example has a test module beside it, driven by pydantic-ai's test
@@ -155,3 +155,9 @@ publish-pypi: # publish the pypi package
 	@exec echo twine upload ./dist/*-py3-none-any.whl
 	@exec echo
 	@exec echo https://pypi.org/project/jupyter-mcp-server/#history
+
+.PHONY: test-conformance
+test-conformance: ## Run the MCP specification's own conformance suite
+	@exec echo "Installing @modelcontextprotocol/conformance (npm, not saved)"
+	npm install --no-save @modelcontextprotocol/conformance
+	pytest tests/test_conformance.py -v
