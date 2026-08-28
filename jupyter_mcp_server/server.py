@@ -34,6 +34,7 @@ from jupyter_mcp_server.capabilities import (
 from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
+from jupyter_mcp_server.tasks import tasks_extension
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.log import logger
@@ -322,7 +323,7 @@ mcp = MCPServerWithCORS(
     # The capability registry, advertised where a client will find it
     # rather than only at `capabilities://`, which a client has to know to
     # ask for. See `jupyter_mcp_server.capabilities`.
-    extensions=[capabilities_extension()],
+    extensions=[capabilities_extension(), tasks_extension()],
     # No `middleware=` here on purpose. mcp 2 installs its own
     # `OpenTelemetryMiddleware` by default, which is the span per inbound
     # message — `tools/list`, `tools/call`, the `gen_ai.*` attributes, the
