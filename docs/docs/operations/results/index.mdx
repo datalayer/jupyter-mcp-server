@@ -1,0 +1,164 @@
+# Results
+
+What a tool answers, and where a client should read it.
+
+Until 2.1 a tool answered in prose. `list_kernels` returned a tab-separated
+table, and an agent wanting one field out of it split the text on tabs and
+hoped the columns had not moved. When they moved, nothing failed — the agent
+read a different column and carried on. Prose is a fine thing to *show* a
+model and a poor thing to make it parse.
+
+Every result now carries both.
+
+## Both halves, always
+
+A result has `content` — the text, and any images — and `structuredContent`
+beside it. Neither replaces the other:
+
+- **Text is never dropped.** A result with structure and empty content is
+  invisible to a client that has not adopted `structuredContent`, which in
+  practice means most of them.
+- **Structure is never a rendering of the text.** It is built from what the
+  tool actually returned, in one place, before anything is turned into a
+  string.
+
+## What is in `structuredContent`
+
+Two keys, in the ordinary case:
+
+```json
+{
+  "kind": "cell.delete",
+  "result": "Cell 3 deleted."
+}
+```
+
+`kind` says what this result *is*, so a client can tell one answer from
+another without matching prose. It is always present. `result` holds the
+answer — a message, the rows of a listing, or the outputs of an execution, in
+order.
+
+There is one exception worth knowing before you write a client. **A tool whose
+answer is already an object carries that object's keys at the top level, and
+has no `result`:**
+
+```json
+{
+  "kind": "sandbox.launch",
+  "sandbox": { "id": "s-1", "url": "..." }
+}
+```
+
+Putting such an answer under `result` as a string would hand you JSON to parse
+where you previously had an object — the exact failure this exists to prevent.
+So read `result` when it is there, and treat its absence as "this tool answers
+with fields of its own", which the tool's output schema names.
+
+A tool answering with a *list* of records keeps `result`, and what is under it
+is the list, not a rendering of it:
+
+```json
+{
+  "kind": "sandboxes.list",
+  "result": [{ "id": "s-1" }, { "id": "s-2" }]
+}
+```
+
+The text half still shows the JSON, because text is what most clients show the
+model. Only `structuredContent` is guaranteed to hold data rather than a
+picture of it.
+
+## Kinds
+
+| Tool | `kind` | Shape |
+| --- | --- | --- |
+| `clear_cell_output` | `cell.clear_output` | message |
+| `connect_to_jupyter` | `jupyter.connect` | message |
+| `delete_cell` | `cell.delete` | message |
+| `edit_cell_source` | `cell.edit` | message |
+| `execute_cell` | `cell.execute` | outputs |
+| `execute_code` | `code.execute` | outputs |
+| `insert_cell` | `cell.insert` | message |
+| `insert_execute_code_cell` | `cell.insert_execute` | outputs |
+| `launch_sandbox` | `sandbox.launch` | object |
+| `list_files` | `files.list` | rows |
+| `list_kernels` | `kernels.list` | rows |
+| `list_notebooks` | `notebooks.list` | rows |
+| `list_sandboxes` | `sandboxes.list` | list |
+| `move_cell` | `cell.move` | message |
+| `overwrite_cell_source` | `cell.overwrite` | message |
+| `read_cell` | `cell.read` | outputs |
+| `read_notebook` | `notebook.read` | message |
+| `restart_notebook` | `notebook.restart` | message |
+| `terminate_sandbox` | `sandbox.terminate` | message |
+| `unuse_notebook` | `notebook.unuse` | message |
+| `use_notebook` | `notebook.use` | message |
+| `use_sandbox` | `sandbox.use` | message |
+
+## Listings come back as rows
+
+A tab-separated table is parsed once, here, rather than by every client:
+
+```json
+{
+  "kind": "kernels.list",
+  "result": "ID\tName\nk-1\tPython 3",
+  "columns": ["ID", "Name"],
+  "items": [{ "ID": "k-1", "Name": "Python 3" }],
+  "count": 1
+}
+```
+
+`result` keeps the text so nothing that read it before breaks. Something that
+is *not* a table — `"No notebooks are open."` — stays a message, with no
+`columns` or `items`.
+
+## Executions come back as outputs
+
+```json
+{
+  "kind": "cell.execute",
+  "result": ["before", { "type": "image", "mimeType": "image/png", "data": "..." }],
+  "outputs": ["...same list..."],
+  "count": 2,
+  "images": 1
+}
+```
+
+Order is the cell's order. **Text outputs stay strings and images stay
+objects** — rendering a text output as an object breaks a caller reading cell
+sources, and dropping an image breaks one reading a plot. An image is dropped
+*silently*, because the text beside it still arrives, so `images` is there to
+be counted against what you expected.
+
+## Every tool advertises its schema
+
+All 22 tools declare an output schema, so a client can learn the shape without
+calling the tool, and the generated [API reference](pathname:///mcp) prints it on each
+tool's page. Three schemas cover every tool — the message shape above, the rows
+shape and the outputs shape — and each allows extra keys, which is what lets an
+object-answering tool carry its own.
+
+The schema is not documentation written beside the code: the server validates
+what it built against it on every call, so the two cannot drift apart quietly.
+
+## `_meta`
+
+Two things arrive in `_meta`, both namespaced because `_meta` is shared with
+the protocol and with every extension.
+
+**Cache hints**, under `io.modelcontextprotocol/cache`
+([SEP-2549](https://modelcontextprotocol.io/seps/2549-TTL-for-list-results)):
+
+```json
+{ "io.modelcontextprotocol/cache": { "ttlMs": 30000, "cacheScope": "private" } }
+```
+
+Only the three listings carry one — `list_files` and `list_notebooks` at 30s,
+`list_kernels` at 10s. Nothing that changes carries one: a cell read or an edit
+answers something that has just moved, and a stale hint is worse than no hint.
+`cacheScope` is `private`, meaning one caller's answer, never to be shared by a
+proxy.
+
+**The cell this acted on**, under `io.jupyter-mcp/cell_id` — see
+[Cell ids](/operations/cell-ids).

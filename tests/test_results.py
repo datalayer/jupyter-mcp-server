@@ -388,6 +388,30 @@ class TestATooThatAlreadyReturnsData:
         built = answer({"kind": "theirs"}, kind="ours")
         assert built.structured_content["kind"] in ("ours", "theirs")
 
+    def test_a_list_of_records_stays_a_list(self):
+        """`list_sandboxes` answers with one. Rendering it as text put a JSON
+        *string* under `result`, so a client parsing `structuredContent` had
+        to parse it again — the thing the mapping branch exists to prevent,
+        for the same reason."""
+        from jupyter_mcp_server.results import _default_shape
+
+        shaped = _default_shape([{"id": "s-1"}, {"id": "s-2"}])
+        assert shaped["result"] == [{"id": "s-1"}, {"id": "s-2"}]
+
+    def test_content_blocks_are_not_mistaken_for_data(self):
+        """They are a list too, and they are the server's own models rather
+        than the tool's answer. Putting them in the structured answer raw is
+        not JSON-serialisable."""
+        import json
+
+        from mcp.types import TextContent
+
+        from jupyter_mcp_server.results import _default_shape
+
+        shaped = _default_shape([TextContent(type="text", text="hi")])
+        json.dumps(shaped)
+        assert isinstance(shaped["result"], str)
+
     def test_a_scalar_still_goes_under_result(self):
         assert answer("done", kind="cell.edit").structured_content["result"] == "done"
 

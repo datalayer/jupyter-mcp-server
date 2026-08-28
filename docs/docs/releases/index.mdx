@@ -71,6 +71,8 @@ again. Addressing by index still works.
 
 :::
 
+See [Cell ids](/operations/cell-ids).
+
 ### Tools say whether they are safe to repeat
 
 All tools now answer `idempotentHint` and `openWorldHint`. The direction that
@@ -94,6 +96,11 @@ invisible to a client that has not adopted the former.
 The three listings carry cache hints ([SEP-2549](https://modelcontextprotocol.io/seps/2549-TTL-for-list-results)).
 Nothing that changes carries one — a cell read or an edit answers something
 that has just moved, and a stale hint is worse than none.
+
+Every tool also advertises an **output schema**, so a client can learn what a
+tool returns without calling it, and the server validates what it built
+against that schema on every call. See [Results](/operations/results) for the
+shapes, the `kind` of every tool, and what arrives in `_meta`.
 
 ### Auditing, for deployments that need it
 

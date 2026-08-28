@@ -191,6 +191,21 @@ class OutputsAnswer(ToolAnswer):
     images: int = Field(default=0, description="How many of them are images.")
 
 
+def _is_data(value: Any) -> bool:
+    """Whether a sequence can go into the structured answer as it is.
+
+    Deliberately narrow: content blocks are a list too, and they are the
+    server's own models rather than the tool's answer, so they keep the text
+    rendering. Anything here has to survive `json.dumps` without help.
+    """
+    if not isinstance(value, (list, tuple)):
+        return False
+    return all(
+        isinstance(item, Mapping) or isinstance(item, (str, int, float, bool)) or item is None
+        for item in value
+    )
+
+
 def _default_shape(value: Any) -> dict[str, Any]:
     """The structured answer for a tool that did not ask for a particular one.
 
@@ -205,6 +220,12 @@ def _default_shape(value: Any) -> dict[str, Any]:
     """
     if isinstance(value, Mapping):
         return dict(value)
+    if _is_data(value):
+        # A list of records is structured data for the same reason a mapping
+        # is. `list_sandboxes` answers with one, and rendering it as text put
+        # a JSON *string* under `result` — the client parses what it was
+        # already handed, which is what this function exists to avoid.
+        return {"result": [dict(item) if isinstance(item, Mapping) else item for item in value]}
     return {"result": as_text(value)}
 
 
