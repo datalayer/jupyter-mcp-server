@@ -61,6 +61,8 @@ from mcp.types import (
     ListTasksResult,
     PaginatedRequestParams,
     Task,
+    TaskStatusNotification,
+    TaskStatusNotificationParams,
 )
 
 logger = logging.getLogger(__name__)
@@ -89,6 +91,9 @@ TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 
 #: How many tasks one `tasks/list` returns.
 LIST_PAGE = 50
+
+#: The notification the server sends when a task changes state.
+TASK_STATUS_NOTIFICATION = "notifications/tasks/status"
 
 #: The store implementation, as `module:Class`. A deployment that wants tasks
 #: to survive a restart points this at its own; the default keeps them in this
@@ -363,6 +368,7 @@ class TasksExtension(Extension):
             record = await self.store.update(
                 params.task_id, status="cancelled", status_message="cancelled by the client"
             ) or record
+            await self._publish(ctx, record)
         # A terminal task is answered as it is rather than refused: cancelling
         # something that already finished is not an error, it is a race the
         # client lost, and telling it so as a failure teaches it to retry.
@@ -418,6 +424,47 @@ class TasksExtension(Extension):
         )
         return CreateTaskResult(task=record.public())
 
+    async def _publish(self, ctx: Any, record: TaskRecord | None) -> None:
+        """Tell the client a task changed, if the session can carry it.
+
+        Best effort, and that is a design position rather than a shrug. The
+        protocol makes polling the way a client learns a task's state — that
+        is what `poll_interval` on every working task is for — and a
+        notification is an optimisation on top. So a session that cannot send
+        this one costs latency and nothing else, and failing the task because
+        the *news about* the task would not go out would be trading the work
+        for the story about the work.
+
+        `ServerSession.send_notification` types its argument as the union of
+        spec notifications, which does not yet include this one; the SDK is
+        mid-adoption, the same reason `methods()` exists at all. The private
+        path is a thin wrapper that dumps the model, so it carries this
+        correctly today and will be replaced by the public one the moment the
+        union grows.
+        """
+        if record is None:
+            return
+        session = getattr(ctx, "session", None)
+        if session is None:
+            return
+        notification = TaskStatusNotification(
+            method=TASK_STATUS_NOTIFICATION,
+            params=TaskStatusNotificationParams(**record.public().model_dump(by_alias=False)),
+        )
+        try:
+            send = getattr(session, "send_notification", None)
+            if send is not None:
+                await send(notification)
+                return
+            await session._notify(notification, request_scoped=False)  # noqa: SLF001
+        except Exception as error:  # noqa: BLE001 - the client still polls
+            logger.debug(
+                "The status of task %s could not be sent (%s); the client polls "
+                "for it instead",
+                record.task_id,
+                error,
+            )
+
     async def _run(self, task_id: str, ctx: Any, call_next: Callable[[Any], Any]) -> None:
         """The work, and every way it can end recorded.
 
@@ -433,17 +480,23 @@ class TasksExtension(Extension):
             # not overwrite it with `failed`: "you cancelled this" and "this
             # broke" are different things to show a person.
             await self._mark_cancelled(task_id)
+            await self._publish(ctx, await self.store.get(task_id))
             raise
         except Exception as error:  # noqa: BLE001 - every failure is a failed task
             logger.exception("Task %s failed", task_id)
-            await self.store.update(
-                task_id,
-                status="failed",
-                error=f"{type(error).__name__}: {error}",
-                status_message=str(error)[:200],
+            await self._publish(
+                ctx,
+                await self.store.update(
+                    task_id,
+                    status="failed",
+                    error=f"{type(error).__name__}: {error}",
+                    status_message=str(error)[:200],
+                ),
             )
             return
-        await self.store.update(task_id, status="completed", result=result)
+        await self._publish(
+            ctx, await self.store.update(task_id, status="completed", result=result)
+        )
 
     async def _mark_cancelled(self, task_id: str) -> None:
         record = await self.store.get(task_id)

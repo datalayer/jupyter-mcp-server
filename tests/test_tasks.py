@@ -25,6 +25,7 @@ from mcp.types import CallToolRequestParams, CreateTaskResult, TaskMetadata
 
 from jupyter_mcp_server.tasks import (
     DEFAULT_TTL_MS,
+    TASK_STATUS_NOTIFICATION,
     MAX_TTL_MS,
     POLL_INTERVAL_MS,
     TASK_STORE_CLASS_ENV,
@@ -307,6 +308,114 @@ async def test_work_cancelled_from_outside_still_ends_the_task(extension, store)
 async def test_cancelling_a_task_that_does_not_exist_says_so(extension):
     with pytest.raises(MCPError):
         await extension._handle_cancel(_Params("tsk_never"), object())
+
+
+# ---------------------------------------------------------------------------
+# Telling the client
+# ---------------------------------------------------------------------------
+
+
+class _Session:
+    """A session that records what it was asked to send."""
+
+    def __init__(self, *, explode: bool = False) -> None:
+        self.sent: list = []
+        self.explode = explode
+
+    async def send_notification(self, notification):
+        if self.explode:
+            raise RuntimeError("the connection is gone")
+        self.sent.append(notification)
+
+
+class _Ctx:
+    def __init__(self, session=None) -> None:
+        self.session = session
+
+
+@pytest.mark.asyncio
+async def test_a_finished_task_is_announced(extension):
+    session = _Session()
+
+    async def call_next(ctx):
+        return {"content": "done"}
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), _Ctx(session), call_next
+    )
+    await settle()
+    assert [n.method for n in session.sent] == [TASK_STATUS_NOTIFICATION]
+    assert session.sent[0].params.task_id == answer.task.task_id
+    assert session.sent[0].params.status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_task_is_announced_as_failed(extension):
+    session = _Session()
+
+    async def call_next(ctx):
+        raise ValueError("the kernel is dead")
+
+    await extension.intercept_tool_call(call(task=TaskMetadata()), _Ctx(session), call_next)
+    await settle()
+    assert session.sent[0].params.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_task_is_announced(extension, store):
+    session = _Session()
+
+    async def call_next(ctx):
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), _Ctx(session), call_next
+    )
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), _Ctx(session))
+    await settle()
+    assert any(n.params.status == "cancelled" for n in session.sent)
+
+
+@pytest.mark.asyncio
+async def test_a_notification_that_cannot_be_sent_does_not_fail_the_task(extension, store):
+    """The protocol makes polling the way a client learns a task's state —
+    that is what `poll_interval` is for. Failing the work because the news
+    about the work would not go out would be trading one for the other."""
+    session = _Session(explode=True)
+
+    async def call_next(ctx):
+        return {"content": "done"}
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), _Ctx(session), call_next
+    )
+    await settle()
+    assert (await store.get(answer.task.task_id)).status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_no_session_is_not_an_error(extension, store):
+    async def call_next(ctx):
+        return {"content": "done"}
+
+    answer = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    await settle()
+    assert (await store.get(answer.task.task_id)).status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_the_announcement_carries_no_result(extension):
+    """It is a status notification, and a result can be a megabyte of output
+    that the client may not even want."""
+    session = _Session()
+
+    async def call_next(ctx):
+        return {"content": [{"type": "text", "text": "x" * 1000}]}
+
+    await extension.intercept_tool_call(call(task=TaskMetadata()), _Ctx(session), call_next)
+    await settle()
+    assert "result" not in session.sent[0].params.model_dump()
 
 
 # ---------------------------------------------------------------------------
