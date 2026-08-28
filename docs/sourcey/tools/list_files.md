@@ -20,6 +20,55 @@ Used to explore the file system structure of the Jupyter server or to find speci
 | `limit` | integer | no | `25` | Maximum number of items to return (0 means no limit) |
 | `pattern` | string | no | `""` | Glob pattern to filter file paths |
 
+## Output
+
+```json
+{
+  "properties": {
+    "kind": {
+      "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+      "title": "Kind",
+      "type": "string"
+    },
+    "result": {
+      "default": null,
+      "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+      "title": "Result"
+    },
+    "columns": {
+      "description": "The header, in order.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+    },
+    "items": {
+      "description": "One object per row, keyed by the header.",
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "count": {
+      "default": 0,
+      "description": "How many rows.",
+      "title": "Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "type": "object",
+  "additionalProperties": true,
+  "description": "A listing that also comes back as rows keyed by its header.",
+  "title": "TableAnswer"
+}
+```
+
 ## Call it
 
 ```json
