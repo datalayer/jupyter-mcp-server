@@ -15,6 +15,11 @@ header:
     - '**/*.yml'
     - '**/.*'
     - 'docs/**/*'
+    # A SKILL.md is read as YAML frontmatter first, so nothing may precede
+    # the opening `---`. A prepended header turns the skill into a file the
+    # agent runtime cannot parse — and it would be prepended by this very
+    # job, on a pull request, silently. Same reason `docs/**/*` is here.
+    - '.github/skills/**/*'
     - 'LICENSE'
 
   comment: on-failure

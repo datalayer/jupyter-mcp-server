@@ -279,9 +279,9 @@ needs — `manifest()`, `register_tools(mcp)`, `create_code_sandbox(config)`,
 tools after the core ones, and asks them, in turn, whether they want to
 provide the code sandbox or handle an `execute_code` call.
 
-One Python extension ships in `ext/`:
+One Python extension ships in `extensions/`:
 
-- **jupyter-mcp-sandboxes** (`ext/sandboxes`) — the sandbox lifecycle tools
+- **jupyter-mcp-sandboxes** (`extensions/sandboxes`) — the sandbox lifecycle tools
   (`launch_sandbox`, `list_sandboxes`, `use_sandbox`, `terminate_sandbox`),
   routing of `execute_code` to the selected sandbox, and sandbox-backed
   kernels for the non-Jupyter variants.
@@ -292,9 +292,9 @@ that serves it, not here. It is the same entry-point group: nothing about this
 repository knows the difference between an extension shipped alongside it and
 one installed from elsewhere, which is the point of the group.
 
-`ext/` also holds packaging that is not Python — the MCPB bundle for one-click
-installation in Claude Desktop (`ext/mcpb`), a Claude plugin
-(`ext/claude-plugin`) and prompt templates (`ext/prompt-templates`).
+`extensions/` also holds packaging that is not Python — the MCPB bundle for one-click
+installation in Claude Desktop (`extensions/mcpb`), a Claude plugin
+(`extensions/claude-plugin`) and prompt templates (`extensions/prompt-templates`).
 
 ### Hooks and observability (`hooks.py`, `otel_hook.py`)
 
@@ -409,7 +409,7 @@ jupyter_mcp_server/
     ├── backends/            Backend, LocalBackend, RemoteBackend
     └── protocol/            Request and response models
 
-ext/
+extensions/
 ├── sandboxes/               jupyter-mcp-sandboxes extension
 ├── mcpb/                    MCPB bundle for Claude Desktop
 ├── claude-plugin/           Claude plugin

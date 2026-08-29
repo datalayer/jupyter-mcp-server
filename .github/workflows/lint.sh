@@ -4,7 +4,7 @@
 # BSD 3-Clause License
 
 pip install -e ".[lint,typing]"
-pip install ./ext/sandboxes
+pip install ./extensions/sandboxes
 mypy --install-types --non-interactive .
 ruff check .
 mdformat --check *.md

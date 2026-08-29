@@ -19,8 +19,8 @@ import sys
 SRC, OUT = sys.argv[1], sys.argv[2]
 
 # Directories that never hold canonical sources. "build" and "dist" matter in
-# particular: `pip install ./ext/sandboxes` leaves a setuptools copy of the
-# extension at ext/sandboxes/build/lib/..., and scanning it would map the
+# particular: `pip install ./extensions/sandboxes` leaves a setuptools copy of the
+# extension at extensions/sandboxes/build/lib/..., and scanning it would map the
 # sandbox tools to a build artifact instead of the real file.
 #: Extensions whose tools are registered conditionally, and so are absent from
 #: a default snapshot.
@@ -74,7 +74,7 @@ def decorated_functions(source: str):
 entries = {}
 for base, dirs, files in os.walk(SRC):
     # Prune in place so os.walk never descends into them.
-    if os.path.basename(base) == "ext":
+    if os.path.basename(base) == "extensions":
         dirs[:] = [d for d in dirs if d not in CONDITIONAL_EXTENSIONS]
     dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.endswith(".egg-info"))
     files = sorted(files)

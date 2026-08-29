@@ -16,7 +16,7 @@ Discovery and lifecycle are powered by :mod:`reactor`, a small
 * is registered with a :class:`~reactor.PluginManifest` so the reactor
   platform can track versions, compatibility and lifecycle.
 
-The first bundled extension is ``jupyter_mcp_sandboxes`` (see ``ext/sandboxes``),
+The first bundled extension is ``jupyter_mcp_sandboxes`` (see ``extensions/sandboxes``),
 which contributes the sandbox lifecycle tools and sandbox-backed execution.
 """
 

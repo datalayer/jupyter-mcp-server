@@ -87,5 +87,5 @@ result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<
 
 ## Source
 
-Registered by the `@mcp.tool` decorator on `launch_sandbox` in [`ext/sandboxes/jupyter_mcp_sandboxes/extension.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/ext/sandboxes/jupyter_mcp_sandboxes/extension.py).
+Registered by the `@mcp.tool` decorator on `launch_sandbox` in [`extensions/sandboxes/jupyter_mcp_sandboxes/extension.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/extensions/sandboxes/jupyter_mcp_sandboxes/extension.py).
 
