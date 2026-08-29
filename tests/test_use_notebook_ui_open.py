@@ -42,7 +42,7 @@ class FakeServerClient:
         self.contents = FakeContents(names)
 
     def get_status(self):
-        return {"version": "2.1.0"}
+        return {"version": "2.1.1"}
 
 
 class FakeMCPToolsClient:
