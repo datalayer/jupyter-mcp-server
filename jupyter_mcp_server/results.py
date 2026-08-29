@@ -30,6 +30,7 @@ up through helpers that have no business carrying it.
 from __future__ import annotations
 
 import contextvars
+import hashlib
 import json
 import logging
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -229,6 +230,29 @@ def _default_shape(value: Any) -> dict[str, Any]:
     return {"result": as_text(value)}
 
 
+def etag_for(payload: Any) -> str:
+    """A version identifier for whatever this answer is made of.
+
+    Derived from the content rather than from a document version, and that is
+    a decision worth stating because the plan asked for the version.
+
+    A notebook's version is not one number here. A cell can be read through
+    the contents manager, through a live CRDT document or through a sandbox,
+    and the three do not share a counter; a tool that read one and reported
+    another's version would hand out an identifier that compares equal to
+    answers it has nothing to do with. Hashing what was actually answered
+    cannot be wrong in that way: two reads of an unchanged cell compare
+    equal, and a changed one does not.
+
+    Weak (`W/`), because it says *this means the same thing* rather than
+    *this is byte-for-byte what you had* — the same form the Datalayer
+    gateway stamps on the answers it synthesises, so a client sees one kind
+    of ETag whichever end produced it.
+    """
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return 'W/"' + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:32] + '"'
+
+
 def answer(
     value: Any,
     *,
@@ -239,6 +263,7 @@ def answer(
     priority: float | None = None,
     ttl_ms: int | None = None,
     cache_scope: str = SCOPE_PRIVATE,
+    etag: bool = False,
 ) -> CallToolResult:
     """Build the one result shape from what a tool returned.
 
@@ -260,6 +285,9 @@ def answer(
         cache_scope: `private` unless the answer genuinely is the same for
             every caller. A shared cache holding one person's notebooks for
             another is the failure this exists to prevent.
+        etag: Also carry a version of this answer, so a client can ask
+            whether what it holds is still current instead of choosing
+            between a stale copy and fetching again. See `etag_for`.
     """
     annotations = _annotations(audience, priority)
     structured: dict[str, Any] = {"kind": kind}
@@ -275,7 +303,13 @@ def answer(
     collected = dict(_pending.get() or {})
     collected.update(meta or {})
     if ttl_ms is not None:
-        collected[CACHE_META_KEY] = {"ttlMs": ttl_ms, "cacheScope": cache_scope}
+        block: dict[str, Any] = {"ttlMs": ttl_ms, "cacheScope": cache_scope}
+        if etag:
+            # Over the structured answer, not the whole result: the content
+            # blocks are a rendering of the same facts, and hashing them too
+            # would make an ETag change when the prose does.
+            block["etag"] = etag_for(structured)
+        collected[CACHE_META_KEY] = block
     return CallToolResult(
         content=_content_of(value, annotations=annotations),
         structured_content=structured,
@@ -291,6 +325,7 @@ def structured(
     priority: float | None = None,
     ttl_ms: int | None = None,
     cache_scope: str = SCOPE_PRIVATE,
+    etag: bool = False,
 ) -> Callable:
     """Wrap a tool so its answer comes back in the one shape.
 
@@ -322,6 +357,7 @@ def structured(
                     priority=priority,
                     ttl_ms=ttl_ms,
                     cache_scope=cache_scope,
+                    etag=etag,
                 )
             finally:
                 _pending.reset(token)

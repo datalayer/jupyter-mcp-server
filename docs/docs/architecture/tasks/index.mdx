@@ -1,0 +1,201 @@
+# Tasks
+
+Running a cell can take ten minutes. A client that holds a connection open for
+those ten minutes loses the work when the laptop sleeps, and one that gives up
+waiting has no way to find out what happened.
+
+A **task** is the protocol's answer. `tools/call` returns a task id
+immediately, the work goes on without the caller, and the client asks for the
+result whenever it likes — from another connection, after a reconnect,
+tomorrow.
+
+## Nothing changes unless you ask
+
+A task is created **only** when the request carries `task` metadata. Without
+it, `tools/call` runs exactly as it always has and returns the tool's output.
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "execute_cell",
+    "arguments": { "cell_index": 3 },
+    "task": { "ttl": 900000 }
+  }
+}
+```
+
+The answer is a `CreateTaskResult` rather than the tool's output:
+
+```json
+{
+  "task": {
+    "taskId": "tsk_9f2c…",
+    "status": "working",
+    "createdAt": "2026-08-28T10:00:00Z",
+    "lastUpdatedAt": "2026-08-28T10:00:00Z",
+    "ttl": 900000,
+    "pollInterval": 1000
+  }
+}
+```
+
+This is why the server never decides for you. A client that has not asked for
+a task does not know what a task id is, and would read that object as the
+tool's output.
+
+## A retry is one task
+
+Name the call with an idempotency key and a retry answers the task the first
+attempt created, rather than starting the work again:
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "execute_cell",
+    "arguments": { "cell_index": 3 },
+    "task": {},
+    "_meta": { "io.datalayer/idempotency-key": "run-3-attempt-1" }
+  }
+}
+```
+
+This matters most exactly when it is hardest to notice: the connection drops
+after the request arrived and before the answer got back. Without a key the
+client retries and gets two ten-minute cells, and pays for both.
+
+The same key on a **different** call is refused rather than replayed.
+Answering the first task would hand the client the result of work it did not
+ask for, under an id it believes it just created. The same call written with
+its arguments in another order is still the same call.
+
+A key belongs to a task, so it lives as long as the task does: once a task
+has expired its key is free again. And a call that did not ask for a task is
+not deduplicated — a synchronous call carrying a key is still a synchronous
+call.
+
+## The five states
+
+| Status | Meaning |
+|---|---|
+| `working` | Running now |
+| `input_required` | Waiting on something only a person can give |
+| `completed` | Done; ask `tasks/result` for the output |
+| `failed` | Stopped on an error; `tasks/result` raises it |
+| `cancelled` | Stopped because somebody asked |
+
+The last three are terminal: the record stops changing.
+
+## The four methods
+
+| Method | Answers |
+|---|---|
+| `tasks/get` | One task's status |
+| `tasks/list` | The tasks this server holds, newest first |
+| `tasks/cancel` | Stops the work and answers the task |
+| `tasks/result` | The output, once the task is terminal |
+
+There is no `tasks/update`. A client does not change a task; the server tells
+it through `notifications/tasks/status`.
+
+## A failure is a failed task, not an empty one
+
+A tool that raised ends `failed`, carrying the error, and `tasks/result`
+raises it. `tasks/result` on a task that is still `working` is refused too.
+
+Both refusals exist for the same reason: the alternative is answering with an
+empty result, and a client that reads an empty result as "the tool produced
+nothing" is wrong in a way it cannot detect.
+
+## Cancelling stops the work
+
+`tasks/cancel` does two things, in this order: it interrupts the work, then
+it stops waiting for it.
+
+The order matters, and so does the first half. Cancelling the coroutine that
+is *waiting* for a cell does not stop the cell — the kernel keeps running it,
+keeps holding the sandbox and keeps costing money, while the task says
+`cancelled` and everybody believes it stopped.
+
+A tool that can actually stop its work says so:
+
+```python
+from jupyter_mcp_server.tasks import register_interrupt
+
+await register_interrupt(kernel.interrupt)
+```
+
+Outside a task this answers `False` and does nothing, which is right: a
+synchronous call has the client on the other end of the connection, and the
+client can drop it.
+
+An interrupt that fails does not stop the cancellation. Half of what the
+client asked for is better than none of it, and the failure is logged at
+error — a kernel that could not be interrupted is a sandbox somebody has to
+go and look at.
+
+## Retention
+
+A finished task is kept for its `ttl` — 15 minutes by default, capped at 24
+hours — and is then gone. Asking for an expired task answers **no such task**,
+the same answer as for one that never existed. That is deliberate:
+distinguishing the two would tell a caller that an id they invented happens to
+have existed.
+
+A task that is still running never expires. Retention that killed work in
+flight would be a timeout wearing retention's name, and the two are set by
+different people for different reasons.
+
+## Polling, and the notification
+
+Every working task carries a `pollInterval` in milliseconds. Polling is the
+way a client learns a task's state; `notifications/tasks/status` is an
+optimisation on top, sent when a task reaches a terminal state.
+
+Treat the notification as advisory. A session that cannot carry it costs
+latency and nothing else — the task still completes, and the next poll finds
+it. The notification carries the status and never the result: a result can be
+a megabyte of output, and `tasks/result` is where the client decides whether
+it wants it.
+
+## Where tasks live
+
+By default, in the server process — which for a single-user server is where
+its tasks belong. `JUPYTER_MCP_TASK_STORE_CLASS` names another as
+`module:Class`:
+
+```bash
+export JUPYTER_MCP_TASK_STORE_CLASS=my_package.stores:RedisTaskStore
+```
+
+A store that cannot be imported is a **startup failure**, not a fallback to
+memory. A deployment that asked for durable tasks and silently got in-process
+ones looks healthy right up to the restart that loses them.
+
+A store implements five methods:
+
+```python
+class TaskStore(Protocol):
+    async def create(self, record: TaskRecord) -> TaskRecord: ...
+    async def get(self, task_id: str) -> TaskRecord | None: ...
+    async def list(self, *, limit: int = 50) -> list[TaskRecord]: ...
+    async def update(self, task_id: str, **changes) -> TaskRecord | None: ...
+    async def find_by_key(self, idempotency_key: str) -> TaskRecord | None: ...
+```
+
+`get` and `find_by_key` are both responsible for retention: a task past its
+`ttl` is answered as absent by each, and freeing the key is what lets a client
+reuse it.
+
+## An extension, for now
+
+`mcp.types` already defines every shape on this page — `Task`, `TaskStatus`,
+`CreateTaskResult`, the `tasks/*` requests. What the SDK does not yet do is
+*route* the methods, so the server binds them as an extension advertised
+under `io.datalayer/tasks`.
+
+That identifier is one constant. When the SDK routes `tasks/*` itself, the
+binding is removed and nothing else about a task changes — and until then the
+binding will refuse to construct the moment the SDK claims those methods,
+which is the loud way to find out.

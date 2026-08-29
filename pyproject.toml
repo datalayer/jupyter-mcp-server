@@ -57,7 +57,7 @@ test = [
     "jupyter_server>=1.6,<3",
     "pytest>=7.0",
     "pytest-asyncio",
-    "pytest-timeout>=2.1.0",
+    "pytest-timeout>=2.1.1",
     "jupyterlab",
     "pillow>=10.0.0"
 ]

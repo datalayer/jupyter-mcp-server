@@ -1,0 +1,87 @@
+# Caching and revalidation
+
+A tool that answers the same thing twice should not have to send it twice.
+
+Two mechanisms, from SEP-2549 and the Transports WG's extension of it, and
+they answer different questions.
+
+## A time to live
+
+A result may carry how long it is worth holding:
+
+```json
+"_meta": {
+  "io.modelcontextprotocol/cache": { "ttlMs": 30000, "cacheScope": "private" }
+}
+```
+
+`cacheScope` is `private` for anything narrowed by who is asking — which is
+almost everything here. A shared cache holding one person's notebooks for
+another is the failure this field exists to prevent.
+
+A TTL alone forces a choice between a stale answer and fetching again, which
+is why the reads carry the second thing.
+
+## An ETag
+
+`read_cell` and `read_notebook` also carry a version:
+
+```json
+"_meta": {
+  "io.modelcontextprotocol/cache": {
+    "ttlMs": 5000,
+    "cacheScope": "private",
+    "etag": "W/\"015abd7f5cc57a2dd94b7590f04ad808\""
+  }
+}
+```
+
+Send it back on the next call and the server answers *not modified* instead
+of the payload:
+
+```json
+"_meta": {
+  "io.modelcontextprotocol/cache": {
+    "ttlMs": 5000, "cacheScope": "private",
+    "etag": "W/\"015abd7f5cc57a2dd94b7590f04ad808\"",
+    "notModified": true
+  }
+}
+```
+
+It says `notModified` rather than simply being empty, because a client that
+read an empty result as an empty *notebook* would show somebody no cells at
+all.
+
+:::caution This saves bandwidth, not work
+
+The tool still runs. The version is computed from what it answered, so there
+is no way to know the answer is unchanged without producing it.
+
+Where it pays is `read_notebook` on a large notebook: the answer is megabytes
+and the comparison is a hash. Where it does not is anything cheap to produce —
+there the round trip costs the same either way.
+:::
+
+## Why the version is over the content
+
+A notebook's version is not one number here. A cell can be read through the
+contents manager, through a live CRDT document, or through a sandbox, and the
+three do not share a counter. A tool that read one and reported another's
+version would hand out an identifier comparing equal to answers it has
+nothing to do with.
+
+Hashing what was actually answered cannot be wrong that way: two reads of an
+unchanged cell compare equal, and a changed one does not. The ETag is weak
+(`W/`) for the same reason — it says *this means the same thing*, not *this
+is byte-for-byte what you had*, because the answer is assembled per call.
+
+The Datalayer gateway stamps the same form on the results it synthesises, so
+a client sees one kind of ETag whichever end produced it.
+
+## What is not revalidated
+
+- **A tool that stamps no ETag.** Answering "unchanged" about something
+  nobody is tracking is worse than answering it again.
+- **An error.** A client that treated a refusal as its cached answer being
+  current would go on using a result the server has just declined to confirm.
