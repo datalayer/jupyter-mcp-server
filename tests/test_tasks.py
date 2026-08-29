@@ -207,6 +207,40 @@ async def test_an_expired_task_is_gone_rather_than_a_record_with_no_result(store
 
 
 @pytest.mark.asyncio
+async def test_listing_sweeps_expired_tasks_without_being_asked_for_one_first(store):
+    """`list` has to do its own sweeping, and the test above never made it.
+
+    That test calls `get` first, which deletes the expired record itself — so
+    by the time `list` ran there was nothing left to sweep and the sweep was
+    never executed. It walked the dictionary while popping from it, which
+    raises `RuntimeError: dictionary changed size during iteration` on the
+    first expired task, and `tasks/list` failed outright rather than
+    degrading. Found in review, not here.
+    """
+    for index in range(3):
+        record = TaskRecord(task_id=f"tsk_old_{index}", status="completed", ttl=1)
+        record.started_monotonic -= 10
+        await store.create(record)
+    await store.create(TaskRecord(task_id="tsk_live", status="working"))
+
+    listed = await store.list()
+
+    assert [item.task_id for item in listed] == ["tsk_live"]
+    # And they are really gone, not merely left out of the answer.
+    assert await store.get("tsk_old_0") is None
+
+
+@pytest.mark.asyncio
+async def test_listing_only_expired_tasks_answers_nothing_rather_than_raising(store):
+    """The narrowest case, and the one the old code failed on first: every
+    task expired, so the very first iteration pops."""
+    record = TaskRecord(task_id="tsk_1", status="completed", ttl=1)
+    record.started_monotonic -= 10
+    await store.create(record)
+    assert await store.list() == []
+
+
+@pytest.mark.asyncio
 async def test_a_task_still_running_does_not_expire(store):
     """Retention that killed work in flight would be a timeout wearing
     retention's name, and the two are set by different people."""

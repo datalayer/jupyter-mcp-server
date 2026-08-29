@@ -31,7 +31,7 @@ somebody no cells at all.
 from __future__ import annotations
 
 import logging
-from typing import Any, Sequence
+from typing import Any
 
 from mcp.server.extension import Extension
 from mcp.types import CallToolRequestParams, CallToolResult

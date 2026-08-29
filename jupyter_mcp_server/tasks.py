@@ -49,8 +49,9 @@ import logging
 import os
 import time
 import uuid
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Protocol, Sequence
+from typing import Any, Protocol
 
 from mcp.server.extension import Extension, MethodBinding
 from mcp.shared.exceptions import MCPError
@@ -227,10 +228,17 @@ class MemoryTaskStore:
 
     async def list(self, *, limit: int = LIST_PAGE) -> list[TaskRecord]:
         async with self._lock:
-            live = [record for record in self._tasks.values() if not record.expired()]
-            for record in self._tasks.values():
+            # One pass over a snapshot. The previous version walked
+            # `self._tasks.values()` while popping from `self._tasks`, which
+            # raises `RuntimeError: dictionary changed size during iteration`
+            # the moment anything has expired — so `tasks/list` failed
+            # outright rather than degrading.
+            live: list[TaskRecord] = []
+            for task_id, record in list(self._tasks.items()):
                 if record.expired():
-                    self._tasks.pop(record.task_id, None)
+                    self._tasks.pop(task_id, None)
+                else:
+                    live.append(record)
         return sorted(live, key=lambda record: record.created_at, reverse=True)[: max(1, limit)]
 
     async def update(self, task_id: str, **changes: Any) -> TaskRecord | None:
@@ -285,7 +293,7 @@ def _build_store(spec: str) -> TaskStore:
         raise ValueError(
             f"{TASK_STORE_CLASS_ENV} must be 'module:Class'; got {spec!r}"
         )
-    import importlib  # noqa: PLC0415
+    import importlib
 
     module = importlib.import_module(module_name)
     return getattr(module, class_name)()
@@ -348,8 +356,8 @@ def _request_hash(params: Any) -> str:
     with its keys in another order is the same call, and treating it as a
     different one would turn every retry into a conflict.
     """
-    import hashlib  # noqa: PLC0415
-    import json  # noqa: PLC0415
+    import hashlib
+    import json
 
     body = json.dumps(
         {
@@ -378,7 +386,8 @@ async def _interrupt(record: TaskRecord) -> bool:
         outcome = stop()
         if hasattr(outcome, "__await__"):
             await outcome
-    except Exception as error:  # noqa: BLE001 - the cancel proceeds regardless
+    # Broad on purpose: the cancel proceeds regardless.
+    except Exception as error:
         logger.error(
             "Task %s could not be interrupted (%s); the task is cancelled but "
             "the work it started may still be running",
@@ -621,8 +630,9 @@ class TasksExtension(Extension):
             if send is not None:
                 await send(notification)
                 return
-            await session._notify(notification, request_scoped=False)  # noqa: SLF001
-        except Exception as error:  # noqa: BLE001 - the client still polls
+            await session._notify(notification, request_scoped=False)
+        # Broad on purpose: the client still polls.
+        except Exception as error:
             logger.debug(
                 "The status of task %s could not be sent (%s); the client polls "
                 "for it instead",
@@ -648,7 +658,8 @@ class TasksExtension(Extension):
             await self._mark_cancelled(task_id)
             await self._publish(ctx, await self.store.get(task_id))
             raise
-        except Exception as error:  # noqa: BLE001 - every failure is a failed task
+        # Broad on purpose: every failure is a failed task.
+        except Exception as error:
             logger.exception("Task %s failed", task_id)
             await self._publish(
                 ctx,
