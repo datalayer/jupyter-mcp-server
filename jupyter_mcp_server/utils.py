@@ -211,6 +211,22 @@ _TRUE_VALUES = frozenset({"1", "true", "t", "yes", "y", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "f", "no", "n", "off"})
 
 
+def _env_flag(name: str) -> bool | None:
+    """A three-state environment flag: on, off, or not set.
+
+    Three rather than two because "not set" is a real answer here — it means
+    *use the default for this way of running* — and collapsing it into
+    `False` would make an unset variable indistinguishable from one somebody
+    set to `false` on purpose.
+    """
+    import os
+
+    raw = (os.environ.get(name) or "").strip().lower()
+    if not raw:
+        return None
+    return raw in ("1", "true", "yes", "on")
+
+
 def parse_bool_option(value, option_name: str) -> bool:
     """Parse a CLI boolean option that accepts explicit True/False values."""
     if isinstance(value, bool):
@@ -388,7 +404,31 @@ def do_start(
     if transport == "stdio":
         mcp.run(transport="stdio")
     elif transport == "streamable-http":
-        uvicorn.run(mcp.streamable_http_app(), host="0.0.0.0", port=port)  # noqa: S104
+        # Stateless unless the deployment says otherwise.
+        #
+        # Stateless is right for a server many people reach: each request runs
+        # in its own context, so `IdentityMiddleware` sees the caller of
+        # *that* request rather than whoever opened the session. The cost is
+        # that no `Mcp-Session-Id` is issued, because there is no session to
+        # name — and a Streamable HTTP client that expects one gets nothing.
+        #
+        # It is the wrong default for a worker the Datalayer gateway starts,
+        # where there is one process per user: every request on it is the same
+        # caller by construction, so the reason for statelessness does not
+        # apply. `JUPYTER_MCP_STATEFUL=true` turns sessions on for that case.
+        stateless = _env_flag("JUPYTER_MCP_STATEFUL") is not True
+        logger.info(
+            "Streamable HTTP transport is %s: %s",
+            "stateless" if stateless else "stateful",
+            "no Mcp-Session-Id is issued"
+            if stateless
+            else "each client is given an Mcp-Session-Id",
+        )
+        uvicorn.run(
+            mcp.streamable_http_app(stateless_http=stateless),
+            host="0.0.0.0",  # noqa: S104
+            port=port,
+        )
     else:
         raise Exception("Transport should be `stdio` or `streamable-http`.")
 
