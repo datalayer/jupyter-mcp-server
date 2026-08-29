@@ -146,7 +146,7 @@ A store that cannot be imported is a **startup failure**, not a fallback to
 memory. A deployment that asked for durable tasks and silently got in-process
 ones looks healthy right up to the restart that loses them.
 
-A store implements four methods:
+A store implements five methods:
 
 ```python
 class TaskStore(Protocol):
@@ -154,7 +154,12 @@ class TaskStore(Protocol):
     async def get(self, task_id: str) -> TaskRecord | None: ...
     async def list(self, *, limit: int = 50) -> list[TaskRecord]: ...
     async def update(self, task_id: str, **changes) -> TaskRecord | None: ...
+    async def find_by_key(self, idempotency_key: str) -> TaskRecord | None: ...
 ```
+
+`get` and `find_by_key` are both responsible for retention: a task past its
+`ttl` is answered as absent by each, and freeing the key is what lets a client
+reuse it.
 
 ## An extension, for now
 

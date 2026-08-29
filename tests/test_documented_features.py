@@ -100,11 +100,24 @@ class TestTheTasksPage:
         assert re.search(rf"{MAX_TTL_MS // 3600000}\s+hours", page)
 
     def test_the_store_methods_it_tells_you_to_write_are_the_ones_called(self, page):
+        """Both directions, and that is the half that was missing.
+
+        A method on the page that the code does not call is a store somebody
+        wrote for nothing. A method the code *does* call and the page omits
+        is worse: the store gets written without it, and the first call is an
+        `AttributeError` from inside the server. Adding `find_by_key` for the
+        idempotency key is exactly how that happens — nothing about adding a
+        protocol method makes you re-read a documentation page.
+        """
         from jupyter_mcp_server.tasks import TaskStore
 
-        for method in ("create", "get", "list", "update"):
-            assert f"async def {method}(" in page
-            assert hasattr(TaskStore, method)
+        required = {
+            name
+            for name in dir(TaskStore)
+            if not name.startswith("_") and callable(getattr(TaskStore, name, None))
+        }
+        documented = set(re.findall(r"async def ([a-z_]+)\(", page))
+        assert documented == required
 
 
 class TestTheAuditPage:
