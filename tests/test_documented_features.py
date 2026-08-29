@@ -128,6 +128,40 @@ class TestTheTasksPage:
         assert documented == required
 
 
+class TestTheCachingPage:
+    @pytest.fixture(scope="class")
+    def page(self):
+        return _page("architecture", "caching", "index.mdx")
+
+    def test_it_names_the_meta_key_the_server_actually_writes(self, page):
+        from jupyter_mcp_server.results import CACHE_META_KEY
+
+        assert CACHE_META_KEY in page
+
+    def test_it_names_the_not_modified_field_a_client_reads(self, page):
+        """The page tells a client to look for this. A page and a server that
+        spell it differently give the client an answer it cannot recognise,
+        and it would refetch forever without an error anywhere."""
+        from jupyter_mcp_server.revalidation import NOT_MODIFIED_KEY
+
+        assert NOT_MODIFIED_KEY in page
+
+    def test_the_tools_it_says_carry_an_etag_do(self, page):
+        """Both directions: a tool named here that does not stamp one sends a
+        client revalidating against nothing, and one that stamps without
+        being documented is a saving nobody takes."""
+        import re as _re
+
+        from jupyter_mcp_server import server
+
+        source = pathlib.Path(server.__file__).read_text()
+        stamping = set(
+            _re.findall(r'@structured\(\s*"([a-z_.]+)".*?etag=True', source)
+        )
+        assert stamping == {"cell.read", "notebook.read"}
+        assert "`read_cell`" in page and "`read_notebook`" in page
+
+
 class TestTheAuditPage:
     @pytest.fixture(scope="class")
     def page(self):
