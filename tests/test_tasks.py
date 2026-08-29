@@ -25,6 +25,8 @@ from mcp.types import CallToolRequestParams, CreateTaskResult, TaskMetadata
 
 from jupyter_mcp_server.tasks import (
     DEFAULT_TTL_MS,
+    current_task,
+    register_interrupt,
     IDEMPOTENCY_KEY_META,
     TASK_STATUS_NOTIFICATION,
     MAX_TTL_MS,
@@ -592,6 +594,115 @@ async def test_the_announcement_carries_no_result(extension):
     await extension.intercept_tool_call(call(task=TaskMetadata()), _Ctx(session), call_next)
     await settle()
     assert "result" not in session.sent[0].params.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Cancelling stops the work, not just the wait for it
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cancelling_interrupts_the_work_before_it_stops_waiting(extension, store):
+    """The distinction this exists for.
+
+    Cancelling the handle cancels the coroutine *waiting* for a cell. The
+    kernel keeps running it, keeps holding the sandbox and keeps costing
+    money, while the task says `cancelled` and everybody believes it stopped.
+    """
+    interrupted = []
+
+    async def call_next(ctx):
+        await register_interrupt(lambda: interrupted.append(1))
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    assert interrupted == [1]
+
+
+@pytest.mark.asyncio
+async def test_an_interrupt_that_fails_does_not_stop_the_cancellation(extension, store):
+    """Half of what the client asked for is better than none of it — and the
+    log says a kernel is still running so somebody can go and look."""
+
+    async def call_next(ctx):
+        await register_interrupt(_explode)
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    await settle()
+    cancelled = await extension._handle_cancel(_Params(answer.task.task_id), object())
+    assert cancelled.status == "cancelled"
+
+
+def _explode():
+    raise RuntimeError("the kernel is not answering")
+
+
+@pytest.mark.asyncio
+async def test_an_async_interrupt_is_awaited(extension):
+    interrupted = []
+
+    async def stop():
+        interrupted.append(1)
+
+    async def call_next(ctx):
+        await register_interrupt(stop)
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    assert interrupted == [1]
+
+
+@pytest.mark.asyncio
+async def test_a_task_with_no_interrupt_still_cancels(extension):
+    """Most tools cannot stop their work, and that must not make cancel fail."""
+
+    async def call_next(ctx):
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    await settle()
+    cancelled = await extension._handle_cancel(_Params(answer.task.task_id), object())
+    assert cancelled.status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_a_synchronous_call_has_no_task_to_register_against(extension, store):
+    """The client is still on the other end of the connection and can drop
+    it, so there is nothing here to interrupt on its behalf."""
+    registered = []
+
+    async def call_next(ctx):
+        registered.append(await register_interrupt(lambda: None))
+        return {"content": "done"}
+
+    await extension.intercept_tool_call(call(), object(), call_next)
+    assert registered == [False]
+
+
+@pytest.mark.asyncio
+async def test_a_finished_task_is_not_interrupted(extension, store):
+    """Interrupting work that already finished would reach into a kernel
+    that has moved on to somebody else's cell."""
+    interrupted = []
+
+    async def call_next(ctx):
+        await register_interrupt(lambda: interrupted.append(1))
+        return {"content": "done"}
+
+    answer = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    assert interrupted == []
+
+
+@pytest.mark.asyncio
+async def test_the_current_task_is_empty_outside_a_task(extension):
+    assert current_task() == ""
 
 
 # ---------------------------------------------------------------------------

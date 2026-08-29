@@ -99,6 +99,14 @@ class TestTheTasksPage:
         assert re.search(rf"{DEFAULT_TTL_MS // 60000}\s+minutes", page)
         assert re.search(rf"{MAX_TTL_MS // 3600000}\s+hours", page)
 
+    def test_the_interrupt_helper_it_shows_is_the_one_that_exists(self, page):
+        """A page showing a call that raises `ImportError` reads to whoever
+        typed it as their own mistake."""
+        from jupyter_mcp_server import tasks
+
+        assert "register_interrupt" in page
+        assert hasattr(tasks, "register_interrupt")
+
     def test_the_store_methods_it_tells_you_to_write_are_the_ones_called(self, page):
         """Both directions, and that is the half that was missing.
 

@@ -108,6 +108,33 @@ Both refusals exist for the same reason: the alternative is answering with an
 empty result, and a client that reads an empty result as "the tool produced
 nothing" is wrong in a way it cannot detect.
 
+## Cancelling stops the work
+
+`tasks/cancel` does two things, in this order: it interrupts the work, then
+it stops waiting for it.
+
+The order matters, and so does the first half. Cancelling the coroutine that
+is *waiting* for a cell does not stop the cell — the kernel keeps running it,
+keeps holding the sandbox and keeps costing money, while the task says
+`cancelled` and everybody believes it stopped.
+
+A tool that can actually stop its work says so:
+
+```python
+from jupyter_mcp_server.tasks import register_interrupt
+
+await register_interrupt(kernel.interrupt)
+```
+
+Outside a task this answers `False` and does nothing, which is right: a
+synchronous call has the client on the other end of the connection, and the
+client can drop it.
+
+An interrupt that fails does not stop the cancellation. Half of what the
+client asked for is better than none of it, and the failure is logged at
+error — a kernel that could not be interrupted is a sandbox somebody has to
+go and look at.
+
 ## Retention
 
 A finished task is kept for its `ttl` — 15 minutes by default, capped at 24

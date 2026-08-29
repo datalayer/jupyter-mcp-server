@@ -40,6 +40,7 @@ result as "it produced nothing" is wrong in a way it cannot detect.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import os
 import time
@@ -136,6 +137,9 @@ class TaskRecord:
     #: Monotonic, for expiry. Not `created_at`: a clock that steps backwards
     #: would make a task un-expire, and NTP steps clocks backwards.
     started_monotonic: float = field(default_factory=time.monotonic)
+    #: How to stop the work itself, as opposed to stopping the wait for it.
+    #: See `register_interrupt`.
+    interrupt: Any = field(default=None, repr=False)
     #: What the client called this call, so a retry is one task.
     idempotency_key: str = ""
     #: A digest of the call the key was used for. A key reused for a
@@ -289,6 +293,41 @@ def use_task_store(replacement: TaskStore | None) -> None:
     _store = replacement
 
 
+#: The task the current call is running as, or `""` when it is synchronous.
+#: A context variable rather than an argument, because the thing that knows
+#: how to interrupt a kernel is several frames below the thing that knows
+#: about tasks, and threading a task id through every tool signature would
+#: make tasks a concern of every tool.
+CURRENT_TASK: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "jupyter_mcp_current_task", default=""
+)
+
+
+def current_task() -> str:
+    """The task this call is running as, or `""` for a synchronous call."""
+    return CURRENT_TASK.get()
+
+
+async def register_interrupt(stop: Callable[[], Any], *, store: TaskStore | None = None) -> bool:
+    """Say how to stop the work this task is doing.
+
+    Cancelling a task cancels the coroutine that is *waiting* for a cell.
+    That is not the same as stopping the cell: the kernel keeps running it,
+    keeps holding the sandbox, and keeps costing money, while the task says
+    `cancelled` and everybody believes it stopped. A tool that can actually
+    stop its work registers that here, and `tasks/cancel` calls it first.
+
+    Answers whether it was registered — `False` for a synchronous call, which
+    has no task to attach to and needs none, since the client is still on the
+    other end of the connection and can drop it.
+    """
+    task_id = current_task()
+    if not task_id:
+        return False
+    where = store or get_task_store()
+    return await where.update(task_id, interrupt=stop) is not None
+
+
 def _idempotency_key(params: Any) -> str:
     """What the client called this call, if it named it."""
     meta = getattr(params, "meta", None) or {}
@@ -318,6 +357,32 @@ def _request_hash(params: Any) -> str:
         default=str,
     )
     return hashlib.sha256(body.encode()).hexdigest()
+
+
+async def _interrupt(record: TaskRecord) -> bool:
+    """Run a task's interrupt, if it has one. Never raises.
+
+    A failure here must not stop the cancellation: the client asked for the
+    work to stop, and half of that succeeding is better than none of it. The
+    failure is logged, because a kernel that could not be interrupted is a
+    sandbox somebody has to go and look at.
+    """
+    stop = getattr(record, "interrupt", None)
+    if stop is None:
+        return False
+    try:
+        outcome = stop()
+        if hasattr(outcome, "__await__"):
+            await outcome
+    except Exception as error:  # noqa: BLE001 - the cancel proceeds regardless
+        logger.error(
+            "Task %s could not be interrupted (%s); the task is cancelled but "
+            "the work it started may still be running",
+            record.task_id,
+            error,
+        )
+        return False
+    return True
 
 
 def _no_such_task(task_id: str) -> MCPError:
@@ -422,6 +487,11 @@ class TasksExtension(Extension):
         if record is None:
             raise _no_such_task(params.task_id)
         if not record.is_terminal:
+            # Stop the work before stopping the wait for it. Cancelling the
+            # handle alone leaves a cell running on a kernel that nobody is
+            # watching, holding a sandbox and costing money, while the task
+            # says `cancelled`.
+            await _interrupt(record)
             handle = record.handle
             if handle is not None:
                 handle.cancel()
@@ -564,6 +634,7 @@ class TasksExtension(Extension):
         which is to say to a log line nobody reads, while the task stays
         `working` for its whole retention and the client polls it forever.
         """
+        CURRENT_TASK.set(task_id)
         try:
             result = await call_next(ctx)
         except asyncio.CancelledError:
