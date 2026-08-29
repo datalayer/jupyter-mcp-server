@@ -350,18 +350,60 @@ class TestCacheHints:
         assert results.CACHE_META_KEY == "io.modelcontextprotocol/cache"
         assert not results.CACHE_META_KEY.startswith(results.META_NAMESPACE)
 
-    def test_only_listings_are_hinted(self):
-        """Reading a cell, executing code and every edit answer something
-        that has just moved or is about to. Hinting those would hand an agent
-        a stale notebook and no way to tell."""
+    def _hinted(self):
+        """Every tool carrying a cache hint, and whether it also carries an
+        ETag. Read off the source, because a decorator's arguments are not
+        recoverable from the wrapped function."""
         import pathlib
         import re
 
         import jupyter_mcp_server.server as server_module
 
         source = pathlib.Path(server_module.__file__).read_text()
-        hinted = set(re.findall(r'@structured\("([\w.]+)"[^)]*ttl_ms=', source))
-        assert hinted == {"files.list", "kernels.list", "notebooks.list"}, hinted
+        found = {}
+        for kind, arguments in re.findall(
+            r'@structured\("([\w.]+)"([^)]*)\)', source
+        ):
+            if "ttl_ms=" in arguments:
+                found[kind] = "etag=True" in arguments
+        return found
+
+    def test_a_hint_needs_a_listing_or_an_etag(self):
+        """The rule was "only listings are hinted", and its reason was that
+        hinting a read hands an agent a stale notebook *and no way to tell*.
+
+        The ETag is the way to tell: the client sends back the version it
+        holds and is told whether it is still current. So a read may be
+        hinted once it carries one — and a hint without either is still the
+        thing to refuse, because that is the case the original rule was
+        about.
+        """
+        for kind, has_etag in self._hinted().items():
+            assert kind.endswith(".list") or has_etag, (
+                f"{kind} carries a cache hint but is neither a listing nor "
+                f"revalidatable; a client would hold a stale answer with no "
+                f"way to tell"
+            )
+
+    def test_nothing_that_changes_a_notebook_is_hinted(self):
+        """An edit, an execution or a deletion answers something that has
+        just moved. No ETag makes that cacheable — the next call would be
+        told "unchanged" about a notebook the caller itself changed."""
+        moving = {"insert", "overwrite", "edit", "execute", "delete", "clear", "move"}
+        for kind in self._hinted():
+            verb = kind.rsplit(".", 1)[-1]
+            assert not any(word in verb for word in moving), kind
+
+    def test_the_hinted_set_is_the_one_intended(self):
+        """Named, so adding a hint is a decision somebody makes here rather
+        than a line that slips in beside a tool."""
+        assert set(self._hinted()) == {
+            "files.list",
+            "kernels.list",
+            "notebooks.list",
+            "cell.read",
+            "notebook.read",
+        }
 
 
 class TestATooThatAlreadyReturnsData:

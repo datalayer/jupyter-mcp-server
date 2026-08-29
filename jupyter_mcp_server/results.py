@@ -30,8 +30,8 @@ up through helpers that have no business carrying it.
 from __future__ import annotations
 
 import contextvars
-import json
 import hashlib
+import json
 import logging
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from functools import wraps
