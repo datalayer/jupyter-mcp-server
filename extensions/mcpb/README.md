@@ -28,7 +28,7 @@ This directory contains the source files for building an MCPB (MCP Bundle) / DXT
 1. Build the `.mcpb` file from this directory:
 
    ```bash
-   cd ext/mcpb
+   cd extensions/mcpb
    mcpb pack
    ```
 
@@ -54,7 +54,7 @@ This bundle uses the **UV code sandbox** type, which means:
 ## Bundle Structure
 
 ```
-ext/mcpb/
+extensions/mcpb/
 ├── manifest.json      # Extension metadata, tools, and user configuration
 ├── pyproject.toml     # Python dependencies for UV code sandbox
 ├── .mcpbignore        # Files to exclude from the bundle

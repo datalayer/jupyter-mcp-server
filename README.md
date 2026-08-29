@@ -35,7 +35,7 @@ on the server after the agent disconnects.
 
 → [**Hosted Jupyter MCP Server**](https://jupyter-mcp-server.datalayer.tech/hosted)
 
-[![Claude Code plugin](https://img.shields.io/badge/%F0%9F%A4%96%20Claude%20Code-plugin%20available-8E44AD?style=for-the-badge&labelColor=5B2C6F)](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/claude-plugin)
+[![Claude Code plugin](https://img.shields.io/badge/%F0%9F%A4%96%20Claude%20Code-plugin%20available-8E44AD?style=for-the-badge&labelColor=5B2C6F)](https://github.com/datalayer/jupyter-mcp-server/tree/main/extensions/claude-plugin)
 
 **One command to connect Claude Code**, with `/datalayer:notebook`, `/datalayer:run` and
 `/datalayer:status` on top:
@@ -45,7 +45,7 @@ on the server after the agent disconnects.
 /plugin install datalayer
 ```
 
-→ [**Datalayer plugin for Claude Code**](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/claude-plugin)
+→ [**Datalayer plugin for Claude Code**](https://github.com/datalayer/jupyter-mcp-server/tree/main/extensions/claude-plugin)
 
 ---
 
@@ -743,7 +743,7 @@ Optional environment variables:
 - Interact with LLMs that supports multimodal input (like Gemini 2.5 Pro) to fully utilize advanced multimodal understanding capabilities.
 - Use a MCP client that supports returning image data and can parse it (like Cursor, Gemini CLI, etc.), as some clients may not support this feature.
 - Break down complex task (like the whole data science workflow) into multiple sub-tasks (like data cleaning, feature engineering, model training, model evaluation, etc.) and execute them step-by-step.
-- Provide clearly structured prompts and rules (👉 Visit our [Prompt Templates](ext/prompt-templates/README.md) to get started)
+- Provide clearly structured prompts and rules (👉 Visit our [Prompt Templates](extensions/prompt-templates/README.md) to get started)
 - Provide as much context as possible (like already installed packages, field explanations for existing datasets, current working directory, detailed task requirements, etc.).
 
 ## 🤝 Contributing

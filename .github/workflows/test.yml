@@ -46,7 +46,7 @@ jobs:
           # The optional extension. Its tests live beside it and are
           # collected by the root pytest run, so it has to be installed or
           # collection fails before a single test runs.
-          python -m pip install ./ext/sandboxes
+          python -m pip install ./extensions/sandboxes
 
       - name: Test the extension
         run: |

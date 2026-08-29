@@ -30,7 +30,7 @@ the code.
 
 ## Regenerating after the MCP surface changes
 
-From a checkout with the package (and `ext/sandboxes`) installed, and `npm install`
+From a checkout with the package (and `extensions/sandboxes`) installed, and `npm install`
 already run in `docs/`:
 
 ```bash

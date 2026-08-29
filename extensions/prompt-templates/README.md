@@ -21,7 +21,7 @@ Templates are organized by use case, you can choose any of them.
 ### Example Usage
 
 ```
-1. Go to ext/prompt-templates/general/
+1. Go to extensions/prompt-templates/general/
 2. Read the README.md to understand the template's purpose
 3. Copy the content from AGENT.md
 4. Paste it as your system prompt(e.g. `CLAUDE.md` in Claude Code)
