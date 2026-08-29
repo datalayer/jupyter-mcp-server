@@ -95,6 +95,10 @@ LIST_PAGE = 50
 #: The notification the server sends when a task changes state.
 TASK_STATUS_NOTIFICATION = "notifications/tasks/status"
 
+#: Where a client puts a key that makes a retried `tools/call` one task.
+#: `_meta` is an open map, so this rides along without a protocol change.
+IDEMPOTENCY_KEY_META = "io.datalayer/idempotency-key"
+
 #: The store implementation, as `module:Class`. A deployment that wants tasks
 #: to survive a restart points this at its own; the default keeps them in this
 #: process, which is what a single-user server is anyway.
@@ -132,6 +136,11 @@ class TaskRecord:
     #: Monotonic, for expiry. Not `created_at`: a clock that steps backwards
     #: would make a task un-expire, and NTP steps clocks backwards.
     started_monotonic: float = field(default_factory=time.monotonic)
+    #: What the client called this call, so a retry is one task.
+    idempotency_key: str = ""
+    #: A digest of the call the key was used for. A key reused for a
+    #: *different* call is a mistake, not a replay — see `intercept_tool_call`.
+    request_hash: str = ""
 
     def public(self) -> Task:
         """The protocol's view. Never the result, never the handle."""
@@ -172,6 +181,10 @@ class TaskStore(Protocol):
     async def list(self, *, limit: int = LIST_PAGE) -> list[TaskRecord]: ...
 
     async def update(self, task_id: str, **changes: Any) -> TaskRecord | None: ...
+
+    async def find_by_key(self, idempotency_key: str) -> TaskRecord | None:
+        """The task a previous call under this key created, if it is still here."""
+        ...
 
 
 class MemoryTaskStore:
@@ -222,6 +235,22 @@ class MemoryTaskStore:
             record.last_updated_at = _now_iso()
             return record
 
+    async def find_by_key(self, idempotency_key: str) -> TaskRecord | None:
+        if not idempotency_key:
+            return None
+        async with self._lock:
+            for record in list(self._tasks.values()):
+                if record.idempotency_key != idempotency_key:
+                    continue
+                if record.expired():
+                    # An expired task is gone, and its key is free again. The
+                    # alternative — answering a record whose result has been
+                    # swept — hands the client a task it can never read.
+                    del self._tasks[record.task_id]
+                    return None
+                return record
+        return None
+
 
 _store: TaskStore | None = None
 
@@ -258,6 +287,37 @@ def use_task_store(replacement: TaskStore | None) -> None:
     """Swap the process store — for the tests, and at startup."""
     global _store
     _store = replacement
+
+
+def _idempotency_key(params: Any) -> str:
+    """What the client called this call, if it named it."""
+    meta = getattr(params, "meta", None) or {}
+    try:
+        return str(meta.get(IDEMPOTENCY_KEY_META) or "")
+    except AttributeError:
+        return ""
+
+
+def _request_hash(params: Any) -> str:
+    """A digest of the call, so a key reused for another call is caught.
+
+    Canonical JSON of the tool and its arguments: the same call serialised
+    with its keys in another order is the same call, and treating it as a
+    different one would turn every retry into a conflict.
+    """
+    import hashlib  # noqa: PLC0415
+    import json  # noqa: PLC0415
+
+    body = json.dumps(
+        {
+            "name": getattr(params, "name", "") or "",
+            "arguments": getattr(params, "arguments", None) or {},
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(body.encode()).hexdigest()
 
 
 def _no_such_task(task_id: str) -> MCPError:
@@ -404,15 +464,46 @@ class TasksExtension(Extension):
         Asked for: `params.task` is present. Absent, this passes through and
         the call is synchronous exactly as it was — which is the whole reason
         this is an interception rather than a change to the tools.
+
+        A client may name the call with an idempotency key in `_meta`. A
+        retry under the same key answers the task the first attempt created
+        rather than starting the work a second time — which matters most
+        exactly when it is hardest to notice: the connection dropped after
+        the request arrived and before the answer got back, so the client
+        retries and, without this, gets two ten-minute cells and pays for
+        both.
+
+        The same key on a *different* call is a conflict rather than a
+        replay. Answering the first task would hand the client the result of
+        work it did not ask for, under an id it believes it just created.
         """
         asked = getattr(params, "task", None)
         if asked is None:
             return await call_next(ctx)
 
+        key = _idempotency_key(params)
+        digest = _request_hash(params)
+        if key:
+            existing = await self.store.find_by_key(key)
+            if existing is not None:
+                if existing.request_hash != digest:
+                    raise MCPError(
+                        code=INVALID_PARAMS,
+                        message=(
+                            f"The idempotency key {key!r} was already used for a "
+                            f"different call ({existing.tool or 'another tool'}). "
+                            f"Use a new key, or repeat the original call exactly."
+                        ),
+                    )
+                logger.info("Task %s answered again for key %s", existing.task_id, key)
+                return CreateTaskResult(task=existing.public())
+
         record = TaskRecord(
             task_id=f"tsk_{uuid.uuid4().hex}",
             ttl=requested_ttl(asked),
             tool=getattr(params, "name", "") or "",
+            idempotency_key=key,
+            request_hash=digest,
         )
         await self.store.create(record)
         record.handle = asyncio.ensure_future(self._run(record.task_id, ctx, call_next))

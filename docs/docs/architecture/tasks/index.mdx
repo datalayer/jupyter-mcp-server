@@ -44,6 +44,37 @@ This is why the server never decides for you. A client that has not asked for
 a task does not know what a task id is, and would read that object as the
 tool's output.
 
+## A retry is one task
+
+Name the call with an idempotency key and a retry answers the task the first
+attempt created, rather than starting the work again:
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "execute_cell",
+    "arguments": { "cell_index": 3 },
+    "task": {},
+    "_meta": { "io.datalayer/idempotency-key": "run-3-attempt-1" }
+  }
+}
+```
+
+This matters most exactly when it is hardest to notice: the connection drops
+after the request arrived and before the answer got back. Without a key the
+client retries and gets two ten-minute cells, and pays for both.
+
+The same key on a **different** call is refused rather than replayed.
+Answering the first task would hand the client the result of work it did not
+ask for, under an id it believes it just created. The same call written with
+its arguments in another order is still the same call.
+
+A key belongs to a task, so it lives as long as the task does: once a task
+has expired its key is free again. And a call that did not ask for a task is
+not deduplicated — a synchronous call carrying a key is still a synchronous
+call.
+
 ## The five states
 
 | Status | Meaning |

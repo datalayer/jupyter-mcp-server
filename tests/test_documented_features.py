@@ -75,6 +75,14 @@ class TestTheTasksPage:
         assert "no `tasks/update`" in page
         assert "tasks/update" not in {b.method for b in TasksExtension().methods()}
 
+    def test_it_names_the_meta_key_a_client_actually_sends(self, page):
+        """The key travels in an open `_meta` map, so nothing validates the
+        spelling. A page with the wrong one gives a client no error and no
+        deduplication — every retry a second ten-minute cell."""
+        from jupyter_mcp_server.tasks import IDEMPOTENCY_KEY_META
+
+        assert IDEMPOTENCY_KEY_META in page
+
     def test_the_statuses_it_lists_are_the_protocol_s(self, page):
         import mcp.types as types
 

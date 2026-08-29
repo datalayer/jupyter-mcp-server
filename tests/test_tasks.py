@@ -25,6 +25,7 @@ from mcp.types import CallToolRequestParams, CreateTaskResult, TaskMetadata
 
 from jupyter_mcp_server.tasks import (
     DEFAULT_TTL_MS,
+    IDEMPOTENCY_KEY_META,
     TASK_STATUS_NOTIFICATION,
     MAX_TTL_MS,
     POLL_INTERVAL_MS,
@@ -308,6 +309,181 @@ async def test_work_cancelled_from_outside_still_ends_the_task(extension, store)
 async def test_cancelling_a_task_that_does_not_exist_says_so(extension):
     with pytest.raises(MCPError):
         await extension._handle_cancel(_Params("tsk_never"), object())
+
+
+# ---------------------------------------------------------------------------
+# A retry is one task
+# ---------------------------------------------------------------------------
+
+
+def keyed(key: str, name: str = "execute_cell", **arguments) -> CallToolRequestParams:
+    return CallToolRequestParams(
+        name=name,
+        arguments=arguments or {},
+        task=TaskMetadata(),
+        _meta={IDEMPOTENCY_KEY_META: key},
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_retry_under_the_same_key_answers_the_same_task(extension, store):
+    """The case this exists for is the one hardest to notice: the connection
+    dropped after the request arrived and before the answer got back. Without
+    this the client retries and gets two ten-minute cells, and pays for both.
+    """
+    ran = []
+
+    async def call_next(ctx):
+        ran.append(1)
+        await asyncio.Event().wait()
+
+    first = await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+    await settle()
+    again = await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+
+    assert again.task.task_id == first.task.task_id
+    assert ran == [1], "the work started a second time"
+    assert len(await store.list()) == 1
+
+
+@pytest.mark.asyncio
+async def test_the_same_call_written_differently_is_still_the_same_call(extension):
+    """Otherwise every retry that serialised its arguments in another order
+    would be refused as a conflict."""
+
+    async def call_next(ctx):
+        await asyncio.Event().wait()
+
+    first = await extension.intercept_tool_call(
+        keyed("k1", a=1, b=2), object(), call_next
+    )
+    again = await extension.intercept_tool_call(
+        CallToolRequestParams(
+            name="execute_cell",
+            arguments={"b": 2, "a": 1},
+            task=TaskMetadata(),
+            _meta={IDEMPOTENCY_KEY_META: "k1"},
+        ),
+        object(),
+        call_next,
+    )
+    assert again.task.task_id == first.task.task_id
+
+
+@pytest.mark.asyncio
+async def test_the_same_key_on_a_different_call_is_a_conflict(extension):
+    """Answering the first task would hand the client the result of work it
+    did not ask for, under an id it believes it just created."""
+
+    async def call_next(ctx):
+        await asyncio.Event().wait()
+
+    await extension.intercept_tool_call(keyed("k1", cell_index=1), object(), call_next)
+    with pytest.raises(MCPError) as refused:
+        await extension.intercept_tool_call(keyed("k1", cell_index=2), object(), call_next)
+    assert "already used" in str(refused.value)
+
+
+@pytest.mark.asyncio
+async def test_a_different_tool_under_the_same_key_is_a_conflict(extension):
+    async def call_next(ctx):
+        await asyncio.Event().wait()
+
+    await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+    with pytest.raises(MCPError):
+        await extension.intercept_tool_call(keyed("k1", name="delete_cell"), object(), call_next)
+
+
+@pytest.mark.asyncio
+async def test_different_keys_are_different_tasks(extension, store):
+    ran = []
+
+    async def call_next(ctx):
+        ran.append(1)
+        await asyncio.Event().wait()
+
+    first = await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+    second = await extension.intercept_tool_call(keyed("k2"), object(), call_next)
+    await settle()
+    assert first.task.task_id != second.task.task_id
+    assert len(ran) == 2
+
+
+@pytest.mark.asyncio
+async def test_no_key_means_every_call_is_its_own_task(extension):
+    """A client that names nothing gets what it asked for, twice."""
+    ran = []
+
+    async def call_next(ctx):
+        ran.append(1)
+        await asyncio.Event().wait()
+
+    first = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    second = await extension.intercept_tool_call(call(task=TaskMetadata()), object(), call_next)
+    await settle()
+    assert first.task.task_id != second.task.task_id
+    assert len(ran) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_retry_after_the_task_finished_still_answers_it(extension):
+    """Within retention, a replay reads the result rather than re-running the
+    work — which is the whole value of the key surviving the call."""
+
+    async def call_next(ctx):
+        return {"content": "done"}
+
+    first = await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+    await settle()
+    again = await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+    assert again.task.task_id == first.task.task_id
+    assert again.task.status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_an_expired_task_frees_its_key(extension, store):
+    """The alternative hands the client a task whose result has been swept
+    and can never be read."""
+    ran = []
+
+    async def call_next(ctx):
+        ran.append(1)
+        return {"content": "done"}
+
+    first = await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+    await settle()
+    record = await store.get(first.task.task_id)
+    record.ttl = 1
+    record.started_monotonic -= 10
+
+    again = await extension.intercept_tool_call(keyed("k1"), object(), call_next)
+    await settle()
+    assert again.task.task_id != first.task.task_id
+    assert len(ran) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_call_without_a_task_is_not_deduplicated(extension, store):
+    """The key only names a task. A synchronous call carrying one is still a
+    synchronous call, and silently answering an old task's id instead of the
+    tool's output would be the worst of both.
+    """
+    ran = []
+
+    async def call_next(ctx):
+        ran.append(1)
+        return {"content": "done"}
+
+    params = CallToolRequestParams(
+        name="execute_cell", arguments={}, _meta={IDEMPOTENCY_KEY_META: "k1"}
+    )
+    assert await extension.intercept_tool_call(params, object(), call_next) == {
+        "content": "done"
+    }
+    assert await extension.intercept_tool_call(params, object(), call_next) == {
+        "content": "done"
+    }
+    assert len(ran) == 2 and await store.list() == []
 
 
 # ---------------------------------------------------------------------------
