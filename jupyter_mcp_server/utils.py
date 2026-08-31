@@ -514,11 +514,25 @@ def extract_output(output: dict | Any) -> str | ImageContent:
                 if hasattr(line, "source"):
                     line = str(line.source)
                 clean_traceback.append(strip_ansi_codes(str(line)))
-            return "\n".join(clean_traceback)
+            rendered = "\n".join(clean_traceback)
         else:
             if hasattr(traceback, "source"):
                 traceback = str(traceback.source)
-            return strip_ansi_codes(str(traceback))
+            rendered = strip_ansi_codes(str(traceback))
+        if rendered.strip():
+            return rendered
+        # An error with no traceback still carries a name and a message, and
+        # safe_extract_outputs drops an empty rendering, so returning "" makes
+        # the cell read back as though it had never failed.
+        parts = []
+        for field in ("ename", "evalue"):
+            value = output.get(field)
+            if hasattr(value, "source"):
+                value = value.source
+            value = strip_ansi_codes(str(value or "")).strip()
+            if value:
+                parts.append(value)
+        return ": ".join(parts) or "[Error output with no details]"
 
     else:
         return f"[Unknown output type: {output_type}]"
