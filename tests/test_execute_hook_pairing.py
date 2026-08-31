@@ -362,6 +362,33 @@ async def test_local_unexpected_error_fires_after_execute(handler):
         context.term()
 
 
+@pytest.mark.asyncio
+async def test_local_user_cancellation_fires_after_execute(handler):
+    """An MCP user-cancel unwinds out of the poll, on this path too."""
+    context = zmq.asyncio.Context()
+    client = _KernelClient(context)
+    try:
+        task = asyncio.create_task(
+            execute_code_local(
+                serverapp=_ServerApp(kernel_manager=_KernelManager(_Kernel(client))),
+                notebook_path="notebook.ipynb",
+                code="while True: pass",
+                kernel_id="kernel-1",
+                timeout=300,
+            )
+        )
+        await asyncio.sleep(0.1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        after = assert_paired(handler)
+        assert isinstance(after["error"], asyncio.CancelledError)
+    finally:
+        client.close()
+        context.term()
+
+
 # --------------------------------------------------------------------------
 # What an unpaired BEFORE_EXECUTE costs a real handler
 # --------------------------------------------------------------------------
