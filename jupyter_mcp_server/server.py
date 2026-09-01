@@ -111,6 +111,12 @@ def _is_local_hostname(hostname: str | None) -> bool:
     return bool(hostname and hostname.lower() in LOCAL_HOSTNAMES)
 
 
+def _is_local_peer(request: Request) -> bool:
+    """Check the actual TCP peer, which a client-supplied Host header cannot forge."""
+    client = request.client
+    return bool(client and client.host in ("127.0.0.1", "::1"))
+
+
 def _is_management_route(path: str) -> bool:
     return path.rstrip("/") in MANAGEMENT_ROUTE_PATHS
 
@@ -132,6 +138,11 @@ class ManagementRouteSecurityMiddleware(BaseHTTPMiddleware):
 
         if not _is_local_hostname(request.url.hostname):
             return JSONResponse({"error": "Invalid Host header"}, status_code=421)
+
+        if not _is_local_peer(request):
+            return JSONResponse(
+                {"error": "Request must originate from localhost"}, status_code=421
+            )
 
         origin = request.headers.get("origin")
         if origin:

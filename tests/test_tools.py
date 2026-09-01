@@ -206,6 +206,31 @@ def test_management_routes_reject_forged_host(mcp_server_with_mcp_token):
     assert r.status_code == HTTPStatus.MISDIRECTED_REQUEST
 
 
+def test_management_routes_reject_forged_localhost_from_remote_peer():
+    """A Host: localhost header alone must not satisfy the local-only check.
+
+    The Host header is client-supplied and only the ASGI scope's client address
+    reflects the real TCP peer, so a forged 'Host: localhost' from a genuinely
+    remote connection must still be rejected.
+    """
+    from starlette.requests import Request
+
+    from jupyter_mcp_server.server import _is_local_hostname, _is_local_peer
+
+    scope = {
+        "type": "http",
+        "method": "PUT",
+        "path": "/api/connect",
+        "headers": [(b"host", b"localhost")],
+        "client": ("203.0.113.5", 54321),
+        "server": ("localhost", 8000),
+    }
+    request = Request(scope)
+
+    assert _is_local_hostname(request.url.hostname) is True
+    assert _is_local_peer(request) is False
+
+
 @pytest.mark.skipif(not TEST_MCP_SERVER, reason="TEST_MCP_SERVER disabled")
 def test_management_routes_reject_forged_origin(mcp_server_with_mcp_token):
     """Management routes reject browser requests from non-local origins."""
