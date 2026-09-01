@@ -93,14 +93,17 @@ class ExecuteCellTool(BaseTool):
 
         if notebook_manager is not None:
             kernel_info = {"id": kernel_id}
+            # The context lookup resolves the kernel by notebook name, so a
+            # path-keyed entry would leave the replaced binding in place.
+            name = notebook_manager.get_current_notebook() or notebook_path
             notebook_manager.add_notebook(
-                name=notebook_path,
+                name=name,
                 # The parameter is `code_sandbox` since the rename; what is
                 # registered here is still a real Jupyter kernel, which is what
                 # JUPYTER_SERVER mode executes on.
                 code_sandbox=kernel_info,
                 server_url="local",
-                path=notebook_path,
+                path=notebook_manager.get_notebook_path(name) or notebook_path,
             )
         return kernel_id
 
