@@ -836,139 +836,214 @@ async def test_listing_answers_newest_first(store, extension):
     assert [task.task_id for task in listed.tasks] == ["tsk_2", "tsk_1", "tsk_0"]
 
 
-class TestWhatTheWorkProducedBeforeItStopped:
-    """A cancelled cell that printed five hundred lines printed five hundred
-    lines.
+# ---------------------------------------------------------------------------
+# What the work produced before it stopped
+# ---------------------------------------------------------------------------
 
-    `result` arrives whole when the tool returns, which is the right shape for
-    a call that finishes and no shape at all for one that does not. Cancel a
-    ten-minute cell at minute nine and the task was `cancelled` with
-    `result: None` — indistinguishable from a cell that produced nothing, and
-    the opposite of what the person who cancelled it wanted to read.
+
+@pytest.mark.asyncio
+async def test_cancelling_serves_what_the_work_had_already_printed(extension, store):
+    """The whole point of recording output, through the path a client takes.
+
+    An earlier version of this test called `_mark_cancelled` directly on a
+    still-working record, which is a state the real flow never reaches:
+    `tasks/cancel` writes `cancelled` first and *then* the coroutine unwinds.
+    So the test passed against code that skipped the promotion on every real
+    cancellation — a green test for a feature that never once ran.
     """
+    started = asyncio.Event()
 
-    async def test_a_synchronous_call_records_nothing_and_says_so(self):
-        """It has no task to attach to and needs none: the client is still on
-        the other end of the connection."""
-        assert await record_output(["out"]) is False
+    async def call_next(ctx):
+        await record_output(["line one", "line two"])
+        started.set()
+        await asyncio.Event().wait()
 
-    async def test_the_output_so_far_is_on_the_record(self, store):
-        record = await store.create(TaskRecord(task_id="tsk_partial"))
-        token = CURRENT_TASK.set(record.task_id)
-        try:
-            assert await record_output(["one", "two"]) is True
-        finally:
-            CURRENT_TASK.reset(token)
-        assert (await store.get("tsk_partial")).partial == ["one", "two"]
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await asyncio.wait_for(started.wait(), timeout=2)
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    await settle()
 
-    async def test_it_replaces_rather_than_appends(self, store):
-        """The caller holds the whole list of outputs so far. Appending would
-        make every reader deduplicate what it reads."""
-        await store.create(TaskRecord(task_id="tsk_replace"))
-        token = CURRENT_TASK.set("tsk_replace")
-        try:
-            await record_output(["one"])
-            await record_output(["one", "two"])
-        finally:
-            CURRENT_TASK.reset(token)
-        assert (await store.get("tsk_replace")).partial == ["one", "two"]
-
-    async def test_a_cancelled_task_serves_what_it_produced(self, store):
-        extension = TasksExtension(store)
-        await store.create(TaskRecord(task_id="tsk_c", partial=["printed"]))
-        await extension._mark_cancelled("tsk_c")
-        record = await store.get("tsk_c")
-        assert record.status == "cancelled"
-        assert record.result == ["printed"]
-
-    async def test_a_cancelled_task_that_produced_nothing_has_no_result(
-        self, store
-    ):
-        """Empty is not the same as "we did not look": a task with no partial
-        output must not gain an empty list that reads like a measured zero."""
-        extension = TasksExtension(store)
-        await store.create(TaskRecord(task_id="tsk_none"))
-        await extension._mark_cancelled("tsk_none")
-        assert (await store.get("tsk_none")).result is None
-
-    async def test_a_result_that_arrived_is_not_overwritten_by_the_partial(
-        self, store
-    ):
-        """The tool's own result is the complete one. A race between the tool
-        returning and the cancellation landing must not replace it with the
-        half that was visible a moment earlier."""
-        extension = TasksExtension(store)
-        await store.create(
-            TaskRecord(task_id="tsk_both", partial=["half"], result=["whole"])
-        )
-        await extension._mark_cancelled("tsk_both")
-        assert (await store.get("tsk_both")).result == ["whole"]
-
-    async def test_a_terminal_task_is_not_re_cancelled(self, store):
-        extension = TasksExtension(store)
-        await store.create(
-            TaskRecord(task_id="tsk_done", status="completed", result=["whole"])
-        )
-        await extension._mark_cancelled("tsk_done")
-        record = await store.get("tsk_done")
-        assert record.status == "completed" and record.result == ["whole"]
+    record = await store.get(answer.task.task_id)
+    assert record.status == "cancelled"
+    assert record.result == ["line one", "line two"]
 
 
-class TestTheExecutionLoopActuallyCallsThem:
+@pytest.mark.asyncio
+async def test_a_cancelled_task_that_printed_nothing_has_no_result(extension, store):
+    """Empty is not the same as "we did not look". An empty list here reads
+    as a measured zero rather than as nothing to measure, which is the
+    distinction `tasks/result`'s two refusals exist for."""
+
+    async def call_next(ctx):
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    await settle()
+    assert (await store.get(answer.task.task_id)).result is None
+
+
+@pytest.mark.asyncio
+async def test_a_task_that_finished_first_keeps_its_own_result(extension, store):
+    """The race the client lost. A call that returned while the cancellation
+    was landing has the complete answer, and it must not be replaced by the
+    half that was visible a moment earlier."""
+
+    async def call_next(ctx):
+        await record_output(["half"])
+        return ["whole"]
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    await settle()
+    record = await store.get(answer.task.task_id)
+    assert record.status == "completed"
+    assert record.result == ["whole"]
+
+
+@pytest.mark.asyncio
+async def test_mark_cancelled_leaves_a_finished_task_alone(extension, store):
+    """A guard, tested as a guard rather than as a path.
+
+    No current caller can reach it: `_mark_cancelled` runs only from `_run`'s
+    `CancelledError` branch, and a call that returned never raises one — so
+    mutation shows nothing else catches this. It is here because
+    `_mark_cancelled` is a method, the invariant is one line, and the failure
+    it prevents is silent: a completed task's own answer replaced by the half
+    that was visible a moment earlier.
+
+    Calling it directly is the mistake that shipped the last version of this
+    feature. The difference is what is being claimed — that the *guard*
+    holds, not that cancellation works.
+    """
+    await store.create(
+        TaskRecord(task_id="tsk_done", status="completed", partial=["half"])
+    )
+    await extension._mark_cancelled("tsk_done")
+    record = await store.get("tsk_done")
+    assert record.status == "completed"
+    assert record.result is None
+
+
+@pytest.mark.asyncio
+async def test_mark_cancelled_does_not_overwrite_a_result_it_already_has(
+    extension, store
+):
+    await store.create(
+        TaskRecord(task_id="tsk_kept", status="cancelled", partial=["half"], result=["whole"])
+    )
+    await extension._mark_cancelled("tsk_kept")
+    assert (await store.get("tsk_kept")).result == ["whole"]
+
+
+@pytest.mark.asyncio
+async def test_a_synchronous_call_records_nothing_and_says_so():
+    """It has no task to attach to and needs none: the client is still on the
+    other end of the connection."""
+    assert await record_output(["out"]) is False
+
+
+@pytest.mark.asyncio
+async def test_the_output_so_far_is_on_the_record(store):
+    await store.create(TaskRecord(task_id="tsk_partial"))
+    token = CURRENT_TASK.set("tsk_partial")
+    try:
+        assert await record_output(["one", "two"], store=store) is True
+    finally:
+        CURRENT_TASK.reset(token)
+    assert (await store.get("tsk_partial")).partial == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_recording_replaces_rather_than_appends(store):
+    """The caller holds the whole list of outputs so far. Appending would
+    make every reader deduplicate what it reads."""
+    await store.create(TaskRecord(task_id="tsk_replace"))
+    token = CURRENT_TASK.set("tsk_replace")
+    try:
+        await record_output(["one"], store=store)
+        await record_output(["one", "two"], store=store)
+    finally:
+        CURRENT_TASK.reset(token)
+    assert (await store.get("tsk_replace")).partial == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_task_keeps_what_it_printed(extension, store):
+    """`tasks/result` raises for a failed task, so this is never served — it
+    is kept because a cell that printed for nine minutes and then raised has
+    the output somebody needs in order to see *why*."""
+
+    async def call_next(ctx):
+        await record_output(["progress"])
+        raise ValueError("the kernel is dead")
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await settle()
+    record = await store.get(answer.task.task_id)
+    assert record.status == "failed"
+    assert record.result == ["progress"]
+
+
+# ---------------------------------------------------------------------------
+# The execution loop actually calls them
+# ---------------------------------------------------------------------------
+
+
+def _loop_source() -> str:
+    import inspect
+
+    from jupyter_mcp_server import utils
+
+    source = inspect.getsource(utils)
+    start = source.index("    last_output_count = 0")
+    return source[start : source.index("# Get final result", start)]
+
+
+def test_the_kernel_interrupt_is_registered_by_the_execution_loop():
     """`register_interrupt` was defined, tested, documented and called by no
-    tool for as long as it existed.
+    tool for as long as it existed — so cancelling said `cancelled` while the
+    kernel kept running the cell.
 
-    That is the shape this whole effort keeps finding: the mechanism was
-    built and nothing used it, so cancelling a task said `cancelled` while
-    the kernel kept running the cell. Both hooks are asserted at the one
-    frame that holds the kernel and the outputs — the wait loop in `utils` —
-    because a helper nobody calls passes all of its own tests.
+    The *call*, not the name: an earlier version of this asserted
+    `"register_interrupt" in body`, which the import line satisfies on its
+    own, so deleting the call left the test green.
     """
+    assert "await register_interrupt(kernel.interrupt)" in _loop_source()
 
-    @staticmethod
-    def _loop_source() -> str:
-        import inspect
 
-        from jupyter_mcp_server import utils
+def test_the_interrupt_is_registered_before_the_wait_begins():
+    """Registered inside the loop, a cell cancelled in its first second has
+    nothing to interrupt."""
+    body = _loop_source()
+    assert body.index("register_interrupt") < body.index(
+        "while not execution_future.done()"
+    )
 
-        source = inspect.getsource(utils)
-        start = source.index("    last_output_count = 0")
-        return source[start : source.index("# Get final result", start)]
 
-    def test_the_kernel_interrupt_is_registered(self) -> None:
-        """Cancelling the task cancels the wait; the kernel keeps running the
-        cell, keeps holding the sandbox and keeps costing money."""
-        # The *call*, not the name. An earlier version of this asserted
-        # `"register_interrupt" in body`, which the import line satisfies on
-        # its own — so deleting the call left the test green.
-        body = self._loop_source()
-        assert "await register_interrupt(kernel.interrupt)" in body
+def test_the_outputs_are_recorded_where_new_ones_are_noticed():
+    """Not on the keepalive tick: that fires on a timer whether or not
+    anything was produced, so recording there would rewrite the same list
+    every few seconds and miss a burst between two ticks."""
+    body = _loop_source()
+    assert "await record_output(safe_extract_outputs(" in body
+    assert body.index("last_output_count = len(current_outputs)") < body.index(
+        "await record_output("
+    )
+    assert body.index("await record_output(") < body.index("emit_execution_progress")
 
-    def test_it_is_registered_before_the_wait_begins(self) -> None:
-        """Registered inside the loop, a cell cancelled in its first second
-        has nothing to interrupt."""
-        body = self._loop_source()
-        assert body.index("register_interrupt") < body.index("while not execution_future.done()")
 
-    def test_the_outputs_are_recorded_as_they_arrive(self) -> None:
-        body = self._loop_source()
-        assert "await record_output(safe_extract_outputs(" in body
-
-    def test_recording_is_where_new_outputs_are_noticed(self) -> None:
-        """Not on the keepalive tick: the keepalive fires on a timer whether
-        or not anything was produced, and recording there would rewrite the
-        same list every few seconds and miss a burst between two ticks."""
-        body = self._loop_source()
-        assert body.index("last_output_count = len(current_outputs)") < body.index(
-            "record_output"
-        )
-        assert body.index("await record_output(") < body.index(
-            "emit_execution_progress"
-        )
-
-    def test_neither_can_fail_the_cell(self) -> None:
-        """Both are bookkeeping about the work. A cell that failed because
-        the note about the cell would not go out is trading the work for the
-        story about the work."""
-        body = self._loop_source()
-        assert body.count("except Exception") >= 2
+def test_neither_hook_can_fail_the_cell():
+    """Both are bookkeeping about the work. Failing a cell because the note
+    about the cell would not go out trades the work for the story about it."""
+    assert _loop_source().count("except Exception") >= 2

@@ -722,15 +722,41 @@ class TasksExtension(Extension):
         return record.partial if record is not None and record.partial else None
 
     async def _mark_cancelled(self, task_id: str) -> None:
+        """The cancelled task's last word: what it produced before it stopped.
+
+        **This cannot ask whether the task is still working.** By the time it
+        runs, `tasks/cancel` has already written `cancelled` — it writes the
+        status, interrupts the work and cancels the handle, and only then does
+        the coroutine unwind into here. A guard for "not terminal" therefore
+        skips the promotion on the path every cancellation actually takes,
+        which is how the first version of this shipped a feature that never
+        once ran and a test that stayed green: the test called this directly
+        on a still-working record, a state the real flow never reaches.
+
+        It runs here rather than in `_handle_cancel` because it runs *later*:
+        the work may have produced more between the cancel arriving and the
+        coroutine unwinding, and this is the last moment anything can see it.
+        """
         record = await self.store.get(task_id)
-        if record is not None and not record.is_terminal:
-            # What it produced before it was stopped, promoted to the result.
-            # The task is terminal now, so `tasks/result` will serve it, and
-            # a cancelled cell that printed five hundred lines hands them
-            # over instead of answering with nothing.
-            changes: dict[str, Any] = {"status": "cancelled"}
-            if record.partial and record.result is None:
-                changes["result"] = record.partial
+        if record is None:
+            return
+        changes: dict[str, Any] = {}
+        if not record.is_terminal:
+            # Cancelled from somewhere other than `tasks/cancel` — the handle
+            # itself was cancelled, so nothing has written the status yet.
+            changes["status"] = "cancelled"
+        elif record.status != "cancelled":
+            # It completed or failed first. That is the race the client lost,
+            # and its own answer stands: replacing a finished result with the
+            # half that was visible a moment earlier loses the complete one.
+            return
+        # What it produced before it was stopped, promoted to the result. The
+        # task is terminal, so `tasks/result` serves it — a cancelled cell
+        # that printed five hundred lines hands them over instead of
+        # answering with nothing.
+        if record.partial and record.result is None:
+            changes["result"] = record.partial
+        if changes:
             await self.store.update(task_id, **changes)
 
 
