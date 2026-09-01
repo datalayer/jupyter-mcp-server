@@ -229,11 +229,17 @@ _registry: CapabilityRegistry | None = None
 
 
 def get_capabilities() -> CapabilityRegistry:
-    """The registry of this process, built on first use."""
+    """The registry of this process, built on first use.
+
+    Published only once the environment has been applied. Assigning first
+    leaves a registry the bad entry stopped halfway through, and every call
+    after the one that raised reads it back as though it were configured.
+    """
     global _registry
     if _registry is None:
-        _registry = CapabilityRegistry()
-        _registry.apply(from_environment(), source="config")
+        registry = CapabilityRegistry()
+        registry.apply(from_environment(), source="config")
+        _registry = registry
     return _registry
 
 

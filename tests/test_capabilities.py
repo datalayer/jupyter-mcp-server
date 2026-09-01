@@ -32,6 +32,7 @@ from jupyter_mcp_server.capabilities import (
     Capability,
     CapabilityRegistry,
     UnknownCapability,
+    enabled,
     get_capabilities,
     parse_setting,
     reset_capabilities,
@@ -114,6 +115,26 @@ class TestSettings:
         monkeypatch.setenv(CAPABILITIES_ENV, f"{KERNEL_AUTO_RESTART}=off")
         reset_capabilities()
         assert get_capabilities().enabled(KERNEL_AUTO_RESTART) is False
+
+    def test_a_misspelt_name_in_the_environment_is_refused_on_every_call(self, monkeypatch):
+        """Refused once and then cached is the drop this refuses. The caller
+        after the one that raised reads back a registry the bad entry stopped
+        halfway through, with nothing anywhere saying so."""
+        monkeypatch.setenv(CAPABILITIES_ENV, f"kernel.autorestart,{KERNEL_AUTO_RESTART}")
+        with pytest.raises(UnknownCapability):
+            reset_capabilities()
+        with pytest.raises(UnknownCapability):
+            get_capabilities()
+        with pytest.raises(UnknownCapability):
+            enabled(KERNEL_AUTO_RESTART)
+
+    def test_the_environment_is_never_applied_in_part(self, monkeypatch):
+        """Which settings survive must not depend on where the bad name sits."""
+        monkeypatch.setenv(CAPABILITIES_ENV, f"{KERNEL_AUTO_RESTART},kernel.autorestart")
+        with pytest.raises(UnknownCapability):
+            reset_capabilities()
+        with pytest.raises(UnknownCapability):
+            enabled(KERNEL_AUTO_RESTART)
 
 
 class TestWhereAValueCameFrom:
