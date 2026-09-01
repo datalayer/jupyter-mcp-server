@@ -35,7 +35,7 @@ on the server after the agent disconnects.
 
 → [**Hosted Jupyter MCP Server**](https://jupyter-mcp-server.datalayer.tech/hosted)
 
-[![Jupyter MCP Server 2](https://images.datalayer.io/marketing/jupyter-mcp-server/SvgJupyterMcp2.gif)](https://datalayer.ai)
+[![Jupyter MCP Server 2](https://images.datalayer.io/products/jupyter-mcp-server/jupyter-mcp-server-2.png)](https://datalayer.ai)
 
 [![Claude Code plugin](https://img.shields.io/badge/%F0%9F%A4%96%20Claude%20Code-plugin%20available-8E44AD?style=for-the-badge&labelColor=5B2C6F)](https://github.com/datalayer/jupyter-mcp-server/tree/main/extensions/claude-plugin)
 
