@@ -1616,6 +1616,22 @@ async def execute_code_local(
         )
         return result
 
+    except asyncio.CancelledError as interrupt_err:
+        # CancelledError is not an Exception, so the handler below never sees
+        # it — the AFTER this exit owes has to be fired here.
+        logger.warning(f"Code execution on kernel {kernel_id} was cancelled")
+        if hook_ctx is not None:
+            await HookRegistry.get_instance().fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code,
+                kernel_id=kernel_id,
+                metadata={},
+                outputs=[],
+                error=interrupt_err,
+                context=hook_ctx,
+            )
+        raise
+
     except Exception as e:
         logger.error(f"Error executing code locally: {e}")
         if hook_ctx is not None:
