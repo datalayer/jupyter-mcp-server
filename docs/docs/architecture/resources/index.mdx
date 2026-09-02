@@ -1,0 +1,79 @@
+# Resources
+
+Tools **push**. Everything a call produces comes back whether the agent wanted
+it or not, so a cell that printed a megabyte spends a megabyte of the client's
+context every time anybody reads it.
+
+Resources **pull**. The agent is told what exists and reads the one thing it
+needs.
+
+That is what these three are for.
+
+| Resource | What it is |
+|---|---|
+| `notebook://{name}` | A notebook in use, as nbformat JSON |
+| `notebook://{name}/cells/{cell_id}` | One cell, with its outputs *listed* |
+| `notebook://{name}/cells/{cell_id}/outputs/{index}` | One output, on its own |
+
+## Addressed by name and cell id
+
+A notebook path contains slashes. It cannot sit in one URI template segment
+without being encoded into something nobody can read, and the **name** is what
+every tool here already takes — the one `use_notebook` registered.
+
+A cell is addressed by its nbformat 4.5 **id**, not its index. An index is a
+position in a document somebody else is editing: between reading a notebook
+and reading "cell 4", cell 4 may be a different cell. The id is not.
+
+:::note The scheme is provider-neutral
+
+This server talks to a Jupyter server. A `datalayer://` URI here would be a
+hosted platform's identifier on a resource that has nothing to do with it.
+:::
+
+## A cell lists its outputs and inlines none of them
+
+```json
+{
+  "id": "c1",
+  "index": 0,
+  "cell_type": "code",
+  "source": ["print('hello')"],
+  "outputs": [
+    {"index": 0, "mimeType": "text/plain", "uri": "notebook://work/cells/c1/outputs/0"},
+    {"index": 1, "mimeType": "image/png", "uri": "notebook://work/cells/c1/outputs/1"}
+  ]
+}
+```
+
+Reading the cell tells an agent what the cell produced, what type each output
+is and where to get it — for the cost of that table. An agent that only needed
+to know the cell succeeded stops there.
+
+The output resource's audience is the **assistant** alone. A person reads
+outputs in their notebook, where they are rendered, not through a URI.
+
+:::warning The MIME type is on the list, not on the read
+
+A templated resource's type is fixed when it is registered, so an output
+cannot answer with its own type on the read. It is on the cell's output list
+instead — which is where an agent that needs to know what an output *is*
+before spending context on it actually looks.
+
+The richest type wins there: `text/plain` is the fallback every kernel
+attaches beside the real thing, and preferring it would read every figure as
+the words `<Figure>` with nothing saying so.
+:::
+
+## Caching
+
+All three are `cacheScope: private`. A notebook is one caller's, and a proxy
+that shared the answer would hand somebody else's work to whoever asked next.
+
+The notebook and cell are held for 5 seconds — long enough that reading a
+notebook and then three of its cells does not fetch the document four times,
+short enough that an agent watching a cell run sees it change.
+
+An **output** is held for a minute, because it does not change. A re-run
+*replaces* a cell's outputs rather than editing one, and the new ones are at
+new positions under a cell whose id is the same.

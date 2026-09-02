@@ -35,6 +35,14 @@ from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
 from jupyter_mcp_server.revalidation import revalidation_extension
+from jupyter_mcp_server import resources
+from jupyter_mcp_server.results import (
+    AUDIENCE_ASSISTANT,
+    AUDIENCE_USER,
+    CACHE_META_KEY,
+    SCOPE_PRIVATE,
+    audience_annotations,
+)
 from jupyter_mcp_server.tasks import tasks_extension
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
@@ -348,6 +356,82 @@ mcp = MCPServerWithCORS(
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()
+
+
+@mcp.resource(
+    resources.NOTEBOOK_RESOURCE,
+    name="notebook",
+    description="A notebook in use, as nbformat JSON. Cells and outputs are resources of their own.",
+    mime_type=resources.NOTEBOOK_MIME,
+    annotations=audience_annotations(AUDIENCE_ASSISTANT, AUDIENCE_USER),
+    meta={CACHE_META_KEY: {"ttlMs": resources.NOTEBOOK_TTL_MS, "cacheScope": SCOPE_PRIVATE}},
+)
+async def notebook_resource(name: str) -> str:
+    """The whole notebook, for an agent that wants the document.
+
+    `private` rather than `session`: the notebook is one caller's, and a
+    proxy that shared this answer would hand somebody else's work to whoever
+    asked next.
+    """
+    notebook = await resources.read_notebook(notebook_manager, name)
+    return notebook.model_dump_json(indent=2)
+
+
+@mcp.resource(
+    resources.CELL_RESOURCE,
+    name="notebook-cell",
+    description="One cell by its nbformat id, with its outputs listed rather than inlined.",
+    mime_type="application/json",
+    annotations=audience_annotations(AUDIENCE_ASSISTANT, AUDIENCE_USER),
+    meta={CACHE_META_KEY: {"ttlMs": resources.NOTEBOOK_TTL_MS, "cacheScope": SCOPE_PRIVATE}},
+)
+async def cell_resource(name: str, cell_id: str) -> str:
+    """One cell, addressed by id rather than by index.
+
+    An index is a position in a document somebody else is editing: between
+    reading the notebook and reading "cell 4", cell 4 may be a different
+    cell. The nbformat 4.5 id is not.
+    """
+    notebook = await resources.read_notebook(notebook_manager, name)
+    index, cell = resources.find_cell(notebook, cell_id)
+    return resources.cell_document(name, index, cell)
+
+
+@mcp.resource(
+    resources.OUTPUT_RESOURCE,
+    name="notebook-cell-output",
+    description="One output of one cell, with its own MIME type. Read it only if you need the bytes.",
+    annotations=audience_annotations(AUDIENCE_ASSISTANT),
+    meta={CACHE_META_KEY: {"ttlMs": resources.OUTPUT_TTL_MS, "cacheScope": SCOPE_PRIVATE}},
+)
+async def cell_output_resource(name: str, cell_id: str, index: str) -> str:
+    """One output, which is the point of all three.
+
+    A tool result says an output exists, how big it is and what type it is.
+    An agent that needs the bytes asks for them here; an agent that only
+    needed to know the cell succeeded does not pay for them. A cell that
+    printed a megabyte otherwise spends a megabyte of context every time
+    anybody reads it.
+
+    The audience is the assistant alone: a person reads outputs in their
+    notebook, where they are rendered, not through a URI.
+
+    Held longer than the notebook because an output does not change — a
+    re-run *replaces* a cell's outputs rather than editing one, and the new
+    ones are at new positions.
+    """
+    notebook = await resources.read_notebook(notebook_manager, name)
+    _, cell = resources.find_cell(notebook, cell_id)
+    outputs = list(getattr(cell, "outputs", []) or [])
+    try:
+        position = int(index)
+    except ValueError:
+        raise resources.ResourceNotFound(f"{index!r} is not an output index")
+    if position < 0 or position >= len(outputs):
+        raise resources.ResourceNotFound(
+            f"Cell {cell_id} has {len(outputs)} output(s); there is no {position}"
+        )
+    return resources.output_text(outputs[position])
 
 
 @mcp.resource(CAPABILITIES_RESOURCE)

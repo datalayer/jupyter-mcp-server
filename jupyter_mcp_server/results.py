@@ -61,6 +61,18 @@ SCOPE_PRIVATE = "private"
 META_NAMESPACE = "io.jupyter-mcp"
 
 
+def audience_annotations(*audiences: str) -> Annotations:
+    """Content annotations saying who something is for.
+
+    Here rather than at the call site for the reason the whole module is: if
+    the Working Group deprecates annotations, one function stops returning
+    them. A resource declares its audience the same way a tool result does,
+    and building `Annotations(...)` in a second place would make that two
+    edits — which is exactly what the invariant test next door refuses.
+    """
+    return Annotations(audience=list(audiences))
+
+
 def meta_key(name: str) -> str:
     """A `_meta` key of this server's, namespaced."""
     return f"{META_NAMESPACE}/{name}"
