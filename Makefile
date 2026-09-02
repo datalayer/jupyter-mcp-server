@@ -180,6 +180,10 @@ test-conformance: ## Run the MCP specification's own conformance suite
 
 SOURCEY_SNAPSHOT_TIMEOUT ?= 180
 
+# The extension entry-point names this repo publishes, read out of its own
+# pyproject files: the root package and everything under extensions/.
+SOURCEY_REPO_EXTENSIONS = python -c 'import glob,tomllib;fs=["pyproject.toml"]+sorted(glob.glob("extensions/*/pyproject.toml"));print(",".join(sorted({n for f in fs for n in ((tomllib.load(open(f,"rb")).get("project") or {}).get("entry-points") or {}).get("jupyter_mcp_server.extensions",{}) or {}})))'
+
 sync-sourcey: ## regenerate the generated MCP reference under docs/sourcey
 	@# The four steps of the Docs workflow's "Regenerate the MCP reference",
 	@# plus the `npm install` it runs first: docs/ has its own package.json and
@@ -189,17 +193,6 @@ sync-sourcey: ## regenerate the generated MCP reference under docs/sourcey
 	  echo "jupyter-mcp-server is not on PATH."; \
 	  echo "Run 'make dev' and 'pip install ./extensions/sandboxes' first."; \
 	  exit 1; }
-	@# The snapshot is whatever the *installed* server advertises, and any
-	@# package registering a jupyter_mcp_server.extensions entry point changes
-	@# that. CI installs only . and ./extensions/sandboxes, so an environment
-	@# carrying more than "sandboxes" produces a snapshot CI can never
-	@# reproduce -- datalayer_jupyter_mcp_server's "spaces" adds tools and its
-	@# tool_policy hides others. Refuse rather than overwrite the checked-in
-	@# reference with it; set SOURCEY_ALLOW_EXTRA_EXTENSIONS=1 to override.
-	@python -c 'import os,sys;\
-	from importlib.metadata import entry_points;\
-	extra=sorted(e.name for e in entry_points().select(group="jupyter_mcp_server.extensions") if e.name != "sandboxes");\
-	sys.exit(0) if not extra or os.environ.get("SOURCEY_ALLOW_EXTRA_EXTENSIONS") else sys.exit("refusing to snapshot: this environment registers MCP extensions CI does not have: %s\n  pip uninstall them, or use a clean venv with just this package and ./extensions/sandboxes.\n  Set SOURCEY_ALLOW_EXTRA_EXTENSIONS=1 to snapshot anyway." % ", ".join(extra))'
 	cd docs && npm install --no-audit --no-fund
 	@# Step 1 spawns the server over stdio. It used to sit there for two
 	@# minutes after writing mcp.json -- mcp-parser leaves a per-request timer
@@ -208,12 +201,22 @@ sync-sourcey: ## regenerate the generated MCP reference under docs/sourcey
 	@# answers at all, and stdin is closed so the child cannot read the
 	@# terminal. Whatever the exit status, the snapshot has to be usable, so
 	@# the artifact is checked before the three steps that consume it.
+	@# The snapshot is whatever the installed server advertises, so an
+	@# environment carrying an extension beyond the ones this repo ships
+	@# answers differently and the reference stops matching CI, which installs
+	@# only . and ./extensions/sandboxes. JUPYTER_MCP_EXTENSIONS pins discovery
+	@# to the entry-point names declared by this repo's own pyproject files --
+	@# read from them rather than written down here, so adding an extension
+	@# needs no edit.
+	exts=$$($(SOURCEY_REPO_EXTENSIONS)) ; \
+	echo "snapshotting with extensions: $$exts" ; \
 	cd docs/sourcey && \
 	  if command -v timeout >/dev/null 2>&1 ; then \
-	    timeout --foreground -k 5 $(SOURCEY_SNAPSHOT_TIMEOUT) \
+	    JUPYTER_MCP_EXTENSIONS="$$exts" timeout --foreground -k 5 $(SOURCEY_SNAPSHOT_TIMEOUT) \
 	      node snapshot.mjs jupyter-mcp-server mcp.json </dev/null ; \
 	  else \
-	    node snapshot.mjs jupyter-mcp-server mcp.json </dev/null ; \
+	    JUPYTER_MCP_EXTENSIONS="$$exts" \
+	      node snapshot.mjs jupyter-mcp-server mcp.json </dev/null ; \
 	  fi ; \
 	  status=$$? ; \
 	  if [ $$status -eq 124 ] ; then \

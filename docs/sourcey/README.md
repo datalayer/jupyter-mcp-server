@@ -40,14 +40,14 @@ That runs `npm install` in `docs/` — which a monorepo-wide install does not co
 `docs/` is not one of the workspaces — then the four steps below, checking that step 1
 produced a usable `mcp.json` before the steps that read it.
 
-It also refuses to run in an environment that registers `jupyter_mcp_server.extensions`
-entry points beyond `sandboxes`. The snapshot is whatever the *installed* server
-advertises, so an extra extension silently changes it —
-`datalayer_jupyter_mcp_server`'s `spaces` adds `find_notebook` and `list_spaces` and its
-tool policy hides `connect_to_jupyter`, `list_files` and `list_kernels` — and the result
-is a reference CI can never reproduce, since it installs only this package and
-`extensions/sandboxes`. Use a clean environment, or set
-`SOURCEY_ALLOW_EXTRA_EXTENSIONS=1` if you know what you are doing.
+It also pins which extensions load. The snapshot is whatever the *installed* server
+advertises, so an unrelated extension installed beside it silently changes the reference:
+`datalayer_jupyter_mcp_server`'s `spaces` adds `find_notebook` and `list_spaces`, and its
+tool policy hides `connect_to_jupyter`, `list_files` and `list_kernels` — 21 tools where
+CI, which installs only this package and `extensions/sandboxes`, sees 22. The target sets
+`JUPYTER_MCP_EXTENSIONS` to the entry-point names this repo's own `pyproject.toml` files
+declare, so it reproduces CI's surface from any development environment, and adding an
+extension to `extensions/` needs no change here.
 
 The steps it runs, if you would rather drive them by hand:
 

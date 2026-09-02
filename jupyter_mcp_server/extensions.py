@@ -23,6 +23,7 @@ which contributes the sandbox lifecycle tools and sandbox-backed execution.
 from __future__ import annotations
 
 import logging
+import os
 from importlib import metadata
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -33,6 +34,11 @@ logger = logging.getLogger(__name__)
 
 #: Entry-point group used to discover installed extensions.
 ENTRY_POINT_GROUP = "jupyter_mcp_server.extensions"
+
+#: Comma-separated entry-point names to load, to the exclusion of everything
+#: else on the group. Unset or empty means every installed extension, which is
+#: what a server should normally do.
+EXTENSIONS_ENV = "JUPYTER_MCP_EXTENSIONS"
 
 
 class JupyterMCPExtension:
@@ -146,15 +152,34 @@ class ExtensionManager:
         may *replace* a tool another registered, and the SDK keeps the
         original when a name is registered twice. Sorting by name gives such
         an extension something it can rely on.
+
+        ``JUPYTER_MCP_EXTENSIONS`` narrows discovery to the entry-point names
+        it lists. What it is for: the tool surface a client sees is whatever
+        happens to be installed beside the server, so an environment carrying
+        an extra extension answers differently from a bare one — which is a
+        problem when the answer has to be reproducible, as it does for the
+        generated reference in ``docs/sourcey``. Unset, every installed
+        extension loads, which is what a server should normally do.
         """
         if self._discovered:
             return
         self._discovered = True
+        allowed = {
+            part.strip()
+            for part in (os.environ.get(EXTENSIONS_ENV) or "").split(",")
+            if part.strip()
+        }
         try:
             entry_points = metadata.entry_points(group=ENTRY_POINT_GROUP)
         except TypeError:  # pragma: no cover - Python < 3.10 compatibility
             entry_points = metadata.entry_points().get(ENTRY_POINT_GROUP, [])
         for entry_point in sorted(entry_points, key=lambda point: point.name):
+            if allowed and entry_point.name not in allowed:
+                logger.info(
+                    "Skipping Jupyter MCP extension '%s': %s selects %s",
+                    entry_point.name, EXTENSIONS_ENV, ", ".join(sorted(allowed)),
+                )
+                continue
             try:
                 factory = entry_point.load()
                 extension = factory() if callable(factory) else factory
