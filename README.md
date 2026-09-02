@@ -26,14 +26,14 @@
 
 📖 [Documentation](https://jupyter-mcp-server.datalayer.tech) &nbsp;·&nbsp; 🔧 [Tools](https://jupyter-mcp-server.datalayer.tech/mcp) &nbsp;·&nbsp; 💬 [Community](https://jupyter-mcp-server.datalayer.tech/community)
 
-[![HOT NEWS](https://img.shields.io/badge/%F0%9F%94%A5%20HOT%20NEWS-Hosted%20MCP%20is%20live-E74C3C?style=for-the-badge&labelColor=922B21)](https://jupyter-mcp-server.datalayer.tech/hosted)
+[![HOT NEWS](https://img.shields.io/badge/%F0%9F%94%A5%20HOT%20NEWS-Hosted%20MCP%20is%20live-E74C3C?style=for-the-badge&labelColor=922B21)](https://datalayer.ai)
 
 **No process to run.** Datalayer now hosts this server for you at
 **`https://mcp.datalayer.run/mcp`** — one endpoint for every agent and every notebook.
 Sign in from your browser, approve what the agent may do, and your work keeps running
 on the server after the agent disconnects.
 
-→ [**Hosted Jupyter MCP Server**](https://jupyter-mcp-server.datalayer.tech/hosted)
+→ [**Hosted Jupyter MCP Server**](https://datalayer.ai)
 
 [![Jupyter MCP Server 2](https://images.datalayer.io/products/jupyter-mcp-server/jupyter-mcp-server-2.png)](https://datalayer.ai)
 
@@ -149,7 +149,7 @@ names when convenient — the old ones are deprecated, not removed.
 - [Key Features](#-key-features)
 - [MCP Overview](#-mcp-overview)
 - [Getting Started](#-getting-started)
-- [Sandbox Variants](#-execution-engines)
+- [Sandbox Variants](#-sandbox-variants)
 - [Best Practices](#-best-practices)
 - [Contributing](#-contributing)
 - [Resources](#-resources)
@@ -173,80 +173,42 @@ come with GPUs and the execution survives a disconnect.
 
 ### 🔧 Tools Overview
 
-The server provides a rich set of tools for interacting with Jupyter notebooks, categorized as follows.
-For more details on each tool, their parameters, and return values, please refer to the [official Tools documentation](https://jupyter-mcp-server.datalayer.tech/mcp).
+Every tool, with its parameters, schema and return value, is generated from a live
+snapshot of the running server and published at
+[**jupyter-mcp-server.datalayer.tech/mcp**](https://jupyter-mcp-server.datalayer.tech/mcp) — so it is never out of step with the
+code, which a table copied into this file would be.
 
-#### Server and Code Sandbox Management Tools
+They fall into four groups:
 
-| Name                 | Description                                                                                                                                                                                                                                                                                     |
-| :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_files`         | List files and directories in the Jupyter server's file system.                                                                                                                                                                                                                                 |
-| `list_kernels`       | List all available and running kernel sessions on the Jupyter server.                                                                                                                                                                                                                           |
-| `launch_sandbox`     | Launch a code sandbox (eval/docker/jupyter-server/datalayer/daytona/e2b/coreweave/cloudflare/kaggle/google-colab/monty/modal) as an alternative execution backend for `execute_code`. Supports variant-specific options including GPU flavor for supported backends. Requires the `jupyter_mcp_sandboxes` extension. |
-| `list_sandboxes`     | List launched code sandboxes and their state (active flag, variant, status, and selected code sandbox options). Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                 |
-| `use_sandbox`        | Select or clear the active sandbox used by `execute_code`, enabling dynamic routing between kernel-backed and sandbox-backed execution. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                         |
-| `terminate_sandbox`  | Stop and unregister a launched code sandbox. Requires the `jupyter_mcp_sandboxes` extension.                                                                                                                                                                                                    |
-| `connect_to_jupyter` | Connect to a Jupyter server dynamically without restarting the MCP server. *Not available when running as Jupyter extension. Useful for switching servers dynamically or avoiding hardcoded configuration.*                                                                                     |
+- **Server and code sandbox** — browse the Jupyter file system, list kernels, connect to
+  a server at runtime, and launch, select and terminate code sandboxes.
+- **Notebooks** — open, create and switch between notebooks, list them, read one, restart
+  its kernel, release it.
+- **Cells** — read, insert, delete, move, reorder and edit cells, surgically or wholesale,
+  and clear their outputs.
+- **Execution** — run a cell or arbitrary code on the active backend, with multimodal
+  output and streaming where the sandbox supports it.
 
-#### Multi-Notebook Management Tools
-
-| Name               | Description                                                                |
-| :----------------- | :------------------------------------------------------------------------- |
-| `use_notebook`     | Connect to a notebook file, create a new one, or switch between notebooks. |
-| `list_notebooks`   | List all notebooks available on the Jupyter server and their status        |
-| `restart_notebook` | Restart the kernel for a specific managed notebook.                        |
-| `unuse_notebook`   | Disconnect from a specific notebook and release its resources.             |
-| `read_notebook`    | Read notebook cells source content with brief or detailed format options.  |
-
-#### Cell Operations and Execution Tools
-
-| Name                       | Description                                                                                                                                                                                                                                                    |
-| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read_cell`                | Read the full content (Metadata, Source and Outputs) of a single cell.                                                                                                                                                                                         |
-| `insert_cell`              | Insert a new code or markdown cell at a specified position.                                                                                                                                                                                                    |
-| `delete_cell`              | Delete a cell at a specified index.                                                                                                                                                                                                                            |
-| `move_cell`                | Move a cell from one position to another within a notebook.                                                                                                                                                                                                    |
-| `clear_cell_output`        | Clear the outputs and execution count of a single code cell.                                                                                                                                                                                                   |
-| `overwrite_cell_source`    | Overwrite the source code of an existing cell.                                                                                                                                                                                                                 |
-| `edit_cell_source`         | Apply surgical find-and-replace edits to a cell's source without full rewrite.                                                                                                                                                                                 |
-| `execute_cell`             | Execute a cell with timeout, supports multimodal output including images.                                                                                                                                                                                      |
-| `insert_execute_code_cell` | Insert a new code cell and execute it in one step.                                                                                                                                                                                                             |
-| `execute_code`             | Execute code directly in the active backend (kernel by default, or active sandbox if selected), supports magic commands and shell commands. When the selected sandbox supports streaming execution, progress/output events are consumed and returned in order. |
+Sandbox tools need the optional `jupyter_mcp_sandboxes` extension; see
+[Sandbox Variants](#-sandbox-variants).
 
 #### JupyterLab Integration
 
 *Available only when JupyterLab mode is enabled. It is enabled by default.*
 
-When running in JupyterLab mode, Jupyter MCP Server integrates with [jupyter-mcp-tools](https://github.com/datalayer/jupyter-mcp-tools) to expose additional JupyterLab commands as MCP tools. By default, the following tools are enabled:
-
-| Name                         | Description                                            |
-| :--------------------------- | :----------------------------------------------------- |
-| `notebook_run-all-cells`     | Execute all cells in the current notebook sequentially |
-| `notebook_get-selected-cell` | Get information about the currently selected cell      |
-
-<details>
-<summary><strong>📚 Learn how to customize additional tools</strong></summary>
-
-You can now customize which tools from `jupyter-mcp-tools` are available using the `allowed_jupyter_mcp_tools` configuration parameter. This allows you to enable additional notebook operations, console commands, file management tools, and more.
-
-```bash
-# Example: Enable additional tools via command-line
-jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN --JupyterMCPServerExtensionApp.allowed_jupyter_mcp_tools="notebook_run-all-cells,notebook_get-selected-cell,notebook_append-execute,console_create"
-```
-
-For the complete list of available tools and detailed configuration instructions, please refer to the [Additional Tools documentation](https://jupyter-mcp-server.datalayer.tech/features/tools-jupyterlab).
-
-</details>
+In JupyterLab mode the server also exposes JupyterLab commands as MCP tools through
+[jupyter-mcp-tools](https://github.com/datalayer/jupyter-mcp-tools) —
+`notebook_run-all-cells` and `notebook_get-selected-cell` by default, with more
+selectable through `allowed_jupyter_mcp_tools`. The full list and how to configure it are
+in the [Additional Tools documentation](https://jupyter-mcp-server.datalayer.tech/operations/tools-jupyterlab).
 
 ### 📝 Prompt Overview
 
-The server also supports [prompt feature](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) of MCP, providing a easy way for user to interact with Jupyter notebooks.
-
-| Name           | Description                                                                 |
-| :------------- | :-------------------------------------------------------------------------- |
-| `jupyter-cite` | Cite specific cells from specified notebook (like `@` in Coding IDE or CLI) |
-
-For more details on each prompt, their input parameters, and return content, please refer to the [official Prompt documentation](https://jupyter-mcp-server.datalayer.tech/features/prompts).
+The server implements the MCP
+[prompts feature](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts).
+`jupyter-cite` cites specific cells from a notebook, the way `@` does in a coding IDE or
+CLI. Input parameters and returned content are in the
+[Prompts documentation](https://jupyter-mcp-server.datalayer.tech/operations/prompts).
 
 ## 🏁 Getting Started
 
@@ -394,7 +356,7 @@ Then, configure your client:
 
 ---
 
-For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://jupyter-mcp-server.datalayer.tech/clients/claude_desktop), [VS Code](https://jupyter-mcp-server.datalayer.tech/clients/vscode), [Cursor](https://jupyter-mcp-server.datalayer.tech/clients/cursor), [Cline](https://jupyter-mcp-server.datalayer.tech/clients/cline), and [Windsurf](https://jupyter-mcp-server.datalayer.tech/clients/windsurf) — see the [Clients documentation](https://jupyter-mcp-server.datalayer.tech/clients).
+For detailed instructions on configuring various MCP clients—including [Claude Desktop](https://datalayer.ai/docs/mcp-clients/claude-desktop), [VS Code](https://datalayer.ai/docs/mcp-clients/vscode), [Cursor](https://datalayer.ai/docs/mcp-clients/cursor), [Cline](https://datalayer.ai/docs/mcp-clients/cline), and [Windsurf](https://datalayer.ai/docs/mcp-clients/windsurf) — see [MCP Client Configuration](https://jupyter-mcp-server.datalayer.tech/getting_started#mcp-client-configuration).
 
 ## 🧩 Sandbox Variants
 
@@ -412,313 +374,23 @@ To expose sandbox lifecycle tools (`launch_sandbox`, `list_sandboxes`,
 `use_sandbox`, `terminate_sandbox`) or run any non-`jupyter-server` sandbox variant,
 install it with `pip install jupyter_mcp_sandboxes`.
 
-| Engine                   | `SANDBOX_VARIANT` | Extra install                    | Key variables                                                                                                                                                                                                             |
-| ------------------------ | ----------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jupyter Server (default) | `jupyter-server`  | —                                | `JUPYTER_URL`, `JUPYTER_TOKEN`                                                                                                                                                                                            |
-| JupyterHub               | `jupyter-server`  | —                                | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`                                                                                                                                                                                  |
-| Datalayer                | `datalayer`       | `jupyter-mcp-server[datalayer]`  | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT`                                                                                                                                                           |
-| Kaggle                   | `kaggle`          | `jupyter-mcp-server[kaggle]`     | Default batch mode: Kaggle credentials (`KAGGLE_API_TOKEN` or `kaggle.json`). Interactive mode: `CODE_SANDBOX_URL` + (`KAGGLE_API_TOKEN`/`CODE_SANDBOX_TOKEN` or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
-| Google Colab             | `google-colab`    | `jupyter-mcp-server`             | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN`                                                                                                                                                         |
-| Monty                    | `monty`           | `jupyter-mcp-server[monty]`      | —                                                                                                                                                                                                                         |
-| Modal                    | `modal`           | `jupyter-mcp-server[modal]`      | Modal credentials                                                                                                                                                                                                         |
-| Daytona                  | `daytona`         | `jupyter-mcp-server[daytona]`    | `DAYTONA_API_KEY`, or `DAYTONA_JWT_TOKEN` + `DAYTONA_ORGANIZATION_ID`. Optional accelerator: `SANDBOX_GPU`.                                                                                                               |
-| E2B                      | `e2b`             | `jupyter-mcp-server[e2b]`        | `E2B_API_KEY`. Optional: `E2B_DOMAIN`.                                                                                                                                                                                    |
-| CoreWeave                | `coreweave`       | `jupyter-mcp-server[coreweave]`  | `CWSANDBOX_API_KEY`. Optional: `CWSANDBOX_BASE_URL`, accelerator `SANDBOX_GPU`.                                                                                                                                           |
-| Cloudflare               | `cloudflare`      | `jupyter-mcp-server[cloudflare]` | `CLOUDFLARE_SANDBOX_API_URL`, `CLOUDFLARE_SANDBOX_API_KEY`                                                                                                                                                                |
-
-### 1. Jupyter Server
-
-The default engine. Point the server at a running Jupyter Server:
-
-```bash
-pip install jupyter-mcp-server
-```
-
-```json
-"env": {
-  "JUPYTER_URL": "http://localhost:8888",
-  "JUPYTER_TOKEN": "MY_TOKEN"
-}
-```
-
-### 2. JupyterHub
-
-JupyterHub uses the same `jupyter-server` engine, targeting a user's single-user server.
-Authenticate with a JupyterHub API token that has the `access:servers` scope:
-
-```json
-"env": {
-  "CODE_SANDBOX_URL": "https://your-jupyterhub.domain/user/<username>",
-  "CODE_SANDBOX_TOKEN": "your-jupyterhub-api-token",
-  "DOCUMENT_URL": "https://your-jupyterhub.domain/user/<username>",
-  "DOCUMENT_TOKEN": "your-jupyterhub-api-token"
-}
-```
-
-See the [JupyterHub setup guide](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyterhub) for full details.
-
-### 3. Datalayer
-
-Execute on the [Datalayer](https://datalayer.ai) cloud code sandbox with GPU support
-and persistence:
-
-```bash
-pip install "jupyter-mcp-server[datalayer]"
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "datalayer",
-  "CODE_SANDBOX_URL": "https://prod1.datalayer.run",
-  "CODE_SANDBOX_TOKEN": "your-datalayer-token",
-  "SANDBOX_ENVIRONMENT": "python-cpu-env"
-}
-```
-
-### 4. Kaggle
-
-Execute against Kaggle. By default, when no code sandbox URL/channels are provided,
-the server uses the transparent Kaggle **batch** path from `code-sandboxes`.
-If code sandbox values are provided, it uses Kaggle interactive kernel mode.
-
-```bash
-pip install "jupyter-mcp-server[kaggle]"
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "kaggle",
-  "KAGGLE_API_TOKEN": "...",
-  "SANDBOX_GPU": "T4"
-}
-```
-
-To force interactive code sandbox mode, provide `CODE_SANDBOX_URL` and either:
-
-- `KAGGLE_API_TOKEN` / `CODE_SANDBOX_TOKEN` (create kernel), or
-- `CODE_SANDBOX_ID` / `CODE_SANDBOX_CHANNELS_URL` (connect existing kernel).
-
-Supported Kaggle accelerator values include:
-`NvidiaTeslaP100`, `NvidiaTeslaT4`, `NvidiaTeslaT4Highmem`, `NvidiaL4`,
-`NvidiaL4X1`, `NvidiaTeslaA100`, `NvidiaH100`, and `NvidiaRtxPro6000`.
-Aliases such as `P100` and `T4` are accepted.
-
-> Note: Kaggle free-tier availability usually includes `P100` and `T4`. Other
-> accelerators are commonly restricted to specific competitions or internal
-> Kaggle workloads.
-
-### 5. Google Colab
-
-Execute against a Google Colab code sandbox. Install Jupyter MCP Server and provide the
-values from an active Colab notebook session:
-
-```bash
-pip install jupyter-mcp-server
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "google-colab",
-  "CODE_SANDBOX_URL": "https://8080-m-s-kkb-...-d.us-east1-0.prod.colab.dev",
-  "CODE_SANDBOX_ID": "a1b2c3d4-....",
-  "CODE_SANDBOX_PROXY_TOKEN": "ya29...."
-}
-```
-
-> The proxy token (`colab-runtime-proxy-token`) is short-lived; refresh it when it
-> expires.
-
-You can also pass `CODE_SANDBOX_CHANNELS_URL` with the Colab channels WebSocket URL
-and let the server derive `CODE_SANDBOX_URL` and `CODE_SANDBOX_ID`.
-
-### 6. Monty
-
-Execute in [Monty](https://github.com/pydantic/monty), a secure in-process Python
-interpreter — ideal for short, safe LLM snippets. No credentials required.
-
-```bash
-pip install "jupyter-mcp-server[monty]"
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "monty"
-}
-```
-
-> Monty supports only a subset of Python; third-party libraries and rich display
-> outputs are not available.
-
-### 7. Modal
-
-Execute in a [Modal](https://modal.com/docs/guide) cloud sandbox. Install the
-extra and configure Modal credentials:
-
-```bash
-pip install "jupyter-mcp-server[modal]"
-modal token new
-```
-
-For local development, `modal token new` is usually enough because the Modal SDK
-loads credentials from `~/.modal.toml`.
-
-If you run in CI/CD, containers, or hosted runners, set both environment
-variables below.
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "modal",
-  "MODAL_TOKEN_ID": "ak-...",
-  "MODAL_TOKEN_SECRET": "as-..."
-}
-```
-
-Why both variables? Modal uses a token pair for environment-based auth:
-
-- `MODAL_TOKEN_ID`: public token identifier.
-- `MODAL_TOKEN_SECRET`: secret half paired with that id.
-
-Providing only one is insufficient for authentication.
-
-If needed, export both values from your local Modal config:
-
-```bash
-python - <<'PY'
-import pathlib
-import tomllib
-
-cfg = tomllib.loads(pathlib.Path("~/.modal.toml").expanduser().read_text())
-profile = cfg.get("default", cfg)
-token_id = profile.get("token_id")
-token_secret = profile.get("token_secret")
-if token_id and token_secret:
-    print(f"export MODAL_TOKEN_ID={token_id}")
-    print(f"export MODAL_TOKEN_SECRET={token_secret}")
-else:
-    raise SystemExit("Could not find token_id/token_secret in ~/.modal.toml")
-PY
-```
-
-### 8. Daytona
-
-Execute in a [Daytona](https://www.daytona.io/docs/) cloud sandbox. Install the
-extra and provide a Daytona API key:
-
-```bash
-pip install "jupyter-mcp-server[daytona]"
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "daytona",
-  "DAYTONA_API_KEY": "your-daytona-api-key"
-}
-```
-
-Instead of an API key you can authenticate with a JWT token, which Daytona reads
-together with the organization it belongs to:
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "daytona",
-  "DAYTONA_JWT_TOKEN": "your-daytona-jwt-token",
-  "DAYTONA_ORGANIZATION_ID": "your-daytona-organization-id"
-}
-```
-
-Ask for a GPU with `SANDBOX_GPU` (for example `H100`, `H200`, `RTX-4090`).
-Daytona also sells preemptible ("spot") GPU capacity, which is chosen through the
-`code-sandboxes` API rather than a `SANDBOX_*` variable.
-
-> Daytona's code interpreter holds a namespace, so variables set in one call are
-> still there in the next. Rich display data (figures, HTML) is not returned.
-
-### 9. E2B
-
-Execute in an [E2B](https://docs.e2b.dev/client) sandbox. Install the extra and
-provide an E2B API key:
-
-```bash
-pip install "jupyter-mcp-server[e2b]"
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "e2b",
-  "E2B_API_KEY": "your-e2b-api-key"
-}
-```
-
-Set `E2B_DOMAIN` to reach an E2B deployment other than the default `e2b.dev`.
-
-The sandbox is created from E2B's `code-interpreter-v1` template, which is the one
-carrying the Jupyter kernel the code interpreter talks to.
-
-> Each execution context is a Jupyter kernel, so state persists across calls, and
-> rich outputs — figures, HTML — come back as results.
-
-### 10. CoreWeave
-
-Execute in a [CoreWeave Sandbox](https://docs.coreweave.com/products/sandboxes),
-a container on CoreWeave's GPU cloud. Install the extra and provide a CoreWeave
-Sandboxes API key:
-
-```bash
-pip install "jupyter-mcp-server[coreweave]"
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "coreweave",
-  "CWSANDBOX_API_KEY": "your-coreweave-api-key",
-  "SANDBOX_GPU": "H100"
-}
-```
-
-`SANDBOX_GPU` is optional; without it the sandbox is a plain container. Set
-`CWSANDBOX_BASE_URL` to reach an endpoint other than the default
-`https://api.cwsandbox.com`.
-
-> State is kept by a session process the variant holds open on stdin. If that
-> process cannot start, each snippet runs in a process of its own and variables do
-> not carry over. Rich display data is not returned.
-
-### 11. Cloudflare
-
-Execute in a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/).
-Cloudflare's own SDK is a TypeScript Workers binding, which a Python process
-cannot hold, so this variant drives the **sandbox bridge** — a reference Worker
-Cloudflare publishes that exposes the SDK over HTTP. Deploy it once:
-
-```bash
-npm create cloudflare -- sandbox-bridge \
-  --template=cloudflare/sandbox-sdk/bridge/worker
-```
-
-The deployment returns the bridge's `workers.dev` URL and generates the key it
-accepts. Both are required:
-
-```bash
-pip install "jupyter-mcp-server[cloudflare]"
-```
-
-```json
-"env": {
-  "SANDBOX_VARIANT": "cloudflare",
-  "CLOUDFLARE_SANDBOX_API_URL": "https://sandbox-bridge.your-subdomain.workers.dev",
-  "CLOUDFLARE_SANDBOX_API_KEY": "your-bridge-api-key"
-}
-```
-
-See the [sandbox bridge documentation](https://developers.cloudflare.com/sandbox/bridge/)
-for the Worker itself.
-
-> Each snippet runs in a process of its own, so `x = 1` is gone by the next call.
-> Combine statements into a single cell, or keep state in a file — the filesystem
-> persists. Rich display data is not returned.
-
-> You can also select the engine on the command line with
-> `--sandbox-variant`, `--code-sandbox-proxy-token`, and `--sandbox-environment`.
+| Engine | `SANDBOX_VARIANT` | Extra install | Key variables | Docs |
+| ------ | ----------------- | ------------- | ------------- | ---- |
+| Jupyter Server (default) | `jupyter-server` | — | `JUPYTER_URL`, `JUPYTER_TOKEN` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyter-server) |
+| JupyterHub | `jupyter-server` | — | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/jupyterhub) |
+| Datalayer | `datalayer` | `jupyter-mcp-server[datalayer]` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_TOKEN`, `SANDBOX_ENVIRONMENT` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/datalayer) |
+| Kaggle | `kaggle` | `jupyter-mcp-server[kaggle]` | Kaggle credentials, or `CODE_SANDBOX_URL` for interactive mode | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/kaggle) |
+| Google Colab | `google-colab` | `jupyter-mcp-server` | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/google-colab) |
+| Monty | `monty` | `jupyter-mcp-server[monty]` | — | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/monty) |
+| Modal | `modal` | `jupyter-mcp-server[modal]` | Modal credentials | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/modal) |
+| Daytona | `daytona` | `jupyter-mcp-server[daytona]` | `DAYTONA_API_KEY`, or `DAYTONA_JWT_TOKEN` + `DAYTONA_ORGANIZATION_ID` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/daytona) |
+| E2B | `e2b` | `jupyter-mcp-server[e2b]` | `E2B_API_KEY` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/e2b) |
+| CoreWeave | `coreweave` | `jupyter-mcp-server[coreweave]` | `CWSANDBOX_API_KEY` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/coreweave) |
+| Cloudflare | `cloudflare` | `jupyter-mcp-server[cloudflare]` | `CLOUDFLARE_SANDBOX_API_URL`, `CLOUDFLARE_SANDBOX_API_KEY` | [Setup](https://jupyter-mcp-server.datalayer.tech/code-sandboxes/cloudflare) |
+
+Each engine has its own page with the credentials it needs, the accelerator options it
+accepts and a worked client configuration — start from
+[**jupyter-mcp-server.datalayer.tech/code-sandboxes**](https://jupyter-mcp-server.datalayer.tech/code-sandboxes).
 
 ## 🧪 Testing
 

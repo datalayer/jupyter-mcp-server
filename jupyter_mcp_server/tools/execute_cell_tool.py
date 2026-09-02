@@ -488,6 +488,18 @@ class ExecuteCellTool(BaseTool):
                     last_progress_emit = 0.0
                     timed_out = False
 
+                    # How to stop the cell, as opposed to stopping the wait
+                    # for it. This is the *streaming* loop — the documented
+                    # mode for long-running cells, and so the one most likely
+                    # to be cancelled — and it had neither hook while the
+                    # non-streaming loop in `utils` had both.
+                    try:
+                        from jupyter_mcp_server.tasks import register_interrupt
+
+                        await register_interrupt(kernel.interrupt)
+                    except Exception as error:  # noqa: BLE001 - never in the way
+                        logger.debug("The interrupt could not be registered: %s", error)
+
                     # Monitor progress
                     while not execution_task.done():
                         elapsed = time.perf_counter() - start_time
@@ -517,6 +529,20 @@ class ExecuteCellTool(BaseTool):
                                     f"[{elapsed:.1f}s] {new_count} new output(s), "
                                     f"{last_output_count} total"
                                 )
+                                # Into the task, where a reader can see them.
+                                # A cell cancelled at minute nine of ten has
+                                # no result and may have printed five hundred
+                                # lines.
+                                try:
+                                    from jupyter_mcp_server.tasks import record_output
+
+                                    await record_output(
+                                        safe_extract_outputs(current_outputs)
+                                    )
+                                except Exception as error:  # noqa: BLE001
+                                    logger.debug(
+                                        "Progress could not be recorded: %s", error
+                                    )
 
                         except Exception as e:
                             timeline.append(f"[{elapsed:.1f}s] Error checking outputs: {e}")

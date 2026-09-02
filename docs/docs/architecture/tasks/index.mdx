@@ -130,6 +130,51 @@ Outside a task this answers `False` and does nothing, which is right: a
 synchronous call has the client on the other end of the connection, and the
 client can drop it.
 
+**Every** loop that waits for a cell registers it — `execute_cell` in both
+its streaming and non-streaming forms, and `execute_code` — so cancelling a
+task that is running a cell stops the cell whichever tool started it.
+
+That is worth stating because it was not true. `execute_cell(stream=True)`
+runs a monitor loop of its own, and it is the documented mode for
+long-running cells, so it is the one most likely to be cancelled: it had
+neither hook while the other loop had both. A test now finds the loops by
+shape rather than by name, so a fourth is covered on the day it is written.
+
+## A cancelled task keeps what it produced
+
+`result` arrives whole when the tool returns. That is the right shape for a
+call that finishes and no shape at all for one that does not: cancel a
+ten-minute cell at minute nine and the task is `cancelled` with no result,
+though the cell printed five hundred lines — and those lines are exactly what
+the person who cancelled it wanted to read.
+
+So a tool that produces output as it goes says so:
+
+```python
+from jupyter_mcp_server.tasks import record_output
+
+await record_output(outputs_so_far)
+```
+
+It **replaces** rather than appends: the caller holds the whole list of
+outputs so far, and appending would make every reader deduplicate what it
+reads. Outside a task it answers `False` and does nothing, for the same
+reason `register_interrupt` does.
+
+On cancellation the partial output becomes the result — the task is terminal,
+so `tasks/result` serves it. A task that produced nothing keeps no result:
+an empty list there would read as a measured zero rather than as nothing to
+measure, which is the distinction the two refusals above exist for.
+
+A tool's own result always wins. If the call returned while the cancellation
+was landing, the complete answer is not replaced by the half that was visible
+a moment earlier.
+
+A **failed** task keeps its partial output too, though `tasks/result` raises
+for it: a cell that printed for nine minutes and then raised has the output
+somebody needs in order to see *why*, and discarding it at the moment of
+failure discards the diagnosis.
+
 An interrupt that fails does not stop the cancellation. Half of what the
 client asked for is better than none of it, and the failure is logged at
 error — a kernel that could not be interrupted is a sandbox somebody has to

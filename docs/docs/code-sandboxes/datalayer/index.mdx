@@ -48,6 +48,25 @@ SANDBOX_VARIANT=datalayer
 DATALAYER_API_KEY=your-datalayer-token
 ```
 
+The engine reads `DATALAYER_API_KEY` itself. The server also accepts the
+sandbox-neutral spelling, which is what `--code-sandbox-url` and
+`--code-sandbox-token` set and what the other sandboxes use:
+
+| Environment variable | Description |
+|----------------------|-------------|
+| `CODE_SANDBOX_URL` | Datalayer service URL, e.g. `https://prod1.datalayer.run` |
+| `CODE_SANDBOX_TOKEN` | Datalayer API token |
+| `SANDBOX_ENVIRONMENT` | Environment to launch, e.g. `python-cpu-env` |
+
+```json
+"env": {
+  "SANDBOX_VARIANT": "datalayer",
+  "CODE_SANDBOX_URL": "https://prod1.datalayer.run",
+  "CODE_SANDBOX_TOKEN": "your-datalayer-token",
+  "SANDBOX_ENVIRONMENT": "python-cpu-env"
+}
+```
+
 MCP client configuration:
 
 ```json

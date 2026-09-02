@@ -22,6 +22,7 @@ $ pytest tests/test_tasks.py -v
 from __future__ import annotations
 
 import asyncio
+import pathlib
 
 import pytest
 from mcp.shared.exceptions import MCPError
@@ -31,6 +32,8 @@ from jupyter_mcp_server.tasks import (
     DEFAULT_TTL_MS,
     current_task,
     register_interrupt,
+    CURRENT_TASK,
+    record_output,
     IDEMPOTENCY_KEY_META,
     TASK_STATUS_NOTIFICATION,
     MAX_TTL_MS,
@@ -832,3 +835,308 @@ async def test_listing_answers_newest_first(store, extension):
         )
     listed = await extension._handle_list(None, object())
     assert [task.task_id for task in listed.tasks] == ["tsk_2", "tsk_1", "tsk_0"]
+
+
+# ---------------------------------------------------------------------------
+# What the work produced before it stopped
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cancelling_serves_what_the_work_had_already_printed(extension, store):
+    """The whole point of recording output, through the path a client takes.
+
+    An earlier version of this test called `_mark_cancelled` directly on a
+    still-working record, which is a state the real flow never reaches:
+    `tasks/cancel` writes `cancelled` first and *then* the coroutine unwinds.
+    So the test passed against code that skipped the promotion on every real
+    cancellation — a green test for a feature that never once ran.
+    """
+    started = asyncio.Event()
+
+    async def call_next(ctx):
+        await record_output(["line one", "line two"])
+        started.set()
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await asyncio.wait_for(started.wait(), timeout=2)
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    await settle()
+
+    record = await store.get(answer.task.task_id)
+    assert record.status == "cancelled"
+    assert record.result == ["line one", "line two"]
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_task_that_printed_nothing_has_no_result(extension, store):
+    """Empty is not the same as "we did not look". An empty list here reads
+    as a measured zero rather than as nothing to measure, which is the
+    distinction `tasks/result`'s two refusals exist for."""
+
+    async def call_next(ctx):
+        await asyncio.Event().wait()
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    await settle()
+    assert (await store.get(answer.task.task_id)).result is None
+
+
+@pytest.mark.asyncio
+async def test_a_task_that_finished_first_keeps_its_own_result(extension, store):
+    """The race the client lost. A call that returned while the cancellation
+    was landing has the complete answer, and it must not be replaced by the
+    half that was visible a moment earlier."""
+
+    async def call_next(ctx):
+        await record_output(["half"])
+        return ["whole"]
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await settle()
+    await extension._handle_cancel(_Params(answer.task.task_id), object())
+    await settle()
+    record = await store.get(answer.task.task_id)
+    assert record.status == "completed"
+    assert record.result == ["whole"]
+
+
+@pytest.mark.asyncio
+async def test_mark_cancelled_leaves_a_finished_task_alone(extension, store):
+    """A guard, tested as a guard rather than as a path.
+
+    No current caller can reach it: `_mark_cancelled` runs only from `_run`'s
+    `CancelledError` branch, and a call that returned never raises one — so
+    mutation shows nothing else catches this. It is here because
+    `_mark_cancelled` is a method, the invariant is one line, and the failure
+    it prevents is silent: a completed task's own answer replaced by the half
+    that was visible a moment earlier.
+
+    Calling it directly is the mistake that shipped the last version of this
+    feature. The difference is what is being claimed — that the *guard*
+    holds, not that cancellation works.
+    """
+    await store.create(
+        TaskRecord(task_id="tsk_done", status="completed", partial=["half"])
+    )
+    await extension._mark_cancelled("tsk_done")
+    record = await store.get("tsk_done")
+    assert record.status == "completed"
+    assert record.result is None
+
+
+@pytest.mark.asyncio
+async def test_mark_cancelled_does_not_overwrite_a_result_it_already_has(
+    extension, store
+):
+    await store.create(
+        TaskRecord(task_id="tsk_kept", status="cancelled", partial=["half"], result=["whole"])
+    )
+    await extension._mark_cancelled("tsk_kept")
+    assert (await store.get("tsk_kept")).result == ["whole"]
+
+
+@pytest.mark.asyncio
+async def test_a_synchronous_call_records_nothing_and_says_so():
+    """It has no task to attach to and needs none: the client is still on the
+    other end of the connection."""
+    assert await record_output(["out"]) is False
+
+
+@pytest.mark.asyncio
+async def test_the_output_so_far_is_on_the_record(store):
+    await store.create(TaskRecord(task_id="tsk_partial"))
+    token = CURRENT_TASK.set("tsk_partial")
+    try:
+        assert await record_output(["one", "two"], store=store) is True
+    finally:
+        CURRENT_TASK.reset(token)
+    assert (await store.get("tsk_partial")).partial == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_recording_replaces_rather_than_appends(store):
+    """The caller holds the whole list of outputs so far. Appending would
+    make every reader deduplicate what it reads."""
+    await store.create(TaskRecord(task_id="tsk_replace"))
+    token = CURRENT_TASK.set("tsk_replace")
+    try:
+        await record_output(["one"], store=store)
+        await record_output(["one", "two"], store=store)
+    finally:
+        CURRENT_TASK.reset(token)
+    assert (await store.get("tsk_replace")).partial == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_task_keeps_what_it_printed(extension, store):
+    """`tasks/result` raises for a failed task, so this is never served — it
+    is kept because a cell that printed for nine minutes and then raised has
+    the output somebody needs in order to see *why*."""
+
+    async def call_next(ctx):
+        await record_output(["progress"])
+        raise ValueError("the kernel is dead")
+
+    answer = await extension.intercept_tool_call(
+        call(task=TaskMetadata()), object(), call_next
+    )
+    await settle()
+    record = await store.get(answer.task.task_id)
+    assert record.status == "failed"
+    assert record.result == ["progress"]
+
+
+# ---------------------------------------------------------------------------
+# The execution loop actually calls them
+# ---------------------------------------------------------------------------
+
+
+def _execution_wait_loops() -> dict[str, str]:
+    """Every loop that waits for a cell to finish, found rather than named.
+
+    The first version of this read one module — `utils` — and asserted the
+    two hooks were in it. `execute_cell(stream=True)` runs a *second* monitor
+    loop in `execute_cell_tool`, which is the documented mode for
+    long-running cells and therefore the one most likely to be cancelled, and
+    it had neither hook. The test could not see it, so it said nothing.
+
+    So the loops are located by shape: `while not <something>.done():` inside
+    the package. A third one added anywhere is covered on the day it is
+    written, which is the only version of this check worth having.
+    """
+    import ast
+
+    import jupyter_mcp_server
+
+    found: dict[str, str] = {}
+    root = pathlib.Path(jupyter_mcp_server.__file__).parent
+    for path in sorted(root.rglob("*.py")):
+        source = path.read_text()
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:  # pragma: no cover
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.While):
+                continue
+            test = node.test
+            if not (
+                isinstance(test, ast.UnaryOp)
+                and isinstance(test.op, ast.Not)
+                and isinstance(test.operand, ast.Call)
+                and isinstance(test.operand.func, ast.Attribute)
+                and test.operand.func.attr == "done"
+            ):
+                continue
+            where = f"{path.relative_to(root)}:{node.lineno}"
+            found[where] = ast.get_source_segment(source, node) or ""
+    return found
+
+
+def _enclosing_source(where: str) -> str:
+    """The function a loop is in, so the registration before it is visible."""
+    import ast
+
+    import jupyter_mcp_server
+
+    name, line = where.rsplit(":", 1)
+    path = pathlib.Path(jupyter_mcp_server.__file__).parent / name
+    source = path.read_text()
+    tree = ast.parse(source)
+    best = ""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            end = getattr(node, "end_lineno", node.lineno)
+            if node.lineno <= int(line) <= end:
+                segment = ast.get_source_segment(source, node) or ""
+                # The innermost enclosing function, which is the one holding
+                # the kernel.
+                if not best or len(segment) < len(best):
+                    best = segment
+    return best
+
+
+def test_there_is_more_than_one_execution_wait_loop():
+    """The premise of the two tests below, asserted rather than assumed.
+
+    If this ever finds one loop again, either a duplicate was removed — good,
+    and these tests should be simplified — or the search stopped working, and
+    the tests below became vacuous without saying so.
+    """
+    loops = _execution_wait_loops()
+    assert len(loops) >= 2, f"found {sorted(loops)}"
+
+
+def _loops_that_can_interrupt() -> list[str]:
+    """The loops that hold something interruptible.
+
+    All of them, today. Written as a rule rather than asserted of every loop
+    so that a future wait loop with nothing to stop — waiting on a queue,
+    say — is not required to invent an interrupt.
+    """
+    return [
+        where
+        for where in _execution_wait_loops()
+        if ".interrupt()" in _enclosing_source(where)
+    ]
+
+
+@pytest.mark.parametrize("where", sorted(_loops_that_can_interrupt()))
+def test_every_execution_wait_loop_registers_the_interrupt(where):
+    """Cancelling a task cancels the coroutine that *waits* for the cell. The
+    kernel keeps running it, keeps holding the sandbox and keeps costing
+    money, while the task says `cancelled`.
+
+    The *call*, not the name: an earlier version asserted
+    `"register_interrupt" in body`, which the import line satisfies on its
+    own, so deleting the call left it green.
+    """
+    body = _enclosing_source(where)
+    assert "await register_interrupt(" in body, where
+
+
+def _loops_that_watch_outputs() -> list[str]:
+    """The loops that can see output arrive, which are the ones that can
+    stream it.
+
+    Not every wait loop can: `execute_code` waits on a call that returns its
+    outputs whole, so there is nothing to record until it is over. Demanding
+    it of that loop would be demanding something it has no way to do, and the
+    exemption belongs in the rule rather than in a list of names.
+    """
+    return [
+        where
+        for where, loop in _execution_wait_loops().items()
+        if '"outputs"' in loop
+    ]
+
+
+def test_some_loops_watch_outputs_arrive():
+    """The premise of the test below."""
+    assert _loops_that_watch_outputs()
+
+
+@pytest.mark.parametrize("where", sorted(_loops_that_watch_outputs()))
+def test_every_loop_that_watches_outputs_records_them(where):
+    """A cell cancelled at minute nine of ten has no result and may have
+    printed five hundred lines."""
+    loop = _execution_wait_loops()[where]
+    assert "await record_output(" in loop, where
+
+
+@pytest.mark.parametrize("where", sorted(_loops_that_can_interrupt()))
+def test_neither_hook_can_fail_the_cell(where):
+    """Both are bookkeeping about the work. Failing a cell because the note
+    about the cell would not go out trades the work for the story about it."""
+    body = _enclosing_source(where)
+    assert body.count("except Exception") >= 2, where

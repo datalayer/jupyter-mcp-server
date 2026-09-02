@@ -107,6 +107,40 @@ class TestTheTasksPage:
         assert "register_interrupt" in page
         assert hasattr(tasks, "register_interrupt")
 
+    def test_the_output_helper_it_shows_is_the_one_that_exists(self, page):
+        """Same reason as the interrupt above: a page showing a call that
+        raises `ImportError` reads to whoever typed it as their own
+        mistake."""
+        from jupyter_mcp_server import tasks
+
+        assert "record_output" in page
+        assert hasattr(tasks, "record_output")
+
+    def test_the_page_says_replaces_and_the_code_replaces(self, page):
+        """The one thing a caller has to know, and the one that would break
+        silently: appending would have every reader deduplicate what it
+        reads, and the page telling them otherwise is worse than saying
+        nothing."""
+        import inspect
+
+        from jupyter_mcp_server import tasks
+
+        assert "**replaces** rather than appends" in page
+        source = inspect.getsource(tasks.record_output)
+        assert "partial=list(outputs)" in source
+        assert "+=" not in source and "extend" not in source
+
+    def test_the_page_says_a_result_that_arrived_wins_and_it_does(self, page):
+        """A claim about a race, which is the kind nobody re-reads."""
+        import inspect
+
+        from jupyter_mcp_server import tasks
+
+        assert "A tool's own result always wins" in page
+        assert "record.result is None" in inspect.getsource(
+            tasks.TasksExtension._mark_cancelled
+        )
+
     def test_the_store_methods_it_tells_you_to_write_are_the_ones_called(self, page):
         """Both directions, and that is the half that was missing.
 

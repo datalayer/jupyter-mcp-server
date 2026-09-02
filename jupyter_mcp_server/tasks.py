@@ -150,6 +150,13 @@ class TaskRecord:
     #: A digest of the call the key was used for. A key reused for a
     #: *different* call is a mistake, not a replay — see `intercept_tool_call`.
     request_hash: str = ""
+    #: What the work has produced *so far*. See `record_output`.
+    #:
+    #: Separate from `result`, which is what the tool returned. A task that
+    #: never returns — cancelled at minute nine of ten — has no result and
+    #: may still have printed five hundred lines, and those lines are the
+    #: only thing the person who cancelled it wanted.
+    partial: list[Any] = field(default_factory=list, repr=False)
 
     def public(self) -> Task:
         """The protocol's view. Never the result, never the handle."""
@@ -338,6 +345,34 @@ async def register_interrupt(stop: Callable[[], Any], *, store: TaskStore | None
         return False
     where = store or get_task_store()
     return await where.update(task_id, interrupt=stop) is not None
+
+
+async def record_output(outputs: Any, *, store: TaskStore | None = None) -> bool:
+    """Put what the work has produced so far where a reader can see it.
+
+    A task's `result` arrives whole when the tool returns. That is the right
+    shape for a call that finishes, and no shape at all for one that does
+    not: cancel a ten-minute cell at minute nine and the task is `cancelled`
+    with `result: None`, though the cell printed five hundred lines and those
+    lines are exactly what the person who cancelled it wanted to read.
+
+    So a tool that produces output as it goes says so here, and the record
+    keeps it. On cancellation the partial output *becomes* the result — the
+    task is terminal, so `tasks/result` will serve it — and on a normal
+    return the tool's own result wins, because it is the complete one.
+
+    Replaces rather than appends: the caller holds the whole list of outputs
+    so far, and appending would have every reader deduplicate what it reads.
+
+    Answers whether it was recorded — `False` for a synchronous call, which
+    has no task to attach to and needs none, since the client is still on the
+    other end of the connection.
+    """
+    task_id = current_task()
+    if not task_id:
+        return False
+    where = store or get_task_store()
+    return await where.update(task_id, partial=list(outputs)) is not None
 
 
 def _idempotency_key(params: Any) -> str:
@@ -668,6 +703,12 @@ class TasksExtension(Extension):
                     status="failed",
                     error=f"{type(error).__name__}: {error}",
                     status_message=str(error)[:200],
+                    # `tasks/result` raises for a failed task, so this is not
+                    # served — it is kept because a cell that printed for
+                    # nine minutes and then raised has the output somebody
+                    # needs to see *why*, and throwing it away at the moment
+                    # of failure is throwing away the diagnosis.
+                    **({"result": partial} if (partial := await self._partial(task_id)) else {}),
                 ),
             )
             return
@@ -675,10 +716,48 @@ class TasksExtension(Extension):
             ctx, await self.store.update(task_id, status="completed", result=result)
         )
 
-    async def _mark_cancelled(self, task_id: str) -> None:
+    async def _partial(self, task_id: str) -> Any:
+        """What the task produced so far, or `None`."""
         record = await self.store.get(task_id)
-        if record is not None and not record.is_terminal:
-            await self.store.update(task_id, status="cancelled")
+        return record.partial if record is not None and record.partial else None
+
+    async def _mark_cancelled(self, task_id: str) -> None:
+        """The cancelled task's last word: what it produced before it stopped.
+
+        **This cannot ask whether the task is still working.** By the time it
+        runs, `tasks/cancel` has already written `cancelled` — it writes the
+        status, interrupts the work and cancels the handle, and only then does
+        the coroutine unwind into here. A guard for "not terminal" therefore
+        skips the promotion on the path every cancellation actually takes,
+        which is how the first version of this shipped a feature that never
+        once ran and a test that stayed green: the test called this directly
+        on a still-working record, a state the real flow never reaches.
+
+        It runs here rather than in `_handle_cancel` because it runs *later*:
+        the work may have produced more between the cancel arriving and the
+        coroutine unwinding, and this is the last moment anything can see it.
+        """
+        record = await self.store.get(task_id)
+        if record is None:
+            return
+        changes: dict[str, Any] = {}
+        if not record.is_terminal:
+            # Cancelled from somewhere other than `tasks/cancel` — the handle
+            # itself was cancelled, so nothing has written the status yet.
+            changes["status"] = "cancelled"
+        elif record.status != "cancelled":
+            # It completed or failed first. That is the race the client lost,
+            # and its own answer stands: replacing a finished result with the
+            # half that was visible a moment earlier loses the complete one.
+            return
+        # What it produced before it was stopped, promoted to the result. The
+        # task is terminal, so `tasks/result` serves it — a cancelled cell
+        # that printed five hundred lines hands them over instead of
+        # answering with nothing.
+        if record.partial and record.result is None:
+            changes["result"] = record.partial
+        if changes:
+            await self.store.update(task_id, **changes)
 
 
 def tasks_extension(store: TaskStore | None = None) -> TasksExtension:

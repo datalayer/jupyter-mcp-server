@@ -7,12 +7,13 @@
   },
   "capabilities": {
     "experimental": {},
+    "logging": {},
     "prompts": {
       "listChanged": false
     },
     "resources": {
       "listChanged": false,
-      "subscribe": false
+      "subscribe": true
     },
     "tools": {
       "listChanged": false
@@ -1757,6 +1758,61 @@
       "mimeType": "text/plain",
       "name": "capabilities_resource",
       "uri": "capabilities://"
+    }
+  ],
+  "resourceTemplates": [
+    {
+      "_meta": {
+        "io.modelcontextprotocol/cache": {
+          "ttlMs": 5000,
+          "cacheScope": "private"
+        }
+      },
+      "annotations": {
+        "audience": [
+          "assistant",
+          "user"
+        ]
+      },
+      "description": "A notebook in use, as nbformat JSON. Cells and outputs are resources of their own.",
+      "mimeType": "application/x-ipynb+json",
+      "name": "notebook",
+      "uriTemplate": "notebook://{name}"
+    },
+    {
+      "_meta": {
+        "io.modelcontextprotocol/cache": {
+          "ttlMs": 5000,
+          "cacheScope": "private"
+        }
+      },
+      "annotations": {
+        "audience": [
+          "assistant",
+          "user"
+        ]
+      },
+      "description": "One cell by its nbformat id, with its outputs listed rather than inlined.",
+      "mimeType": "application/json",
+      "name": "notebook-cell",
+      "uriTemplate": "notebook://{name}/cells/{cell_id}"
+    },
+    {
+      "_meta": {
+        "io.modelcontextprotocol/cache": {
+          "ttlMs": 60000,
+          "cacheScope": "private"
+        }
+      },
+      "annotations": {
+        "audience": [
+          "assistant"
+        ]
+      },
+      "description": "One output of one cell, with its own MIME type. Read it only if you need the bytes.",
+      "mimeType": "text/plain",
+      "name": "notebook-cell-output",
+      "uriTemplate": "notebook://{name}/cells/{cell_id}/outputs/{index}"
     }
   ],
   "prompts": [

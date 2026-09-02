@@ -1,0 +1,203 @@
+# Resources
+
+Tools **push**. Everything a call produces comes back whether the agent wanted
+it or not, so a cell that printed a megabyte spends a megabyte of the client's
+context every time anybody reads it.
+
+Resources **pull**. The agent is told what exists and reads the one thing it
+needs.
+
+That is what these three are for.
+
+| Resource | What it is |
+|---|---|
+| `notebook://{name}` | A notebook in use, as nbformat JSON |
+| `notebook://{name}/cells/{cell_id}` | One cell, with its outputs *listed* |
+| `notebook://{name}/cells/{cell_id}/outputs/{index}` | One output, on its own |
+
+## Addressed by name and cell id
+
+A notebook path contains slashes. It cannot sit in one URI template segment
+without being encoded into something nobody can read, and the **name** is what
+every tool here already takes — the one `use_notebook` registered.
+
+A cell is addressed by its nbformat 4.5 **id**, not its index. An index is a
+position in a document somebody else is editing: between reading a notebook
+and reading "cell 4", cell 4 may be a different cell. The id is not.
+
+:::note The scheme is provider-neutral
+
+This server talks to a Jupyter server. A `datalayer://` URI here would be a
+hosted platform's identifier on a resource that has nothing to do with it.
+:::
+
+## A cell lists its outputs and inlines none of them
+
+```json
+{
+  "id": "c1",
+  "index": 0,
+  "cell_type": "code",
+  "source": ["print('hello')"],
+  "outputs": [
+    {"index": 0, "mimeType": "text/plain", "uri": "notebook://work/cells/c1/outputs/0"},
+    {"index": 1, "mimeType": "image/png", "uri": "notebook://work/cells/c1/outputs/1"}
+  ]
+}
+```
+
+Reading the cell tells an agent what the cell produced, what type each output
+is and where to get it — for the cost of that table. An agent that only needed
+to know the cell succeeded stops there.
+
+The output resource's audience is the **assistant** alone. A person reads
+outputs in their notebook, where they are rendered, not through a URI.
+
+:::warning The MIME type is on the list, not on the read
+
+A templated resource's type is fixed when it is registered, so an output
+cannot answer with its own type on the read. It is on the cell's output list
+instead — which is where an agent that needs to know what an output *is*
+before spending context on it actually looks.
+
+The richest type wins there: `text/plain` is the fallback every kernel
+attaches beside the real thing, and preferring it would read every figure as
+the words `<Figure>` with nothing saying so.
+:::
+
+## Caching
+
+All three are `cacheScope: private`. A notebook is one caller's, and a proxy
+that shared the answer would hand somebody else's work to whoever asked next.
+
+The notebook and cell are held for 5 seconds — long enough that reading a
+notebook and then three of its cells does not fetch the document four times,
+short enough that an agent watching a cell run sees it change.
+
+An **output** is held for a minute, because it does not change. A re-run
+*replaces* a cell's outputs rather than editing one, and the new ones are at
+new positions under a cell whose id is the same.
+
+## Change notifications
+
+A client that opens `subscriptions/listen` and names `notebook://{name}` in
+its `resource_subscriptions` is told when that notebook changes.
+
+One worker serves one user, and that user may have several agents — so the
+case this is for is ordinary rather than exotic: agent A edits a cell, agent B
+is subscribed, and B finds out through the same process with no polling.
+
+:::note The channel is the SDK's
+
+At 2026-07-28 the SDK serves `subscriptions/listen`, acknowledges the subset
+of the filter it will honour, and streams matching events. It even ships the
+bus. What was missing was anybody publishing onto it.
+
+Worth knowing, because the obvious reading of "implement subscriptions" is to
+write `resources/subscribe` — and on the modern wire the SDK **ignores** that
+handler. `get_capabilities` derives the capability from whether
+`subscriptions/listen` is served, so at 2026-07-28 subscription is available
+and at 2025-11-25 it is not.
+:::
+
+## Both eras
+
+At 2025-11-25 a client asks with `resources/subscribe` instead, and this
+server serves it — which is also what makes `resources.subscribe` true in
+that handshake, since the SDK derives the capability from whether the handler
+exists.
+
+Both halves are told on every change. A client on each era is two clients,
+and sending only on the wire the last subscriber used would leave the other
+silent — a bug that appears only when two are connected.
+
+:::note Sessions are held weakly
+
+A session that goes away takes its subscriptions with it. The alternative is
+an unsubscribe hook that has to fire on every way a connection can end,
+including the ones that run no code, and a subscription nobody can reach is a
+notification sent for ever to nobody.
+
+A send that fails drops the session rather than retrying it for ever.
+:::
+
+Unsubscribing from something never subscribed is **not** an error. The
+client's intent — *stop telling me about this* — is satisfied either way, and
+refusing it teaches a client to retry something that is already true.
+
+The event is published **after** the tool has done its work and returned. A
+subscriber told a cell changed before it did refetches the old document and
+caches it as new.
+
+It never fails the edit. Failing an edit because the news about the edit would
+not go out trades the work for the story about the work — the same call the
+tasks extension makes about its status notifications.
+
+:::warning A change by somebody else is not covered
+
+This announces what *this worker* changed. A person typing in JupyterLab is
+not seen: notebook connections here are per call, so between calls there is
+no live document to observe. That needs a persistent connection per
+subscribed notebook, with its own lifecycle, and it is a different kind of
+thing from this.
+:::
+
+## Seams for a deployment
+
+This package is scaffolding. What a *deployment* does with these mechanisms is
+its own, and it says so the way it already does for the audit sink, the token
+verifier and the task store: an environment variable naming a class.
+
+| Variable | What it replaces |
+|---|---|
+| `JUPYTER_MCP_PUBLISHER_CLASS` | Where `resources/updated` is published |
+| `JUPYTER_MCP_RESOURCE_GATE_CLASS` | Which of these resources are served |
+
+Both default to the behaviour that makes this server work unconfigured. A
+server that needs configuration before it will serve a resource is a server
+that does not work out of the box.
+
+### Why a publisher seam
+
+The SDK's bus reaches clients attached to **this process**. That is the whole
+story for a server somebody runs on their laptop, and no story at all behind
+several replicas: a client attached to one replica never hears an edit made
+through another.
+
+A deployment that configures a publisher replaces the bus rather than adding
+to it — it is a deployment where this process is not where the subscribers
+are, so publishing to both would send half the event twice.
+
+```python
+class MyPublisher:
+    async def publish(self, uri: str) -> bool:
+        ...
+```
+
+### Why a gate
+
+A deployment that addresses notebooks by its own identifiers serves its own
+resources and does not want these. `notebook://{name}` is the name a *worker*
+knows, and such a deployment's clients have never seen one.
+
+```python
+class MyGate:
+    def serves(self, uri_template: str) -> bool:
+        ...
+```
+
+A withheld resource raises `ResourceWithheld`, not `ResourceNotFound`. *We do
+not answer this here* and *there is no such cell* are different answers, and a
+client told the second when the first is true goes looking for a cell it will
+never find.
+
+:::note A misconfigured seam is fatal; a broken one is not
+
+A class that cannot be imported or built stops the server, for the reason the
+audit sink gives: a deployment that configured delivery and got a server
+running without it believes subscribers are being told, and they are not.
+
+A gate that *raises when asked* serves the resource instead. That is the safe
+direction for a scaffold — the alternative is a server that silently answers
+nothing and looks like a server with no resources.
+:::

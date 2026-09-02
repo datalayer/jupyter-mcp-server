@@ -907,6 +907,19 @@ async def execute_cell_with_forced_sync(
     last_output_count = 0
     last_progress_emit = 0.0
 
+    # How to stop the cell, as opposed to stopping the wait for it. Cancelling
+    # the task cancels this loop; the kernel would keep running the cell, keep
+    # holding the sandbox and keep costing money while the task said
+    # `cancelled`. Registered here because this is the frame that holds the
+    # kernel — a no-op for a synchronous call, which has no task.
+    if hasattr(kernel, "interrupt"):
+        try:
+            from jupyter_mcp_server.tasks import register_interrupt
+
+            await register_interrupt(kernel.interrupt)
+        except Exception as error:  # noqa: BLE001 - never in the way of the cell
+            logger.debug("The interrupt could not be registered: %s", error)
+
     while not execution_future.done():
         elapsed = time.perf_counter() - start_time
 
@@ -933,6 +946,16 @@ async def execute_cell_with_forced_sync(
                 logger.info(
                     f"Cell {cell_index} progress: {len(current_outputs)} outputs after {elapsed:.1f}s"
                 )
+                # Into the task, where a reader can see them. A cell cancelled
+                # at minute nine of ten has no result and may have printed
+                # five hundred lines; without this the task answers with
+                # nothing, which reads as "it produced nothing".
+                try:
+                    from jupyter_mcp_server.tasks import record_output
+
+                    await record_output(safe_extract_outputs(current_outputs))
+                except Exception as error:  # noqa: BLE001 - never in the way
+                    logger.debug("Progress could not be recorded: %s", error)
 
                 # Try different sync methods
                 try:

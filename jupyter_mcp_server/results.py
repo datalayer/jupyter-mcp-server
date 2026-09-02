@@ -61,6 +61,18 @@ SCOPE_PRIVATE = "private"
 META_NAMESPACE = "io.jupyter-mcp"
 
 
+def audience_annotations(*audiences: str) -> Annotations:
+    """Content annotations saying who something is for.
+
+    Here rather than at the call site for the reason the whole module is: if
+    the Working Group deprecates annotations, one function stops returning
+    them. A resource declares its audience the same way a tool result does,
+    and building `Annotations(...)` in a second place would make that two
+    edits — which is exactly what the invariant test next door refuses.
+    """
+    return Annotations(audience=list(audiences))
+
+
 def meta_key(name: str) -> str:
     """A `_meta` key of this server's, namespaced."""
     return f"{META_NAMESPACE}/{name}"
@@ -362,6 +374,32 @@ def structured(
             finally:
                 _pending.reset(token)
 
-        return wrapper
+        @wraps(function)
+        async def announcing(*arguments: Any, **keywords: Any) -> CallToolResult:
+            """The same wrapper, plus a word to anybody subscribed.
+
+            Here rather than in each writing tool because there are eight of
+            them and they already share this decorator, and because the thing
+            that decides whether a call *changed* the notebook is the `kind`
+            it declares — which is exactly what this sees.
+
+            After the call, never before: a subscriber told a cell changed
+            before it did refetches the old document and caches it as new.
+            """
+            result = await wrapper(*arguments, **keywords)
+            from jupyter_mcp_server import notifications  # noqa: PLC0415
+
+            if kind in notifications.MUTATING_KINDS:
+                from jupyter_mcp_server.server import mcp, notebook_manager  # noqa: PLC0415
+
+                await notifications.publish_notebook_updated(
+                    mcp,
+                    notifications.target_notebook(
+                        keywords, notebook_manager.get_current_notebook
+                    ),
+                )
+            return result
+
+        return announcing
 
     return decorate

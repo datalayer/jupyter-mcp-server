@@ -12,6 +12,7 @@ that dispatch causes.
 
 import pytest
 
+from jupyter_mcp_server.__version__ import __version__
 from jupyter_mcp_server.config import get_config, reset_config
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.notebook_manager import NotebookManager
@@ -42,7 +43,12 @@ class FakeServerClient:
         self.contents = FakeContents(names)
 
     def get_status(self):
-        return {"version": "2.1.3"}
+        # This is the *Jupyter server's* `/api/status` version, not this
+        # package's — the connectivity precheck only needs the call to
+        # succeed, and nothing here reads the number. It tracks
+        # `__version__` so a release bump does not have to find three fake
+        # servers, and for no deeper reason than that.
+        return {"version": __version__}
 
 
 class FakeMCPToolsClient:

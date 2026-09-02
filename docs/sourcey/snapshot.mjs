@@ -78,14 +78,26 @@ for (const d of result.diagnostics ?? []) {
   console.error(`${d.severity}: ${d.path} - ${d.message}`);
 }
 await writeFile(out, JSON.stringify(spec, null, 2) + "\n");
-console.log(
-  JSON.stringify({
-    valid: result.valid,
-    server: spec.server,
-    mcpVersion: spec.mcpVersion,
-    tools: spec.tools?.length ?? 0,
-    resources: spec.resources?.length ?? 0,
-    resourceTemplates: spec.resourceTemplates?.length ?? 0,
-    prompts: spec.prompts?.length ?? 0,
-  }),
-);
+const summary = JSON.stringify({
+  valid: result.valid,
+  server: spec.server,
+  mcpVersion: spec.mcpVersion,
+  tools: spec.tools?.length ?? 0,
+  resources: spec.resources?.length ?? 0,
+  resourceTemplates: spec.resourceTemplates?.length ?? 0,
+  prompts: spec.prompts?.length ?? 0,
+});
+
+// Leave instead of waiting for the event loop to drain.
+//
+// mcp-parser 0.4.1 arms a `setTimeout(..., timeout)` for every request it sends
+// and never clears it once the reply lands (`connectStdio`'s `send`, in
+// dist/snapshot.js). Its `close()` kills the server process but not those
+// timers, so the loop stays alive for a further `timeout` after the snapshot is
+// complete and written — two minutes with the value above, which reads as a
+// hang because everything this script had to say is already on stdout.
+//
+// Flush before exiting: process.exit() truncates a pending write when stdout is
+// a pipe rather than a terminal, which is exactly how CI reads it.
+await new Promise((resolve) => process.stdout.write(summary + "\n", resolve));
+process.exit(0);
