@@ -35,9 +35,14 @@ from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
 from jupyter_mcp_server.revalidation import revalidation_extension
-from mcp.types import EmptyResult, SubscribeRequestParams, UnsubscribeRequestParams
+from mcp.types import (
+    EmptyResult,
+    SetLevelRequestParams,
+    SubscribeRequestParams,
+    UnsubscribeRequestParams,
+)
 
-from jupyter_mcp_server import notifications, resources
+from jupyter_mcp_server import client_logging, notifications, resources
 from jupyter_mcp_server.results import (
     AUDIENCE_ASSISTANT,
     AUDIENCE_USER,
@@ -385,6 +390,23 @@ async def _on_unsubscribe_resource(ctx, params) -> EmptyResult:
     """
     notifications.legacy_unsubscribe(getattr(ctx, "session", None), str(params.uri))
     return EmptyResult()
+
+
+async def _on_set_logging_level(ctx, params) -> EmptyResult:
+    """`logging/setLevel`: how much this client wants to be told.
+
+    Served because a client that cannot turn the volume down turns the
+    connection off instead. The floor is remembered per session — two agents
+    of the same user share this worker, and one debugging a notebook wants
+    more than one running a pipeline.
+    """
+    client_logging.set_level(getattr(ctx, "session", None), str(params.level))
+    return EmptyResult()
+
+
+mcp._lowlevel_server.add_request_handler(
+    "logging/setLevel", SetLevelRequestParams, _on_set_logging_level
+)
 
 
 mcp._lowlevel_server.add_request_handler(

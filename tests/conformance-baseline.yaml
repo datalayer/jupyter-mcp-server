@@ -28,7 +28,6 @@ server:
   - completion-complete
   - elicitation-sep1034-defaults
   - elicitation-sep1330-enums
-  - logging-set-level
   - prompts-get-embedded-resource
   - prompts-get-simple
   - prompts-get-with-args
@@ -38,10 +37,10 @@ server:
   - resources-templates-read
   - server-sse-multiple-streams
   - tools-call-audio
+  - tools-call-with-logging
   - tools-call-elicitation
   - tools-call-embedded-resource
   - tools-call-image
   - tools-call-mixed-content
   - tools-call-sampling
-  - tools-call-with-logging
   - tools-call-with-progress
