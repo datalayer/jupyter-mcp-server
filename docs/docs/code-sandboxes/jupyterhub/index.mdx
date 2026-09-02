@@ -93,6 +93,26 @@ http://localhost:8000/user/<username>/mcp
 ```
 :::
 
+### 5. Alternative: a local server pointed at JupyterHub
+
+Everything above runs the MCP server *inside* the single-user server. The other
+way round works too: run `jupyter-mcp-server` locally over STDIO and point it at a
+user's single-user server. It uses the same `jupyter-server` engine, and the same
+API token with the `access:servers` scope:
+
+```json
+"env": {
+  "CODE_SANDBOX_URL": "https://your-jupyterhub.domain/user/<username>",
+  "CODE_SANDBOX_TOKEN": "your-jupyterhub-api-token",
+  "DOCUMENT_URL": "https://your-jupyterhub.domain/user/<username>",
+  "DOCUMENT_TOKEN": "your-jupyterhub-api-token"
+}
+```
+
+`CODE_SANDBOX_*` reaches the kernel, `DOCUMENT_*` reaches the notebook documents;
+they are separate so the two can live behind different URLs, and for JupyterHub
+they are the same.
+
 ## Production Considerations
 
 ### Security
