@@ -77,3 +77,42 @@ short enough that an agent watching a cell run sees it change.
 An **output** is held for a minute, because it does not change. A re-run
 *replaces* a cell's outputs rather than editing one, and the new ones are at
 new positions under a cell whose id is the same.
+
+## Change notifications
+
+A client that opens `subscriptions/listen` and names `notebook://{name}` in
+its `resource_subscriptions` is told when that notebook changes.
+
+One worker serves one user, and that user may have several agents — so the
+case this is for is ordinary rather than exotic: agent A edits a cell, agent B
+is subscribed, and B finds out through the same process with no polling.
+
+:::note The channel is the SDK's
+
+At 2026-07-28 the SDK serves `subscriptions/listen`, acknowledges the subset
+of the filter it will honour, and streams matching events. It even ships the
+bus. What was missing was anybody publishing onto it.
+
+Worth knowing, because the obvious reading of "implement subscriptions" is to
+write `resources/subscribe` — and on the modern wire the SDK **ignores** that
+handler. `get_capabilities` derives the capability from whether
+`subscriptions/listen` is served, so at 2026-07-28 subscription is available
+and at 2025-11-25 it is not.
+:::
+
+The event is published **after** the tool has done its work and returned. A
+subscriber told a cell changed before it did refetches the old document and
+caches it as new.
+
+It never fails the edit. Failing an edit because the news about the edit would
+not go out trades the work for the story about the work — the same call the
+tasks extension makes about its status notifications.
+
+:::warning A change by somebody else is not covered
+
+This announces what *this worker* changed. A person typing in JupyterLab is
+not seen: notebook connections here are per call, so between calls there is
+no live document to observe. That needs a persistent connection per
+subscribed notebook, with its own lifecycle, and it is a different kind of
+thing from this.
+:::
