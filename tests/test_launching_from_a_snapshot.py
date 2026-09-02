@@ -76,6 +76,50 @@ def test_a_launch_without_one_does_not_mention_it(created):
     assert "snapshot_name" not in created[0]
 
 
+@pytest.mark.parametrize("given", ["", "   ", "\t\n"])
+def test_a_name_that_is_only_space_is_no_name_at_all(created, given):
+    """Whitespace means "not given", the same as an empty string.
+
+    It used to mean something else, because `"  "` is truthy: a variant
+    without snapshots refused it, and the Datalayer one passed it to the
+    constructor as a snapshot name. Nothing can be called that, so the caller
+    found out from two packages away — which is the failure the refusal
+    exists to replace.
+
+    Empty stays "not given" rather than becoming a refusal, deliberately.
+    That is the reading `environment` and `gpu` already have here, and the
+    one the hosted gateway relies on when it turns its own empty strings into
+    `None` before calling this.
+    """
+    CodeSandboxManager().launch(
+        sandbox_name="fresh", variant="datalayer", timeout=60.0, snapshot_name=given
+    )
+    assert "snapshot_name" not in created[0]
+
+
+@pytest.mark.parametrize("given", ["", "   "])
+def test_and_does_not_refuse_a_variant_that_has_no_snapshots(created, given):
+    """The other half of the same question, and the one that decides whether
+    a launch happens at all: nothing was asked for, so there is nothing to
+    refuse."""
+    CodeSandboxManager().launch(
+        sandbox_name="fresh", variant="modal", timeout=60.0, snapshot_name=given
+    )
+    assert created, "a launch that asked for no snapshot was refused"
+
+
+def test_a_name_with_space_around_it_is_the_name(created):
+    """Trimmed rather than rejected. A name pasted out of a list arrives with
+    a newline on it often enough that refusing would be the wrong lesson."""
+    CodeSandboxManager().launch(
+        sandbox_name="restored",
+        variant="datalayer",
+        timeout=60.0,
+        snapshot_name="  before-the-training-run\n",
+    )
+    assert created[0]["snapshot_name"] == "before-the-training-run"
+
+
 @pytest.mark.parametrize("variant", ["eval", "modal", "e2b", "docker"])
 def test_a_variant_without_snapshots_refuses_rather_than_starting_empty(created, variant):
     """The failure this prevents is silent, which is why it is a refusal.
