@@ -57,6 +57,20 @@ test-jupyter-server: ## run the unit tests for jupyter server
 test-integration: ## run the integration tests
 	hatch test
 
+.PHONY: bump bump-patch bump-minor bump-major
+
+bump: ## bump the version, asking which part
+	python dev/bump_version.py
+
+bump-patch: ## bump the patch version (2.1.3 -> 2.1.4)
+	python dev/bump_version.py patch
+
+bump-minor: ## bump the minor version (2.1.3 -> 2.2.0)
+	python dev/bump_version.py minor
+
+bump-major: ## bump the major version (2.1.3 -> 3.0.0)
+	python dev/bump_version.py major
+
 build:
 	pip install build
 	python -m build .
