@@ -141,3 +141,63 @@ no live document to observe. That needs a persistent connection per
 subscribed notebook, with its own lifecycle, and it is a different kind of
 thing from this.
 :::
+
+## Seams for a deployment
+
+This package is scaffolding. What a *deployment* does with these mechanisms is
+its own, and it says so the way it already does for the audit sink, the token
+verifier and the task store: an environment variable naming a class.
+
+| Variable | What it replaces |
+|---|---|
+| `JUPYTER_MCP_PUBLISHER_CLASS` | Where `resources/updated` is published |
+| `JUPYTER_MCP_RESOURCE_GATE_CLASS` | Which of these resources are served |
+
+Both default to the behaviour that makes this server work unconfigured. A
+server that needs configuration before it will serve a resource is a server
+that does not work out of the box.
+
+### Why a publisher seam
+
+The SDK's bus reaches clients attached to **this process**. That is the whole
+story for a server somebody runs on their laptop, and no story at all behind
+several replicas: a client attached to one replica never hears an edit made
+through another.
+
+A deployment that configures a publisher replaces the bus rather than adding
+to it — it is a deployment where this process is not where the subscribers
+are, so publishing to both would send half the event twice.
+
+```python
+class MyPublisher:
+    async def publish(self, uri: str) -> bool:
+        ...
+```
+
+### Why a gate
+
+A deployment that addresses notebooks by its own identifiers serves its own
+resources and does not want these. `notebook://{name}` is the name a *worker*
+knows, and such a deployment's clients have never seen one.
+
+```python
+class MyGate:
+    def serves(self, uri_template: str) -> bool:
+        ...
+```
+
+A withheld resource raises `ResourceWithheld`, not `ResourceNotFound`. *We do
+not answer this here* and *there is no such cell* are different answers, and a
+client told the second when the first is true goes looking for a cell it will
+never find.
+
+:::note A misconfigured seam is fatal; a broken one is not
+
+A class that cannot be imported or built stops the server, for the reason the
+audit sink gives: a deployment that configured delivery and got a server
+running without it believes subscribers are being told, and they are not.
+
+A gate that *raises when asked* serves the resource instead. That is the safe
+direction for a scaffold — the alternative is a server that silently answers
+nothing and looks like a server with no resources.
+:::

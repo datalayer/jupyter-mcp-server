@@ -27,12 +27,23 @@ there is no live document to observe. That needs a persistent connection per
 subscribed notebook, with its own lifecycle, and it is a different kind of
 thing from this.
 
+**A seam, because the in-process bus is not always the right destination.**
+The SDK's bus reaches clients attached to *this* process, which is the whole
+story for a server somebody runs on their laptop and not the story at all for
+a deployment behind several replicas: a client attached to one replica never
+hears an edit made through another. `JUPYTER_MCP_PUBLISHER_CLASS` names a
+class that takes the event instead — the same shape as the audit-sink and
+token-verifier seams next door. Unset, the default here is used, so the
+open source server needs no configuration to work.
+
 @module jupyter_mcp_server.notifications
 """
 
 from __future__ import annotations
 
+import importlib
 import logging
+import os
 import weakref
 from typing import Any
 
@@ -117,6 +128,65 @@ def target_notebook(keywords: dict[str, Any], current: Any) -> str:
         return ""
 
 
+#: Names a class with ``async publish(uri) -> bool``, used instead of the
+#: in-process bus. See ``resolve_publisher``.
+PUBLISHER_CLASS_ENV = "JUPYTER_MCP_PUBLISHER_CLASS"
+
+_publisher: Any | None = None
+_publisher_resolved = False
+
+
+def resolve_publisher() -> Any | None:
+    """Build the configured publisher, or ``None`` for the in-process bus.
+
+    A named class that cannot be imported or built is **fatal**, for the
+    reason the audit sink gives: an operator who configured delivery and got
+    a server running without it has the worst of both — they believe
+    subscribers are being told, and they are not.
+
+    Resolved once. A class named per publish would be an import on the path
+    of every cell edit.
+    """
+    global _publisher, _publisher_resolved
+    if _publisher_resolved:
+        return _publisher
+    _publisher_resolved = True
+    path = (os.environ.get(PUBLISHER_CLASS_ENV) or "").strip()
+    if not path:
+        return None
+    module_name, _, attribute = path.rpartition(".")
+    if not module_name:
+        raise RuntimeError(
+            f"{PUBLISHER_CLASS_ENV} is {path!r}, which is not a module.Class path"
+        )
+    try:
+        module = importlib.import_module(module_name)
+        publisher_class = getattr(module, attribute)
+    except Exception as error:
+        raise RuntimeError(
+            f"{PUBLISHER_CLASS_ENV} names {path!r}, which could not be imported: {error}"
+        ) from error
+    try:
+        publisher = publisher_class()
+    except Exception as error:
+        raise RuntimeError(
+            f"{PUBLISHER_CLASS_ENV} names {path!r}, which could not be constructed: {error}"
+        ) from error
+    if not callable(getattr(publisher, "publish", None)):
+        raise RuntimeError(
+            f"{PUBLISHER_CLASS_ENV} names {path!r}, which has no publish(uri) method"
+        )
+    _publisher = publisher
+    return _publisher
+
+
+def use_publisher(replacement: Any | None) -> None:
+    """Swap the publisher — for the tests, and at startup."""
+    global _publisher, _publisher_resolved
+    _publisher = replacement
+    _publisher_resolved = replacement is not None
+
+
 def _bus(server: Any) -> Any | None:
     """The SDK's subscription bus, if this server has one.
 
@@ -142,6 +212,17 @@ async def publish_notebook_updated(server: Any, name: str) -> bool:
     """
     if not name:
         return False
+    # A configured publisher replaces the in-process bus entirely: a
+    # deployment that has one is a deployment where this process is not where
+    # the subscribers are, so publishing to both would be publishing half the
+    # event twice.
+    publisher = resolve_publisher()
+    if publisher is not None:
+        try:
+            return bool(await publisher.publish(notebook_uri(name)))
+        except Exception as error:  # noqa: BLE001 - never in the way of the edit
+            logger.debug("A notebook update could not be published: %s", error)
+            return False
     bus = _bus(server)
     if bus is None:
         return False

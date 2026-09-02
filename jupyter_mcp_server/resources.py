@@ -31,8 +31,10 @@ platform's identifier on a resource that has nothing to do with it.
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
+import os
 from typing import Any
 
 from jupyter_mcp_server.models import Notebook
@@ -57,6 +59,90 @@ OUTPUT_TTL_MS = 60_000
 
 #: The MIME type of a whole notebook.
 NOTEBOOK_MIME = "application/x-ipynb+json"
+
+
+#: Names a class deciding which of these resources this deployment serves.
+#: See ``resolve_gate``.
+RESOURCE_GATE_CLASS_ENV = "JUPYTER_MCP_RESOURCE_GATE_CLASS"
+
+_gate: Any | None = None
+_gate_resolved = False
+
+
+def resolve_gate() -> Any | None:
+    """The configured gate, or ``None`` when every resource is served.
+
+    A deployment that addresses notebooks by its own identifiers serves its
+    own `…://` resources and does not want these: `notebook://{name}` is the
+    name a *worker* knows, and a hosted platform's client has never seen one.
+    Rather than have that platform delete resources after the fact — the
+    `_remove` dance the tools need — it names a gate here and this module
+    asks before answering.
+
+    Same shape and same strictness as the audit-sink seam: a class that
+    cannot be imported or built is fatal, because a deployment that
+    configured a gate and got one without it is serving resources it meant to
+    withhold.
+    """
+    global _gate, _gate_resolved
+    if _gate_resolved:
+        return _gate
+    _gate_resolved = True
+    path = (os.environ.get(RESOURCE_GATE_CLASS_ENV) or "").strip()
+    if not path:
+        return None
+    module_name, _, attribute = path.rpartition(".")
+    if not module_name:
+        raise RuntimeError(
+            f"{RESOURCE_GATE_CLASS_ENV} is {path!r}, which is not a module.Class path"
+        )
+    try:
+        module = importlib.import_module(module_name)
+        gate = getattr(module, attribute)()
+    except Exception as error:
+        raise RuntimeError(
+            f"{RESOURCE_GATE_CLASS_ENV} names {path!r}, which could not be used: {error}"
+        ) from error
+    if not callable(getattr(gate, "serves", None)):
+        raise RuntimeError(
+            f"{RESOURCE_GATE_CLASS_ENV} names {path!r}, which has no serves(uri) method"
+        )
+    _gate = gate
+    return _gate
+
+
+def use_gate(replacement: Any | None) -> None:
+    """Swap the gate — for the tests, and at startup."""
+    global _gate, _gate_resolved
+    _gate = replacement
+    _gate_resolved = replacement is not None
+
+
+def serves(uri_template: str) -> bool:
+    """Whether this deployment answers this resource.
+
+    Asked at *read* time rather than at registration, so the answer can
+    depend on configuration that arrives after the module is imported —
+    which is when extensions are registered here.
+    """
+    gate = resolve_gate()
+    if gate is None:
+        return True
+    try:
+        return bool(gate.serves(uri_template))
+    except Exception as error:  # noqa: BLE001 - a gate that cannot decide serves
+        logger.debug("The resource gate could not decide about %s: %s", uri_template, error)
+        return True
+
+
+class ResourceWithheld(ValueError):
+    """This deployment does not serve this resource.
+
+    Distinct from `ResourceNotFound`, which means the thing asked for is not
+    there. "We do not answer this here" and "there is no such cell" are
+    different answers, and a client told the second when the first is true
+    goes looking for a cell it will never find.
+    """
 
 
 class ResourceNotFound(ValueError):

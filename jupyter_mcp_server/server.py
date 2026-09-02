@@ -432,6 +432,10 @@ async def notebook_resource(name: str) -> str:
     proxy that shared this answer would hand somebody else's work to whoever
     asked next.
     """
+    if not resources.serves(resources.NOTEBOOK_RESOURCE):
+        raise resources.ResourceWithheld(
+            "This deployment does not serve {}".format(resources.NOTEBOOK_RESOURCE)
+        )
     notebook = await resources.read_notebook(notebook_manager, name)
     return notebook.model_dump_json(indent=2)
 
@@ -451,6 +455,10 @@ async def cell_resource(name: str, cell_id: str) -> str:
     reading the notebook and reading "cell 4", cell 4 may be a different
     cell. The nbformat 4.5 id is not.
     """
+    if not resources.serves(resources.CELL_RESOURCE):
+        raise resources.ResourceWithheld(
+            "This deployment does not serve {}".format(resources.CELL_RESOURCE)
+        )
     notebook = await resources.read_notebook(notebook_manager, name)
     index, cell = resources.find_cell(notebook, cell_id)
     return resources.cell_document(name, index, cell)
@@ -479,6 +487,10 @@ async def cell_output_resource(name: str, cell_id: str, index: str) -> str:
     re-run *replaces* a cell's outputs rather than editing one, and the new
     ones are at new positions.
     """
+    if not resources.serves(resources.OUTPUT_RESOURCE):
+        raise resources.ResourceWithheld(
+            "This deployment does not serve {}".format(resources.OUTPUT_RESOURCE)
+        )
     notebook = await resources.read_notebook(notebook_manager, name)
     _, cell = resources.find_cell(notebook, cell_id)
     outputs = list(getattr(cell, "outputs", []) or [])
