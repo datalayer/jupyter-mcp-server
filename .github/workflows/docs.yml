@@ -48,7 +48,7 @@ jobs:
         run: |
           git add -AN docs/sourcey
           git diff --exit-code -- docs/sourcey \
-            || (echo "::error::docs/sourcey is stale; re-run the generation (docs/sourcey/README.md) and commit the result" && exit 1)
+            || (echo "::error::docs/sourcey is stale; run 'make sync-sourcey' and commit the result (see docs/sourcey/README.md)" && exit 1)
 
       - name: Build the docs
         working-directory: docs

@@ -175,3 +175,59 @@ test-conformance: ## Run the MCP specification's own conformance suite
 	@exec echo "Installing @modelcontextprotocol/conformance (npm, not saved)"
 	npm install --no-save @modelcontextprotocol/conformance
 	pytest tests/test_conformance.py -v
+
+.PHONY: sync-sourcey
+
+SOURCEY_SNAPSHOT_TIMEOUT ?= 180
+
+sync-sourcey: ## regenerate the generated MCP reference under docs/sourcey
+	@# The four steps of the Docs workflow's "Regenerate the MCP reference",
+	@# plus the `npm install` it runs first: docs/ has its own package.json and
+	@# is not one of the monorepo workspaces, so a root `npm i` never installs
+	@# mcp-parser for it and step 1 dies with ERR_MODULE_NOT_FOUND.
+	@command -v jupyter-mcp-server >/dev/null 2>&1 || { \
+	  echo "jupyter-mcp-server is not on PATH."; \
+	  echo "Run 'make dev' and 'pip install ./extensions/sandboxes' first."; \
+	  exit 1; }
+	@# The snapshot is whatever the *installed* server advertises, and any
+	@# package registering a jupyter_mcp_server.extensions entry point changes
+	@# that. CI installs only . and ./extensions/sandboxes, so an environment
+	@# carrying more than "sandboxes" produces a snapshot CI can never
+	@# reproduce -- datalayer_jupyter_mcp_server's "spaces" adds tools and its
+	@# tool_policy hides others. Refuse rather than overwrite the checked-in
+	@# reference with it; set SOURCEY_ALLOW_EXTRA_EXTENSIONS=1 to override.
+	@python -c 'import os,sys;\
+	from importlib.metadata import entry_points;\
+	extra=sorted(e.name for e in entry_points().select(group="jupyter_mcp_server.extensions") if e.name != "sandboxes");\
+	sys.exit(0) if not extra or os.environ.get("SOURCEY_ALLOW_EXTRA_EXTENSIONS") else sys.exit("refusing to snapshot: this environment registers MCP extensions CI does not have: %s\n  pip uninstall them, or use a clean venv with just this package and ./extensions/sandboxes.\n  Set SOURCEY_ALLOW_EXTRA_EXTENSIONS=1 to snapshot anyway." % ", ".join(extra))'
+	cd docs && npm install --no-audit --no-fund
+	@# Step 1 spawns the server over stdio. It used to sit there for two
+	@# minutes after writing mcp.json -- mcp-parser leaves a per-request timer
+	@# armed -- which snapshot.mjs now ends explicitly; see the comment at the
+	@# foot of that file. `timeout` stays as a backstop for a server that never
+	@# answers at all, and stdin is closed so the child cannot read the
+	@# terminal. Whatever the exit status, the snapshot has to be usable, so
+	@# the artifact is checked before the three steps that consume it.
+	cd docs/sourcey && \
+	  if command -v timeout >/dev/null 2>&1 ; then \
+	    timeout --foreground -k 5 $(SOURCEY_SNAPSHOT_TIMEOUT) \
+	      node snapshot.mjs jupyter-mcp-server mcp.json </dev/null ; \
+	  else \
+	    node snapshot.mjs jupyter-mcp-server mcp.json </dev/null ; \
+	  fi ; \
+	  status=$$? ; \
+	  if [ $$status -eq 124 ] ; then \
+	    echo "snapshot.mjs did not finish within $(SOURCEY_SNAPSHOT_TIMEOUT)s - is a Jupyter server reachable?" ; \
+	    exit 1 ; \
+	  elif [ $$status -ne 0 ] ; then \
+	    exit $$status ; \
+	  fi ; \
+	  python -m json.tool mcp.json >/dev/null 2>&1 || { \
+	    echo "mcp.json is not valid JSON - the snapshot did not complete" ; exit 1 ; } ; \
+	  python -c 'import json,sys; d=json.load(open("mcp.json")); t=len(d.get("tools") or []); p=len(d.get("prompts") or []); print("snapshot ok: %d tools, %d prompt(s)" % (t,p)) if t else sys.exit("mcp.json carries no tools - the snapshot did not complete")'
+	cd docs/sourcey && \
+	  python gen_sourcemap.py ../.. sourcemap.json && \
+	  python dump_config.py config-fields.json && \
+	  node build_pages.mjs
+	@exec echo
+	@exec echo "docs/sourcey regenerated - commit whatever changed, that is what CI checks."
