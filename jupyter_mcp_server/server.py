@@ -35,7 +35,9 @@ from jupyter_mcp_server.config import get_config, set_config
 from jupyter_mcp_server.enroll import auto_enroll_document
 from jupyter_mcp_server.extensions import get_extension_manager
 from jupyter_mcp_server.revalidation import revalidation_extension
-from jupyter_mcp_server import resources
+from mcp.types import EmptyResult, SubscribeRequestParams, UnsubscribeRequestParams
+
+from jupyter_mcp_server import notifications, resources
 from jupyter_mcp_server.results import (
     AUDIENCE_ASSISTANT,
     AUDIENCE_USER,
@@ -356,6 +358,41 @@ mcp = MCPServerWithCORS(
 notebook_manager = NotebookManager()
 server_context = ServerContext.get_instance()
 extension_manager = get_extension_manager()
+
+
+async def _on_subscribe_resource(ctx, params) -> EmptyResult:
+    """`resources/subscribe`, the 2025-11-25 way to ask.
+
+    Registered even though the modern wire cannot dispatch it, because this
+    server answers both eras and most clients today are on the older one. At
+    2026-07-28 the same intent arrives as a `subscriptions/listen` filter and
+    the SDK handles it; here it is a method call this has to remember.
+
+    Registering it is also what makes `resources.subscribe` true in the
+    2025-11-25 handshake — the SDK derives that capability from whether this
+    handler exists.
+    """
+    notifications.legacy_subscribe(getattr(ctx, "session", None), str(params.uri))
+    return EmptyResult()
+
+
+async def _on_unsubscribe_resource(ctx, params) -> EmptyResult:
+    """`resources/unsubscribe`. Never refuses.
+
+    Unsubscribing from something never subscribed is not an error: the
+    client's intent — *stop telling me about this* — is satisfied either way,
+    and refusing it teaches a client to retry something already true.
+    """
+    notifications.legacy_unsubscribe(getattr(ctx, "session", None), str(params.uri))
+    return EmptyResult()
+
+
+mcp._lowlevel_server.add_request_handler(
+    "resources/subscribe", SubscribeRequestParams, _on_subscribe_resource
+)
+mcp._lowlevel_server.add_request_handler(
+    "resources/unsubscribe", UnsubscribeRequestParams, _on_unsubscribe_resource
+)
 
 
 @mcp.resource(

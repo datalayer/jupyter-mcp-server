@@ -31,6 +31,18 @@ import pytest
 from jupyter_mcp_server import notifications
 
 
+class _FakeSession:
+    """A stand-in for a `ServerSession`.
+
+    A class rather than `object()`, because the registry holds sessions
+    weakly and a bare `object()` cannot be weakly referenced — which is not a
+    property of anything real, only of the placeholder.
+    """
+
+    async def send_resource_updated(self, uri):
+        return None
+
+
 class _Bus:
     """A bus that remembers, standing in for the SDK's."""
 
@@ -184,6 +196,146 @@ class TestTheDecoratorActuallyAnnounces:
 
         source = inspect.getsource(results.structured)
         assert source.index("await wrapper(") < source.index("publish_notebook_updated(")
+
+
+class TestTheOlderWayToAsk:
+    """`resources/subscribe`, which is how a 2025-11-25 client asks.
+
+    Registered even though the modern wire cannot dispatch it, because this
+    server answers both eras and most clients today are on the older one.
+    Registering it is also what makes `resources.subscribe` true in the
+    2025-11-25 handshake — the SDK derives that capability from whether the
+    handler exists — and it is what takes `resources-subscribe` and
+    `resources-unsubscribe` out of the conformance baseline.
+    """
+
+    def test_both_methods_are_served(self):
+        from jupyter_mcp_server.server import mcp
+
+        handlers = mcp._lowlevel_server._request_handlers
+        assert "resources/subscribe" in handlers
+        assert "resources/unsubscribe" in handlers
+
+    def test_the_older_handshake_now_offers_subscription(self):
+        from mcp.server.lowlevel.server import NotificationOptions
+
+        from jupyter_mcp_server.server import mcp
+
+        capabilities = mcp._lowlevel_server.get_capabilities(
+            NotificationOptions(), {}, protocol_version="2025-11-25"
+        )
+        assert capabilities.resources.subscribe is True
+
+    def test_a_session_hears_about_what_it_subscribed_to(self):
+        session = _FakeSession()
+        notifications.legacy_subscribe(session, "notebook://work")
+        try:
+            assert session in notifications.legacy_subscribers("notebook://work")
+        finally:
+            notifications.legacy_unsubscribe(session, "notebook://work")
+
+    def test_a_session_hears_nothing_about_anything_else(self):
+        session = _FakeSession()
+        notifications.legacy_subscribe(session, "notebook://work")
+        try:
+            assert notifications.legacy_subscribers("notebook://other") == []
+        finally:
+            notifications.legacy_unsubscribe(session, "notebook://work")
+
+    def test_unsubscribing_stops_it(self):
+        session = _FakeSession()
+        notifications.legacy_subscribe(session, "notebook://work")
+        notifications.legacy_unsubscribe(session, "notebook://work")
+        assert notifications.legacy_subscribers("notebook://work") == []
+
+    def test_unsubscribing_from_something_never_subscribed_is_not_an_error(self):
+        """The client's intent — stop telling me about this — is satisfied
+        either way, and refusing it teaches a client to retry something that
+        is already true."""
+        notifications.legacy_unsubscribe(_FakeSession(), "notebook://never")
+
+    def test_a_real_session_can_be_held_weakly(self):
+        """The registry is weak-keyed, so a session that cannot be weakly
+        referenced would make every `resources/subscribe` raise. A bare
+        `object()` cannot be — which is how this was found — and an SDK that
+        gave `ServerSession` `__slots__` without `__weakref__` would break it
+        the same way, silently, at the first subscribe."""
+        import weakref
+
+        from mcp.server.session import ServerSession
+
+        class _Unconstructed(ServerSession):
+            def __init__(self):  # noqa: D107 - the constructor is not the point
+                pass
+
+        weakref.ref(_Unconstructed())
+
+    def test_a_session_that_goes_away_takes_its_subscriptions_with_it(self):
+        """The map is weak-keyed. The alternative is an unsubscribe hook that
+        has to fire on every way a connection can end — including the ones
+        that run no code — and a subscription nobody can reach is a
+        notification sent for ever to nobody."""
+        import gc
+
+        class _Session:
+            pass
+
+        session = _Session()
+        notifications.legacy_subscribe(session, "notebook://ghost")
+        assert notifications.legacy_subscribers("notebook://ghost")
+        del session
+        gc.collect()
+        assert notifications.legacy_subscribers("notebook://ghost") == []
+
+
+@pytest.mark.asyncio
+class TestBothErasAreTold:
+    """Both halves run, because both eras can be connected at once.
+
+    This server answers 2026-07-28 and 2025-11-25, and a client on each is
+    two clients. Sending only on the wire the last subscriber used would
+    leave the other silent — a bug that appears only when two are connected.
+    """
+
+    async def test_a_legacy_subscriber_is_told(self):
+        told = []
+
+        class _Session:
+            async def send_resource_updated(self, uri):
+                told.append(uri)
+
+        session = _Session()
+        notifications.legacy_subscribe(session, "notebook://work")
+        try:
+            await notifications.publish_notebook_updated(_Server(_Bus()), "work")
+        finally:
+            notifications.legacy_unsubscribe(session, "notebook://work")
+        assert told == ["notebook://work"]
+
+    async def test_the_bus_is_told_as_well(self):
+        bus = _Bus()
+
+        class _Session:
+            async def send_resource_updated(self, uri):
+                return None
+
+        session = _Session()
+        notifications.legacy_subscribe(session, "notebook://work")
+        try:
+            await notifications.publish_notebook_updated(_Server(bus), "work")
+        finally:
+            notifications.legacy_unsubscribe(session, "notebook://work")
+        assert [event.uri for event in bus.published] == ["notebook://work"]
+
+    async def test_a_dead_session_is_dropped_rather_than_retried_for_ever(self):
+        class _Session:
+            async def send_resource_updated(self, uri):
+                raise RuntimeError("gone")
+
+        session = _Session()
+        notifications.legacy_subscribe(session, "notebook://work")
+        await notifications.publish_notebook_updated(_Server(_Bus()), "work")
+        assert notifications.legacy_subscribers("notebook://work") == []
 
 
 class TestThePageSaysWhatHappens:

@@ -35,9 +35,7 @@ server:
   - prompts-get-with-image
   - resources-read-binary
   - resources-read-text
-  - resources-subscribe
   - resources-templates-read
-  - resources-unsubscribe
   - server-sse-multiple-streams
   - tools-call-audio
   - tools-call-elicitation

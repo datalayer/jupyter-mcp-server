@@ -33,6 +33,7 @@ thing from this.
 from __future__ import annotations
 
 import logging
+import weakref
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,41 @@ MUTATING_KINDS = frozenset(
         "cell.clear_output",
     }
 )
+
+
+#: Sessions that asked for a resource through the **legacy** method, and the
+#: URIs each asked about.
+#:
+#: A weak-keyed map, so a session that goes away takes its subscriptions with
+#: it. The alternative is an unsubscribe hook that has to fire on every way a
+#: connection can end — including the ones that do not run any code — and a
+#: subscription nobody can reach is a notification sent for ever to nobody.
+_LEGACY: "weakref.WeakKeyDictionary[Any, set[str]]" = weakref.WeakKeyDictionary()
+
+
+def legacy_subscribe(session: Any, uri: str) -> None:
+    """Remember that this session asked about this URI (2025-11-25)."""
+    if session is None or not uri:
+        return
+    _LEGACY.setdefault(session, set()).add(uri)
+
+
+def legacy_unsubscribe(session: Any, uri: str) -> None:
+    """Forget it. Unsubscribing from something never subscribed is not an
+    error: the client's intent — *do not tell me about this* — is satisfied
+    either way, and refusing it invites a client to retry."""
+    if session is None:
+        return
+    subscribed = _LEGACY.get(session)
+    if subscribed is not None:
+        subscribed.discard(uri)
+
+
+def legacy_subscribers(uri: str) -> list[Any]:
+    """The sessions to tell about this URI."""
+    return [
+        session for session, uris in list(_LEGACY.items()) if uri in uris
+    ]
 
 
 def notebook_uri(name: str) -> str:
@@ -109,11 +145,31 @@ async def publish_notebook_updated(server: Any, name: str) -> bool:
     bus = _bus(server)
     if bus is None:
         return False
+    told = False
     try:
         from mcp.server.subscriptions import ResourceUpdated  # noqa: PLC0415
 
         await bus.publish(ResourceUpdated(uri=notebook_uri(name)))
+        told = True
     except Exception as error:  # noqa: BLE001 - never in the way of the edit
         logger.debug("A notebook update could not be published: %s", error)
-        return False
-    return True
+    return await _tell_legacy_subscribers(notebook_uri(name)) or told
+
+
+async def _tell_legacy_subscribers(uri: str) -> bool:
+    """The 2025-11-25 half: one notification per subscribed session.
+
+    Both halves run, because both eras can be connected at once — this server
+    answers 2026-07-28 and 2025-11-25, and a client on each is two clients.
+    Sending only on the wire the *last* subscriber used would leave the other
+    silent, which is a bug that only appears when two clients are connected.
+    """
+    told = False
+    for session in legacy_subscribers(uri):
+        try:
+            await session.send_resource_updated(uri)
+            told = True
+        except Exception as error:  # noqa: BLE001 - a gone session is not an error
+            logger.debug("A subscriber could not be told about %s: %s", uri, error)
+            _LEGACY.pop(session, None)
+    return told

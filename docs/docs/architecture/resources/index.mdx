@@ -100,6 +100,31 @@ handler. `get_capabilities` derives the capability from whether
 and at 2025-11-25 it is not.
 :::
 
+## Both eras
+
+At 2025-11-25 a client asks with `resources/subscribe` instead, and this
+server serves it — which is also what makes `resources.subscribe` true in
+that handshake, since the SDK derives the capability from whether the handler
+exists.
+
+Both halves are told on every change. A client on each era is two clients,
+and sending only on the wire the last subscriber used would leave the other
+silent — a bug that appears only when two are connected.
+
+:::note Sessions are held weakly
+
+A session that goes away takes its subscriptions with it. The alternative is
+an unsubscribe hook that has to fire on every way a connection can end,
+including the ones that run no code, and a subscription nobody can reach is a
+notification sent for ever to nobody.
+
+A send that fails drops the session rather than retrying it for ever.
+:::
+
+Unsubscribing from something never subscribed is **not** an error. The
+client's intent — *stop telling me about this* — is satisfied either way, and
+refusing it teaches a client to retry something that is already true.
+
 The event is published **after** the tool has done its work and returned. A
 subscriber told a cell changed before it did refetches the old document and
 caches it as new.
