@@ -153,8 +153,21 @@ class TestWhatIsRegistered:
     def test_the_scheme_is_provider_neutral(self, templates):
         """This server talks to a Jupyter server. A `datalayer://` URI here
         would be a hosted platform's identifier on a resource that has
-        nothing to do with it."""
-        for uri in templates:
+        nothing to do with it.
+
+        About *these three* rather than about everything on the server. A
+        deployment is supposed to add resources of its own under its own
+        scheme — that is what the extension mechanism is for — so sweeping
+        the whole registry made this a claim about whatever else happened to
+        be installed, and it failed the moment a hosted gateway's extension
+        was present in the same environment.
+        """
+        for uri in (
+            resources.NOTEBOOK_RESOURCE,
+            resources.CELL_RESOURCE,
+            resources.OUTPUT_RESOURCE,
+        ):
+            assert uri in templates
             assert not uri.startswith("datalayer://")
 
     def test_a_notebook_is_addressed_by_name_not_by_path(self, templates):

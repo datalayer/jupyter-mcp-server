@@ -43,6 +43,22 @@ class SandboxesExtension(JupyterMCPExtension):
     def __init__(self) -> None:
         self._manager = CodeSandboxManager()
 
+    @property
+    def sandboxes(self) -> CodeSandboxManager:
+        """The sandboxes this extension launched, for extensions built on it.
+
+        A downstream extension adding a sandbox tool — a snapshot, a mount —
+        has to act on *this* registry, the one `launch_sandbox` wrote to and
+        `use_sandbox` points into. Building its own would be a second set of
+        sandboxes with the same names, where "the active one" means two
+        different things depending on which tool you called.
+
+        Public rather than reached for: the alternative is downstream code
+        touching ``_manager``, which works until this class holds its
+        sandboxes some other way.
+        """
+        return self._manager
+
     def manifest(self) -> PluginManifest:
         return PluginManifest(
             name="jupyter-mcp-sandboxes",
@@ -264,6 +280,18 @@ class SandboxesExtension(JupyterMCPExtension):
                     )
                 ),
             ] = None,
+            snapshot_name: Annotated[
+                str | None,
+                Field(
+                    description=(
+                        "Start from a saved snapshot instead of an empty "
+                        "sandbox, restoring the state it was taken in. Only "
+                        "the datalayer variant has snapshots; naming one for "
+                        "any other variant is refused rather than quietly "
+                        "started empty."
+                    )
+                ),
+            ] = None,
         ) -> ToolAnswer:
             """Launch a code sandbox that can be used instead of Jupyter kernels.
 
@@ -297,6 +325,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     channels_url=channels_url,
                     token=token,
                     python_version=python_version,
+                    snapshot_name=snapshot_name,
                 )
             )
 

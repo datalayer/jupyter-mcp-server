@@ -40,6 +40,7 @@ class CodeSandboxManager:
         token: str | None = None,
         run_url: str | None = None,
         python_version: str | None = None,
+        snapshot_name: str | None = None,
     ) -> dict[str, Any]:
         """Launch and register a new code sandbox."""
         if sandbox_name in self._sandboxes:
@@ -101,6 +102,20 @@ class CodeSandboxManager:
                 create_kwargs["token"] = token
             if run_url:
                 create_kwargs["run_url"] = run_url
+            # Start from a saved state rather than an empty one. Named per
+            # variant rather than passed for all of them because a variant
+            # that does not know the argument would take it as an unexpected
+            # keyword and fail the launch — a caller who asked for a snapshot
+            # on a backend without them should be told that, not handed a
+            # TypeError from a constructor.
+            if snapshot_name:
+                create_kwargs["snapshot_name"] = snapshot_name
+
+        if snapshot_name and variant != "datalayer":
+            raise ValueError(
+                f"Sandbox variant '{variant}' cannot start from a snapshot; "
+                "only 'datalayer' can."
+            )
 
         sandbox = CodeSandboxClient.create(**create_kwargs)
         sandbox.start()
