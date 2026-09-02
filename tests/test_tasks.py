@@ -22,6 +22,7 @@ $ pytest tests/test_tasks.py -v
 from __future__ import annotations
 
 import asyncio
+import pathlib
 
 import pytest
 from mcp.shared.exceptions import MCPError
@@ -1000,50 +1001,142 @@ async def test_a_failed_task_keeps_what_it_printed(extension, store):
 # ---------------------------------------------------------------------------
 
 
-def _loop_source() -> str:
-    import inspect
+def _execution_wait_loops() -> dict[str, str]:
+    """Every loop that waits for a cell to finish, found rather than named.
 
-    from jupyter_mcp_server import utils
+    The first version of this read one module — `utils` — and asserted the
+    two hooks were in it. `execute_cell(stream=True)` runs a *second* monitor
+    loop in `execute_cell_tool`, which is the documented mode for
+    long-running cells and therefore the one most likely to be cancelled, and
+    it had neither hook. The test could not see it, so it said nothing.
 
-    source = inspect.getsource(utils)
-    start = source.index("    last_output_count = 0")
-    return source[start : source.index("# Get final result", start)]
-
-
-def test_the_kernel_interrupt_is_registered_by_the_execution_loop():
-    """`register_interrupt` was defined, tested, documented and called by no
-    tool for as long as it existed — so cancelling said `cancelled` while the
-    kernel kept running the cell.
-
-    The *call*, not the name: an earlier version of this asserted
-    `"register_interrupt" in body`, which the import line satisfies on its
-    own, so deleting the call left the test green.
+    So the loops are located by shape: `while not <something>.done():` inside
+    the package. A third one added anywhere is covered on the day it is
+    written, which is the only version of this check worth having.
     """
-    assert "await register_interrupt(kernel.interrupt)" in _loop_source()
+    import ast
+
+    import jupyter_mcp_server
+
+    found: dict[str, str] = {}
+    root = pathlib.Path(jupyter_mcp_server.__file__).parent
+    for path in sorted(root.rglob("*.py")):
+        source = path.read_text()
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:  # pragma: no cover
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.While):
+                continue
+            test = node.test
+            if not (
+                isinstance(test, ast.UnaryOp)
+                and isinstance(test.op, ast.Not)
+                and isinstance(test.operand, ast.Call)
+                and isinstance(test.operand.func, ast.Attribute)
+                and test.operand.func.attr == "done"
+            ):
+                continue
+            where = f"{path.relative_to(root)}:{node.lineno}"
+            found[where] = ast.get_source_segment(source, node) or ""
+    return found
 
 
-def test_the_interrupt_is_registered_before_the_wait_begins():
-    """Registered inside the loop, a cell cancelled in its first second has
-    nothing to interrupt."""
-    body = _loop_source()
-    assert body.index("register_interrupt") < body.index(
-        "while not execution_future.done()"
-    )
+def _enclosing_source(where: str) -> str:
+    """The function a loop is in, so the registration before it is visible."""
+    import ast
+
+    import jupyter_mcp_server
+
+    name, line = where.rsplit(":", 1)
+    path = pathlib.Path(jupyter_mcp_server.__file__).parent / name
+    source = path.read_text()
+    tree = ast.parse(source)
+    best = ""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            end = getattr(node, "end_lineno", node.lineno)
+            if node.lineno <= int(line) <= end:
+                segment = ast.get_source_segment(source, node) or ""
+                # The innermost enclosing function, which is the one holding
+                # the kernel.
+                if not best or len(segment) < len(best):
+                    best = segment
+    return best
 
 
-def test_the_outputs_are_recorded_where_new_ones_are_noticed():
-    """Not on the keepalive tick: that fires on a timer whether or not
-    anything was produced, so recording there would rewrite the same list
-    every few seconds and miss a burst between two ticks."""
-    body = _loop_source()
-    assert "await record_output(safe_extract_outputs(" in body
-    assert body.index("last_output_count = len(current_outputs)") < body.index(
-        "await record_output("
-    )
-    assert body.index("await record_output(") < body.index("emit_execution_progress")
+def test_there_is_more_than_one_execution_wait_loop():
+    """The premise of the two tests below, asserted rather than assumed.
+
+    If this ever finds one loop again, either a duplicate was removed — good,
+    and these tests should be simplified — or the search stopped working, and
+    the tests below became vacuous without saying so.
+    """
+    loops = _execution_wait_loops()
+    assert len(loops) >= 2, f"found {sorted(loops)}"
 
 
-def test_neither_hook_can_fail_the_cell():
+def _loops_that_can_interrupt() -> list[str]:
+    """The loops that hold something interruptible.
+
+    All of them, today. Written as a rule rather than asserted of every loop
+    so that a future wait loop with nothing to stop — waiting on a queue,
+    say — is not required to invent an interrupt.
+    """
+    return [
+        where
+        for where in _execution_wait_loops()
+        if ".interrupt()" in _enclosing_source(where)
+    ]
+
+
+@pytest.mark.parametrize("where", sorted(_loops_that_can_interrupt()))
+def test_every_execution_wait_loop_registers_the_interrupt(where):
+    """Cancelling a task cancels the coroutine that *waits* for the cell. The
+    kernel keeps running it, keeps holding the sandbox and keeps costing
+    money, while the task says `cancelled`.
+
+    The *call*, not the name: an earlier version asserted
+    `"register_interrupt" in body`, which the import line satisfies on its
+    own, so deleting the call left it green.
+    """
+    body = _enclosing_source(where)
+    assert "await register_interrupt(" in body, where
+
+
+def _loops_that_watch_outputs() -> list[str]:
+    """The loops that can see output arrive, which are the ones that can
+    stream it.
+
+    Not every wait loop can: `execute_code` waits on a call that returns its
+    outputs whole, so there is nothing to record until it is over. Demanding
+    it of that loop would be demanding something it has no way to do, and the
+    exemption belongs in the rule rather than in a list of names.
+    """
+    return [
+        where
+        for where, loop in _execution_wait_loops().items()
+        if '"outputs"' in loop
+    ]
+
+
+def test_some_loops_watch_outputs_arrive():
+    """The premise of the test below."""
+    assert _loops_that_watch_outputs()
+
+
+@pytest.mark.parametrize("where", sorted(_loops_that_watch_outputs()))
+def test_every_loop_that_watches_outputs_records_them(where):
+    """A cell cancelled at minute nine of ten has no result and may have
+    printed five hundred lines."""
+    loop = _execution_wait_loops()[where]
+    assert "await record_output(" in loop, where
+
+
+@pytest.mark.parametrize("where", sorted(_loops_that_can_interrupt()))
+def test_neither_hook_can_fail_the_cell(where):
     """Both are bookkeeping about the work. Failing a cell because the note
     about the cell would not go out trades the work for the story about it."""
-    assert _loop_source().count("except Exception") >= 2
+    body = _enclosing_source(where)
+    assert body.count("except Exception") >= 2, where

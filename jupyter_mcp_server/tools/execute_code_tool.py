@@ -207,6 +207,18 @@ class ExecuteCodeTool(BaseTool):
             start_time = asyncio.get_event_loop().time()
             last_progress_emit = 0.0
 
+            # How to stop the code, as opposed to stopping the wait for it.
+            # This loop has no outputs to stream — `execute` returns them
+            # whole — but it can interrupt, and a task cancelled here would
+            # otherwise leave the sandbox running.
+            if code_sandbox_client is not None and hasattr(code_sandbox_client, "interrupt"):
+                try:
+                    from jupyter_mcp_server.tasks import register_interrupt
+
+                    await register_interrupt(code_sandbox_client.interrupt)
+                except Exception as error:  # noqa: BLE001 - never in the way
+                    logger.debug("The interrupt could not be registered: %s", error)
+
             # Wait for execution with timeout, emitting MCP keepalive progress
             # so clients do not idle-timeout on long-running cells.
             # Use >= so timeout=0 is an immediate timeout even if elapsed is 0.

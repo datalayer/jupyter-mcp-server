@@ -130,8 +130,15 @@ Outside a task this answers `False` and does nothing, which is right: a
 synchronous call has the client on the other end of the connection, and the
 client can drop it.
 
-The cell execution loop registers the kernel's interrupt, so cancelling a
-task that is running a cell stops the cell.
+**Every** loop that waits for a cell registers it — `execute_cell` in both
+its streaming and non-streaming forms, and `execute_code` — so cancelling a
+task that is running a cell stops the cell whichever tool started it.
+
+That is worth stating because it was not true. `execute_cell(stream=True)`
+runs a monitor loop of its own, and it is the documented mode for
+long-running cells, so it is the one most likely to be cancelled: it had
+neither hook while the other loop had both. A test now finds the loops by
+shape rather than by name, so a fourth is covered on the day it is written.
 
 ## A cancelled task keeps what it produced
 
