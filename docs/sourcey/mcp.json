@@ -861,6 +861,19 @@
             "default": null,
             "description": "Modal Python version override (e.g. 3.12). Only used for modal variant.",
             "title": "Python Version"
+          },
+          "snapshot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Start from a saved snapshot instead of an empty sandbox, restoring the state it was taken in. Only the datalayer variant has snapshots; naming one for any other variant is refused rather than quietly started empty.",
+            "title": "Snapshot Name"
           }
         },
         "required": [

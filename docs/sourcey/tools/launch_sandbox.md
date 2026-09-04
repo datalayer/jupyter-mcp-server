@@ -28,6 +28,7 @@ MCP_SERVER and JUPYTER_SERVER modes.
 | `channels_url` | string \| null | no | `null` | Notebook session WebSocket channels URL to derive server_url/kernel_id (google-colab or kaggle variant) |
 | `token` | string \| null | no | `null` | Kaggle API token for the kaggle variant (falls back to KAGGLE_API_TOKEN) |
 | `python_version` | string \| null | no | `null` | Modal Python version override (e.g. 3.12). Only used for modal variant. |
+| `snapshot_name` | string \| null | no | `null` | Start from a saved snapshot instead of an empty sandbox, restoring the state it was taken in. Only the datalayer variant has snapshots; naming one for any other variant is refused rather than quietly started empty. |
 
 ## Output
 
@@ -75,14 +76,15 @@ MCP_SERVER and JUPYTER_SERVER modes.
       "proxy_token": null,
       "channels_url": null,
       "token": null,
-      "python_version": null
+      "python_version": null,
+      "snapshot_name": null
     }
   }
 }
 ```
 
 ```python
-result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<sandbox_name>", "variant": None, "timeout": 60, "environment": None, "gpu": None, "server_url": None, "kernel_id": None, "proxy_token": None, "channels_url": None, "token": None, "python_version": None})
+result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<sandbox_name>", "variant": None, "timeout": 60, "environment": None, "gpu": None, "server_url": None, "kernel_id": None, "proxy_token": None, "channels_url": None, "token": None, "python_version": None, "snapshot_name": None})
 ```
 
 ## Source

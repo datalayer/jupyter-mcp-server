@@ -57,6 +57,12 @@ To get started with development, you'll need to set up your environment.
    make test
    ```
 
+1. **Sync sourcey:**
+
+   ```bash
+   make sync-sourcey
+   ```
+
 1. **Build Python Package/Docker Image:**
 
    ```bash

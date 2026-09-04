@@ -33,6 +33,7 @@ class LaunchSandboxTool(BaseTool):
         channels_url: str | None = None,
         token: str | None = None,
         python_version: str | None = None,
+        snapshot_name: str | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         if code_sandbox_manager is None:
@@ -52,6 +53,7 @@ class LaunchSandboxTool(BaseTool):
             channels_url=channels_url,
             token=token,
             python_version=python_version,
+            snapshot_name=snapshot_name,
         )
 
         return {

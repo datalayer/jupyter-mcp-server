@@ -139,6 +139,25 @@ class ExtensionManager:
         self._extensions[manifest.name] = extension
         logger.info("Registered Jupyter MCP extension: %s", manifest.name)
 
+    def get(self, name: str) -> Optional[JupyterMCPExtension]:
+        """The registered extension published under this manifest name.
+
+        Extensions are meant to compose — that is what registering them in
+        name order is *for*: one extension narrowing or extending a tool an
+        earlier one put on the server. Composing needs a way to reach the
+        extension being built on, and until now the only route was
+        ``manager._extensions``, another object's private dict. A downstream
+        extension reaching in that way keeps working right up to the day this
+        class stores its extensions differently, and then breaks with an
+        ``AttributeError`` in somebody else's package.
+
+        ``None`` for a name that is not registered, because "the extension you
+        build on is not installed" is an ordinary configuration, not an error:
+        the caller degrades — leaving its tool off the list — rather than
+        failing the whole server's startup.
+        """
+        return self._extensions.get(name)
+
     def discover(self) -> None:
         """Discover extensions published on the entry-point group.
 

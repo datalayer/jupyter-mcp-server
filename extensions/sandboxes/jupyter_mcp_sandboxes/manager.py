@@ -40,6 +40,7 @@ class CodeSandboxManager:
         token: str | None = None,
         run_url: str | None = None,
         python_version: str | None = None,
+        snapshot_name: str | None = None,
     ) -> dict[str, Any]:
         """Launch and register a new code sandbox."""
         if sandbox_name in self._sandboxes:
@@ -49,6 +50,16 @@ class CodeSandboxManager:
         # variant with an underscore or in capitals lands on the same branch
         # below as one naming it canonically.
         variant = normalize_variant(variant)
+        # Decided once, so the two places that ask "was a snapshot wanted"
+        # cannot answer differently. An empty string means the argument was
+        # not given — the same reading `environment` and `gpu` get, and the
+        # one the hosted gateway relies on when it turns its own empty
+        # strings into `None`. Whitespace means the same and used to mean
+        # something else: `"  "` is truthy, so it was refused on one variant
+        # and handed to the Datalayer constructor as a snapshot name on the
+        # other, where nothing can be called that and the caller found out
+        # from two packages away.
+        wanted_snapshot = (snapshot_name or "").strip()
         create_kwargs: dict[str, Any] = {
             "variant": variant,
             "timeout": timeout,
@@ -101,6 +112,20 @@ class CodeSandboxManager:
                 create_kwargs["token"] = token
             if run_url:
                 create_kwargs["run_url"] = run_url
+            # Start from a saved state rather than an empty one. Named per
+            # variant rather than passed for all of them because a variant
+            # that does not know the argument would take it as an unexpected
+            # keyword and fail the launch — a caller who asked for a snapshot
+            # on a backend without them should be told that, not handed a
+            # TypeError from a constructor.
+            if wanted_snapshot:
+                create_kwargs["snapshot_name"] = wanted_snapshot
+
+        if wanted_snapshot and variant != "datalayer":
+            raise ValueError(
+                f"Sandbox variant '{variant}' cannot start from a snapshot; "
+                "only 'datalayer' can."
+            )
 
         sandbox = CodeSandboxClient.create(**create_kwargs)
         sandbox.start()
