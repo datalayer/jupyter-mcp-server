@@ -100,6 +100,26 @@ handler. `get_capabilities` derives the capability from whether
 and at 2025-11-25 it is not.
 :::
 
+### A change made by somebody else
+
+The publish above is the server's own: a tool edits a cell and says so on
+its way out. A person typing in JupyterLab, or another server's agent
+editing the same document, is not a tool call here — and this server's
+notebook connections are per call, so between calls there was no live
+document to observe.
+
+`watchers.py` is the persistent connection that was missing: one per
+notebook a session has bound with `use_notebook`, held for as long as it is
+bound, observing the shared document. A transaction whose origin is not
+this client's own is somebody else's, and is published through the same
+`publish_notebook_updated` onto the same bus, so a subscriber cannot tell
+the two apart. Own edits are not announced twice: the tool publishes them,
+and pycrdt hands an observer the origin's *hash*, which is what is compared.
+Debounced to a quarter second, so a person typing is one notification and
+not a hundred. `JUPYTER_MCP_WATCH_NOTEBOOKS=false` turns the connections
+off, for a deployment whose configured publisher is fed by the document
+server itself.
+
 ## Both eras
 
 At 2025-11-25 a client asks with `resources/subscribe` instead, and this
@@ -151,6 +171,7 @@ verifier and the task store: an environment variable naming a class.
 | Variable | What it replaces |
 |---|---|
 | `JUPYTER_MCP_PUBLISHER_CLASS` | Where `resources/updated` is published |
+| `JUPYTER_MCP_WATCH_NOTEBOOKS` | Whether a bound notebook is watched for changes made elsewhere; `true` unless set to `false` |
 | `JUPYTER_MCP_RESOURCE_GATE_CLASS` | Which of these resources are served |
 
 Both default to the behaviour that makes this server work unconfigured. A
