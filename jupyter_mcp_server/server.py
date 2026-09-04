@@ -650,6 +650,12 @@ async def stop(request: Request):
         if current_notebook in notebook_manager:
             notebook_manager.remove_notebook(current_notebook)
         extension_manager.stop()
+        try:
+            from jupyter_mcp_server.watchers import watchers  # noqa: PLC0415
+
+            watchers.stop_all()
+        except Exception:  # noqa: BLE001
+            pass
         return JSONResponse({"success": True})
     except Exception as e:
         logger.error(f"Error stopping notebook: {e}")

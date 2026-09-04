@@ -226,6 +226,16 @@ class NotebookManager:
         # set it as the current notebook
         if self._current_notebook is None or name == self._default_notebook_name:
             self._current_notebook = name
+        # A bound remote notebook is watched for changes made elsewhere, for
+        # as long as it is bound. Best effort: a watcher that cannot start is
+        # a subscriber not told, never a `use_notebook` that failed.
+        if not is_local_mode:
+            try:
+                from jupyter_mcp_server.watchers import watchers  # noqa: PLC0415
+
+                watchers.watch(name, self)
+            except Exception:  # noqa: BLE001
+                logger.debug("Notebook [%s] could not be watched", name, exc_info=True)
 
     def remove_notebook(self, name: str) -> bool:
         """
@@ -238,6 +248,12 @@ class NotebookManager:
             True if removed successfully, False if not found
         """
         if name in self._notebooks:
+            try:
+                from jupyter_mcp_server.watchers import watchers  # noqa: PLC0415
+
+                watchers.unwatch(name)
+            except Exception:  # noqa: BLE001
+                pass
             try:
                 notebook_data = self._notebooks[name]
                 is_local = notebook_data.get("is_local", False)
