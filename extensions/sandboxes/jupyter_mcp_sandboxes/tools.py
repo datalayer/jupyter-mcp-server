@@ -144,7 +144,24 @@ class UseSandboxTool(BaseTool):
         if code_sandbox_manager is None:
             raise ValueError("code_sandbox_manager is required")
 
-        active_name = code_sandbox_manager.use(sandbox_name)
+        try:
+            active_name = code_sandbox_manager.use(sandbox_name)
+        except ValueError as unknown:
+            # Not one this server launched. A sandbox shared with this
+            # caller, or one launched from another session, is reached by
+            # name through its provider — and if the provider does not know
+            # it either, the answer is the one the caller can act on.
+            if not sandbox_name:
+                raise
+            try:
+                code_sandbox_manager.attach(sandbox_name)
+            except Exception as error:  # noqa: BLE001 - the words are the answer
+                raise ValueError(
+                    f"{unknown} It is not a sandbox this server launched, and it could not be "
+                    f"reached by name either: {error}. Use launch_sandbox to start one, or "
+                    "list_sandboxes to see the names you may use."
+                ) from error
+            active_name = code_sandbox_manager.use(sandbox_name)
         if active_name is None:
             return (
                 "Sandbox routing disabled. 'execute_code' now uses Jupyter kernels again "

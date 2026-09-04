@@ -136,6 +136,41 @@ class CodeSandboxManager:
 
         return self._serialize(sandbox_name, sandbox)
 
+    def attach(
+        self,
+        sandbox_name: str,
+        *,
+        variant: str = "datalayer",
+        token: str | None = None,
+        run_url: str | None = None,
+    ) -> dict[str, Any]:
+        """Register a sandbox this server did not launch, by its name.
+
+        What `use_sandbox` reaches for when the name is not one this server
+        launched: a sandbox somebody else shared, or one launched from
+        another session. The sandbox is *borrowed* — terminating the client
+        releases it and leaves the sandbox running for whoever owns it.
+
+        Only the Datalayer variant can be attached: it is the one whose
+        provider answers "which sandbox is this" by name. The lookup is made
+        with `token`, or with the credential in the environment.
+        """
+        if sandbox_name in self._sandboxes:
+            return self._serialize(sandbox_name, self._sandboxes[sandbox_name])
+        if normalize_variant(variant) != "datalayer":
+            raise ValueError(f"Sandbox variant '{variant}' cannot be attached by name; only 'datalayer' can.")
+        from code_sandboxes.datalayer_sandbox import DatalayerSandbox  # noqa: PLC0415
+
+        sandbox = CodeSandboxClient(
+            DatalayerSandbox.from_id(sandbox_name, token=token, run_url=run_url),
+            owns_sandbox=False,
+        )
+        sandbox.start()
+        self._sandboxes[sandbox_name] = sandbox
+        if self._active_name is None:
+            self._active_name = sandbox_name
+        return self._serialize(sandbox_name, sandbox)
+
     def list(self) -> list[dict[str, Any]]:
         """Return all known sandboxes with summary metadata."""
         return [
