@@ -65,6 +65,7 @@ async def _settle(seconds=0.1):
     await asyncio.sleep(seconds)
 
 
+@pytest.mark.asyncio
 class TestSomebodyElsesChange:
     async def test_it_is_published_on_the_bus(self, fast):
         bus = _Bus()
@@ -127,6 +128,7 @@ class TestSomebodyElsesChange:
         assert NotebookWatchers().watch("nb", FakeManager(FakeClient())) is False
 
 
+@pytest.mark.asyncio
 class TestTheManagerFollows:
     async def test_a_bound_remote_notebook_is_watched_and_an_unbound_one_is_not(self, fast, monkeypatch):
         from jupyter_mcp_server import notebook_manager as nm
