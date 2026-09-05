@@ -44,6 +44,7 @@ from __future__ import annotations
 import importlib
 import logging
 import os
+from collections.abc import Sequence
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -142,6 +143,47 @@ def notebook_uri(name: str) -> str:
     return f"notebook://{name}"
 
 
+def cell_uri(name: str, cell_id: str) -> str:
+    """The resource URI of one cell — `resources.CELL_RESOURCE` filled in.
+
+    Built here rather than imported from `resources` because that module
+    reaches the notebook, and the publisher runs on the way out of a tool
+    call that has already finished with it.
+    """
+    return f"notebook://{name}/cells/{cell_id}"
+
+
+def changed_cells(result: Any) -> tuple[str, ...]:
+    """Which cells a finished tool call says it acted on.
+
+    Read from the result's `_meta` rather than from the tool's arguments,
+    because the arguments may name a cell by *index* and an index is not
+    something a subscriber can address. The resolver that turns an index into
+    a cell already attaches the id it landed on, for the agent's benefit; this
+    is the same fact, read once more on the way past.
+
+    Inserting a cell attaches nothing, and that is right: the id of a cell
+    that did not exist when somebody subscribed is not an id anybody is
+    subscribed to. The notebook frame carries that news.
+    """
+    meta = getattr(result, "meta", None)
+    if not isinstance(meta, dict):
+        return ()
+    from jupyter_mcp_server.results import meta_key  # noqa: PLC0415
+
+    found: list[str] = []
+    for key in ("cell_id", "cell_ids"):
+        value = meta.get(meta_key(key))
+        if isinstance(value, str):
+            found.append(value)
+        elif isinstance(value, (list, tuple)):
+            found.extend(str(one) for one in value if one)
+    # Ordered, and each said once: two of the eight writing tools resolve
+    # twice (a move has a source and a target) and a subscriber told about
+    # the same cell twice refetches it twice.
+    return tuple(dict.fromkeys(one for one in found if one))
+
+
 def target_notebook(keywords: dict[str, Any], current: Any) -> str:
     """Which notebook a tool call changed.
 
@@ -233,8 +275,21 @@ def _bus(server: Any) -> Any | None:
         return None
 
 
-async def publish_notebook_updated(server: Any, name: str) -> bool:
+async def publish_notebook_updated(
+    server: Any, name: str, cells: Sequence[str] = ()
+) -> bool:
     """Say that this notebook changed. Answers whether anything was told.
+
+    `cells` names the cells that moved, when that is known. Each gets its own
+    frame on `notebook://<name>/cells/<id>`, **as well as** the notebook's —
+    never instead of it. A client subscribed to the notebook asked to hear
+    about the notebook, and quietly narrowing that to the cells this server
+    happened to identify would go silent on a deletion, which is the one
+    change whose id nobody can read afterwards.
+
+    So the notebook frame is what every subscriber can rely on, and the cell
+    frames are what lets an agent watching one cell refetch one cell instead
+    of the document.
 
     Never raises. It runs after a tool has already done its work and
     returned: failing the edit because the *news about* the edit would not go
@@ -243,32 +298,44 @@ async def publish_notebook_updated(server: Any, name: str) -> bool:
     """
     if not name:
         return False
+    uris = [notebook_uri(name)]
+    uris.extend(cell_uri(name, one) for one in dict.fromkeys(cells) if one)
     # A configured publisher replaces the in-process bus entirely: a
     # deployment that has one is a deployment where this process is not where
     # the subscribers are, so publishing to both would be publishing half the
     # event twice.
     publisher = resolve_publisher()
     if publisher is not None:
-        try:
-            return bool(await publisher.publish(notebook_uri(name)))
-        except Exception as error:  # noqa: BLE001 - never in the way of the edit
-            logger.debug("A notebook update could not be published: %s", error)
-            return False
+        told = False
+        for uri in uris:
+            try:
+                told = bool(await publisher.publish(uri)) or told
+            except Exception as error:  # noqa: BLE001 - never in the way of the edit
+                logger.debug("A notebook update could not be published: %s", error)
+        return told
     told = False
     bus = _bus(server)
     if bus is not None:
-        try:
-            from mcp.server.subscriptions import ResourceUpdated  # noqa: PLC0415
+        # Each URI on its own. One that cannot be published must not take the
+        # rest of the burst with it, and it must not make a publish that did
+        # reach somebody answer that nobody was told — the caller counts that
+        # answer, and a `False` here is read as "nothing is listening".
+        for uri in uris:
+            try:
+                from mcp.server.subscriptions import ResourceUpdated  # noqa: PLC0415
 
-            await bus.publish(ResourceUpdated(uri=notebook_uri(name)))
-            told = True
-        except Exception as error:  # noqa: BLE001 - never in the way of the edit
-            logger.debug("A notebook update could not be published: %s", error)
+                await bus.publish(ResourceUpdated(uri=uri))
+                told = True
+            except Exception as error:  # noqa: BLE001 - never in the way of the edit
+                logger.debug("A notebook update could not be published: %s", error)
     # Both halves, always. The legacy half used to be reached only when a bus
     # existed — the `return False` above it saw to that — so a server on an
     # SDK without `subscriptions/listen` told its 2025-11-25 subscribers
     # nothing, which is every subscriber it had.
-    return await _tell_legacy_subscribers(notebook_uri(name)) or told
+    reached = False
+    for uri in uris:
+        reached = await _tell_legacy_subscribers(uri) or reached
+    return reached or told
 
 
 async def _tell_legacy_subscribers(uri: str) -> bool:
