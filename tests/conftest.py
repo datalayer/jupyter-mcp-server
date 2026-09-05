@@ -615,3 +615,29 @@ def jupyter_server_short_cookie(jupyter_short_cookie_root_dir, tmp_path_factory)
         max_retries=10,
         extra_env={"JUPYTER_CONFIG_DIR": str(config_dir)},
     )
+
+
+@pytest.fixture(autouse=True)
+def _subscriptions_are_this_test_s_own():
+    """Give every test the subscription registry it started with.
+
+    `notifications._LEGACY` is process-global and, since 2026-09-05, holds
+    its sessions **strongly** — a weak key was collected between the request
+    that made a subscription and the next call, which is the defect that
+    registry exists to have fixed. The cost of the fix is that a test which
+    subscribes now leaves the subscription behind for every test that runs
+    after it, in this file and in any other, and a suite that passes in one
+    order fails in another.
+
+    Restoring rather than clearing: a test that arranges the registry
+    deliberately gets its arrangement back, and a test that fills it — the
+    ceiling one does, on purpose — hands back what it found.
+    """
+    from jupyter_mcp_server import notifications
+
+    held = dict(notifications._LEGACY)
+    try:
+        yield
+    finally:
+        notifications._LEGACY.clear()
+        notifications._LEGACY.update(held)

@@ -44,7 +44,6 @@ from __future__ import annotations
 import importlib
 import logging
 import os
-import weakref
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -74,29 +73,61 @@ MUTATING_KINDS = frozenset(
 #: Sessions that asked for a resource through the **legacy** method, and the
 #: URIs each asked about.
 #:
-#: A weak-keyed map, so a session that goes away takes its subscriptions with
-#: it. The alternative is an unsubscribe hook that has to fire on every way a
-#: connection can end — including the ones that do not run any code — and a
-#: subscription nobody can reach is a notification sent for ever to nobody.
-_LEGACY: "weakref.WeakKeyDictionary[Any, set[str]]" = weakref.WeakKeyDictionary()
+#: A **strong** reference, and that is the whole point. This was a
+#: `WeakKeyDictionary`, so that a session going away took its subscriptions
+#: with it — except that nothing else holds a `ServerSession`, so every
+#: subscription was collected between the request that made it and the next
+#: call. The server advertised `resources.subscribe: true`, accepted the
+#: subscribe, reported that it had published, and told nobody, ever. Measured
+#: on a deployment and then reproduced in one process against a raw client:
+#: the notification is written to a channel with no reader.
+#:
+#: What replaces the weak key is removal that is *said out loud*: on
+#: unsubscribe, on a send that fails (a gone session fails on the next
+#: publish, which is the same moment a weak key would have noticed), and past
+#: `MAX_SUBSCRIBED_SESSIONS`, oldest first — so a client that subscribes and
+#: vanishes without unsubscribing costs one entry until the next publish
+#: rather than a leak without a ceiling.
+_LEGACY: dict[Any, set[str]] = {}
+
+#: How many subscribed sessions are remembered before the oldest is dropped.
+#: A single-user server has one; a shared one has as many as it has clients,
+#: and this is far past either.
+MAX_SUBSCRIBED_SESSIONS = 256
 
 
 def legacy_subscribe(session: Any, uri: str) -> None:
     """Remember that this session asked about this URI (2025-11-25)."""
     if session is None or not uri:
         return
+    if session not in _LEGACY:
+        while len(_LEGACY) >= MAX_SUBSCRIBED_SESSIONS:
+            oldest = next(iter(_LEGACY))
+            logger.warning(
+                "Forgetting the subscriptions of the oldest session: more than "
+                "%d are subscribed at once",
+                MAX_SUBSCRIBED_SESSIONS,
+            )
+            _LEGACY.pop(oldest, None)
     _LEGACY.setdefault(session, set()).add(uri)
 
 
 def legacy_unsubscribe(session: Any, uri: str) -> None:
     """Forget it. Unsubscribing from something never subscribed is not an
     error: the client's intent — *do not tell me about this* — is satisfied
-    either way, and refusing it invites a client to retry."""
+    either way, and refusing it invites a client to retry.
+
+    A session that has unsubscribed from everything is dropped: the map holds
+    sessions now, and one with nothing to hear is one to let go of.
+    """
     if session is None:
         return
     subscribed = _LEGACY.get(session)
-    if subscribed is not None:
-        subscribed.discard(uri)
+    if subscribed is None:
+        return
+    subscribed.discard(uri)
+    if not subscribed:
+        _LEGACY.pop(session, None)
 
 
 def legacy_subscribers(uri: str) -> list[Any]:
@@ -223,17 +254,20 @@ async def publish_notebook_updated(server: Any, name: str) -> bool:
         except Exception as error:  # noqa: BLE001 - never in the way of the edit
             logger.debug("A notebook update could not be published: %s", error)
             return False
-    bus = _bus(server)
-    if bus is None:
-        return False
     told = False
-    try:
-        from mcp.server.subscriptions import ResourceUpdated  # noqa: PLC0415
+    bus = _bus(server)
+    if bus is not None:
+        try:
+            from mcp.server.subscriptions import ResourceUpdated  # noqa: PLC0415
 
-        await bus.publish(ResourceUpdated(uri=notebook_uri(name)))
-        told = True
-    except Exception as error:  # noqa: BLE001 - never in the way of the edit
-        logger.debug("A notebook update could not be published: %s", error)
+            await bus.publish(ResourceUpdated(uri=notebook_uri(name)))
+            told = True
+        except Exception as error:  # noqa: BLE001 - never in the way of the edit
+            logger.debug("A notebook update could not be published: %s", error)
+    # Both halves, always. The legacy half used to be reached only when a bus
+    # existed — the `return False` above it saw to that — so a server on an
+    # SDK without `subscriptions/listen` told its 2025-11-25 subscribers
+    # nothing, which is every subscriber it had.
     return await _tell_legacy_subscribers(notebook_uri(name)) or told
 
 
@@ -251,6 +285,9 @@ async def _tell_legacy_subscribers(uri: str) -> bool:
             await session.send_resource_updated(uri)
             told = True
         except Exception as error:  # noqa: BLE001 - a gone session is not an error
-            logger.debug("A subscriber could not be told about %s: %s", uri, error)
+            # Info rather than debug: this is the only moment a subscription
+            # is noticed to be dead, and a server that quietly stops telling
+            # somebody looks exactly like a notebook that stopped changing.
+            logger.info("A subscriber could not be told about %s: %s", uri, error)
             _LEGACY.pop(session, None)
     return told

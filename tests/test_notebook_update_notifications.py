@@ -254,38 +254,39 @@ class TestTheOlderWayToAsk:
         is already true."""
         notifications.legacy_unsubscribe(_FakeSession(), "notebook://never")
 
-    def test_a_real_session_can_be_held_weakly(self):
-        """The registry is weak-keyed, so a session that cannot be weakly
-        referenced would make every `resources/subscribe` raise. A bare
-        `object()` cannot be — which is how this was found — and an SDK that
-        gave `ServerSession` `__slots__` without `__weakref__` would break it
-        the same way, silently, at the first subscribe."""
-        import weakref
+    def test_a_subscription_outlives_the_request_that_made_it(self):
+        """The whole point, and what was broken until 2026-09-05.
 
-        from mcp.server.session import ServerSession
-
-        class _Unconstructed(ServerSession):
-            def __init__(self):  # noqa: D107 - the constructor is not the point
-                pass
-
-        weakref.ref(_Unconstructed())
-
-    def test_a_session_that_goes_away_takes_its_subscriptions_with_it(self):
-        """The map is weak-keyed. The alternative is an unsubscribe hook that
-        has to fire on every way a connection can end — including the ones
-        that run no code — and a subscription nobody can reach is a
-        notification sent for ever to nobody."""
+        The map was weak-keyed, so that a session going away took its
+        subscriptions with it. Nothing else holds a `ServerSession`: the
+        subscription was collected between the request that made it and the
+        next call, every time, and the server told nobody while reporting
+        that it had published. Nothing here could see it, because every test
+        held the session in a local variable.
+        """
         import gc
 
         class _Session:
             pass
 
-        session = _Session()
-        notifications.legacy_subscribe(session, "notebook://ghost")
-        assert notifications.legacy_subscribers("notebook://ghost")
-        del session
+        notifications.legacy_subscribe(_Session(), "notebook://ghost")
         gc.collect()
-        assert notifications.legacy_subscribers("notebook://ghost") == []
+        assert notifications.legacy_subscribers("notebook://ghost")
+
+    def test_unsubscribing_from_the_last_uri_lets_the_session_go(self):
+        """The map holds sessions now, so what removes them has to be said:
+        a session with nothing left to hear is one to let go of."""
+        session = object()
+        notifications.legacy_subscribe(session, "notebook://one")
+        notifications.legacy_unsubscribe(session, "notebook://one")
+        assert session not in notifications._LEGACY
+
+    def test_the_registry_has_a_ceiling(self):
+        """A client that subscribes and vanishes without unsubscribing costs
+        one entry until the next publish, not a leak without a ceiling."""
+        for index in range(notifications.MAX_SUBSCRIBED_SESSIONS + 10):
+            notifications.legacy_subscribe(object(), f"notebook://{index}")
+        assert len(notifications._LEGACY) <= notifications.MAX_SUBSCRIBED_SESSIONS
 
 
 @pytest.mark.asyncio
@@ -308,6 +309,29 @@ class TestBothErasAreTold:
         notifications.legacy_subscribe(session, "notebook://work")
         try:
             await notifications.publish_notebook_updated(_Server(_Bus()), "work")
+        finally:
+            notifications.legacy_unsubscribe(session, "notebook://work")
+        assert told == ["notebook://work"]
+
+    async def test_a_legacy_subscriber_is_told_by_a_server_with_no_bus(self):
+        """The two halves are independent, and the legacy one used to be
+        reached only through the modern one: `publish` returned early when
+        the server had no `subscriptions/listen`, so an SDK without that
+        stream told its 2025-11-25 subscribers nothing — which is every
+        subscriber such a server has."""
+        told = []
+
+        class _Session:
+            async def send_resource_updated(self, uri):
+                told.append(uri)
+
+        class _NoBus:
+            """A server the bus cannot be reached through."""
+
+        session = _Session()
+        notifications.legacy_subscribe(session, "notebook://work")
+        try:
+            assert await notifications.publish_notebook_updated(_NoBus(), "work") is True
         finally:
             notifications.legacy_unsubscribe(session, "notebook://work")
         assert told == ["notebook://work"]
@@ -366,3 +390,19 @@ class TestThePageSaysWhatHappens:
         """A negative claim: nothing about adding a persistent observer later
         makes anybody re-read the paragraph explaining its absence."""
         assert "A change by somebody else is not covered" in self._page()
+
+
+class TestOneTestsSubscriptionsAreNotAnothers:
+    """The registry holds its sessions strongly, so a test that subscribes
+    would leave the subscription behind for every test after it — in this
+    file and in any other — and a suite that passes in one order would fail
+    in another. `conftest` gives each test the registry it started with;
+    these two run in this order and prove it.
+    """
+
+    def test_this_one_subscribes_and_walks_away(self):
+        notifications.legacy_subscribe(object(), "notebook://left-behind")
+        assert notifications.legacy_subscribers("notebook://left-behind")
+
+    def test_and_this_one_finds_nothing_of_it(self):
+        assert notifications.legacy_subscribers("notebook://left-behind") == []
