@@ -284,16 +284,9 @@ class TestTheOlderWayToAsk:
     def test_the_registry_has_a_ceiling(self):
         """A client that subscribes and vanishes without unsubscribing costs
         one entry until the next publish, not a leak without a ceiling."""
-        held = dict(notifications._LEGACY)
-        try:
-            for index in range(notifications.MAX_SUBSCRIBED_SESSIONS + 10):
-                notifications.legacy_subscribe(object(), f"notebook://{index}")
-            assert len(notifications._LEGACY) <= notifications.MAX_SUBSCRIBED_SESSIONS
-        finally:
-            # The map holds its sessions now, so a test that fills it leaves
-            # them for every later test in the process unless it says not to.
-            notifications._LEGACY.clear()
-            notifications._LEGACY.update(held)
+        for index in range(notifications.MAX_SUBSCRIBED_SESSIONS + 10):
+            notifications.legacy_subscribe(object(), f"notebook://{index}")
+        assert len(notifications._LEGACY) <= notifications.MAX_SUBSCRIBED_SESSIONS
 
 
 @pytest.mark.asyncio
@@ -397,3 +390,19 @@ class TestThePageSaysWhatHappens:
         """A negative claim: nothing about adding a persistent observer later
         makes anybody re-read the paragraph explaining its absence."""
         assert "A change by somebody else is not covered" in self._page()
+
+
+class TestOneTestsSubscriptionsAreNotAnothers:
+    """The registry holds its sessions strongly, so a test that subscribes
+    would leave the subscription behind for every test after it — in this
+    file and in any other — and a suite that passes in one order would fail
+    in another. `conftest` gives each test the registry it started with;
+    these two run in this order and prove it.
+    """
+
+    def test_this_one_subscribes_and_walks_away(self):
+        notifications.legacy_subscribe(object(), "notebook://left-behind")
+        assert notifications.legacy_subscribers("notebook://left-behind")
+
+    def test_and_this_one_finds_nothing_of_it(self):
+        assert notifications.legacy_subscribers("notebook://left-behind") == []
