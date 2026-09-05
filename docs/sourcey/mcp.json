@@ -3,7 +3,7 @@
   "mcpVersion": "2025-11-25",
   "server": {
     "name": "Jupyter MCP Server",
-    "version": "2.1.6"
+    "version": "2.1.7"
   },
   "capabilities": {
     "experimental": {},
