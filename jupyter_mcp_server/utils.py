@@ -540,7 +540,7 @@ def extract_output(output: dict | Any) -> str | ImageContent:
 
 def strip_ansi_codes(text: str) -> str:
     """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    ansi_escape = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
     return ansi_escape.sub("", text)
 
 
