@@ -52,6 +52,7 @@ class TestAttach:
             CodeSandboxManager().attach("x", variant="e2b")
 
 
+@pytest.mark.asyncio
 class TestUseSandboxReachesForIt:
     async def test_an_unknown_name_is_attached(self):
         manager = CodeSandboxManager()
