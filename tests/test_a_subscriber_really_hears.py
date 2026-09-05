@@ -76,7 +76,7 @@ def _a_free_port() -> int:
         return int(held.getsockname()[1])
 
 
-def _server(publishes: str = NOTEBOOK) -> MCPServer:
+def _server(publishes: str = NOTEBOOK, cells: tuple = ()) -> MCPServer:
     """A server with the subscription handlers, registered as the real one does.
 
     Built the way `server.py` builds them — the same two `add_request_handler`
@@ -104,7 +104,7 @@ def _server(publishes: str = NOTEBOOK) -> MCPServer:
     @server.tool()
     async def touch_the_notebook() -> str:
         """Publish, exactly as a writing tool's decorator does on its way out."""
-        told = await notifications.publish_notebook_updated(server, publishes)
+        told = await notifications.publish_notebook_updated(server, publishes, cells)
         return f"told={told}"
 
     return server
@@ -275,6 +275,112 @@ async def test_a_subscriber_hears_nothing_about_another_notebook():
                 json=_rpc(
                     3, "tools/call", {"name": "touch_the_notebook", "arguments": {}}
                 ),
+                headers=headers,
+            )
+            await asyncio.sleep(1.0)
+            listening.cancel()
+
+    assert [message["params"]["uri"] for message in heard] == []
+
+
+@pytest.mark.asyncio
+async def test_a_subscriber_to_one_cell_really_hears_about_that_cell():
+    """The cell half, over the same real connection.
+
+    Naming the cell is only worth anything if the frame naming it reaches a
+    client. This subscribes to a cell *and* to the notebook on one session,
+    publishes one edit that names the cell, and reads both frames off the
+    wire in the order they were written.
+
+    Two subscriptions rather than one because the interesting claim is that
+    the cell frame is an **addition**: a client watching the notebook must
+    still hear the notebook, or a deleted cell — whose id nobody can read
+    afterwards — would go unannounced.
+    """
+    notifications.use_publisher(None)
+    heard: list[dict] = []
+    cell = "cell-that-moved"
+
+    async with _Running(_server(cells=(cell,))) as running:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            headers = await _connected(client, running.url)
+
+            async def listen() -> None:
+                async with client.stream("GET", running.url, headers=headers) as stream:
+                    assert stream.status_code == 200, "no standalone stream to be told on"
+                    async for line in stream.aiter_lines():
+                        if line.startswith("data: "):
+                            heard.append(json.loads(line[len("data: ") :]))
+
+            listening = asyncio.create_task(listen())
+            await asyncio.sleep(0.5)
+
+            for request_id, uri in (
+                (2, f"notebook://{NOTEBOOK}"),
+                (3, f"notebook://{NOTEBOOK}/cells/{cell}"),
+            ):
+                subscribed = await client.post(
+                    running.url,
+                    json=_rpc(request_id, "resources/subscribe", {"uri": uri}),
+                    headers=headers,
+                )
+                assert subscribed.status_code == 200, subscribed.text
+
+            called = await client.post(
+                running.url,
+                json=_rpc(4, "tools/call", {"name": "touch_the_notebook", "arguments": {}}),
+                headers=headers,
+            )
+            said = _frames(called)[0]["result"]["structuredContent"]["result"]
+            assert said == "told=True", f"the server did not think it told anybody: {said}"
+
+            deadline = asyncio.get_running_loop().time() + ARRIVES_WITHIN
+            while asyncio.get_running_loop().time() < deadline and len(heard) < 2:
+                await asyncio.sleep(0.05)
+            listening.cancel()
+
+    assert [message["params"]["uri"] for message in heard] == [
+        f"notebook://{NOTEBOOK}",
+        f"notebook://{NOTEBOOK}/cells/{cell}",
+    ], "the cell frame did not reach the client, or it arrived instead of the notebook's"
+    assert {message["method"] for message in heard} == {"notifications/resources/updated"}
+
+
+@pytest.mark.asyncio
+async def test_a_subscriber_to_one_cell_hears_nothing_about_another_cell():
+    """The other half of the promise, at cell granularity.
+
+    Without this, subscribing to a cell would be subscribing to the notebook
+    with extra steps — and an agent watching one cell of a hundred would be
+    woken by all hundred.
+    """
+    notifications.use_publisher(None)
+    heard: list[dict] = []
+
+    async with _Running(_server(cells=("a-different-cell",))) as running:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            headers = await _connected(client, running.url)
+
+            async def listen() -> None:
+                async with client.stream("GET", running.url, headers=headers) as stream:
+                    async for line in stream.aiter_lines():
+                        if line.startswith("data: "):
+                            heard.append(json.loads(line[len("data: ") :]))
+
+            listening = asyncio.create_task(listen())
+            await asyncio.sleep(0.5)
+            await client.post(
+                running.url,
+                json=_rpc(
+                    2,
+                    "resources/subscribe",
+                    {"uri": f"notebook://{NOTEBOOK}/cells/the-one-i-care-about"},
+                ),
+                headers=headers,
+            )
+            await client.post(
+                running.url,
+                json=_rpc(3, "tools/call", {"name": "touch_the_notebook", "arguments": {}}),
                 headers=headers,
             )
             await asyncio.sleep(1.0)

@@ -329,6 +329,24 @@ def answer(
     )
 
 
+async def _announce(kind: str, keywords: dict, result: Any) -> None:
+    """Tell whoever is subscribed that this call changed a notebook.
+
+    Lifted out of the wrapper so the wrapper's `except` covers one named
+    thing rather than a block, and so the two ways news travels — folded into
+    a watcher's debounce, or published here and now — are readable side by
+    side.
+    """
+    from jupyter_mcp_server import notifications  # noqa: PLC0415
+    from jupyter_mcp_server.server import mcp, notebook_manager  # noqa: PLC0415
+    from jupyter_mcp_server.watchers import watchers  # noqa: PLC0415
+
+    name = notifications.target_notebook(keywords, notebook_manager.get_current_notebook)
+    cells = notifications.changed_cells(result)
+    if not watchers.fold(name, cells):
+        await notifications.publish_notebook_updated(mcp, name, cells)
+
+
 def structured(
     kind: str,
     *,
@@ -385,19 +403,31 @@ def structured(
 
             After the call, never before: a subscriber told a cell changed
             before it did refetches the old document and caches it as new.
+
+            The news says **which cell**, when the call resolved one — read
+            back off the result's own `_meta` rather than off the arguments,
+            because an argument may be an index and an index is not something
+            a subscriber can subscribe to.
+
+            And it goes to the watcher rather than out, when the notebook is
+            being watched. The edit is about to arrive back over the
+            watcher's own connection looking like somebody else's, so
+            publishing here as well is two frames for one edit; handing it to
+            the same debounce is one.
             """
             result = await wrapper(*arguments, **keywords)
             from jupyter_mcp_server import notifications  # noqa: PLC0415
 
             if kind in notifications.MUTATING_KINDS:
-                from jupyter_mcp_server.server import mcp, notebook_manager  # noqa: PLC0415
-
-                await notifications.publish_notebook_updated(
-                    mcp,
-                    notifications.target_notebook(
-                        keywords, notebook_manager.get_current_notebook
-                    ),
-                )
+                try:
+                    await _announce(kind, keywords, result)
+                except Exception:  # noqa: BLE001 - see below
+                    # The edit is done and the answer is in hand. Failing the
+                    # call because the *news about* it could not be sent
+                    # would trade the work for the story about the work — and
+                    # the agent would be told its edit failed when it did
+                    # not, and would make it again.
+                    logger.exception("Could not announce a change to %s", kind)
             return result
 
         return announcing

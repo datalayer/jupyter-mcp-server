@@ -183,9 +183,8 @@ class TestTheDecoratorActuallyAnnounces:
 
         from jupyter_mcp_server import results
 
-        source = inspect.getsource(results.structured)
-        assert "publish_notebook_updated(" in source
-        assert "MUTATING_KINDS" in source
+        assert "MUTATING_KINDS" in inspect.getsource(results.structured)
+        assert "publish_notebook_updated(" in inspect.getsource(results._announce)
 
     def test_it_publishes_after_the_call_and_not_before(self):
         """A subscriber told a cell changed before it did refetches the old
@@ -195,7 +194,7 @@ class TestTheDecoratorActuallyAnnounces:
         from jupyter_mcp_server import results
 
         source = inspect.getsource(results.structured)
-        assert source.index("await wrapper(") < source.index("publish_notebook_updated(")
+        assert source.index("await wrapper(") < source.index("_announce(")
 
 
 class TestTheOlderWayToAsk:

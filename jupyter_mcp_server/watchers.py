@@ -24,7 +24,23 @@ origin at all — an update applied from the wire — is somebody's.
 
 Debounced: a person typing produces a transaction per keystroke, and a
 subscriber told once per quarter second learns everything it would have
-learned from a hundred notifications.
+learned from a hundred notifications. With a ceiling, so that somebody who
+never stops typing does not keep the news from going out: a debounce with no
+ceiling is starvation waiting for a fast enough typist.
+
+**The changes this server itself makes are folded into the same debounce.**
+A tool edits a cell and publishes on its way out; the edit then arrives back
+over this connection, and the watcher sees it as somebody's — an update
+applied from the wire carries no origin, and the tool's own connection is not
+this one. That is two frames for one edit. So a watched notebook's tools hand
+their news to `fold` instead of publishing it, and the tool's edit and the
+watcher's sight of it collapse into the one notification the subscriber
+needed. An unwatched notebook is unaffected: its tools publish as before.
+
+**Which cells moved** is read from the same events. A deep observation of the
+cells array names the cell at each changed path, and the inserted cells carry
+their own ids; a deletion's id is gone with the cell, and the notebook frame
+is what covers that.
 
 @module jupyter_mcp_server.watchers
 """
@@ -42,6 +58,12 @@ logger = logging.getLogger(__name__)
 #: How long the watcher waits after a change before announcing it, so a
 #: burst of keystrokes is one notification.
 DEBOUNCE_SECONDS = 0.25
+
+#: The longest a change waits, however continuously the document is being
+#: edited. Without it the timer is re-armed on every keystroke and a
+#: subscriber hears nothing until the typing stops — which for a notebook two
+#: agents are working in may be never.
+MAX_WAIT_SECONDS = 2.0
 
 #: `JUPYTER_MCP_WATCH_NOTEBOOKS=false` turns the persistent connections off:
 #: a deployment that publishes through a configured publisher fed by the
@@ -62,6 +84,17 @@ class Watch:
     changes_seen: int = 0
     connection: Any = None
     subscription: Any = field(default=None, repr=False)
+    #: The deep observation of the cells array, unobserved with the rest.
+    cell_subscription: Any = field(default=None, repr=False)
+    #: The loop the watch runs on, so a change folded in from a tool call
+    #: arms the same timer the observers do.
+    loop: Any = field(default=None, repr=False)
+    #: The cells known to have moved since the last announcement.
+    cells: set[str] = field(default_factory=set)
+    #: When the current burst must be announced by, however it continues.
+    deadline: float | None = None
+    #: The live cells array, for reading an id back off a changed index.
+    ycells: Any = field(default=None, repr=False)
 
 
 def _hash_of(origin: Any) -> Any:
@@ -79,6 +112,65 @@ def _origin_of(event: Any) -> Any:
         return origin() if callable(origin) else origin
     except Exception:  # noqa: BLE001 - an origin that cannot be read is nobody's
         return None
+
+
+def _id_at(ycells: Any, index: Any) -> str:
+    """The id of the cell now at this index, or empty."""
+    if ycells is None or not isinstance(index, int):
+        return ""
+    try:
+        return str(ycells[index]["id"] or "")
+    except Exception:  # noqa: BLE001 - a cell without an id is not an error
+        return ""
+
+
+def _ids_of(event: Any, ycells: Any) -> set[str]:
+    """Which cells one deep event names.
+
+    Three shapes, because a notebook is an array of maps of arrays:
+
+    * a change *inside* a cell — its source, its outputs, its metadata —
+      arrives with the cell's index at the head of the path, and the id is
+      read back off the cell now there;
+    * a change to the array itself has an empty path, and the cells it
+      inserted are in its delta, carrying their own ids. This is how a
+      *moved* cell is named: a move is a delete and an insert of the same
+      cell, and the insert half still knows who it is;
+    * a **deleted** cell names nobody. Its id went with it, and there is
+      nothing left to read. The notebook frame published alongside is what
+      tells a subscriber that something it holds may be gone.
+
+    Reading the document from inside its own observer is safe — pycrdt is
+    inside the transaction, not holding it against readers — and it is the
+    only moment the index and the document agree.
+    """
+    found: set[str] = set()
+    path = list(getattr(event, "path", None) or [])
+    if path:
+        # The head of the path is the cell; everything after it is where in
+        # the cell. `target` is the *deepest* thing that changed, so it is
+        # the cell itself only for a change to the cell's own keys.
+        found.add(_id_at(ycells, path[0]))
+        return {one for one in found if one}
+    for part in getattr(event, "delta", None) or []:
+        if not isinstance(part, dict):
+            continue
+        for item in part.get("insert") or []:
+            try:
+                found.add(str(item["id"] or ""))
+            except Exception:  # noqa: BLE001 - not every insert is a cell with an id
+                continue
+    return {one for one in found if one}
+
+
+def _drop(subscription: Any) -> None:
+    """Let go of a pycrdt subscription, however this version says it."""
+    if subscription is None:
+        return
+    try:
+        subscription.drop()
+    except Exception:  # noqa: BLE001 - a subscription already gone is gone
+        pass
 
 
 class NotebookWatchers:
@@ -150,7 +242,8 @@ class NotebookWatchers:
             await self._close(connection)
             self._watching.pop(name, None)
             return
-        loop = asyncio.get_running_loop()
+        watch.loop = asyncio.get_running_loop()
+        watch.ycells = getattr(getattr(client, "_doc", None), "ycells", None)
 
         # pycrdt hands an observer the origin's *hash*, not the origin: an
         # int origin comes back as itself, anything else as `hash(it)`.
@@ -160,12 +253,34 @@ class NotebookWatchers:
             if _origin_of(event) in ours:
                 return
             watch.changes_seen += 1
-            if watch.pending is not None:
-                watch.pending.cancel()
-            watch.pending = loop.call_later(DEBOUNCE_SECONDS, lambda: loop.create_task(self._announce(name)))
+            self._arm(watch)
+
+        def cells_changed(events: Any) -> None:
+            """Which cells the same transaction touched.
+
+            Separate from `changed` because they observe different things:
+            this one sees only the cells array, and a change to the
+            notebook's metadata is a change nobody would hear about if this
+            were the only observer. Both arm the same timer, so the two
+            observations of one transaction are still one notification.
+            """
+            for event in events or ():
+                if _origin_of(event) in ours:
+                    continue
+                watch.cells.update(_ids_of(event, watch.ycells))
+            self._arm(watch)
 
         try:
             watch.subscription = ydoc.observe(changed)
+            if watch.ycells is not None and hasattr(watch.ycells, "observe_deep"):
+                try:
+                    watch.cell_subscription = watch.ycells.observe_deep(cells_changed)
+                except Exception as error:  # noqa: BLE001 - the notebook frame still goes out
+                    logger.info(
+                        "Notebook [%s] is watched, but which cell moved cannot be read: %s",
+                        name,
+                        error,
+                    )
             logger.info("👀 Watching notebook [%s] for changes made elsewhere", name)
             await asyncio.Event().wait()
         except asyncio.CancelledError:
@@ -177,13 +292,97 @@ class NotebookWatchers:
                     with_sub(watch.subscription)
                 except Exception:  # noqa: BLE001
                     pass
+            _drop(watch.cell_subscription)
             await self._close(connection)
+
+    def _arm(self, watch: Watch) -> None:
+        """Restart this notebook's debounce, without letting it run forever.
+
+        The first change of a burst fixes the moment the burst must be
+        announced by. Every change after it pushes the timer back, but never
+        past that moment — so continuous typing costs a subscriber one
+        notification every `MAX_WAIT_SECONDS` instead of costing it silence.
+        """
+        loop = watch.loop
+        if loop is None:
+            return
+        now = loop.time()
+        if watch.deadline is None:
+            watch.deadline = now + MAX_WAIT_SECONDS
+        when = min(now + DEBOUNCE_SECONDS, watch.deadline)
+        if watch.pending is not None:
+            watch.pending.cancel()
+        name = watch.name
+        watch.pending = loop.call_at(when, lambda: loop.create_task(self._announce(name)))
+
+    @staticmethod
+    def _on_this_loop(watch: Watch) -> bool:
+        """Whether this watch's loop is the one running now.
+
+        A watcher outlives the loop it was started on: the module keeps one
+        `NotebookWatchers` for the process, and the next call may arrive on a
+        different loop — routinely in the tests, and in any host that
+        restarts its loop under a live process. Arming a timer on a closed
+        loop *raises*, and it would raise inside a writing tool's result
+        wrapper, which is the news about an edit taking the edit down with
+        it. Answering `False` sends the caller back to publishing for itself,
+        which is what it would have done had nothing been watching.
+        """
+        loop = watch.loop
+        if loop is None or loop.is_closed():
+            return False
+        try:
+            return asyncio.get_running_loop() is loop
+        except RuntimeError:  # no loop at all: not this one
+            return False
+
+    @staticmethod
+    def _superseded(watch: Watch) -> bool:
+        """Whether a later timer has already taken over this burst.
+
+        A timer fires and hands the announcement to a *task*, which runs on
+        the next turn of the loop. A change arriving in between re-arms, and
+        without this both the task and the new timer announce — two frames
+        for the burst the debounce exists to make one. The later timer wins,
+        because it is the one that will have seen the whole burst.
+        """
+        pending = watch.pending
+        if pending is None or watch.loop is None:
+            return False
+        return not pending.cancelled() and pending.when() > watch.loop.time()
+
+    def fold(self, name: str, cells: Any = ()) -> bool:
+        """Take a change *this server* just made into the notebook's debounce.
+
+        Answers whether it was taken. A caller told `False` has to publish the
+        news itself, which is what an unwatched notebook's tools do.
+
+        This exists because the alternative is two frames for one edit. The
+        tool publishes as it returns; a moment later its edit arrives back
+        over the watcher's connection, carrying no origin, and is announced
+        again as somebody else's. Folding it in makes the tool's edit and the
+        watcher's sight of it the same burst — and picks up any *concurrent*
+        edit by a person in the same window for free, which is the case a
+        plain "suppress the echo" rule would have dropped on the floor.
+        """
+        watch = self._watching.get(name)
+        if watch is None or not self._on_this_loop(watch):
+            return False
+        watch.cells.update(str(one) for one in cells if one)
+        watch.changes_seen += 1
+        self._arm(watch)
+        return True
 
     async def _announce(self, name: str) -> None:
         watch = self._watching.get(name)
         if watch is None:
             return
+        if self._superseded(watch):
+            return
         watch.pending = None
+        watch.deadline = None
+        cells = sorted(watch.cells)
+        watch.cells.clear()
         from jupyter_mcp_server import notifications  # noqa: PLC0415
 
         server = self._server
@@ -192,7 +391,7 @@ class NotebookWatchers:
                 from jupyter_mcp_server.server import mcp as server  # noqa: PLC0415
             except Exception:  # noqa: BLE001
                 server = None
-        told = await notifications.publish_notebook_updated(server, name)
+        told = await notifications.publish_notebook_updated(server, name, cells)
         if told:
             watch.announced += 1
 
