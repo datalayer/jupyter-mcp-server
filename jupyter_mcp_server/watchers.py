@@ -158,7 +158,7 @@ def _ids_of(event: Any, ycells: Any) -> set[str]:
         for item in part.get("insert") or []:
             try:
                 found.add(str(item["id"] or ""))
-            except Exception:  # noqa: BLE001 - not every insert is a cell with an id
+            except Exception:  # noqa: BLE001, S112 - not every insert is a cell with an id
                 continue
     return {one for one in found if one}
 
@@ -169,7 +169,7 @@ def _drop(subscription: Any) -> None:
         return
     try:
         subscription.drop()
-    except Exception:  # noqa: BLE001 - a subscription already gone is gone
+    except Exception:  # noqa: BLE001, S110 - a subscription already gone is gone
         pass
 
 
@@ -245,42 +245,8 @@ class NotebookWatchers:
         watch.loop = asyncio.get_running_loop()
         watch.ycells = getattr(getattr(client, "_doc", None), "ycells", None)
 
-        # pycrdt hands an observer the origin's *hash*, not the origin: an
-        # int origin comes back as itself, anything else as `hash(it)`.
-        ours = {own, _hash_of(own)} if own is not None else set()
-
-        def changed(event: Any) -> None:
-            if _origin_of(event) in ours:
-                return
-            watch.changes_seen += 1
-            self._arm(watch)
-
-        def cells_changed(events: Any) -> None:
-            """Which cells the same transaction touched.
-
-            Separate from `changed` because they observe different things:
-            this one sees only the cells array, and a change to the
-            notebook's metadata is a change nobody would hear about if this
-            were the only observer. Both arm the same timer, so the two
-            observations of one transaction are still one notification.
-            """
-            for event in events or ():
-                if _origin_of(event) in ours:
-                    continue
-                watch.cells.update(_ids_of(event, watch.ycells))
-            self._arm(watch)
-
         try:
-            watch.subscription = ydoc.observe(changed)
-            if watch.ycells is not None and hasattr(watch.ycells, "observe_deep"):
-                try:
-                    watch.cell_subscription = watch.ycells.observe_deep(cells_changed)
-                except Exception as error:  # noqa: BLE001 - the notebook frame still goes out
-                    logger.info(
-                        "Notebook [%s] is watched, but which cell moved cannot be read: %s",
-                        name,
-                        error,
-                    )
+            self._observe(watch, ydoc, own)
             logger.info("👀 Watching notebook [%s] for changes made elsewhere", name)
             await asyncio.Event().wait()
         except asyncio.CancelledError:
@@ -294,6 +260,45 @@ class NotebookWatchers:
                     pass
             _drop(watch.cell_subscription)
             await self._close(connection)
+
+    def _observe(self, watch: Watch, ydoc: Any, own: Any) -> None:
+        """Start listening to the document, twice.
+
+        Twice because the two observations see different things. The document
+        observer sees every transaction, including a change to the notebook's
+        metadata, which nobody would hear about if the cells were the only
+        thing watched. The deep observation of the cells array is what can
+        say *which* cell moved. Both arm the same timer, so the two sightings
+        of one transaction are still one notification.
+        """
+        # pycrdt hands an observer the origin's *hash*, not the origin: an
+        # int origin comes back as itself, anything else as `hash(it)`.
+        ours = {own, _hash_of(own)} if own is not None else set()
+
+        def changed(_event: Any) -> None:
+            if _origin_of(_event) in ours:
+                return
+            watch.changes_seen += 1
+            self._arm(watch)
+
+        def cells_changed(events: Any) -> None:
+            for event in events or ():
+                if _origin_of(event) in ours:
+                    continue
+                watch.cells.update(_ids_of(event, watch.ycells))
+            self._arm(watch)
+
+        watch.subscription = ydoc.observe(changed)
+        if watch.ycells is None or not hasattr(watch.ycells, "observe_deep"):
+            return
+        try:
+            watch.cell_subscription = watch.ycells.observe_deep(cells_changed)
+        except Exception as error:  # noqa: BLE001 - the notebook frame still goes out
+            logger.info(
+                "Notebook [%s] is watched, but which cell moved cannot be read: %s",
+                watch.name,
+                error,
+            )
 
     def _arm(self, watch: Watch) -> None:
         """Restart this notebook's debounce, without letting it run forever.

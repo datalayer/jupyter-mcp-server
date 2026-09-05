@@ -38,6 +38,8 @@ from jupyter_mcp_server import notifications, resources
 from jupyter_mcp_server import watchers as module
 from jupyter_mcp_server.watchers import NotebookWatchers
 from tests.test_notebook_update_notifications import _Bus, _FakeSession, _Server
+from tests.test_notebook_watchers import FakeClient
+from tests.test_notebook_watchers import FakeManager as PlainManager
 
 
 class Cells:
@@ -295,8 +297,6 @@ class TestTheWatcherSaysWhichCell:
         """The deep observation is an improvement on the notebook frame, not
         a replacement for it: a client that exposes no cells array is watched
         exactly as before."""
-        from tests.test_notebook_watchers import FakeClient, FakeManager as PlainManager
-
         bus = _Bus()
         watchers = NotebookWatchers()
         watchers.serve(_Server(bus))
