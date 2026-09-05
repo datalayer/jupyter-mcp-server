@@ -316,14 +316,18 @@ async def publish_notebook_updated(
     told = False
     bus = _bus(server)
     if bus is not None:
-        try:
-            from mcp.server.subscriptions import ResourceUpdated  # noqa: PLC0415
+        # Each URI on its own. One that cannot be published must not take the
+        # rest of the burst with it, and it must not make a publish that did
+        # reach somebody answer that nobody was told — the caller counts that
+        # answer, and a `False` here is read as "nothing is listening".
+        for uri in uris:
+            try:
+                from mcp.server.subscriptions import ResourceUpdated  # noqa: PLC0415
 
-            for uri in uris:
                 await bus.publish(ResourceUpdated(uri=uri))
-            told = True
-        except Exception as error:  # noqa: BLE001 - never in the way of the edit
-            logger.debug("A notebook update could not be published: %s", error)
+                told = True
+            except Exception as error:  # noqa: BLE001 - never in the way of the edit
+                logger.debug("A notebook update could not be published: %s", error)
     # Both halves, always. The legacy half used to be reached only when a bus
     # existed — the `return False` above it saw to that — so a server on an
     # SDK without `subscriptions/listen` told its 2025-11-25 subscribers

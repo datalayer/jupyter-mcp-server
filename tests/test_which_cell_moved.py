@@ -143,7 +143,7 @@ class TestTheCellUri:
         )
 
 
-class TestWhichCellsATooldTouched:
+class TestWhichCellsAToolTouched:
     """Read off the result's `_meta`, where the resolver already put it."""
 
     def _result(self, **meta):
@@ -215,6 +215,31 @@ class TestPublishingNamesTheCell:
             "notebook://nb",
             "notebook://nb/cells/a",
             "notebook://nb/cells/b",
+        ]
+
+    async def test_a_uri_that_cannot_be_published_does_not_take_the_rest(self):
+        """One frame failing must not silence the others, and must not make a
+        publish that did reach somebody answer that nobody was told. The
+        caller counts that answer, and `False` there reads as "nothing is
+        listening"."""
+
+        class Choosy:
+            def __init__(self) -> None:
+                self.published: list = []
+
+            async def publish(self, event) -> None:
+                if str(event.uri).endswith("/cells/first"):
+                    raise RuntimeError("that stream is gone")
+                self.published.append(event)
+
+        bus = Choosy()
+        told = await notifications.publish_notebook_updated(
+            _Server(bus), "nb", ["first", "second"]
+        )
+        assert told is True, "somebody was told, and the answer said nobody was"
+        assert [event.uri for event in bus.published] == [
+            "notebook://nb",
+            "notebook://nb/cells/second",
         ]
 
     async def test_a_subscriber_to_one_cell_hears_about_that_cell(self):

@@ -329,7 +329,7 @@ def answer(
     )
 
 
-async def _announce(kind: str, keywords: dict, result: Any) -> None:
+async def _announce(keywords: dict, result: Any) -> None:
     """Tell whoever is subscribed that this call changed a notebook.
 
     Lifted out of the wrapper so the wrapper's `except` covers one named
@@ -420,7 +420,7 @@ def structured(
 
             if kind in notifications.MUTATING_KINDS:
                 try:
-                    await _announce(kind, keywords, result)
+                    await _announce(keywords, result)
                 except Exception:  # noqa: BLE001 - see below
                     # The edit is done and the answer is in hand. Failing the
                     # call because the *news about* it could not be sent

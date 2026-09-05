@@ -76,7 +76,7 @@ def _a_free_port() -> int:
         return int(held.getsockname()[1])
 
 
-def _server(publishes: str = NOTEBOOK, cells: tuple = ()) -> MCPServer:
+def _server(publishes: str = NOTEBOOK, cells: tuple[str, ...] = ()) -> MCPServer:
     """A server with the subscription handlers, registered as the real one does.
 
     Built the way `server.py` builds them — the same two `add_request_handler`
