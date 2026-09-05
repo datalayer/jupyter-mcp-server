@@ -1,3 +1,7 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
 # Copyright (c) 2023-2026 Datalayer, Inc.
 # Datalayer License
 
@@ -52,11 +56,18 @@ class TestAttach:
             CodeSandboxManager().attach("x", variant="e2b")
 
 
+@pytest.mark.asyncio
 class TestUseSandboxReachesForIt:
     async def test_an_unknown_name_is_attached(self):
         manager = CodeSandboxManager()
-        with patch("code_sandboxes.datalayer_sandbox.DatalayerSandbox.from_id", return_value=_sandbox()):
+        with patch(
+            "code_sandboxes.datalayer_sandbox.DatalayerSandbox.from_id", return_value=_sandbox()
+        ) as from_id:
             answer = await UseSandboxTool().execute(mode=None, code_sandbox_manager=manager, sandbox_name="rt-1")
+        # The message alone would pass if the tool never reached for the
+        # sandbox at all, which is the whole of what this test is about —
+        # its sibling below asserts the other direction.
+        from_id.assert_called_once_with("rt-1", token=None, run_url=None)
         assert "Sandbox 'rt-1' is now active" in answer
 
     async def test_a_name_nobody_knows_is_said_so(self):
