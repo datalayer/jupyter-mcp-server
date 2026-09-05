@@ -6,24 +6,26 @@
 Test for MCP Prompts Feature
 """
 
-import os
-
 import pytest
 
 from .test_common import MCPClient, timeout_wrapper
 
-# Now, prompt feature is only available in MCP_SERVER mode.
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("TEST_MCP_SERVER", "false").lower() == "true",
-    reason="Prompt feature is only available in MCP_SERVER mode now.",
-)
+
+@pytest.mark.asyncio
+@timeout_wrapper(60)
+async def test_the_prompt_is_listed(mcp_client_parametrized: MCPClient):
+    """A prompt a client cannot see is a prompt it will never ask for, and
+    both transports advertise the `prompts` capability in their handshake."""
+    async with mcp_client_parametrized as client:
+        listed = await client._session.list_prompts()
+        assert "jupyter_cite" in {prompt.name for prompt in listed.prompts}
 
 
 @pytest.mark.asyncio
 @timeout_wrapper(60)
-async def test_jupyter_cite(mcp_client: MCPClient):
+async def test_jupyter_cite(mcp_client_parametrized: MCPClient):
     """Test jupyter cite prompt feature"""
-    async with mcp_client:
+    async with mcp_client_parametrized as mcp_client:
         await mcp_client.use_notebook("new", "new.ipynb")
         await mcp_client.use_notebook("notebook", "notebook.ipynb")
         # Test prompt injection

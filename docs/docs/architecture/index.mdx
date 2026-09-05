@@ -356,6 +356,13 @@ never propagates errors into a tool call. See
 1. The `CallToolResult` is serialized in wire form and returned as the JSON-RPC
    response.
 
+`prompts/list`, `prompts/get`, `resources/list`, `resources/templates/list` and
+`resources/read` take the same route: the handler asks the same `MCPServer`
+instance, so the extension serves the prompts and resources the standalone
+server serves. `resources/subscribe` is the exception — it is driven over the
+SDK's own session bus, which a Tornado request does not have, so a client that
+wants notifications about a resource uses the standalone server.
+
 ### `execute_code` with a sandbox variant
 
 1. The sandboxes extension's `intercept_execute_code()` is asked first; when a

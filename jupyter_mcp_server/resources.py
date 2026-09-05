@@ -35,7 +35,10 @@ import importlib
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
+
+from jupyter_core.utils import ensure_async
 
 from jupyter_mcp_server.models import Notebook
 
@@ -157,7 +160,14 @@ async def read_notebook(notebook_manager: Any, name: str) -> Notebook:
     Through the same connection the tools use, so a resource read right after
     a write sees the write: the collaborative document is the truth, and
     reading the file from disk would answer with whatever was last saved.
+
+    Which connection that is depends on the mode, exactly as it does for
+    `read_notebook`'s tool: in JUPYTER_SERVER mode there is no notebook
+    websocket to open — `NotebookConnection` refuses a local notebook — and
+    the document is reached through the server this process is part of.
     """
+    from jupyter_mcp_server.server_context import ServerContext  # noqa: PLC0415
+    from jupyter_mcp_server.tools._base import ServerMode  # noqa: PLC0415
     from jupyter_mcp_server.utils import resolve_notebook_connection  # noqa: PLC0415
 
     if name not in notebook_manager:
@@ -165,8 +175,41 @@ async def read_notebook(notebook_manager: Any, name: str) -> Notebook:
             f"No notebook named {name!r} is in use. Open one with use_notebook, "
             "and list what is open with list_notebooks."
         )
+    context = ServerContext.get_instance()
+    if context.mode == ServerMode.JUPYTER_SERVER and context.contents_manager is not None:
+        return await _read_notebook_locally(notebook_manager, name, context.contents_manager)
     async with resolve_notebook_connection(notebook_manager, name) as content:
         return Notebook(**content.as_dict())
+
+
+async def _read_notebook_locally(
+    notebook_manager: Any, name: str, contents_manager: Any
+) -> Notebook:
+    """The notebook, read the way the local tools read it.
+
+    The live YDoc first — the same source every cell-mutation tool writes
+    to — so a resource read right after our own write sees it rather than
+    the on-disk copy the autosave has not flushed yet. `contents_manager` is
+    the fallback for a notebook nobody has a collaborative session on.
+    """
+    from jupyter_mcp_server.jupyter_extension.context import get_server_context  # noqa: PLC0415
+    from jupyter_mcp_server.utils import get_notebook_model  # noqa: PLC0415
+
+    notebook_path = notebook_manager.get_notebook_path(name)
+    serverapp = get_server_context().serverapp
+
+    ydoc_path = notebook_path
+    if serverapp and not Path(ydoc_path).is_absolute():
+        ydoc_path = str(Path(serverapp.root_dir) / ydoc_path)
+
+    nb_model = await get_notebook_model(serverapp, ydoc_path) if serverapp else None
+    if nb_model:
+        return Notebook(**nb_model.as_dict())
+
+    model = await ensure_async(contents_manager.get(notebook_path, content=True, type="notebook"))
+    if "content" not in model:
+        raise ResourceNotFound(f"Could not read notebook content from {notebook_path}")
+    return Notebook(**model["content"])
 
 
 def find_cell(notebook: Notebook, cell_id: str) -> tuple[int, Any]:

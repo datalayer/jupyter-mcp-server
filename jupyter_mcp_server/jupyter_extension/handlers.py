@@ -9,11 +9,23 @@ This module provides handlers that bridge between Tornado (Jupyter Server) and
 MCPServer, managing the MCP protocol lifecycle and request proxying.
 """
 
+import base64
 import json
 import logging
 from typing import Any
 
 from jupyter_server.base.handlers import JupyterHandler
+from mcp.server.mcpserver.exceptions import ResourceError, ResourceNotFoundError
+from mcp.types import (
+    INTERNAL_ERROR,
+    INVALID_PARAMS,
+    BlobResourceContents,
+    ListPromptsResult,
+    ListResourcesResult,
+    ListResourceTemplatesResult,
+    ReadResourceResult,
+    TextResourceContents,
+)
 from tornado.web import HTTPError
 
 from jupyter_mcp_server.__version__ import __version__
@@ -44,6 +56,30 @@ async def _fetch_jupyter_tools(**kwargs):
     from jupyter_mcp_tools import get_tools
 
     return await get_tools(wait_timeout=5, **kwargs)
+
+
+def _sdk_result(request_id: Any, result: Any) -> dict:
+    """A JSON-RPC response carrying an SDK result object.
+
+    Serialized the way the ``tools/call`` branch already serializes its
+    ``CallToolResult``: camelCase keys, nothing null, and no ``resultType``,
+    which belongs to a newer protocol revision than the one this handler
+    announces. Building the SDK's own result model rather than a hand-rolled
+    dict is what keeps this transport's wire identical to the one the
+    standalone server puts out for the same request.
+    """
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "result": result.model_dump(
+            by_alias=True, mode="json", exclude_none=True, exclude={"result_type"}
+        ),
+    }
+
+
+def _error_response(request_id: Any, code: int, message: str) -> dict:
+    """A JSON-RPC error response."""
+    return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
 
 
 class MCPSSEHandler(JupyterHandler):
@@ -416,14 +452,8 @@ class MCPSSEHandler(JupyterHandler):
                         "id": request_id,
                         "error": {"code": -32603, "message": f"Internal error calling tool: {e!s}"},
                     }
-            elif method == "prompts/list":
-                # List available prompts - return empty list if no prompts defined
-                logger.info("Listing prompts...")
-                response = {"jsonrpc": "2.0", "id": request_id, "result": {"prompts": []}}
-            elif method == "resources/list":
-                # List available resources - return empty list if no resources defined
-                logger.info("Listing resources...")
-                response = {"jsonrpc": "2.0", "id": request_id, "result": {"resources": []}}
+            elif method in _PROMPT_AND_RESOURCE_METHODS:
+                response = await _PROMPT_AND_RESOURCE_METHODS[method](self, request_id, params)
             else:
                 # Method not supported
                 response = {
@@ -451,6 +481,146 @@ class MCPSSEHandler(JupyterHandler):
                 )
             )
             self.finish()
+
+    # ------------------------------------------------------------------
+    # Prompts and resources.
+    #
+    # All five route to the same shared `mcp` object the tool branches
+    # above use, so this transport serves whatever the server registered
+    # rather than a second, smaller list of its own. `resources/subscribe`
+    # and `resources/unsubscribe` are deliberately *not* here: they are
+    # driven over the SDK's own session bus, which a Tornado request does
+    # not have.
+    # ------------------------------------------------------------------
+
+    async def _list_prompts(self, request_id: Any, params: dict) -> dict:
+        """`prompts/list`: every prompt registered on the shared server."""
+        from jupyter_mcp_server.server import mcp
+
+        try:
+            return _sdk_result(request_id, ListPromptsResult(prompts=await mcp.list_prompts()))
+        except Exception as e:
+            logger.error(f"Error listing prompts: {e}", exc_info=True)
+            return _error_response(
+                request_id, INTERNAL_ERROR, f"Internal error listing prompts: {e!s}"
+            )
+
+    async def _get_prompt(self, request_id: Any, params: dict) -> dict:
+        """`prompts/get`: render one prompt.
+
+        The prompt bodies are already mode-aware — `jupyter_cite` reads the
+        notebook through `contents_manager` in JUPYTER_SERVER mode — so
+        nothing here has to know which mode it is running in.
+        """
+        from jupyter_mcp_server.server import mcp
+
+        name = params.get("name")
+        if not isinstance(name, str):
+            return _error_response(request_id, INVALID_PARAMS, "prompts/get needs a prompt 'name'")
+        try:
+            result = await mcp.get_prompt(name, params.get("arguments") or None)
+            return _sdk_result(request_id, result)
+        except Exception as e:
+            logger.error(f"Error getting prompt {name}: {e}", exc_info=True)
+            return _error_response(
+                request_id, INTERNAL_ERROR, f"Internal error getting prompt: {e!s}"
+            )
+
+    async def _list_resources(self, request_id: Any, params: dict) -> dict:
+        """`resources/list`: the concrete resources, without the templates."""
+        from jupyter_mcp_server.server import mcp
+
+        try:
+            return _sdk_result(
+                request_id, ListResourcesResult(resources=await mcp.list_resources())
+            )
+        except Exception as e:
+            logger.error(f"Error listing resources: {e}", exc_info=True)
+            return _error_response(
+                request_id, INTERNAL_ERROR, f"Internal error listing resources: {e!s}"
+            )
+
+    async def _list_resource_templates(self, request_id: Any, params: dict) -> dict:
+        """`resources/templates/list`: the parameterized `notebook://` ones.
+
+        Separate from `resources/list` on the wire, and the notebook
+        resources live only here — a client that asked only for the concrete
+        list would see none of them.
+        """
+        from jupyter_mcp_server.server import mcp
+
+        try:
+            return _sdk_result(
+                request_id,
+                ListResourceTemplatesResult(resource_templates=await mcp.list_resource_templates()),
+            )
+        except Exception as e:
+            logger.error(f"Error listing resource templates: {e}", exc_info=True)
+            return _error_response(
+                request_id, INTERNAL_ERROR, f"Internal error listing resource templates: {e!s}"
+            )
+
+    async def _read_resource(self, request_id: Any, params: dict) -> dict:
+        """`resources/read`: one resource's contents.
+
+        The `ReadResourceContents` the SDK hands back become
+        `TextResourceContents` or `BlobResourceContents` exactly as the SDK's
+        own `resources/read` handler builds them, so bytes arrive base64 in a
+        `blob` rather than mangled into a `text` field.
+        """
+        from jupyter_mcp_server.server import mcp
+
+        uri = params.get("uri")
+        if not isinstance(uri, str):
+            return _error_response(request_id, INVALID_PARAMS, "resources/read needs a 'uri'")
+        try:
+            results = await mcp.read_resource(uri)
+        except ResourceError as error:
+            # The mapping the SDK makes for the same failure: asking for a
+            # resource that is not there is the caller's mistake, anything
+            # else is ours.
+            code = INVALID_PARAMS if isinstance(error, ResourceNotFoundError) else INTERNAL_ERROR
+            logger.info(f"Resource {uri!r} failed: {error}")
+            return _error_response(request_id, code, str(error))
+        except Exception as e:
+            logger.error(f"Error reading resource {uri}: {e}", exc_info=True)
+            return _error_response(
+                request_id, INTERNAL_ERROR, f"Internal error reading resource: {e!s}"
+            )
+
+        contents: list[TextResourceContents | BlobResourceContents] = []
+        for item in results:
+            if isinstance(item.content, bytes):
+                contents.append(
+                    BlobResourceContents(
+                        uri=uri,
+                        blob=base64.b64encode(item.content).decode(),
+                        mime_type=item.mime_type or "application/octet-stream",
+                        _meta=item.meta,
+                    )
+                )
+            else:
+                contents.append(
+                    TextResourceContents(
+                        uri=uri,
+                        text=item.content,
+                        mime_type=item.mime_type or "text/plain",
+                        _meta=item.meta,
+                    )
+                )
+        return _sdk_result(request_id, ReadResourceResult(contents=contents))
+
+
+#: The prompt and resource methods `MCPSSEHandler.post` dispatches. A table
+#: rather than five more `elif` branches, because `post` is already long and
+#: these five differ only in which method of the shared `mcp` object they ask.
+_PROMPT_AND_RESOURCE_METHODS = {
+    "prompts/list": MCPSSEHandler._list_prompts,
+    "prompts/get": MCPSSEHandler._get_prompt,
+    "resources/list": MCPSSEHandler._list_resources,
+    "resources/templates/list": MCPSSEHandler._list_resource_templates,
+    "resources/read": MCPSSEHandler._read_resource,
+}
 
 
 class MCPHandler(JupyterHandler):
