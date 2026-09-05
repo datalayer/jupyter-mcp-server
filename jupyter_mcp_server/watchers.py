@@ -93,6 +93,10 @@ class Watch:
     cells: set[str] = field(default_factory=set)
     #: When the current burst must be announced by, however it continues.
     deadline: float | None = None
+    #: How many times the timer has been armed. A firing carries the number
+    #: it was armed with, which is how it knows whether it is still the
+    #: announcement anybody is waiting for.
+    armed: int = 0
     #: The live cells array, for reading an id back off a changed index.
     ycells: Any = field(default=None, repr=False)
 
@@ -317,8 +321,11 @@ class NotebookWatchers:
         when = min(now + DEBOUNCE_SECONDS, watch.deadline)
         if watch.pending is not None:
             watch.pending.cancel()
-        name = watch.name
-        watch.pending = loop.call_at(when, lambda: loop.create_task(self._announce(name)))
+        watch.armed += 1
+        name, generation = watch.name, watch.armed
+        watch.pending = loop.call_at(
+            when, lambda: loop.create_task(self._announce(name, generation))
+        )
 
     @staticmethod
     def _on_this_loop(watch: Watch) -> bool:
@@ -332,29 +339,16 @@ class NotebookWatchers:
         wrapper, which is the news about an edit taking the edit down with
         it. Answering `False` sends the caller back to publishing for itself,
         which is what it would have done had nothing been watching.
+
+        Asking whether the loop is *this* one covers the closed one for free:
+        a closed loop is not a running loop, so a separate `is_closed()` is a
+        guard no input can reach — and an unreachable guard reads like a
+        second condition that matters.
         """
-        loop = watch.loop
-        if loop is None or loop.is_closed():
-            return False
         try:
-            return asyncio.get_running_loop() is loop
-        except RuntimeError:  # no loop at all: not this one
+            return watch.loop is not None and asyncio.get_running_loop() is watch.loop
+        except RuntimeError:  # no loop running at all: certainly not this one
             return False
-
-    @staticmethod
-    def _superseded(watch: Watch) -> bool:
-        """Whether a later timer has already taken over this burst.
-
-        A timer fires and hands the announcement to a *task*, which runs on
-        the next turn of the loop. A change arriving in between re-arms, and
-        without this both the task and the new timer announce — two frames
-        for the burst the debounce exists to make one. The later timer wins,
-        because it is the one that will have seen the whole burst.
-        """
-        pending = watch.pending
-        if pending is None or watch.loop is None:
-            return False
-        return not pending.cancelled() and pending.when() > watch.loop.time()
 
     def fold(self, name: str, cells: Any = ()) -> bool:
         """Take a change *this server* just made into the notebook's debounce.
@@ -378,11 +372,24 @@ class NotebookWatchers:
         self._arm(watch)
         return True
 
-    async def _announce(self, name: str) -> None:
+    async def _announce(self, name: str, generation: int) -> None:
+        """Say what this burst changed, if this is still the burst.
+
+        A timer fires and hands the announcement to a *task*, which runs on
+        the next turn of the loop. A change arriving in between re-arms, and
+        without the generation both this task and the new timer announce —
+        two frames for the burst the debounce exists to make one. The later
+        arming wins, because it is the one that will have seen all of it.
+
+        A **counter** rather than a look at the pending timer's deadline,
+        which is what this was and which was wrong on a coarse clock: asyncio
+        fires a timer when the loop's time is within one clock resolution of
+        its deadline, so on Windows a timer set 20 ms out fires with the
+        deadline still ~15 ms in the future. Reading that as "a later timer
+        is armed" made the notification never arrive at all.
+        """
         watch = self._watching.get(name)
-        if watch is None:
-            return
-        if self._superseded(watch):
+        if watch is None or watch.armed != generation:
             return
         watch.pending = None
         watch.deadline = None

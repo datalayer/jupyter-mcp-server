@@ -117,11 +117,13 @@ class FakeManager:
 
 @pytest.fixture
 def fast(monkeypatch):
-    monkeypatch.setattr(module, "DEBOUNCE_SECONDS", 0.02)
-    monkeypatch.setattr(module, "MAX_WAIT_SECONDS", 0.08)
+    # Not smaller: Windows' clock resolution is about 16 ms, so a debounce of
+    # 20 ms is a debounce the loop cannot tell from zero.
+    monkeypatch.setattr(module, "DEBOUNCE_SECONDS", 0.05)
+    monkeypatch.setattr(module, "MAX_WAIT_SECONDS", 0.2)
 
 
-async def _settle(seconds=0.12):
+async def _settle(seconds=0.3):
     await asyncio.sleep(seconds)
 
 
@@ -283,7 +285,7 @@ class TestTheWatcherSaysWhichCell:
         watchers.serve(_Server(bus))
         client = FakeNotebookClient("one", "two")
         assert watchers.watch("nb", FakeManager(client)) is True
-        await _settle(0.05)
+        await _settle(0.1)
         client.edit_source(1, "print(1)", origin="jupyterlab-user")
         await _settle()
         assert [event.uri for event in bus.published] == [
@@ -291,7 +293,7 @@ class TestTheWatcherSaysWhichCell:
             "notebook://nb/cells/two",
         ]
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
     async def test_a_notebook_with_no_readable_cells_still_announces(self, fast):
         """The deep observation is an improvement on the notebook frame, not
@@ -302,12 +304,12 @@ class TestTheWatcherSaysWhichCell:
         watchers.serve(_Server(bus))
         client = FakeClient()
         watchers.watch("nb", PlainManager(client))
-        await _settle(0.05)
+        await _settle(0.1)
         client.edit(origin="somebody")
         await _settle()
         assert [event.uri for event in bus.published] == ["notebook://nb"]
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
 
 @pytest.mark.asyncio
@@ -322,7 +324,7 @@ class TestFoldingTheToolsOwnNews:
         watchers = NotebookWatchers()
         watchers.serve(_Server(bus))
         watchers.watch("nb", FakeManager(FakeNotebookClient("one")))
-        await _settle(0.05)
+        await _settle(0.1)
         assert watchers.fold("nb", ["one"]) is True
         await _settle()
         assert [event.uri for event in bus.published] == [
@@ -330,7 +332,7 @@ class TestFoldingTheToolsOwnNews:
             "notebook://nb/cells/one",
         ]
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
     async def test_one_edit_seen_twice_is_one_notification(self, fast):
         """The tool folds its news in, and the same edit then arrives over
@@ -341,7 +343,7 @@ class TestFoldingTheToolsOwnNews:
         watchers.serve(_Server(bus))
         client = FakeNotebookClient("one")
         watchers.watch("nb", FakeManager(client))
-        await _settle(0.05)
+        await _settle(0.1)
         watchers.fold("nb", ["one"])
         client.edit_source(0, "print(1)")  # the same edit, arriving from the wire
         await _settle()
@@ -350,7 +352,7 @@ class TestFoldingTheToolsOwnNews:
             "notebook://nb/cells/one",
         ]
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
     async def test_a_watch_on_another_loop_does_not_take_it(self, fast):
         """The watchers outlive the loop they were started on — one object
@@ -361,7 +363,7 @@ class TestFoldingTheToolsOwnNews:
         watchers = NotebookWatchers()
         watchers.serve(_Server(_Bus()))
         watchers.watch("nb", FakeManager(FakeNotebookClient("one")))
-        await _settle(0.05)
+        await _settle(0.1)
         watch = watchers._watching["nb"]
         assert watchers.fold("nb", ["one"]) is True, "the live loop should be taken"
 
@@ -385,7 +387,7 @@ class TestFoldingTheToolsOwnNews:
         watchers.watch("nb", FakeManager(FakeNotebookClient("one")))
         assert watchers.fold("nb", ["one"]) is False
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
 
 @pytest.mark.asyncio
@@ -399,30 +401,69 @@ class TestTheDebounceHasACeiling:
         watchers.serve(_Server(bus))
         client = FakeNotebookClient("one")
         watchers.watch("nb", FakeManager(client))
-        await _settle(0.05)
-        for index in range(40):
+        await _settle(0.1)
+        for index in range(60):
             client.edit_source(0, f"print({index})", origin="typing")
             await asyncio.sleep(0.01)
         assert len(bus.published) >= 2, "the ceiling never fired"
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
-    async def test_a_later_timer_takes_over_from_one_that_has_fired(self, fast):
+    async def test_a_later_arming_takes_over_from_one_that_has_fired(self, fast):
         """A timer fires and hands the announcement to a task, which runs a
-        turn later; a change arriving in between re-arms. Without this both
-        announce, and the debounce that exists to make one frame makes two."""
+        turn later; a change arriving in between re-arms. Without the
+        generation both announce, and the debounce that exists to make one
+        frame makes two.
+
+        A counter rather than a look at the pending timer's deadline: asyncio
+        fires a timer when the loop is within one clock resolution of it, so
+        on a coarse clock a timer fires with its own deadline still in the
+        future — and reading that as "a later timer is armed" is a
+        notification that never arrives."""
         bus = _Bus()
         watchers = NotebookWatchers()
         watchers.serve(_Server(bus))
         watchers.watch("nb", FakeManager(FakeNotebookClient("one")))
-        await _settle(0.05)
+        await _settle(0.1)
         watch = watchers._watching["nb"]
-        watch.pending = watch.loop.call_at(watch.loop.time() + 10, lambda: None)
-        await watchers._announce("nb")
-        assert bus.published == [], "announced over a timer that had not fired yet"
-        watch.pending.cancel()
+
+        watchers.fold("nb", ["one"])
+        superseded = watch.armed
+        watchers.fold("nb", ["one"])
+        await watchers._announce("nb", superseded)
+        assert bus.published == [], "an announcement from an arming already taken over"
+
+        await _settle()
+        assert [event.uri for event in bus.published] == [
+            "notebook://nb",
+            "notebook://nb/cells/one",
+        ], "and the arming that took over still announces"
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.1)
+
+    async def test_a_timer_that_fires_early_still_announces(self, fast):
+        """asyncio runs a timer once the loop's time is within one clock
+        resolution of its deadline. On Windows that resolution is about 16 ms,
+        so a 50 ms debounce fires with its own deadline still in the future —
+        and an announcement that declined on "the deadline has not passed" was
+        an announcement that never arrived at all. Two Windows jobs failed on
+        exactly this, on a Linux-green suite."""
+        bus = _Bus()
+        watchers = NotebookWatchers()
+        watchers.serve(_Server(bus))
+        watchers.watch("nb", FakeManager(FakeNotebookClient("one")))
+        await _settle(0.1)
+        watch = watchers._watching["nb"]
+
+        watchers.fold("nb", ["one"])
+        assert watch.pending.when() > watch.loop.time(), "the deadline is still ahead"
+        await watchers._announce("nb", watch.armed)
+        assert [event.uri for event in bus.published] == [
+            "notebook://nb",
+            "notebook://nb/cells/one",
+        ]
+        watchers.stop_all()
+        await _settle(0.05)
 
     async def test_one_burst_s_cells_are_not_the_next_one_s(self, fast):
         """Otherwise a subscriber is told to refetch a cell that has not
@@ -433,7 +474,7 @@ class TestTheDebounceHasACeiling:
         watchers.serve(_Server(bus))
         client = FakeNotebookClient("one", "two")
         watchers.watch("nb", FakeManager(client))
-        await _settle(0.05)
+        await _settle(0.1)
         client.edit_source(0, "print(1)", origin="typing")
         await _settle()
         client.edit_source(1, "print(2)", origin="typing")
@@ -445,7 +486,7 @@ class TestTheDebounceHasACeiling:
             "notebook://nb/cells/two",
         ]
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
     async def test_a_quiet_notebook_is_announced_once(self, fast):
         bus = _Bus()
@@ -453,7 +494,7 @@ class TestTheDebounceHasACeiling:
         watchers.serve(_Server(bus))
         client = FakeNotebookClient("one")
         watchers.watch("nb", FakeManager(client))
-        await _settle(0.05)
+        await _settle(0.1)
         client.edit_source(0, "print(1)", origin="typing")
         await _settle(0.3)
         assert [event.uri for event in bus.published] == [
@@ -461,7 +502,7 @@ class TestTheDebounceHasACeiling:
             "notebook://nb/cells/one",
         ]
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
 
 @pytest.mark.asyncio
@@ -499,7 +540,7 @@ class TestTheWrapperHandsItToTheWatcher:
         watchers = NotebookWatchers()
         watchers.serve(_Server(bus))
         watchers.watch("nb", FakeManager(FakeNotebookClient("one")))
-        await _settle(0.05)
+        await _settle(0.1)
         self._stubs(monkeypatch, watchers)
 
         await self._tool()(notebook_name="nb")
@@ -510,7 +551,7 @@ class TestTheWrapperHandsItToTheWatcher:
             "notebook://nb/cells/one",
         ]
         watchers.stop_all()
-        await _settle(0.02)
+        await _settle(0.05)
 
     async def test_an_unwatched_one_is_published_at_once_and_names_the_cell(
         self, monkeypatch, fast
