@@ -284,9 +284,16 @@ class TestTheOlderWayToAsk:
     def test_the_registry_has_a_ceiling(self):
         """A client that subscribes and vanishes without unsubscribing costs
         one entry until the next publish, not a leak without a ceiling."""
-        for index in range(notifications.MAX_SUBSCRIBED_SESSIONS + 10):
-            notifications.legacy_subscribe(object(), f"notebook://{index}")
-        assert len(notifications._LEGACY) <= notifications.MAX_SUBSCRIBED_SESSIONS
+        held = dict(notifications._LEGACY)
+        try:
+            for index in range(notifications.MAX_SUBSCRIBED_SESSIONS + 10):
+                notifications.legacy_subscribe(object(), f"notebook://{index}")
+            assert len(notifications._LEGACY) <= notifications.MAX_SUBSCRIBED_SESSIONS
+        finally:
+            # The map holds its sessions now, so a test that fills it leaves
+            # them for every later test in the process unless it says not to.
+            notifications._LEGACY.clear()
+            notifications._LEGACY.update(held)
 
 
 @pytest.mark.asyncio
@@ -309,6 +316,29 @@ class TestBothErasAreTold:
         notifications.legacy_subscribe(session, "notebook://work")
         try:
             await notifications.publish_notebook_updated(_Server(_Bus()), "work")
+        finally:
+            notifications.legacy_unsubscribe(session, "notebook://work")
+        assert told == ["notebook://work"]
+
+    async def test_a_legacy_subscriber_is_told_by_a_server_with_no_bus(self):
+        """The two halves are independent, and the legacy one used to be
+        reached only through the modern one: `publish` returned early when
+        the server had no `subscriptions/listen`, so an SDK without that
+        stream told its 2025-11-25 subscribers nothing — which is every
+        subscriber such a server has."""
+        told = []
+
+        class _Session:
+            async def send_resource_updated(self, uri):
+                told.append(uri)
+
+        class _NoBus:
+            """A server the bus cannot be reached through."""
+
+        session = _Session()
+        notifications.legacy_subscribe(session, "notebook://work")
+        try:
+            assert await notifications.publish_notebook_updated(_NoBus(), "work") is True
         finally:
             notifications.legacy_unsubscribe(session, "notebook://work")
         assert told == ["notebook://work"]

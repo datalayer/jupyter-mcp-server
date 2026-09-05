@@ -88,7 +88,7 @@ MUTATING_KINDS = frozenset(
 #: `MAX_SUBSCRIBED_SESSIONS`, oldest first — so a client that subscribes and
 #: vanishes without unsubscribing costs one entry until the next publish
 #: rather than a leak without a ceiling.
-_LEGACY: "dict[Any, set[str]]" = {}
+_LEGACY: dict[Any, set[str]] = {}
 
 #: How many subscribed sessions are remembered before the oldest is dropped.
 #: A single-user server has one; a shared one has as many as it has clients,
