@@ -35,12 +35,15 @@ class EditCellSourceTool(BaseTool):
         if not old_string:
             raise ValueError("old_string must not be empty")
 
-        count = source.count(old_string)
-        if count == 0:
+        first_match = source.find(old_string)
+        if first_match == -1:
             raise ValueError("old_string not found in cell source")
-        if count > 1 and not replace_all:
+
+        # Start one character after the first match, not after its end:
+        # overlapping matches are ambiguous too (e.g. "aba" in "ababa").
+        if not replace_all and source.find(old_string, first_match + 1) != -1:
             raise ValueError(
-                f"old_string is not unique in cell source ({count} occurrences). "
+                "old_string is not unique in cell source (multiple occurrences). "
                 "Use replace_all=True to replace all occurrences."
             )
 
