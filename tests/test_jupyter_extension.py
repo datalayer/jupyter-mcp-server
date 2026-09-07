@@ -184,6 +184,22 @@ def test_post_endpoint_auth(jupyter_server_with_extension, path, body):
     assert r.status_code == HTTPStatus.OK, f"{path} rejected valid token"
 
 
+def test_direct_tool_call_routes_to_the_registered_tool(jupyter_server_with_extension):
+    """The documented convenience route must not report a placeholder as success."""
+    response = requests.post(
+        f"{jupyter_server_with_extension}/mcp/tools/call",
+        json={"tool_name": "list_files", "arguments": {"path": "", "max_depth": 0}},
+        headers={"Authorization": f"token {JUPYTER_TOKEN}"},
+        timeout=10,
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert body["success"] is True
+    assert body["result"]["content"], body
+    assert "Tool list_files executed with backend" not in str(body["result"])
+
+
 ###############################################################################
 # Unit Tests - Extension Configuration
 ###############################################################################

@@ -741,6 +741,23 @@ class MCPToolsCallHandler(MCPHandler):
     Body: {"tool_name": "...", "arguments": {...}}
     """
 
+    _identity_token = None
+
+    async def prepare(self):
+        """Authenticate the direct route and give its tool call a Jupyter identity."""
+        await super().prepare()
+        if not self.current_user:
+            raise HTTPError(403, "Authentication required")
+        self._identity_token = set_current_identity(
+            identity_from_jupyter_user(self.current_user)
+        )
+
+    def on_finish(self):
+        """Clear the request identity after the direct tool call finishes."""
+        if self._identity_token is not None:
+            reset_current_identity(self._identity_token)
+            self._identity_token = None
+
     async def post(self):
         """Handle tool execution request."""
         try:
@@ -757,15 +774,22 @@ class MCPToolsCallHandler(MCPHandler):
 
             logger.info(f"Executing tool: {tool_name} with args: {arguments}")
 
-            # Get backend
-            backend = self.get_backend()
+            # This route is documented as a convenience form of tools/call,
+            # so it must run the registered tool rather than acknowledge a
+            # name with a placeholder. Calling the shared MCP server keeps
+            # its hooks, mode-specific context, and result format intact.
+            from jupyter_mcp_server.server import mcp
 
-            # Execute tool based on name
-            # For now, return a placeholder response
-            # TODO: Implement actual tool routing
-            result = await self._execute_tool(tool_name, arguments, backend)
-
-            response = {"success": True, "result": result}
+            result = await mcp.call_tool(tool_name, arguments)
+            result_dict = clean_mcp_response(
+                result.model_dump(
+                    by_alias=True,
+                    mode="json",
+                    exclude_none=True,
+                    exclude={"result_type"},
+                )
+            )
+            response = {"success": not result.is_error, "result": result_dict}
 
             self.set_header("Content-Type", "application/json")
             self.write(json.dumps(response))
@@ -776,25 +800,3 @@ class MCPToolsCallHandler(MCPHandler):
             self.set_status(500)
             self.write(json.dumps({"success": False, "error": str(e)}))
             self.finish()
-
-    async def _execute_tool(self, tool_name: str, arguments: dict[str, Any], backend):
-        """
-        Route tool execution to appropriate implementation.
-
-        Args:
-            tool_name: Name of tool to execute
-            arguments: Tool arguments
-            backend: Backend instance
-
-        Returns:
-            Tool execution result
-        """
-        # TODO: Implement actual tool routing
-        # For now, return a simple response
-
-        if tool_name == "list_notebooks":
-            notebooks = await backend.list_notebooks()
-            return {"notebooks": notebooks}
-
-        # Placeholder for other tools
-        return f"Tool {tool_name} executed with backend {type(backend).__name__}"
