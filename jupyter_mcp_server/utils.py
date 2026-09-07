@@ -665,7 +665,9 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxClient:
+def create_code_sandbox(
+    config, logger, path: str | None = None, kernel_id: str | None = None
+) -> CodeSandboxClient:
     """Create a new code sandbox using current configuration.
 
     Creation is resolved in this order:
@@ -682,6 +684,9 @@ def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxC
     ``path`` is the root-relative path of the notebook the sandbox belongs to.
     Jupyter Server derives the kernel's working directory from it, so relative
     file access inside a notebook resolves against the notebook's own directory.
+
+    ``kernel_id`` attaches to that existing kernel instead of starting one; it
+    falls back to the process-wide ``code_sandbox_id`` setting.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
     from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
@@ -700,7 +705,7 @@ def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxC
         code_sandbox = create_jupyter_sandbox_client(
             server_url=config.code_sandbox_url,
             token=None if auth_headers else config.code_sandbox_token,
-            kernel_id=config.code_sandbox_id,
+            kernel_id=kernel_id or config.code_sandbox_id,
             path=path,
             timeout=getattr(config, "execution_timeout", None),
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,

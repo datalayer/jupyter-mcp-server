@@ -410,6 +410,14 @@ class UseNotebookTool(BaseTool):
             # # Create/connect to kernel based on mode
             if mode == ServerMode.MCP_SERVER and sandbox_server_client is not None:
                 if kernel_id is not None:
+                    if config.uses_sandbox_variant():
+                        # The extension builds the sandbox and never sees the
+                        # id; attaching to a Jupyter kernel is a jupyter-server
+                        # variant thing.
+                        return (
+                            f"kernel_id only applies to the 'jupyter-server' sandbox variant;"
+                            f" the configured variant is '{config.sandbox_variant}'."
+                        )
                     kernels = sandbox_server_client.kernels.list_kernels()
                     kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
                     if not kernel_exists:
@@ -430,17 +438,19 @@ class UseNotebookTool(BaseTool):
                 # through whichever sandbox is configured — so the variant is
                 # honoured rather than assumed.
                 #
-                # A `kernel_id` given here is only checked for existence: it is
-                # not carried to that first execution, which builds a kernel
-                # from the configuration. Reusing a particular one means naming
-                # it at execution time, or setting `code_sandbox_id`.
-                if config.start_new_code_sandbox:
+                # A `kernel_id` names a kernel that already exists (checked
+                # above), so attaching to it starts nothing and is done right
+                # away — the lazy path would otherwise build a fresh kernel
+                # from the configuration and drop the id (#425).
+                if kernel_id is not None or config.start_new_code_sandbox:
                     # The operator asked for a sandbox up front, so start one.
                     # Through the shared factory, which consults the installed
                     # extensions first and so honours `--sandbox-variant`.
                     from jupyter_mcp_server.utils import create_code_sandbox
 
-                    kernel = create_code_sandbox(config, logger, path=notebook_path)
+                    kernel = create_code_sandbox(
+                        config, logger, path=notebook_path, kernel_id=kernel_id
+                    )
                     info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
                 else:
                     kernel = None
