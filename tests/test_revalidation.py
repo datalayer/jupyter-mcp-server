@@ -20,16 +20,21 @@ $ pytest tests/test_revalidation.py -v
 
 from __future__ import annotations
 
+import anyio
 import pytest
+from mcp import ClientSession
+from mcp.server import MCPServer
+from mcp.shared.memory import create_client_server_memory_streams
 from mcp.types import CallToolRequestParams, CallToolResult, TextContent
 
-from jupyter_mcp_server.results import CACHE_META_KEY, answer, etag_for
+from jupyter_mcp_server.results import CACHE_META_KEY, ToolAnswer, answer, etag_for, structured
 from jupyter_mcp_server.revalidation import (
     NOT_MODIFIED_KEY,
     REVALIDATION_EXTENSION,
     RevalidationExtension,
     answered_etag,
     requested_etag,
+    revalidation_extension,
 )
 
 
@@ -86,7 +91,7 @@ class TestRevalidating:
         block = served_back.meta[CACHE_META_KEY]
         assert block[NOT_MODIFIED_KEY] is True
         assert served_back.content == []
-        assert served_back.structured_content is None
+        assert served_back.structured_content == {"kind": "notebook.read"}
 
     async def test_not_modified_says_so_rather_than_being_empty(self, extension):
         """A client that read an empty result as an empty notebook would show
@@ -156,9 +161,60 @@ class TestRevalidating:
         assert ran == [1]
 
 
+    async def test_not_modified_keeps_the_envelope_the_schema_declares(self, extension):
+        """`read_notebook` and `read_cell` advertise an output schema, and a
+        client validates every non-error result against it — an answer with no
+        structured content at all raises there. So the reply keeps `kind`, the
+        only field the schema requires, and omits the payload."""
+        result = read({"cells": [1, 2]}, kind="cell.read")
+        served_back = await served(extension, holding(answered_etag(result)), result)
+        assert served_back.structured_content == {"kind": "cell.read"}
+        assert "cells" not in served_back.structured_content
+
+
 def test_the_extension_identifier_is_one_constant():
     assert RevalidationExtension.identifier == REVALIDATION_EXTENSION
 
 
 def test_the_settings_name_the_field_a_client_reads():
     assert RevalidationExtension().settings()["notModifiedKey"] == NOT_MODIFIED_KEY
+
+
+@pytest.mark.asyncio
+async def test_a_client_can_revalidate_a_read_without_the_call_failing():
+    """The round trip the caching page documents, through a real client.
+
+    The tests above hand `intercept_tool_call` a stub and read the result
+    themselves, which is why the envelope going missing was invisible: the
+    schema a tool declares is only enforced on the client side, one layer
+    further out than any of them reach.
+    """
+    server = MCPServer("revalidation-round-trip", extensions=[revalidation_extension()])
+
+    @server.tool()
+    @structured("notebook.read", ttl_ms=5000, etag=True)
+    async def read_notebook() -> ToolAnswer:
+        """A read that stamps a version, as the real one does."""
+        return {"cells": [{"index": 0, "source": "1 + 1"}]}
+
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        async with anyio.create_task_group() as group:
+
+            async def serve():
+                low = server._lowlevel_server
+                await low.run(*server_streams, low.create_initialization_options())
+
+            group.start_soon(serve)
+            async with ClientSession(*client_streams) as session:
+                await session.initialize()
+                first = await session.call_tool("read_notebook", {})
+                etag = first.meta[CACHE_META_KEY]["etag"]
+
+                again = await session.call_tool(
+                    "read_notebook", {}, meta={CACHE_META_KEY: {"etag": etag}}
+                )
+
+            assert again.meta[CACHE_META_KEY][NOT_MODIFIED_KEY] is True
+            assert again.structured_content == {"kind": "notebook.read"}
+            assert again.content == []
+            group.cancel_scope.cancel()
