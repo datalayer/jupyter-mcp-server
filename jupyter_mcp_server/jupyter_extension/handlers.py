@@ -741,23 +741,6 @@ class MCPToolsCallHandler(MCPHandler):
     Body: {"tool_name": "...", "arguments": {...}}
     """
 
-    _identity_token = None
-
-    async def prepare(self):
-        """Authenticate the direct route and give its tool call a Jupyter identity."""
-        await super().prepare()
-        if not self.current_user:
-            raise HTTPError(403, "Authentication required")
-        self._identity_token = set_current_identity(
-            identity_from_jupyter_user(self.current_user)
-        )
-
-    def on_finish(self):
-        """Clear the request identity after the direct tool call finishes."""
-        if self._identity_token is not None:
-            reset_current_identity(self._identity_token)
-            self._identity_token = None
-
     async def post(self):
         """Handle tool execution request."""
         try:
