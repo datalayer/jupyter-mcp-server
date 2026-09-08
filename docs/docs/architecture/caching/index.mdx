@@ -53,6 +53,12 @@ It says `notModified` rather than simply being empty, because a client that
 read an empty result as an empty *notebook* would show somebody no cells at
 all.
 
+The reply still carries `"structuredContent": {"kind": "notebook.read"}`. Both
+tools advertise an output schema, and a client validates what comes back
+against it, so an answer with no structured content at all fails there rather
+than being read as *not modified*. Only the payload is left out — which is
+where the saving is.
+
 :::caution This saves bandwidth, not work
 
 The tool still runs. The version is computed from what it answered, so there

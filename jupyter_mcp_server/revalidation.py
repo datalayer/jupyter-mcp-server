@@ -64,16 +64,32 @@ def answered_etag(result: Any) -> str:
     return str(_cache_block(getattr(result, "meta", None)).get("etag") or "")
 
 
-def not_modified(block: dict[str, Any]) -> CallToolResult:
+def answered_kind(result: Any) -> str:
+    """What kind of answer a result is, from its structured content."""
+    structured = getattr(result, "structured_content", None)
+    if not isinstance(structured, dict):
+        return ""
+    return str(structured.get("kind") or "")
+
+
+def not_modified(block: dict[str, Any], kind: str = "") -> CallToolResult:
     """The answer to a client that already has this result.
 
     Carries the hints again, so holding it for another window costs nothing,
     and says plainly that there is no payload rather than answering an empty
     one.
+
+    It keeps the answer's `kind` for a harder reason than tidiness. Both
+    revalidated tools declare an output schema, and a client validates every
+    non-error result against the one it was given: `ClientSession` raises
+    `RuntimeError` when a tool that declares a schema comes back with no
+    structured content at all. An empty envelope would therefore turn the
+    cheap question into a failed call. The payload stays omitted — that is
+    where the saving is, and `kind` is the only field either schema requires.
     """
     return CallToolResult(
         content=[],
-        structured_content=None,
+        structured_content={"kind": kind} if kind else None,
         meta={CACHE_META_KEY: {**block, NOT_MODIFIED_KEY: True}},
     )
 
@@ -109,7 +125,7 @@ class RevalidationExtension(Extension):
             # has never seen.
             return result
         logger.debug("Answering not-modified for %s", getattr(params, "name", ""))
-        return not_modified(block)
+        return not_modified(block, answered_kind(result))
 
 
 def revalidation_extension() -> RevalidationExtension:
