@@ -478,10 +478,11 @@ class ExecuteCellTool(BaseTool):
                         raise ValueError(
                             "execute_via_http is on, but the runtime /execute route cannot be "
                             f"used for cell {cell_index}: "
-                            f"{'the notebook document id did not resolve from its websocket url' if not http_document_id else 'the cell has no id'}. "
+                            f"{'the notebook document id did not resolve from its WebSocket URL (missing or malformed)' if not http_document_id else 'the cell has no id'}. "
                             "The runtime writes outputs into the document server-side and needs "
                             "both ids to do so; there is no WebSocket fallback by design, so this "
-                            "is raised rather than run where the outputs would be lost."
+                            "is raised rather than run without the server-side output durability "
+                            "this path exists for."
                         )
                     from jupyter_mcp_server.server_context import (  # noqa: PLC0415
                         ServerContext,
