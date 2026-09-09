@@ -18,6 +18,7 @@ import pytest
 
 from jupyter_mcp_server.utils import (
     MissingKernelError,
+    document_id_from_ws_url,
     execute_via_execution_stack_http,
 )
 
@@ -34,7 +35,12 @@ class _FakeTransport:
         status, body, headers = post
         self._post = (
             status,
-            body if body is not None else {"request_id": "r1", "request_url": "/api/kernels/k1/requests/r1"},
+            body
+            if body is not None
+            else {
+                "request_id": "r1",
+                "request_url": "/api/kernels/k1/requests/r1",
+            },
             headers or {},
         )
         self._polls = iter(polls)
@@ -231,7 +237,20 @@ async def test_a_run_that_never_finishes_times_out():
     assert outputs == ["[ERROR: Execution timed out after 0 seconds]"]
 
 
-from jupyter_mcp_server.utils import document_id_from_ws_url
+@pytest.mark.asyncio
+async def test_an_unexpected_poll_status_is_an_error_not_silence():
+    # A 401/403/404/429 while polling is not a result; it must surface as an
+    # actionable error rather than a quiet "[No output generated]".
+    transport = _FakeTransport(polls=[(403, {"message": "forbidden"})])
+    outputs = await execute_via_execution_stack_http(
+        kernel_id="k1",
+        code="1+1",
+        poll_interval=0,
+        transport=transport,
+    )
+    assert len(outputs) == 1
+    assert outputs[0].startswith("[ERROR:")
+    assert "403" in outputs[0]
 
 
 def test_document_id_from_ws_url_reads_the_room():

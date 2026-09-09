@@ -466,9 +466,13 @@ class ExecuteCellTool(BaseTool):
                 _config = get_config()
                 if _config.execute_via_http and not _config.uses_sandbox_variant():
                     http_cell_id = notebook[cell_index].get("id")
-                    http_document_id = document_id_from_ws_url(
-                        getattr(notebook, "_ws_url", "") or getattr(notebook, "path", "")
-                    )
+                    # Only a real websocket URL carries the RTC room id. The
+                    # notebook *path* must not be a fallback: parsing it would
+                    # make a bogus `json:notebook:<path>` room and misroute the
+                    # run to no document. No ws_url -> unresolved -> the guard
+                    # below keeps this on the WebSocket path.
+                    ws_url = getattr(notebook, "ws_url", None) or getattr(notebook, "_ws_url", None)
+                    http_document_id = document_id_from_ws_url(ws_url)
                     if http_cell_id and http_document_id:
                         from jupyter_mcp_server.server_context import (  # noqa: PLC0415
                             ServerContext,

@@ -1214,8 +1214,6 @@ async def _finish_execution_stack_result(
 
     # Parse JSON string if needed (ExecutionStack returns JSON string)
     if isinstance(outputs, str):
-        import json
-
         try:
             outputs = json.loads(outputs)
         except json.JSONDecodeError as decode_err:
@@ -1622,6 +1620,18 @@ async def execute_via_execution_stack_http(
                         )
                     await asyncio.sleep(poll_interval)
                     continue
+
+                # 200 complete, 300 input-required, 500 error each carry the
+                # result dict the shared handler reads. Anything else — a 401/
+                # 403 the token lost, a 404 for a request that expired, a 429 —
+                # is not a result, and passing its body on would surface as a
+                # quiet "[No output generated]". Raise so it reaches the caller
+                # as the error it is.
+                if poll_status not in (200, 300, 500):
+                    raise RuntimeError(
+                        f"the runtime answered {poll_status} polling "
+                        f"{request_id or request_url}: {poll_body}"
+                    )
 
                 logger.info(f"HTTP execution request {request_id or request_url} completed")
                 return await _finish_execution_stack_result(
