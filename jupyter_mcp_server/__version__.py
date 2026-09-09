@@ -4,4 +4,4 @@
 
 """Jupyter MCP Server."""
 
-__version__ = "2.1.10"
+__version__ = "2.1.11"
