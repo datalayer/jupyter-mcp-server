@@ -98,6 +98,15 @@ class TestConfigPrefersTheCaller:
         finally:
             reset_current_identity(token)
 
+    def test_the_configured_token_is_readable_without_the_caller(self):
+        # For the places that must remember a token rather than resolve one.
+        set_config(document_url="https://example.test", document_token="configured")
+        token = set_current_identity(Identity(username="alice", token="alice-token"))
+        try:
+            assert get_config().configured_document_token() == "configured"
+        finally:
+            reset_current_identity(token)
+
     def test_the_sandbox_token_follows_the_same_rule(self):
         set_config(code_sandbox_token="configured")
         token = set_current_identity(Identity(username="alice", token="alice-token"))
@@ -198,3 +207,89 @@ class TestMiddleware:
             request("alice", "alice-token"), request("bob", "bob-token")
         )
         assert observed == {"alice": "alice-token", "bob": "bob-token"}
+
+
+class TestANotebookBindingDoesNotCarryACredential:
+    """The same property, once an alias outlives the request that made it.
+
+    ``NotebookManager`` state is per process and shared between callers, which
+    the class documents. What it also documents is that sharing an alias is not
+    sharing an authority: "a shared entry still cannot be *read* without the
+    reader's own authority behind it". That holds only while the entry keeps no
+    credential of its own.
+    """
+
+    @staticmethod
+    def _connect_as(manager, name, monkeypatch):
+        """Open the notebook connection and report the token it presents."""
+        from jupyter_mcp_server import notebook_manager as nm
+
+        presented = {}
+
+        def fake_ws_url(server_url, token, path, provider=None, headers=None):
+            presented["token"] = token
+            return "ws://example.test/nb"
+
+        class _FakeNbModelClient:
+            def __init__(self, ws_url, additional_headers=None):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+        monkeypatch.setattr(nm, "get_notebook_websocket_url", fake_ws_url)
+        monkeypatch.setattr(nm, "NbModelClient", _FakeNbModelClient)
+
+        async def run():
+            async with manager.get_notebook_connection(name):
+                pass
+
+        asyncio.run(run())
+        return presented["token"]
+
+    def test_the_second_caller_connects_with_their_own_token(self, monkeypatch):
+        from jupyter_mcp_server import notebook_manager as nm
+        from jupyter_mcp_server import watchers as watchers_module
+
+        # No configured document token: every caller brings their own, which is
+        # the deployment the per-request credential exists for.
+        set_config(document_url="https://example.test", document_token=None)
+        monkeypatch.setattr(watchers_module.watchers, "watch", lambda name, manager: True)
+        manager = nm.NotebookManager()
+
+        alice = set_current_identity(Identity(username="alice", token="alice-token"))
+        try:
+            manager.add_notebook(
+                "shared",
+                {},
+                server_url="https://example.test",
+                token=None,
+                path="shared.ipynb",
+            )
+        finally:
+            reset_current_identity(alice)
+
+        bob = set_current_identity(Identity(username="bob", token="bob-token"))
+        try:
+            assert self._connect_as(manager, "shared", monkeypatch) == "bob-token"
+        finally:
+            reset_current_identity(bob)
+
+    def test_a_configured_token_still_serves_a_caller_who_has_none(self, monkeypatch):
+        from jupyter_mcp_server import notebook_manager as nm
+        from jupyter_mcp_server import watchers as watchers_module
+
+        set_config(document_url="https://example.test", document_token="configured")
+        monkeypatch.setattr(watchers_module.watchers, "watch", lambda name, manager: True)
+        manager = nm.NotebookManager()
+        manager.add_notebook(
+            "shared",
+            {},
+            server_url="https://example.test",
+            token="configured",
+            path="shared.ipynb",
+        )
+        assert self._connect_as(manager, "shared", monkeypatch) == "configured"
