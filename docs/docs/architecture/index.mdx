@@ -202,6 +202,22 @@ document with `NbModelClient` (jupyter-nbmodel-client over Y.js), so cell edits
 land in the same document the user's JupyterLab is showing. Execution goes
 through a `CodeSandboxClient` built by `sandbox_client.py`.
 
+By default that client drives the kernel from this process and writes each
+output into the document as it arrives, so a cell's outputs stop if this
+process stops — a gateway rollout, an idle reap, a crash. Set
+`execute_via_http` (env `JUPYTER_MCP_EXECUTE_VIA_HTTP`) and, on the default
+`jupyter-server` variant, `execute_cell` instead **POSTs to the runtime's own
+`/api/kernels/{id}/execute` route** (jupyter-server-nbmodel) and polls the
+request it returns. The runtime runs the cell and writes the outputs into the
+collaborative document **server-side**, so a run — and its outputs — survive
+the loss of this process; what this process loses when it stops is only the
+ability to keep reporting progress. It is used only when the document and cell
+ids resolve (so the runtime knows where to write); otherwise, and for every
+non-`jupyter-server` variant, execution stays on the WebSocket path above.
+`execute_code`, which targets no cell, always uses the WebSocket path — the
+durability is a property of cell execution, where there is a document cell to
+write into.
+
 ### Backends (`jupyter_extension/backends/`)
 
 `Backend` is the abstract interface for notebook and kernel operations —

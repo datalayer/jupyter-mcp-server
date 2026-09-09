@@ -32,6 +32,7 @@ All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mc
 | `reconnect_interval` | int | `0` | Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect. |
 | `execution_timeout` | int | `120` | Default timeout in seconds for code execution. |
 | `max_execution_timeout` | int | `3600` | Maximum allowed timeout in seconds for code execution. |
+| `execute_via_http` | bool | `"PydanticUndefined"` | In MCP_SERVER mode, run cell execution through the runtime's own HTTP /api/kernels/{id}/execute route instead of driving the kernel from this worker. The runtime then writes the outputs into the collaborative document server-side, so a run's outputs survive the loss of this worker. Only the default 'jupyter-server' variant has that route; other sandbox variants ignore the flag and keep the WebSocket path. Off by default; set JUPYTER_MCP_EXECUTE_VIA_HTTP. |
 
 ## Transports
 

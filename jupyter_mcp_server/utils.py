@@ -3,6 +3,7 @@
 # BSD 3-Clause License
 
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -1086,6 +1087,171 @@ def is_missing_kernel_message(message: Any) -> bool:
     return "kernel" in text and "not found" in text
 
 
+def document_id_from_ws_url(ws_url: str | None) -> str | None:
+    """The RTC room id the runtime writes outputs into, parsed from a ws_url.
+
+    An ``NbModelClient`` connects to a room whose id is the last path segment
+    of its websocket url — ``json:notebook:<fileId>`` on a Jupyter server, or a
+    bare room id on a Datalayer runtime's documents endpoint. The runtime's
+    ``/execute`` route wants the ``json:notebook:<fileId>`` form (the same one
+    the in-process path builds), so a bare id is wrapped and an already
+    fully-qualified one is kept.
+
+    Returns ``None`` when no id can be read. The caller treats that as "cannot
+    persist server-side" and stays on the WebSocket path rather than POSTing a
+    run whose outputs would land in no document — the exact failure routing
+    through the runtime exists to prevent.
+    """
+    from urllib.parse import unquote, urlparse  # noqa: PLC0415
+
+    if not ws_url:
+        return None
+    path = urlparse(ws_url).path.rstrip("/")
+    if not path:
+        return None
+    segment = unquote(path.split("/")[-1])
+    if not segment:
+        return None
+    # A fully-qualified room id (`format:type:fileId`) is used as-is; a bare
+    # file id is wrapped the way the in-process path builds document_id.
+    if segment.count(":") >= 2:
+        return segment
+    return f"json:notebook:{segment}"
+
+
+async def _finish_execution_stack_result(
+    result: dict,
+    *,
+    code: str,
+    kernel_id: str,
+    metadata: dict,
+    logger,
+    raw_outputs: list | None,
+    execution_count_out: list | None,
+    hook_ctx,
+) -> list[str | ImageContent]:
+    """Turn a terminal ExecutionStack result into formatted outputs.
+
+    Shared by the in-process driver (``execute_via_execution_stack``, which
+    gets the result straight off the extension's ``ExecutionStack``) and the
+    HTTP one (``execute_via_execution_stack_http``, which polls the runtime's
+    ``/api/kernels/{id}/execute`` route). The transport differs; the result
+    shape does not — the HTTP route serializes ``ExecutionStack.get(...)``
+    verbatim, so the same dict reaches here either way. Fires exactly one
+    ``AFTER_EXECUTE`` for the ``hook_ctx`` the caller already opened, and
+    raises :class:`MissingKernelError` for a gone kernel so the caller's
+    one-shot retry can run (its ``AFTER_EXECUTE`` is the caller's to fire).
+    """
+    # The kernel's reply carries the real execution_count for both the error
+    # and success cases (a kernel increments it whether or not the cell
+    # raised); capture it before the branches below return.
+    if execution_count_out is not None and "execution_count" in result:
+        execution_count_out.append(result["execution_count"])
+
+    # Check for errors
+    if "error" in result:
+        error_info = result["error"]
+        if not isinstance(error_info, dict):
+            # ExecutionStack reports a request-level failure as a plain string:
+            # the kernel it could not connect to, a request superseded by a
+            # newer one for the same cell, a request cancelled after an earlier
+            # one failed. Only an exception raised inside the kernel arrives as
+            # a mapping with ename/evalue/traceback. Wrap the string so the
+            # reason reaches the caller instead of being lost to an attribute
+            # error on the lines below.
+            error_info = {
+                "ename": "ExecutionError",
+                "evalue": str(error_info),
+                "traceback": [],
+            }
+        logger.error(f"Execution error: {error_info}")
+        if is_missing_kernel_message(error_info.get("evalue", "")):
+            # execute_cell starts a replacement kernel and retries once when
+            # this happens, and it looks for the failure in an exception. Leave
+            # it as one so that path can run; the caller fires the single
+            # AFTER_EXECUTE this execution owes and re-raises.
+            raise MissingKernelError(error_info.get("evalue", ""))
+        error_output = [
+            f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"
+        ]
+        if raw_outputs is not None:
+            raw_outputs.append(
+                {
+                    "output_type": "error",
+                    "ename": error_info.get("ename", "Unknown"),
+                    "evalue": error_info.get("evalue", ""),
+                    "traceback": error_info.get("traceback", []),
+                }
+            )
+        await HookRegistry.get_instance().fire(
+            HookEvent.AFTER_EXECUTE,
+            code=code,
+            kernel_id=kernel_id,
+            metadata=metadata,
+            outputs=error_output,
+            error=error_info,
+            context=hook_ctx,
+        )
+        return error_output
+
+    # Check for pending input (shouldn't happen with allow_stdin=False)
+    if "input_request" in result:
+        logger.warning("Unexpected input request during execution")
+        input_request_output = ["[ERROR: Unexpected input request]"]
+        await HookRegistry.get_instance().fire(
+            HookEvent.AFTER_EXECUTE,
+            code=code,
+            kernel_id=kernel_id,
+            metadata=metadata,
+            outputs=input_request_output,
+            error=RuntimeError("Unexpected input request during execution"),
+            context=hook_ctx,
+        )
+        return input_request_output
+
+    # Extract outputs
+    outputs = result.get("outputs", [])
+
+    # Parse JSON string if needed (ExecutionStack returns JSON string)
+    if isinstance(outputs, str):
+        try:
+            outputs = json.loads(outputs)
+        except json.JSONDecodeError as decode_err:
+            logger.error(f"Failed to parse outputs JSON: {outputs}")
+            decode_error_output = ["[ERROR: Invalid output format]"]
+            await HookRegistry.get_instance().fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code,
+                kernel_id=kernel_id,
+                metadata=metadata,
+                outputs=decode_error_output,
+                error=decode_err,
+                context=hook_ctx,
+            )
+            return decode_error_output
+
+    if outputs:
+        formatted = safe_extract_outputs(outputs)
+        if raw_outputs is not None:
+            raw_outputs.extend(outputs)
+        logger.info(
+            f"Execution completed with {len(formatted)} formatted outputs: {formatted}"
+        )
+    else:
+        formatted = []
+        logger.info("Execution completed with no outputs")
+    await HookRegistry.get_instance().fire(
+        HookEvent.AFTER_EXECUTE,
+        code=code,
+        kernel_id=kernel_id,
+        metadata=metadata,
+        outputs=formatted,
+        error=None,
+        context=hook_ctx,
+    )
+    return formatted if formatted else ["[No output generated]"]
+
+
 async def execute_via_execution_stack(
     serverapp: Any,
     kernel_id: str,
@@ -1205,120 +1371,16 @@ async def execute_via_execution_stack(
                 if result is not None:
                     # Execution complete
                     logger.info(f"Execution request {request_id} completed")
-
-                    # The kernel's reply carries the real execution_count for
-                    # both the error and success cases (a kernel increments it
-                    # whether or not the cell raised); capture it before the
-                    # branches below return.
-                    if execution_count_out is not None and "execution_count" in result:
-                        execution_count_out.append(result["execution_count"])
-
-                    # Check for errors
-                    if "error" in result:
-                        error_info = result["error"]
-                        if not isinstance(error_info, dict):
-                            # ExecutionStack reports a request-level failure as a
-                            # plain string: the kernel it could not connect to, a
-                            # request superseded by a newer one for the same cell,
-                            # a request cancelled after an earlier one failed. Only
-                            # an exception raised inside the kernel arrives as a
-                            # mapping with ename/evalue/traceback. Wrap the string
-                            # so the reason reaches the caller instead of being
-                            # lost to an attribute error on the lines below.
-                            error_info = {
-                                "ename": "ExecutionError",
-                                "evalue": str(error_info),
-                                "traceback": [],
-                            }
-                        logger.error(f"Execution error: {error_info}")
-                        if is_missing_kernel_message(error_info.get("evalue", "")):
-                            # execute_cell starts a replacement kernel and retries
-                            # once when this happens, and it looks for the failure
-                            # in an exception. Leave as one so that path can run;
-                            # the handler at the end of this function fires the
-                            # single AFTER_EXECUTE this execution owes and re-raises.
-                            raise MissingKernelError(error_info.get("evalue", ""))
-                        error_output = [
-                            f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"
-                        ]
-                        if raw_outputs is not None:
-                            raw_outputs.append(
-                                {
-                                    "output_type": "error",
-                                    "ename": error_info.get("ename", "Unknown"),
-                                    "evalue": error_info.get("evalue", ""),
-                                    "traceback": error_info.get("traceback", []),
-                                }
-                            )
-                        await HookRegistry.get_instance().fire(
-                            HookEvent.AFTER_EXECUTE,
-                            code=code,
-                            kernel_id=kernel_id,
-                            metadata=metadata,
-                            outputs=error_output,
-                            error=error_info,
-                            context=hook_ctx,
-                        )
-                        return error_output
-
-                    # Check for pending input (shouldn't happen with allow_stdin=False)
-                    if "input_request" in result:
-                        logger.warning("Unexpected input request during execution")
-                        input_request_output = ["[ERROR: Unexpected input request]"]
-                        await HookRegistry.get_instance().fire(
-                            HookEvent.AFTER_EXECUTE,
-                            code=code,
-                            kernel_id=kernel_id,
-                            metadata=metadata,
-                            outputs=input_request_output,
-                            error=RuntimeError("Unexpected input request during execution"),
-                            context=hook_ctx,
-                        )
-                        return input_request_output
-
-                    # Extract outputs
-                    outputs = result.get("outputs", [])
-
-                    # Parse JSON string if needed (ExecutionStack returns JSON string)
-                    if isinstance(outputs, str):
-                        import json
-
-                        try:
-                            outputs = json.loads(outputs)
-                        except json.JSONDecodeError as decode_err:
-                            logger.error(f"Failed to parse outputs JSON: {outputs}")
-                            decode_error_output = ["[ERROR: Invalid output format]"]
-                            await HookRegistry.get_instance().fire(
-                                HookEvent.AFTER_EXECUTE,
-                                code=code,
-                                kernel_id=kernel_id,
-                                metadata=metadata,
-                                outputs=decode_error_output,
-                                error=decode_err,
-                                context=hook_ctx,
-                            )
-                            return decode_error_output
-
-                    if outputs:
-                        formatted = safe_extract_outputs(outputs)
-                        if raw_outputs is not None:
-                            raw_outputs.extend(outputs)
-                        logger.info(
-                            f"Execution completed with {len(formatted)} formatted outputs: {formatted}"
-                        )
-                    else:
-                        formatted = []
-                        logger.info("Execution completed with no outputs")
-                    await HookRegistry.get_instance().fire(
-                        HookEvent.AFTER_EXECUTE,
+                    return await _finish_execution_stack_result(
+                        result,
                         code=code,
                         kernel_id=kernel_id,
                         metadata=metadata,
-                        outputs=formatted,
-                        error=None,
-                        context=hook_ctx,
+                        logger=logger,
+                        raw_outputs=raw_outputs,
+                        execution_count_out=execution_count_out,
+                        hook_ctx=hook_ctx,
                     )
-                    return formatted if formatted else ["[No output generated]"]
 
                 if (
                     progress_interval > 0
@@ -1375,6 +1437,253 @@ async def execute_via_execution_stack(
         if isinstance(e, MissingKernelError):
             raise
         return [f"[ERROR: {e!s}]"]
+
+
+class _HttpxExecuteTransport:
+    """The default transport for :func:`execute_via_execution_stack_http`.
+
+    A thin async wrapper over httpx that answers ``(status_code, body,
+    headers)`` for ``post``/``get`` — the shape the poll loop needs, because it
+    turns on the HTTP *status code* and the convenience clients that raise on a
+    non-2xx would hide the 202/300/500 the runtime uses to mean pending, input
+    and error. Built lazily so importing this module needs no HTTP client.
+    """
+
+    def __init__(self, base_url: str, token: str | None, auth_headers: dict | None = None):
+        import httpx  # noqa: PLC0415 - optional, only when no transport is injected
+
+        headers = dict(auth_headers or {})
+        if token:
+            headers.setdefault("Authorization", f"token {token}")
+        self._client = httpx.AsyncClient(base_url=base_url.rstrip("/"), headers=headers, timeout=None)
+
+    async def _send(self, method: str, path: str, json=None):
+        response = await self._client.request(method, path, json=json)
+        try:
+            body = response.json()
+        except Exception:  # noqa: BLE001 - a non-JSON body is not a result
+            body = {}
+        return response.status_code, body, dict(response.headers)
+
+    async def post(self, path: str, json=None):
+        return await self._send("POST", path, json=json)
+
+    async def get(self, path: str):
+        return await self._send("GET", path)
+
+    async def aclose(self):
+        await self._client.aclose()
+
+
+async def execute_via_execution_stack_http(
+    *,
+    server_url: str | None = None,
+    token: str | None = None,
+    kernel_id: str,
+    code: str,
+    document_id: str | None = None,
+    cell_id: str | None = None,
+    timeout: int = 300,
+    poll_interval: float = 0.1,
+    logger=None,
+    raw_outputs: list | None = None,
+    execution_count_out: list | None = None,
+    progress_callback=None,
+    progress_interval: int = 5,
+    transport=None,
+    auth_headers: dict | None = None,
+) -> list[str | ImageContent]:
+    """Execute code through the runtime's own HTTP ``/execute`` route.
+
+    The counterpart to :func:`execute_via_execution_stack` for ``MCP_SERVER``
+    mode, where the worker is a separate process from the runtime and cannot
+    reach the in-process ``ExecutionStack``. It POSTs to
+    ``/api/kernels/{kernel_id}/execute`` and polls the request URL the runtime
+    hands back. **The runtime runs the cell and writes its outputs into the
+    collaborative document server-side**, so the outputs — and the rest of the
+    run — survive the loss of *this* worker; what the worker loses when it dies
+    is only the ability to keep reporting progress, not the run.
+
+    The result shape the route serializes is exactly what ``ExecutionStack.get``
+    returns, so the terminal handling is shared with the in-process driver via
+    :func:`_finish_execution_stack_result`. The difference is the transport and
+    that the runtime encodes the state in the HTTP status code: ``202`` pending
+    or running, ``200`` complete, ``300`` input-required, ``500`` error.
+
+    Args:
+        server_url: Base URL of the runtime's Jupyter server (used only to
+            build the default transport).
+        token: The runtime token, presented as ``Authorization: token <…>`` by
+            the default transport.
+        kernel_id: The kernel the runtime should run the code in. A kernel the
+            runtime does not know makes the POST ``404`` and raises
+            :class:`MissingKernelError`, the same signal the in-process path
+            gives so ``execute_cell`` can start a replacement and retry once.
+        document_id: RTC room id (``json:notebook:<file_id>``) the runtime
+            writes outputs into; with ``cell_id`` it is what puts the outputs on
+            the far side of this worker's death. Without both, the runtime runs
+            the code but writes no cell — so a caller that wants the durability
+            must pass both.
+        transport: Async HTTP client with ``post(path, json)`` and ``get(path)``
+            both answering ``(status_code, body, headers)``. Injected for tests;
+            defaults to httpx over ``server_url``/``token``.
+
+    Returns:
+        List of formatted outputs (strings or ImageContent).
+
+    Raises:
+        TimeoutError: If execution exceeds ``timeout``.
+        MissingKernelError: If the runtime does not know ``kernel_id``.
+    """
+    import logging as default_logging
+
+    if logger is None:
+        logger = default_logging.getLogger(__name__)
+
+    owns_transport = transport is None
+    if transport is None:
+        if not server_url:
+            raise ValueError(
+                "execute_via_execution_stack_http needs a server_url when no transport is injected"
+            )
+        transport = _HttpxExecuteTransport(server_url, token, auth_headers)
+
+    metadata = {}
+    if document_id and cell_id:
+        metadata = {"document_id": document_id, "cell_id": cell_id}
+
+    hook_ctx = None
+    after_execute_fired = False
+    try:
+        logger.info(f"Submitting HTTP execution request to kernel {kernel_id}")
+        hook_ctx = await HookRegistry.get_instance().fire(
+            HookEvent.BEFORE_EXECUTE,
+            code=code,
+            kernel_id=kernel_id,
+            metadata=metadata,
+        )
+
+        submit_status, submit_body, submit_headers = await transport.post(
+            f"/api/kernels/{kernel_id}/execute",
+            json={"code": code, "metadata": metadata},
+        )
+        if submit_status == 404:
+            # The runtime does not know this kernel — the HTTP equivalent of the
+            # in-process "kernel not found" the retry path looks for.
+            raise MissingKernelError(f"kernel not found: {kernel_id}")
+        if submit_status not in (200, 201, 202):
+            raise RuntimeError(
+                f"the runtime refused the execution request ({submit_status}): {submit_body}"
+            )
+        # The request to poll: the route hands back a request_url (preferred)
+        # or a Location header; fall back to the documented path only if both
+        # are absent, so a route rename is followed rather than guessed past.
+        request_url = (
+            (submit_body or {}).get("request_url")
+            or submit_headers.get("Location")
+            or submit_headers.get("location")
+        )
+        request_id = (submit_body or {}).get("request_id", "")
+        if not request_url:
+            if not request_id:
+                raise RuntimeError(
+                    f"the runtime accepted the request but named no request to poll: {submit_body}"
+                )
+            request_url = f"/api/kernels/{kernel_id}/requests/{request_id}"
+        logger.info(f"HTTP execution request {request_id or request_url} submitted")
+
+        start_time = asyncio.get_event_loop().time()
+        last_progress_emit = 0.0
+        try:
+            while True:
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed > timeout:
+                    raise TimeoutError(f"Execution timed out after {timeout} seconds")
+
+                poll_status, poll_body, _ = await transport.get(request_url)
+
+                # 202 is pending or running — the runtime is still working and
+                # the body, if any, is a progress snapshot, never a result. Only
+                # 200 (complete), 300 (input-required) and 500 (error) are
+                # terminal, and each carries the dict the shared handler reads.
+                if poll_status == 202:
+                    if (
+                        progress_interval > 0
+                        and elapsed > 0
+                        and (elapsed - last_progress_emit) >= progress_interval
+                    ):
+                        last_progress_emit = elapsed
+                        await emit_execution_progress(
+                            progress_callback,
+                            elapsed=elapsed,
+                            timeout_seconds=timeout,
+                        )
+                    await asyncio.sleep(poll_interval)
+                    continue
+
+                # 200 complete, 300 input-required, 500 error each carry the
+                # result dict the shared handler reads. Anything else — a 401/
+                # 403 the token lost, a 404 for a request that expired, a 429 —
+                # is not a result, and passing its body on would surface as a
+                # quiet "[No output generated]". Raise so it reaches the caller
+                # as the error it is.
+                if poll_status not in (200, 300, 500):
+                    raise RuntimeError(
+                        f"the runtime answered {poll_status} polling "
+                        f"{request_id or request_url}: {poll_body}"
+                    )
+
+                logger.info(f"HTTP execution request {request_id or request_url} completed")
+                return await _finish_execution_stack_result(
+                    poll_body if isinstance(poll_body, dict) else {},
+                    code=code,
+                    kernel_id=kernel_id,
+                    metadata=metadata,
+                    logger=logger,
+                    raw_outputs=raw_outputs,
+                    execution_count_out=execution_count_out,
+                    hook_ctx=hook_ctx,
+                )
+        except (asyncio.CancelledError, TimeoutError) as interrupt_err:
+            # The server-side request keeps running: there is no HTTP cancel
+            # route on the runtime yet (a later increment adds one), so the most
+            # this can do honestly is stop polling and fire the AFTER_EXECUTE it
+            # owes. CancelledError is not an Exception, so it would not reach the
+            # outer handler — fire here.
+            logger.warning(
+                f"HTTP execution request {request_id or request_url} interrupted; "
+                "the runtime keeps running it until it finishes on its own"
+            )
+            await HookRegistry.get_instance().fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code,
+                kernel_id=kernel_id,
+                metadata=metadata,
+                outputs=[],
+                error=interrupt_err,
+                context=hook_ctx,
+            )
+            after_execute_fired = True
+            raise
+    except Exception as e:
+        logger.error(f"Error executing via HTTP ExecutionStack: {e}", exc_info=True)
+        if hook_ctx is not None and not after_execute_fired:
+            await HookRegistry.get_instance().fire(
+                HookEvent.AFTER_EXECUTE,
+                code=code,
+                kernel_id=kernel_id,
+                metadata=metadata,
+                outputs=[],
+                error=e,
+                context=hook_ctx,
+            )
+        if isinstance(e, MissingKernelError):
+            raise
+        return [f"[ERROR: {e!s}]"]
+    finally:
+        if owns_transport:
+            with contextlib.suppress(Exception):
+                await transport.aclose()
 
 
 def create_isolated_kernel_client(kernel: Any) -> Any:
