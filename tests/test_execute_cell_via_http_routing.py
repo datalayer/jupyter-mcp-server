@@ -178,13 +178,14 @@ async def test_a_sandbox_variant_keeps_the_websocket_path():
 
 
 @pytest.mark.asyncio
-async def test_an_unresolvable_document_falls_back_rather_than_losing_outputs():
-    # No room id in the ws_url -> document_id_from_ws_url returns None -> the
-    # run must not go through HTTP, where its outputs would land nowhere.
+async def test_an_unresolvable_document_raises_rather_than_falling_back():
+    # No room id in the ws_url -> document_id_from_ws_url returns None. With no
+    # fallback, this is a loud error (so it gets fixed), not a silent revert to
+    # the WebSocket path — and the HTTP driver is never called with no document.
     notebook = _Notebook([{"source": "print(1)", "id": "cell-7"}], "")
     config = _config(execute_via_http=True)
     async with _harness(config) as spy:
-        with contextlib.suppress(Exception):
+        with pytest.raises(ValueError, match="execute_via_http"):
             await ExecuteCellTool().execute(
                 mode=ServerMode.MCP_SERVER,
                 notebook_manager=_NotebookManager(notebook),

@@ -211,9 +211,12 @@ process stops — a gateway rollout, an idle reap, a crash. Set
 request it returns. The runtime runs the cell and writes the outputs into the
 collaborative document **server-side**, so a run — and its outputs — survive
 the loss of this process; what this process loses when it stops is only the
-ability to keep reporting progress. It is used only when the document and cell
-ids resolve (so the runtime knows where to write); otherwise, and for every
-non-`jupyter-server` variant, execution stays on the WebSocket path above.
+ability to keep reporting progress. **There is no fallback**: once
+`execute_via_http` is on for a variant that has the route, this is the
+execution path for `execute_cell` — a run whose document or cell id cannot be
+resolved is raised as an error (so it is fixed), not quietly downgraded to the
+worker-driven WebSocket path where the outputs would be lost. Variants with no
+such route (Modal, E2B, …) still execute through their sandbox client, and
 `execute_code`, which targets no cell, always uses the WebSocket path — the
 durability is a property of cell execution, where there is a document cell to
 write into.
