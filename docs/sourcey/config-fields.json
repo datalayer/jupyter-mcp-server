@@ -139,6 +139,12 @@
    "type": "<class 'int'>",
    "default": 3600,
    "description": "Maximum allowed timeout in seconds for code execution."
+  },
+  {
+   "name": "execute_via_http",
+   "type": "<class 'bool'>",
+   "default": "PydanticUndefined",
+   "description": "In MCP_SERVER mode, run cell execution through the runtime's own HTTP /api/kernels/{id}/execute route instead of driving the kernel from this worker. The runtime then writes the outputs into the collaborative document server-side, so a run's outputs survive the loss of this worker. Only the default 'jupyter-server' variant has that route; other sandbox variants ignore the flag and keep the WebSocket path. Off by default; set JUPYTER_MCP_EXECUTE_VIA_HTTP."
   }
  ]
 }
