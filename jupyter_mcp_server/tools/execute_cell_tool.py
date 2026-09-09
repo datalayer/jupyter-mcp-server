@@ -454,11 +454,13 @@ class ExecuteCellTool(BaseTool):
                 # Execution through the runtime's own /execute route: the
                 # runtime runs the cell and writes its outputs into the
                 # collaborative document server-side, so a run's outputs survive
-                # the loss of this worker. Only the default jupyter-server
-                # variant has that route, and only when both the document and
-                # the cell are known — without them the runtime would run the
-                # cell but write no outputs, so fall back to the WebSocket path
-                # rather than lose the durability this exists for. The HTTP
+                # the loss of this worker. Turned on with execute_via_http, for
+                # the variants that have the route (the default jupyter-server
+                # runtime). **No fallback**: once it is on for such a variant,
+                # this is *the* execution path — the run does not quietly revert
+                # to the worker-driven WebSocket path. A run that cannot be
+                # routed (the document or cell id does not resolve) is a loud
+                # error to fix, not a silent downgrade that hides it. The HTTP
                 # driver fires its own BEFORE/AFTER_EXECUTE, so this branches
                 # before the hook below to avoid firing it twice.
                 from jupyter_mcp_server.config import get_config  # noqa: PLC0415
@@ -466,39 +468,42 @@ class ExecuteCellTool(BaseTool):
                 _config = get_config()
                 if _config.execute_via_http and not _config.uses_sandbox_variant():
                     http_cell_id = notebook[cell_index].get("id")
-                    # Only a real websocket URL carries the RTC room id. The
-                    # notebook *path* must not be a fallback: parsing it would
-                    # make a bogus `json:notebook:<path>` room and misroute the
-                    # run to no document. No ws_url -> unresolved -> the guard
-                    # below keeps this on the WebSocket path.
+                    # Only a real websocket URL carries the RTC room id; the
+                    # notebook *path* is never parsed for it (that would make a
+                    # bogus `json:notebook:<path>` room and write outputs
+                    # nowhere).
                     ws_url = getattr(notebook, "ws_url", None) or getattr(notebook, "_ws_url", None)
                     http_document_id = document_id_from_ws_url(ws_url)
-                    if http_cell_id and http_document_id:
-                        from jupyter_mcp_server.server_context import (  # noqa: PLC0415
-                            ServerContext,
+                    if not http_document_id or not http_cell_id:
+                        raise ValueError(
+                            "execute_via_http is on, but the runtime /execute route cannot be "
+                            f"used for cell {cell_index}: "
+                            f"{'the notebook document id did not resolve from its websocket url' if not http_document_id else 'the cell has no id'}. "
+                            "The runtime writes outputs into the document server-side and needs "
+                            "both ids to do so; there is no WebSocket fallback by design, so this "
+                            "is raised rather than run where the outputs would be lost."
                         )
+                    from jupyter_mcp_server.server_context import (  # noqa: PLC0415
+                        ServerContext,
+                    )
 
-                        auth_headers = ServerContext.get_instance().code_sandbox_auth_headers
-                        logger.info(
-                            f"Executing cell {cell_index} through the runtime's /execute route "
-                            f"(document {http_document_id}, cell {http_cell_id}, timeout: {timeout_seconds}s)"
-                        )
-                        return await execute_via_execution_stack_http(
-                            server_url=_config.code_sandbox_url,
-                            token=None if auth_headers else _config.code_sandbox_token,
-                            auth_headers=auth_headers or None,
-                            kernel_id=kid,
-                            code=cell_source,
-                            document_id=http_document_id,
-                            cell_id=http_cell_id,
-                            timeout=timeout_seconds,
-                            logger=logger,
-                            progress_callback=progress_callback,
-                            progress_interval=progress_interval,
-                        )
+                    auth_headers = ServerContext.get_instance().code_sandbox_auth_headers
                     logger.info(
-                        "execute_via_http is on but the document or cell id could not be "
-                        "resolved; falling back to the WebSocket execution path"
+                        f"Executing cell {cell_index} through the runtime's /execute route "
+                        f"(document {http_document_id}, cell {http_cell_id}, timeout: {timeout_seconds}s)"
+                    )
+                    return await execute_via_execution_stack_http(
+                        server_url=_config.code_sandbox_url,
+                        token=None if auth_headers else _config.code_sandbox_token,
+                        auth_headers=auth_headers or None,
+                        kernel_id=kid,
+                        code=cell_source,
+                        document_id=http_document_id,
+                        cell_id=http_cell_id,
+                        timeout=timeout_seconds,
+                        logger=logger,
+                        progress_callback=progress_callback,
+                        progress_interval=progress_interval,
                     )
 
                 hooks = HookRegistry.get_instance()
