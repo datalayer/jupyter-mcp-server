@@ -1087,6 +1087,38 @@ def is_missing_kernel_message(message: Any) -> bool:
     return "kernel" in text and "not found" in text
 
 
+def document_id_from_ws_url(ws_url: str | None) -> str | None:
+    """The RTC room id the runtime writes outputs into, parsed from a ws_url.
+
+    An ``NbModelClient`` connects to a room whose id is the last path segment
+    of its websocket url — ``json:notebook:<fileId>`` on a Jupyter server, or a
+    bare room id on a Datalayer runtime's documents endpoint. The runtime's
+    ``/execute`` route wants the ``json:notebook:<fileId>`` form (the same one
+    the in-process path builds), so a bare id is wrapped and an already
+    fully-qualified one is kept.
+
+    Returns ``None`` when no id can be read. The caller treats that as "cannot
+    persist server-side" and stays on the WebSocket path rather than POSTing a
+    run whose outputs would land in no document — the exact failure routing
+    through the runtime exists to prevent.
+    """
+    from urllib.parse import unquote, urlparse  # noqa: PLC0415
+
+    if not ws_url:
+        return None
+    path = urlparse(ws_url).path.rstrip("/")
+    if not path:
+        return None
+    segment = unquote(path.split("/")[-1])
+    if not segment:
+        return None
+    # A fully-qualified room id (`format:type:fileId`) is used as-is; a bare
+    # file id is wrapped the way the in-process path builds document_id.
+    if segment.count(":") >= 2:
+        return segment
+    return f"json:notebook:{segment}"
+
+
 async def _finish_execution_stack_result(
     result: dict,
     *,

@@ -229,3 +229,31 @@ async def test_a_run_that_never_finishes_times_out():
     )
     # Timeout is caught by the outer handler and surfaced as an error string.
     assert outputs == ["[ERROR: Execution timed out after 0 seconds]"]
+
+
+from jupyter_mcp_server.utils import document_id_from_ws_url
+
+
+def test_document_id_from_ws_url_reads_the_room():
+    # A Jupyter collaboration room id is already json:notebook:<fileId>.
+    assert (
+        document_id_from_ws_url(
+            "wss://r/api/collaboration/room/json:notebook:FILE1?sessionId=s"
+        )
+        == "json:notebook:FILE1"
+    )
+    # A Datalayer documents endpoint hands back a bare file id; it is wrapped
+    # into the form the /execute route writes outputs under.
+    assert (
+        document_id_from_ws_url("wss://r/api/spacer/documents/ws/FILE2?token=y")
+        == "json:notebook:FILE2"
+    )
+    # Percent-encoded colons are decoded.
+    assert (
+        document_id_from_ws_url("wss://r/api/collaboration/room/json%3Anotebook%3AFILE3")
+        == "json:notebook:FILE3"
+    )
+    # Nothing to read -> None, so the caller stays on the WebSocket path rather
+    # than writing into the wrong (or no) document.
+    assert document_id_from_ws_url("") is None
+    assert document_id_from_ws_url(None) is None

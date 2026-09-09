@@ -152,6 +152,18 @@ class JupyterMCPConfig(BaseModel):
     max_execution_timeout: int = Field(
         default=3600, gt=0, description="Maximum allowed timeout in seconds for code execution."
     )
+    execute_via_http: bool = Field(
+        default=False,
+        description=(
+            "In MCP_SERVER mode, run cell execution through the runtime's own "
+            "HTTP /api/kernels/{id}/execute route instead of driving the kernel "
+            "from this worker. The runtime then writes the outputs into the "
+            "collaborative document server-side, so a run's outputs survive the "
+            "loss of this worker. Only the default 'jupyter-server' variant has "
+            "that route; other sandbox variants ignore the flag and keep the "
+            "WebSocket path. Off by default."
+        ),
+    )
 
     model_config = ConfigDict(validate_assignment=True, arbitrary_types_allowed=True)
 
