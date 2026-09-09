@@ -217,7 +217,9 @@ class NotebookManager:
             "is_local": is_local_mode,
             "notebook_info": {
                 "server_url": server_url or config.resolved_document_url(),
-                "token": token or config.resolved_document_token(),
+                # The configured token, never the resolved one: a caller's
+                # credential frozen here outlives the request that brought it.
+                "token": token or config.configured_document_token(),
                 "path": path or config.document_id,
             },
         }
