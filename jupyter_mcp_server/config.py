@@ -177,9 +177,14 @@ class JupyterMCPConfig(BaseModel):
         everyone. Reading it here rather than at each call site means a tool
         cannot forget to ask.
         """
-        caller = _caller_token()
-        if caller:
-            return caller
+        return _caller_token() or self.configured_document_token()
+
+    def configured_document_token(self) -> str | None:
+        """Document server token as configured, without the caller's.
+
+        What the server was started with, for the places that must remember a
+        token rather than resolve one per request.
+        """
         return self.code_sandbox_token if not self.document_url else self.document_token
 
     def resolved_code_sandbox_token(self) -> str | None:
