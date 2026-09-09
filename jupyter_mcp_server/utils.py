@@ -621,17 +621,17 @@ def normalize_cell_source(source: Any) -> list[str]:
     if isinstance(source, list):
         return [str(line) for line in source]
 
-    # If it's a string, split by newlines
-    if isinstance(source, str):
-        # Split by newlines but preserve the newline characters except for the last line
-        lines = source.splitlines(keepends=True)
-        # Remove trailing newline from the last line if present
-        if lines and lines[-1].endswith("\n"):
-            lines[-1] = lines[-1][:-1]
-        return lines
+    if not isinstance(source, str):
+        source = str(source)
 
-    # Fallback: convert to string and split
-    return str(source).splitlines(keepends=True)
+    # Split on "\n" and nothing else. str.splitlines also breaks on \v, \f,
+    # \x1c-\x1e, \x85, \u2028 and \u2029, none of which ends a line in a
+    # notebook, so a cell holding one came back with a line break in it.
+    lines = source.split("\n")
+    # A trailing "\n" ends the last line, it does not start a new one.
+    if lines[-1] == "":
+        lines.pop()
+    return [line + "\n" for line in lines[:-1]] + lines[-1:]
 
 
 def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
