@@ -685,11 +685,17 @@ def create_code_sandbox(
     Jupyter Server derives the kernel's working directory from it, so relative
     file access inside a notebook resolves against the notebook's own directory.
 
-    ``kernel_id`` attaches to that existing kernel instead of starting one; it
-    falls back to the process-wide ``code_sandbox_id`` setting.
+    ``kernel_id`` attaches to that existing execution backend — a Jupyter kernel,
+    or a sandbox for another variant — instead of starting one. It travels as
+    ``code_sandbox_id``, the configuration field the extensions already read, so
+    every variant sees it without a change to the extension hook. It falls back
+    to the process-wide ``code_sandbox_id`` setting.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
     from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
+
+    if kernel_id:
+        config = config.model_copy(update={"code_sandbox_id": kernel_id})
 
     extension_code_sandbox = get_extension_manager().create_code_sandbox(config, logger)
     if extension_code_sandbox is not None:
@@ -705,7 +711,7 @@ def create_code_sandbox(
         code_sandbox = create_jupyter_sandbox_client(
             server_url=config.code_sandbox_url,
             token=None if auth_headers else config.code_sandbox_token,
-            kernel_id=kernel_id or config.code_sandbox_id,
+            kernel_id=config.code_sandbox_id,
             path=path,
             timeout=getattr(config, "execution_timeout", None),
             reconnect_interval=getattr(config, "reconnect_interval", 0) or 0,

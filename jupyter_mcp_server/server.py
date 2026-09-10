@@ -796,7 +796,11 @@ async def use_notebook(
         ),
     ] = "connect",
     kernel_id: Annotated[
-        str, Field(description="Specific kernel ID to use (will create new if skipped)")
+        str,
+        Field(
+            description="Id of an existing kernel (or sandbox, for a non-Jupyter sandbox variant)"
+            " to attach the notebook to. A new one is created if skipped."
+        ),
     ] = None,
 ) -> ToolAnswer:
     """Use a notebook and activate it for following cell operations.

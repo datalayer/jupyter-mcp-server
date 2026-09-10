@@ -128,10 +128,39 @@ async def test_use_notebook__rejects_an_unknown_kernel_id(recorded_sandbox_kwarg
 
 
 @pytest.mark.asyncio
-async def test_use_notebook__rejects_kernel_id_for_a_non_jupyter_variant(recorded_sandbox_kwargs):
+async def test_use_notebook__hands_the_id_to_the_extension_for_another_variant(
+    monkeypatch, recorded_sandbox_kwargs
+):
+    """The extension reads `code_sandbox_id`; a per-call id must arrive there."""
     set_config(code_sandbox_url=SANDBOX_URL, sandbox_variant="datalayer")
+    seen_config = {}
 
-    reply = await _use_notebook(NotebookManager(), EXISTING_KERNEL_ID)
+    def extension_sandbox(config, logger):
+        seen_config["code_sandbox_id"] = config.code_sandbox_id
+        return SimpleNamespace(id=config.code_sandbox_id, is_alive=lambda: True)
 
-    assert "jupyter-server" in reply
-    assert recorded_sandbox_kwargs == {}
+    monkeypatch.setattr(
+        "jupyter_mcp_server.extensions.get_extension_manager",
+        lambda: SimpleNamespace(create_code_sandbox=extension_sandbox),
+    )
+    notebook_manager = NotebookManager()
+
+    await _use_notebook(notebook_manager, EXISTING_KERNEL_ID)
+
+    assert seen_config["code_sandbox_id"] == EXISTING_KERNEL_ID
+    assert notebook_manager.get_code_sandbox_id("demo") == EXISTING_KERNEL_ID
+    assert recorded_sandbox_kwargs == {}, "the Jupyter client must not be built"
+
+
+def test_create_code_sandbox__leaves_the_process_config_untouched(recorded_sandbox_kwargs):
+    import logging
+
+    from jupyter_mcp_server import utils
+    from jupyter_mcp_server.config import get_config
+
+    config = set_config(code_sandbox_url=SANDBOX_URL)
+
+    utils.create_code_sandbox(config, logging.getLogger("test"), kernel_id=EXISTING_KERNEL_ID)
+
+    assert recorded_sandbox_kwargs["kernel_id"] == EXISTING_KERNEL_ID
+    assert get_config().code_sandbox_id is None
