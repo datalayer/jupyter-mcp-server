@@ -149,7 +149,9 @@ def identity_from_access_token(access_token: AccessToken) -> Identity:
     server acting for many users presents each user's own token to the
     document and sandbox servers rather than one configured for all of them.
     A verifier that would rather not do that can return an ``AccessToken``
-    with no ``token``, and the configured credential is used as before.
+    with no ``token``, and the configured credential is used as before —
+    which is what :class:`EndpointOnlyVerifier` makes the built-in
+    ``--mcp-token`` verifier do.
     """
     scopes = tuple(getattr(access_token, "scopes", ()) or ())
     return Identity(
@@ -189,6 +191,39 @@ def identity_from_jupyter_user(user: Any) -> Identity:
     )
 
 
+class EndpointOnlyVerifier:
+    """A verifier whose bearer token authenticates this endpoint and nothing else.
+
+    ``--mcp-token`` / ``MCP_TOKEN`` is the shared secret that says who may call
+    the MCP endpoint. It is documented as independent of the Jupyter
+    credential — ``--code-sandbox-token`` / ``--document-token`` — and a
+    deployment is expected to give it a different value.
+
+    :func:`identity_from_access_token` otherwise carries a verified bearer
+    token through as :attr:`Identity.token`, and
+    :meth:`~jupyter_mcp_server.config.JupyterMCPConfig.resolved_document_token`
+    prefers that over the configured one. For a platform's own verifier that is
+    the point: the bearer token *is* the caller's credential upstream. For the
+    shared secret it is wrong twice over — every document and kernel request
+    would present the MCP endpoint's secret to the Jupyter server, which fails
+    wherever the two values differ, and hands that secret to a server with no
+    business holding it.
+
+    So this passes the verification through unchanged and empties the token,
+    the documented way for a verifier to say "use whatever is configured".
+    """
+
+    def __init__(self, verifier: TokenVerifier) -> None:
+        #: The verifier doing the actual checking.
+        self.verifier = verifier
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        access_token = await self.verifier.verify_token(token)
+        if access_token is None:
+            return None
+        return access_token.model_copy(update={"token": ""})
+
+
 def load_token_verifier_class(path: str) -> type:
     """Import a verifier class named as ``module:Class`` or ``module.Class``."""
     if ":" in path:
@@ -212,7 +247,8 @@ def resolve_token_verifier(default_token: str | None = None) -> TokenVerifier | 
     1. ``JUPYTER_MCP_TOKEN_VERIFIER_CLASS`` — a class supplied by the
        deployment, which is how a platform plugs in its own OAuth;
     2. ``default_token`` — the shared secret of ``--mcp-token``, the simple
-       case that needs no code;
+       case that needs no code. It authenticates the endpoint only, so it is
+       wrapped in :class:`EndpointOnlyVerifier` and never travels upstream;
     3. nothing, leaving the endpoint unauthenticated, which the caller is
        expected to refuse unless it was asked for explicitly.
     """
@@ -232,7 +268,7 @@ def resolve_token_verifier(default_token: str | None = None) -> TokenVerifier | 
         from jupyter_mcp_server.server import CodeSandboxTokenVerifier
 
         logger.info("MCP endpoint token authentication enabled (using MCP_TOKEN)")
-        return CodeSandboxTokenVerifier(default_token)
+        return EndpointOnlyVerifier(CodeSandboxTokenVerifier(default_token))
 
     return None
 
