@@ -80,7 +80,10 @@ class ReadNotebookTool(BaseTool):
         else:
             raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
 
-        if start_index >= len(notebook):
+        # Index zero is the canonical first page of an empty collection, not a
+        # position past it. Let Notebook.format_output render "Notebook is
+        # empty" while keeping genuinely advanced offsets out of range.
+        if start_index >= len(notebook) and not (start_index == 0 and len(notebook) == 0):
             return f"Start index {start_index} is out of range. Notebook has {len(notebook)} cells."
 
         info_list = [f"Notebook {notebook_name} has {len(notebook)} cells.\n"]
