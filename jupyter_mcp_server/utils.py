@@ -666,7 +666,9 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxClient:
+def create_code_sandbox(
+    config, logger, path: str | None = None, code_sandbox_id: str | None = None
+) -> CodeSandboxClient:
     """Create a new code sandbox using current configuration.
 
     Creation is resolved in this order:
@@ -683,9 +685,16 @@ def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxC
     ``path`` is the root-relative path of the notebook the sandbox belongs to.
     Jupyter Server derives the kernel's working directory from it, so relative
     file access inside a notebook resolves against the notebook's own directory.
+
+    ``code_sandbox_id`` attaches to that existing backend (a Jupyter kernel, or a
+    sandbox for another variant) instead of starting one. It overrides the
+    configured ``code_sandbox_id`` so extensions see it too.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
     from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
+
+    if code_sandbox_id:
+        config = config.model_copy(update={"code_sandbox_id": code_sandbox_id})
 
     extension_code_sandbox = get_extension_manager().create_code_sandbox(config, logger)
     if extension_code_sandbox is not None:

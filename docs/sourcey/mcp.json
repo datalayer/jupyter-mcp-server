@@ -1679,7 +1679,7 @@
           },
           "kernel_id": {
             "default": null,
-            "description": "Specific kernel ID to use (will create new if skipped)",
+            "description": "Id of an existing kernel (or sandbox, for a non-Jupyter sandbox variant) to attach the notebook to. A new one is created if skipped.",
             "title": "Kernel Id",
             "type": "string"
           }
