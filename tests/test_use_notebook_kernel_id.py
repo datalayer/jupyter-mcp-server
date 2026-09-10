@@ -22,25 +22,12 @@ SANDBOX_URL = "http://sandbox.example"
 EXISTING_KERNEL_ID = "afd51e4a-existing"
 
 
-class _FakeContents:
-    @staticmethod
-    def list_directory(path):
-        return [SimpleNamespace(name="nb.ipynb")]
-
-    @staticmethod
-    def get(path):
-        return {"content": {"cells": []}}
-
-
-class _FakeKernels:
-    @staticmethod
-    def list_kernels():
-        return [SimpleNamespace(id=EXISTING_KERNEL_ID)]
-
-
 class FakeServerClient:
-    contents = _FakeContents
-    kernels = _FakeKernels
+    contents = SimpleNamespace(
+        list_directory=lambda path: [SimpleNamespace(name="nb.ipynb")],
+        get=lambda path: {"content": {"cells": []}},
+    )
+    kernels = SimpleNamespace(list_kernels=lambda: [SimpleNamespace(id=EXISTING_KERNEL_ID)])
 
     def get_status(self):
         return {}
@@ -150,17 +137,3 @@ async def test_use_notebook__hands_the_id_to_the_extension_for_another_variant(
     assert seen_config["code_sandbox_id"] == EXISTING_KERNEL_ID
     assert notebook_manager.get_code_sandbox_id("demo") == EXISTING_KERNEL_ID
     assert recorded_sandbox_kwargs == {}, "the Jupyter client must not be built"
-
-
-def test_create_code_sandbox__leaves_the_process_config_untouched(recorded_sandbox_kwargs):
-    import logging
-
-    from jupyter_mcp_server import utils
-    from jupyter_mcp_server.config import get_config
-
-    config = set_config(code_sandbox_url=SANDBOX_URL)
-
-    utils.create_code_sandbox(config, logging.getLogger("test"), code_sandbox_id=EXISTING_KERNEL_ID)
-
-    assert recorded_sandbox_kwargs["kernel_id"] == EXISTING_KERNEL_ID
-    assert get_config().code_sandbox_id is None

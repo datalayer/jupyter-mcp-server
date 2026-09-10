@@ -432,10 +432,8 @@ class UseNotebookTool(BaseTool):
                 # through whichever sandbox is configured — so the variant is
                 # honoured rather than assumed.
                 #
-                # A `kernel_id` names an execution backend that already exists,
-                # so attaching to it starts nothing and is done right away —
-                # the lazy path would otherwise build a fresh one from the
-                # configuration and drop the id (#425).
+                # A `kernel_id` names a backend that already exists, so attaching
+                # to it starts nothing and is done right away (#425).
                 if kernel_id is not None or config.start_new_code_sandbox:
                     # The operator asked for a sandbox up front, so start one.
                     # Through the shared factory, which consults the installed
