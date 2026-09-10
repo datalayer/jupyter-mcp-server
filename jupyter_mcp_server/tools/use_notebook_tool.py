@@ -443,7 +443,7 @@ class UseNotebookTool(BaseTool):
                     from jupyter_mcp_server.utils import create_code_sandbox
 
                     kernel = create_code_sandbox(
-                        config, logger, path=notebook_path, kernel_id=kernel_id
+                        config, logger, path=notebook_path, code_sandbox_id=kernel_id
                     )
                     info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
                 else:

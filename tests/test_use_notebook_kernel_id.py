@@ -160,7 +160,7 @@ def test_create_code_sandbox__leaves_the_process_config_untouched(recorded_sandb
 
     config = set_config(code_sandbox_url=SANDBOX_URL)
 
-    utils.create_code_sandbox(config, logging.getLogger("test"), kernel_id=EXISTING_KERNEL_ID)
+    utils.create_code_sandbox(config, logging.getLogger("test"), code_sandbox_id=EXISTING_KERNEL_ID)
 
     assert recorded_sandbox_kwargs["kernel_id"] == EXISTING_KERNEL_ID
     assert get_config().code_sandbox_id is None
