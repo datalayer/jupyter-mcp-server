@@ -539,10 +539,22 @@ def extract_output(output: dict | Any) -> str | ImageContent:
         return f"[Unknown output type: {output_type}]"
 
 
+# Every escape a kernel can write, not only the CSI sequences: an OSC string
+# carries a hyperlink or a window title, DCS and friends carry device control,
+# and the two character forms move the cursor or select a charset.
+_ANSI_ESCAPE = re.compile(
+    r"\x1b(?:"
+    r"\[[0-?]*[ -/]*[@-~]"              # CSI, e.g. colour or cursor movement
+    r"|\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC, terminated by BEL or ST
+    r"|[P^_X][^\x1b]*\x1b\\"           # DCS, PM, APC and SOS strings
+    r"|[ -/]*[0-~]"                    # two character and charset sequences
+    r")"
+)
+
+
 def strip_ansi_codes(text: str) -> str:
     """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-    return ansi_escape.sub("", text)
+    return _ANSI_ESCAPE.sub("", text)
 
 
 def clean_notebook_outputs(notebook):
