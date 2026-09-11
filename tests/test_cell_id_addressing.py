@@ -83,6 +83,11 @@ async def test_an_edit_by_id_survives_an_insert_above_it(
     the newcomer; addressed by id, it lands on the cell the agent read.
     """
     async with mcp_client_parametrized as client:
+        # Skip before touching the notebook. This file is shared with the tests
+        # that run after this one, and skipping once TARGET is already in it
+        # would leave TARGET behind as their first cell.
+        await _id_or_skip(client, 0)
+
         await client.insert_cell(0, "markdown", "TARGET")
         assert "TARGET" in _text_of(await _read(client, 0))
         target_id = await _id_or_skip(client, 0)

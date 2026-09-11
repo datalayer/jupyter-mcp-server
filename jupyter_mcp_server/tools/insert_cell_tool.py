@@ -119,7 +119,8 @@ class InsertCellTool(BaseTool):
         """
         # Read notebook file
         with open(notebook_path, encoding="utf-8") as f:
-            # Read as version 4 (latest) to ensure consistency and support for cell IDs
+            # as_version converts the major version only, so nbformat_minor stays
+            # whatever the file declared.
             notebook = nbformat.read(f, as_version=4)
 
         # Clean any transient fields from existing outputs (kernel protocol field not in nbformat schema)
@@ -138,6 +139,13 @@ class InsertCellTool(BaseTool):
             new_cell = nbformat.v4.new_markdown_cell(source=cell_source or "")
         elif cell_type == "raw":
             new_cell = nbformat.v4.new_raw_cell(source=cell_source or "")
+
+        # Cell ids arrived in nbformat 4.5 and the constructors always attach one.
+        # Writing it into an older notebook produces a file that its own schema
+        # rejects, so drop it rather than silently upgrading the user's notebook.
+        if notebook.nbformat_minor < 5:
+            new_cell.pop("id", None)
+
         notebook.cells.insert(actual_index, new_cell)
 
         # Write back to file
