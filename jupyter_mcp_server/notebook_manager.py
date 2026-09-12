@@ -22,8 +22,10 @@ from __future__ import annotations
 from collections.abc import Callable
 import asyncio
 import logging
+import re
 from types import TracebackType
 from typing import Any, Dict, Optional, TYPE_CHECKING, Union
+from urllib.parse import urlencode
 
 import requests
 
@@ -42,6 +44,59 @@ logger = logging.getLogger(__name__)
 # bound of its own, so a hang there was blocking every tool call that opened this
 # connection forever with no response ever reaching the MCP client (#160).
 DISCONNECT_TIMEOUT = 20
+
+#: Spacer's documents API, where the session id and the notebook-scoped token
+#: are fetched and the room is served.
+_DATALAYER_DOCUMENTS_ENDPOINT = "/api/spacer/v1/documents"
+
+
+def _datalayer_room_url_with_scoped_token(
+    server_url: str,
+    user_token: str | None,
+    room_id: str,
+    headers: dict[str, str] | None,
+    timeout: float,
+) -> str:
+    """The Datalayer room URL, opened with a notebook-scoped token when one is offered.
+
+    The counterpart to ``jupyter_nbmodel_client``'s datalayer helper, but it
+    uses the **notebook-scoped document token** Spacer returns beside the
+    session id (see Spacer's ``documents/token.py``): the session id is fetched
+    with the caller's own token, and the websocket is opened with the scoped
+    one, so the token the room ends up holding is a key to this one document and
+    no other. Spacer that does not return a scoped token (an older image) leaves
+    the caller token in its place, so this degrades to the prior behaviour
+    rather than failing.
+    """
+    base = server_url.rstrip("/")
+    request_headers = dict(headers or {})
+    if user_token:
+        request_headers.setdefault("Authorization", f"Bearer {user_token}")
+    response = requests.get(
+        f"{base}{_DATALAYER_DOCUMENTS_ENDPOINT}/{room_id}",
+        headers=request_headers,
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    content = response.json()
+    if not content.get("success", False):
+        raise ValueError(f"Failed to fetch session_id: {content.get('message', '')}")
+    session_id = content.get("sessionId")
+    if not session_id:
+        raise ValueError(f"Failed to fetch session_id: {content.get('message', '')}")
+
+    # The scoped capability when Spacer issues one, the caller's own token
+    # otherwise — never nothing, so a room that requires a token still gets one.
+    ws_token = content.get("token") or user_token
+
+    # The websocket lives one segment deeper than the session endpoint:
+    # `/documents/{id}` hands out the session, `/documents/ws/{id}` serves the
+    # room. Reusing the session path for the socket is a 403 on the upgrade.
+    ws_base = re.sub(r"^http", "ws", base, count=1)
+    params = {"sessionId": session_id}
+    if ws_token:
+        params["token"] = ws_token
+    return f"{ws_base}{_DATALAYER_DOCUMENTS_ENDPOINT}/ws/{room_id}?{urlencode(params)}"
 
 
 def _code_sandbox_reports_alive(code_sandbox: Any) -> bool:
@@ -97,17 +152,36 @@ class NotebookConnection:
     def _get_ws_url(self, server_url, token, path, config, auth_headers):
         """Fetch the collaboration WebSocket URL, retrying once after a re-login
         if the session cookie has expired (HTTP 401 or 403 on the session PUT).
+
+        On a Datalayer document server the room is opened with a
+        notebook-scoped token (see ``_datalayer_room_url_with_scoped_token``):
+        the session id is still fetched with the caller's own token, but the
+        websocket carries a capability good for this one document, so a leaked
+        connection token is a key to it alone.
         """
         from jupyter_mcp_server.server_context import ServerContext
 
-        try:
+        def build(headers):
+            if config.document_provider == "datalayer":
+                from jupyter_nbmodel_client.helpers import REQUEST_TIMEOUT
+
+                return _datalayer_room_url_with_scoped_token(
+                    server_url=server_url,
+                    user_token=token,
+                    room_id=path,
+                    headers=headers or None,
+                    timeout=REQUEST_TIMEOUT,
+                )
             return get_notebook_websocket_url(
                 server_url=server_url,
                 token=token,
                 path=path,
                 provider=config.document_provider,
-                headers=auth_headers or None,
+                headers=headers or None,
             )
+
+        try:
+            return build(auth_headers)
         except requests.HTTPError as error:
             if error.response is None or error.response.status_code not in (401, 403):
                 raise
@@ -118,13 +192,7 @@ class NotebookConnection:
             )
             ServerContext.get_instance().relogin_document()
             fresh_headers = ServerContext.get_instance().document_auth_headers
-            return get_notebook_websocket_url(
-                server_url=server_url,
-                token=token,
-                path=path,
-                provider=config.document_provider,
-                headers=fresh_headers or None,
-            )
+            return build(fresh_headers)
 
     async def __aexit__(
         self, exc_type: type | None, exc_val: BaseException | None, exc_tb: TracebackType | None

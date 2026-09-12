@@ -57,6 +57,30 @@ class _FakeTransport:
         return status, body, {}
 
 
+class _FakeTransportWithCancel(_FakeTransport):
+    """A transport that also answers DELETE, recording the paths cancelled.
+
+    The real runtime's cancel route answers 204; an older runtime without it
+    answers 404, which the driver must treat as best effort rather than an
+    error.
+    """
+
+    def __init__(self, *, delete_answer=(204, None, None), **kwargs):
+        super().__init__(**kwargs)
+        self._delete_answer = delete_answer
+        self.deleted: list = []
+
+    async def delete(self, path):
+        self.deleted.append(path)
+        status, body, headers = self._delete_answer
+        return status, body, headers or {}
+
+
+def _always_running():
+    while True:
+        yield (202, {"request_status": "running"})
+
+
 @pytest.mark.asyncio
 async def test_a_complete_run_returns_its_outputs_and_counts():
     raw_outputs: list = []
@@ -251,6 +275,98 @@ async def test_an_unexpected_poll_status_is_an_error_not_silence():
     assert len(outputs) == 1
     assert outputs[0].startswith("[ERROR:")
     assert "403" in outputs[0]
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_wait_stops_the_run_on_the_runtime():
+    # A wait that times out (or is cancelled) DELETEs the request, so the
+    # runtime interrupts the cell instead of leaving it running with its
+    # outputs still landing in the document after the caller gave up.
+    transport = _FakeTransportWithCancel()
+    transport._polls = _always_running()
+
+    outputs = await execute_via_execution_stack_http(
+        kernel_id="k1",
+        code="while True: pass",
+        timeout=0,
+        poll_interval=0,
+        transport=transport,
+    )
+
+    assert outputs == ["[ERROR: Execution timed out after 0 seconds]"]
+    # The run was cancelled on the runtime: a DELETE on the very request it
+    # polled, not a guessed path.
+    assert transport.deleted == ["/api/kernels/k1/requests/r1"]
+
+
+@pytest.mark.asyncio
+async def test_a_caller_cancelling_the_call_stops_the_run_on_the_runtime():
+    """The cancellation that matters: the caller drops the `tools/call`.
+
+    A timeout raises inside our own loop; a cancellation is delivered *at* the
+    await we are sitting on and unwinds through `CancelledError`, which is not
+    an `Exception` and so takes its own path through the handler. Exercised
+    with a real `task.cancel()`, because the timeout tests above never enter
+    that path and a regression dropping the DELETE there would stay green.
+    """
+    import asyncio
+
+    polling = asyncio.Event()
+
+    class _HangingTransport(_FakeTransportWithCancel):
+        async def get(self, path):
+            polling.set()
+            await asyncio.Event().wait()  # never returns; the caller cancels us
+
+        async def delete(self, path):
+            # Suspends, the way a real HTTP round-trip does, so the cleanup is
+            # exercised across a real await rather than completing inline.
+            await asyncio.sleep(0.01)
+            return await super().delete(path)
+
+    transport = _HangingTransport()
+
+    task = asyncio.create_task(
+        execute_via_execution_stack_http(
+            kernel_id="k1",
+            code="while True: pass",
+            timeout=600,
+            poll_interval=0,
+            transport=transport,
+        )
+    )
+    await asyncio.wait_for(polling.wait(), timeout=5)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # The DELETE was dispatched under a shield, so let it land.
+    for _ in range(10):
+        if transport.deleted:
+            break
+        await asyncio.sleep(0)
+
+    assert transport.deleted == ["/api/kernels/k1/requests/r1"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_is_best_effort_against_a_runtime_without_the_route():
+    # An older runtime answers 404 to the DELETE; the driver logs it and still
+    # surfaces the timeout rather than raising on the failed cancel.
+    transport = _FakeTransportWithCancel(delete_answer=(404, {"message": "no route"}, None))
+    transport._polls = _always_running()
+
+    outputs = await execute_via_execution_stack_http(
+        kernel_id="k1",
+        code="while True: pass",
+        timeout=0,
+        poll_interval=0,
+        transport=transport,
+    )
+
+    assert outputs == ["[ERROR: Execution timed out after 0 seconds]"]
+    assert transport.deleted == ["/api/kernels/k1/requests/r1"]
 
 
 def test_document_id_from_ws_url_reads_the_room():

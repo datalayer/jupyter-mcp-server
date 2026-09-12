@@ -208,7 +208,26 @@ class SandboxesExtension(JupyterMCPExtension):
                 str | None,
                 Field(
                     description=(
-                        "Optional sandbox environment name (common for datalayer/modal variants)"
+                        "Optional sandbox environment name (common for "
+                        "datalayer/modal variants). On the datalayer variant "
+                        "this is a platform environment by name, such as "
+                        "ai-agents-env, or an environment somebody built, "
+                        "written 'account/name' — the account being a person's "
+                        "handle or an organization's."
+                    )
+                ),
+            ] = None,
+            environment_version: Annotated[
+                str | int | None,
+                Field(
+                    description=(
+                        "Which version of an 'account/name' environment to "
+                        "launch: its number, such as 3, or a version uid. "
+                        "Leave it unset to get the version its owner promoted, "
+                        "which is what you want unless you were asked for a "
+                        "particular one. Only the datalayer variant has "
+                        "versions; naming one for any other variant is refused "
+                        "rather than quietly ignored."
                     )
                 ),
             ] = None,
@@ -318,6 +337,7 @@ class SandboxesExtension(JupyterMCPExtension):
                     variant=resolved_variant,
                     timeout=timeout,
                     environment=environment,
+                    environment_version=environment_version,
                     gpu=gpu,
                     server_url=server_url,
                     kernel_id=kernel_id,

@@ -32,6 +32,7 @@ class CodeSandboxManager:
         variant: str,
         timeout: float,
         environment: str | None = None,
+        environment_version: str | int | None = None,
         gpu: str | None = None,
         server_url: str | None = None,
         kernel_id: str | None = None,
@@ -60,6 +61,17 @@ class CodeSandboxManager:
         # other, where nothing can be called that and the caller found out
         # from two packages away.
         wanted_snapshot = (snapshot_name or "").strip()
+        # A version pins which build of a user environment runs (PLAN_ENV.md,
+        # D-2, E1-19). Read the way the snapshot is — an empty or blank value
+        # means it was not given — but kept in the type it arrived as: the
+        # platform reads a number as a version number and a string as a
+        # version uid, so turning `2` into `"2"` here would change what is
+        # asked for.
+        wanted_version: str | int | None = (
+            environment_version.strip() if isinstance(environment_version, str) else environment_version
+        )
+        if wanted_version in (None, ""):
+            wanted_version = None
         create_kwargs: dict[str, Any] = {
             "variant": variant,
             "timeout": timeout,
@@ -71,6 +83,8 @@ class CodeSandboxManager:
         }
         if environment:
             create_kwargs["environment"] = environment
+        if wanted_version is not None:
+            create_kwargs["environment_version"] = wanted_version
         if gpu:
             create_kwargs["gpu"] = gpu
         if python_version and variant == "modal":
@@ -125,6 +139,16 @@ class CodeSandboxManager:
             raise ValueError(
                 f"Sandbox variant '{variant}' cannot start from a snapshot; "
                 "only 'datalayer' can."
+            )
+
+        if wanted_version is not None and variant != "datalayer":
+            # Said plainly, for the same reason a snapshot is: a caller who
+            # pinned a version and got the provider's own latest image would
+            # have no way of knowing, and the run would be unreproducible in
+            # exactly the way pinning exists to prevent.
+            raise ValueError(
+                f"Sandbox variant '{variant}' has no environment versions; only 'datalayer' has. "
+                "Launch it without environment_version, or name the datalayer variant."
             )
 
         sandbox = CodeSandboxClient.create(**create_kwargs)
