@@ -6,6 +6,7 @@
 Jupyter MCP Server Layer
 """
 
+import os
 import hmac
 import re
 from typing import Annotated, Literal
@@ -323,11 +324,22 @@ class MCPServerWithCORS(MCPServer):
                 backend=BearerAuthBackend(self._token_verifier),
             )
 
-        # Add CORS middleware
+        # Add CORS middleware.
+        #
+        # `allow_origins=["*"]` together with `allow_credentials=True` is not the
+        # permissive-but-harmless combination it looks like: Starlette then echoes the
+        # request's Origin back and adds Access-Control-Allow-Credentials, so any site a
+        # browser visits can read authenticated responses from this server. Credentials are
+        # therefore only allowed for origins the operator names explicitly.
+        cors_origins = [
+            origin.strip()
+            for origin in os.environ.get("JUPYTER_MCP_CORS_ORIGINS", "").split(",")
+            if origin.strip()
+        ]
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],  # In production, should set specific domains
-            allow_credentials=True,
+            allow_origins=cors_origins or ["*"],
+            allow_credentials=bool(cors_origins),
             allow_methods=["*"],
             allow_headers=["*"],
         )
