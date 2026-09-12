@@ -1517,7 +1517,21 @@ async def _cancel_http_execution(transport, request_url: str, request_id: str, l
         )
         return
     try:
-        status, body, _ = await delete(request_url)
+        # Shielded so a *second* cancellation cannot strand the run. One
+        # `cancel()` is delivered once, and this await then completes normally,
+        # so the plain form is enough for the ordinary case; but a caller that
+        # cancels again while the cleanup is in flight (a `wait_for` giving up,
+        # a task group tearing down) would cancel the DELETE before it leaves,
+        # and the run it was stopping would keep going with its outputs still
+        # landing in the document. The shield lets the request finish on its
+        # own even when we can no longer wait for it.
+        status, body, _ = await asyncio.shield(delete(request_url))
+    except asyncio.CancelledError:
+        logger.info(
+            f"cancelling HTTP execution {request_id or request_url} was itself "
+            "cancelled; the DELETE is already on its way to the runtime"
+        )
+        return
     except Exception as err:
         # Cancel is best effort: a transport error here must not mask the
         # cancellation that triggered it.

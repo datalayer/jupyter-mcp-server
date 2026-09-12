@@ -300,6 +300,57 @@ async def test_a_cancelled_wait_stops_the_run_on_the_runtime():
 
 
 @pytest.mark.asyncio
+async def test_a_caller_cancelling_the_call_stops_the_run_on_the_runtime():
+    """The cancellation that matters: the caller drops the `tools/call`.
+
+    A timeout raises inside our own loop; a cancellation is delivered *at* the
+    await we are sitting on and unwinds through `CancelledError`, which is not
+    an `Exception` and so takes its own path through the handler. Exercised
+    with a real `task.cancel()`, because the timeout tests above never enter
+    that path and a regression dropping the DELETE there would stay green.
+    """
+    import asyncio
+
+    polling = asyncio.Event()
+
+    class _HangingTransport(_FakeTransportWithCancel):
+        async def get(self, path):
+            polling.set()
+            await asyncio.Event().wait()  # never returns; the caller cancels us
+
+        async def delete(self, path):
+            # Suspends, the way a real HTTP round-trip does, so the cleanup is
+            # exercised across a real await rather than completing inline.
+            await asyncio.sleep(0.01)
+            return await super().delete(path)
+
+    transport = _HangingTransport()
+
+    task = asyncio.create_task(
+        execute_via_execution_stack_http(
+            kernel_id="k1",
+            code="while True: pass",
+            timeout=600,
+            poll_interval=0,
+            transport=transport,
+        )
+    )
+    await asyncio.wait_for(polling.wait(), timeout=5)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # The DELETE was dispatched under a shield, so let it land.
+    for _ in range(10):
+        if transport.deleted:
+            break
+        await asyncio.sleep(0)
+
+    assert transport.deleted == ["/api/kernels/k1/requests/r1"]
+
+
+@pytest.mark.asyncio
 async def test_cancel_is_best_effort_against_a_runtime_without_the_route():
     # An older runtime answers 404 to the DELETE; the driver logs it and still
     # surfaces the timeout rather than raising on the failed cancel.

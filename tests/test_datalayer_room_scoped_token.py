@@ -98,8 +98,8 @@ def test_a_failed_session_fetch_raises(monkeypatch):
 
 
 def test_caller_headers_are_carried(monkeypatch):
-    # Cookie/XSRF headers a cookie-protected server needs are preserved, and an
-    # explicit Authorization is not clobbered.
+    # Cookie/XSRF headers a cookie-protected server needs are preserved, and the
+    # caller's token becomes the Authorization when they supplied none.
     seen = _capture(monkeypatch, {"success": True, "sessionId": "s", "token": "cap"})
     _datalayer_room_url_with_scoped_token(
         server_url="https://spacer.example",
@@ -110,3 +110,19 @@ def test_caller_headers_are_carried(monkeypatch):
     )
     assert seen["headers"]["Cookie"] == "session=abc"
     assert seen["headers"]["Authorization"] == "Bearer user-jwt"
+
+
+def test_an_authorization_the_caller_set_is_not_clobbered(monkeypatch):
+    # The caller's own Authorization wins over the token: a server reached with
+    # a scheme of its own (Basic, a proxy's bearer) must keep it, or a session
+    # that authenticates by header is silently downgraded to the raw token.
+    seen = _capture(monkeypatch, {"success": True, "sessionId": "s", "token": "cap"})
+    _datalayer_room_url_with_scoped_token(
+        server_url="https://spacer.example",
+        user_token="user-jwt",
+        room_id="r",
+        headers={"Cookie": "session=abc", "Authorization": "Basic existing"},
+        timeout=10,
+    )
+    assert seen["headers"]["Authorization"] == "Basic existing"
+    assert seen["headers"]["Cookie"] == "session=abc"
