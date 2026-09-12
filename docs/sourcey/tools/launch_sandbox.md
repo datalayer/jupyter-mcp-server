@@ -20,7 +20,8 @@ MCP_SERVER and JUPYTER_SERVER modes.
 | `sandbox_name` | string | yes | — | Unique sandbox identifier used by list/use/terminate tools |
 | `variant` | `eval` · `docker` · `jupyter-server` · `datalayer` · `daytona` · `e2b` · `coreweave` · `cloudflare` · `google-colab` · `kaggle` · `monty` · `modal` \| null | no | `null` | Sandbox variant to launch. If omitted, defaults to configured SANDBOX_VARIANT when it is not jupyter-server; otherwise falls back to eval. |
 | `timeout` | integer | no | `60` | Default execution timeout in seconds for this sandbox |
-| `environment` | string \| null | no | `null` | Optional sandbox environment name (common for datalayer/modal variants) |
+| `environment` | string \| null | no | `null` | Optional sandbox environment name (common for datalayer/modal variants). On the datalayer variant this is a platform environment by name, such as ai-agents-env, or an environment somebody built, written 'account/name' — the account being a person's handle or an organization's. |
+| `environment_version` | string \| integer \| null | no | `null` | Which version of an 'account/name' environment to launch: its number, such as 3, or a version uid. Leave it unset to get the version its owner promoted, which is what you want unless you were asked for a particular one. Only the datalayer variant has versions; naming one for any other variant is refused rather than quietly ignored. |
 | `gpu` | string \| null | no | `null` | Optional GPU flavor / accelerator. Only coreweave, datalayer, daytona, kaggle and modal have a GPU; asking one of the others (e2b, cloudflare, docker, eval, google-colab, jupyter-server, monty) for a GPU is refused rather than quietly run on a CPU, so leave this unset for them. Examples: modal/datalayer T4, A10G, A100, H100; daytona H100, H200, RTX-4090; coreweave H100; kaggle NvidiaTeslaT4, NvidiaTeslaP100, or the aliases T4/P100. |
 | `server_url` | string \| null | no | `null` | Code Sandbox proxy URL when using the google-colab or kaggle variant |
 | `kernel_id` | string \| null | no | `null` | Kernel ID when using the google-colab or kaggle variant |
@@ -70,6 +71,7 @@ MCP_SERVER and JUPYTER_SERVER modes.
       "variant": null,
       "timeout": 60,
       "environment": null,
+      "environment_version": null,
       "gpu": null,
       "server_url": null,
       "kernel_id": null,
@@ -84,7 +86,7 @@ MCP_SERVER and JUPYTER_SERVER modes.
 ```
 
 ```python
-result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<sandbox_name>", "variant": None, "timeout": 60, "environment": None, "gpu": None, "server_url": None, "kernel_id": None, "proxy_token": None, "channels_url": None, "token": None, "python_version": None, "snapshot_name": None})
+result = await session.call_tool("launch_sandbox", arguments={"sandbox_name": "<sandbox_name>", "variant": None, "timeout": 60, "environment": None, "environment_version": None, "gpu": None, "server_url": None, "kernel_id": None, "proxy_token": None, "channels_url": None, "token": None, "python_version": None, "snapshot_name": None})
 ```
 
 ## Source
