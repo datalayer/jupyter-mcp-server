@@ -57,6 +57,30 @@ class _FakeTransport:
         return status, body, {}
 
 
+class _FakeTransportWithCancel(_FakeTransport):
+    """A transport that also answers DELETE, recording the paths cancelled.
+
+    The real runtime's cancel route answers 204; an older runtime without it
+    answers 404, which the driver must treat as best effort rather than an
+    error.
+    """
+
+    def __init__(self, *, delete_answer=(204, None, None), **kwargs):
+        super().__init__(**kwargs)
+        self._delete_answer = delete_answer
+        self.deleted: list = []
+
+    async def delete(self, path):
+        self.deleted.append(path)
+        status, body, headers = self._delete_answer
+        return status, body, headers or {}
+
+
+def _always_running():
+    while True:
+        yield (202, {"request_status": "running"})
+
+
 @pytest.mark.asyncio
 async def test_a_complete_run_returns_its_outputs_and_counts():
     raw_outputs: list = []
@@ -251,6 +275,47 @@ async def test_an_unexpected_poll_status_is_an_error_not_silence():
     assert len(outputs) == 1
     assert outputs[0].startswith("[ERROR:")
     assert "403" in outputs[0]
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_wait_stops_the_run_on_the_runtime():
+    # A wait that times out (or is cancelled) DELETEs the request, so the
+    # runtime interrupts the cell instead of leaving it running with its
+    # outputs still landing in the document after the caller gave up.
+    transport = _FakeTransportWithCancel()
+    transport._polls = _always_running()
+
+    outputs = await execute_via_execution_stack_http(
+        kernel_id="k1",
+        code="while True: pass",
+        timeout=0,
+        poll_interval=0,
+        transport=transport,
+    )
+
+    assert outputs == ["[ERROR: Execution timed out after 0 seconds]"]
+    # The run was cancelled on the runtime: a DELETE on the very request it
+    # polled, not a guessed path.
+    assert transport.deleted == ["/api/kernels/k1/requests/r1"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_is_best_effort_against_a_runtime_without_the_route():
+    # An older runtime answers 404 to the DELETE; the driver logs it and still
+    # surfaces the timeout rather than raising on the failed cancel.
+    transport = _FakeTransportWithCancel(delete_answer=(404, {"message": "no route"}, None))
+    transport._polls = _always_running()
+
+    outputs = await execute_via_execution_stack_http(
+        kernel_id="k1",
+        code="while True: pass",
+        timeout=0,
+        poll_interval=0,
+        transport=transport,
+    )
+
+    assert outputs == ["[ERROR: Execution timed out after 0 seconds]"]
+    assert transport.deleted == ["/api/kernels/k1/requests/r1"]
 
 
 def test_document_id_from_ws_url_reads_the_room():

@@ -1492,8 +1492,46 @@ class _HttpxExecuteTransport:
     async def get(self, path: str):
         return await self._send("GET", path)
 
+    async def delete(self, path: str):
+        return await self._send("DELETE", path)
+
     async def aclose(self):
         await self._client.aclose()
+
+
+async def _cancel_http_execution(transport, request_url: str, request_id: str, logger) -> None:
+    """Ask the runtime to stop a run whose wait was cancelled or timed out.
+
+    A DELETE on the request's URL; the runtime interrupts the cell and records
+    the interrupt as the request's terminal result. Best effort on purpose: a
+    transport without ``delete`` (an older injected one) or a runtime without
+    the route (answers 404) leaves the run going, which is the behaviour before
+    the route existed — so it is logged, never raised, and never masks the
+    cancellation that triggered it.
+    """
+    delete = getattr(transport, "delete", None)
+    if delete is None:
+        logger.warning(
+            f"HTTP execution request {request_id or request_url} interrupted; "
+            "the transport cannot cancel it, so the runtime keeps running it"
+        )
+        return
+    try:
+        status, body, _ = await delete(request_url)
+    except Exception as err:
+        # Cancel is best effort: a transport error here must not mask the
+        # cancellation that triggered it.
+        logger.warning(
+            f"could not cancel HTTP execution {request_id or request_url} on the runtime: {err}"
+        )
+        return
+    if status in (200, 202, 204):
+        logger.info(f"HTTP execution request {request_id or request_url} cancelled on the runtime")
+    else:
+        logger.warning(
+            f"the runtime answered {status} cancelling {request_id or request_url}; "
+            f"it may keep running: {body}"
+        )
 
 
 async def execute_via_execution_stack_http(
@@ -1666,15 +1704,15 @@ async def execute_via_execution_stack_http(
                     hook_ctx=hook_ctx,
                 )
         except (asyncio.CancelledError, TimeoutError) as interrupt_err:
-            # The server-side request keeps running: there is no HTTP cancel
-            # route on the runtime yet (a later increment adds one), so the most
-            # this can do honestly is stop polling and fire the AFTER_EXECUTE it
-            # owes. CancelledError is not an Exception, so it would not reach the
-            # outer handler — fire here.
-            logger.warning(
-                f"HTTP execution request {request_id or request_url} interrupted; "
-                "the runtime keeps running it until it finishes on its own"
-            )
+            # Stop the server-side run too. The runtime now has a cancel route
+            # (jupyter-server-nbmodel >= 0.2.9): a DELETE on the request
+            # interrupts the cell, so a cancelled wait no longer leaves it
+            # running with its outputs still landing in the document. Best
+            # effort — an older runtime without the route answers 404, and a
+            # failure to reach it must not mask the cancellation — then fire the
+            # AFTER_EXECUTE this owes. CancelledError is not an Exception, so it
+            # would not reach the outer handler — fire here.
+            await _cancel_http_execution(transport, request_url, request_id, logger)
             await HookRegistry.get_instance().fire(
                 HookEvent.AFTER_EXECUTE,
                 code=code,
