@@ -103,6 +103,29 @@ def add_meta(**values: Any) -> None:
             pending[meta_key(name)] = value
 
 
+def note_cell(cell_id: str) -> None:
+    """Name a cell the running tool acted on, without displacing one already named.
+
+    `cell_id` holds one id, and a move resolves two: the cell being moved,
+    and the cell it is being put where. Setting the key twice kept the
+    second, so the result named the cell that stayed put. The first id named
+    stays the primary one and the rest go to `cell_ids`, which is where a
+    tool that touches several cells already puts them.
+    """
+    pending = _pending.get()
+    if pending is None or not cell_id:
+        return
+    primary = meta_key("cell_id")
+    if pending.get(primary) in (None, cell_id):
+        pending[primary] = cell_id
+        return
+    plural = meta_key("cell_ids")
+    rest = list(pending.get(plural) or [])
+    if cell_id not in rest:
+        rest.append(cell_id)
+    pending[plural] = rest
+
+
 def as_text(value: Any) -> str:
     """The text rendering of a structured answer.
 

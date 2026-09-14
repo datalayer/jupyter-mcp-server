@@ -218,6 +218,44 @@ class TestSeveralCellsAtOnce:
             asyncio.run(_in_a_call(lambda: resolve_many(mode=None)))
 
 
+class TestAMoveNamesTheCellThatMoved:
+    """`move_cell` resolves twice, and `cell_id` holds one id.
+
+    The second resolve used to overwrite the first, so the result named the
+    cell the moved cell was put where, and an agent addressing "the cell I
+    just moved" got the one that stayed put.
+    """
+
+    def _both_ends(self, source, target):
+        async def run():
+            await resolve(cell_id=source, mode=None)
+            await resolve(cell_id=target, mode=None)
+
+        return asyncio.run(_in_a_call(run))[1]
+
+    def test_the_result_names_the_cell_that_moved(self, notebook):
+        notebook("a", "b", "c")
+        assert self._both_ends("a", "c").meta[meta_key("cell_id")] == "a"
+
+    def test_the_other_end_is_still_named(self, notebook):
+        """Its position changed too, so a subscriber to it has stale text."""
+        notebook("a", "b", "c")
+        assert self._both_ends("a", "c").meta[meta_key("cell_ids")] == ["c"]
+
+    def test_a_subscriber_is_told_about_both(self, notebook):
+        from jupyter_mcp_server import notifications
+
+        notebook("a", "b", "c")
+        assert notifications.changed_cells(self._both_ends("a", "c")) == ("a", "c")
+
+    def test_one_cell_named_twice_is_named_once(self, notebook):
+        """Moving a cell onto itself is a no-op, not two cells."""
+        notebook("a", "b", "c")
+        answer = self._both_ends("a", "a")
+        assert answer.meta[meta_key("cell_id")] == "a"
+        assert meta_key("cell_ids") not in answer.meta
+
+
 class TestEveryCellToolOffersIt:
     """The feature is only real if the tools expose it."""
 
