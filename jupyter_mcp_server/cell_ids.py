@@ -32,7 +32,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from jupyter_mcp_server.results import add_meta
+from jupyter_mcp_server.results import add_meta, note_cell
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +168,7 @@ async def resolve(
         cell_index = ids.index(cell_id)
 
     if 0 <= cell_index < len(ids) and ids[cell_index]:
-        add_meta(cell_id=ids[cell_index])
+        note_cell(ids[cell_index])
     # No id to attach means the notebook predates nbformat 4.5, where cell
     # ids were introduced. Addressing by id is simply unavailable for it, and
     # saying nothing is better than inventing one: an id generated on read is
