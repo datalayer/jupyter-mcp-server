@@ -97,7 +97,8 @@ POLL_INTERVAL_MS = 1000
 #: The statuses from which nothing more happens.
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 
-#: How many tasks one `tasks/list` returns.
+#: How many tasks one page of `tasks/list` carries. A client walks the rest
+#: with the cursor that comes back beside them.
 LIST_PAGE = 50
 
 #: The notification the server sends when a task changes state.
@@ -248,7 +249,12 @@ class MemoryTaskStore:
                     self._tasks.pop(task_id, None)
                 else:
                     live.append(record)
-        return sorted(live, key=lambda record: record.created_at, reverse=True)[: max(1, limit)]
+        # `created_at` is ISO seconds, so tasks made in the same second tie and
+        # their order is whatever the dict happened to hold. A page boundary
+        # falls in the middle of a tie, so the key has to be a total order.
+        return sorted(
+            live, key=lambda record: (record.created_at, record.task_id), reverse=True
+        )[: max(1, limit)]
 
     async def update(self, task_id: str, **changes: Any) -> TaskRecord | None:
         async with self._lock:
@@ -502,6 +508,27 @@ async def _interrupt(record: TaskRecord) -> bool:
     return True
 
 
+def _page_start(cursor: Any) -> int:
+    """Where the page the client asked for begins.
+
+    The cursor is opaque to the client and is a count of tasks already handed
+    over on this side. A cursor this server did not write is refused rather
+    than read as zero, which would quietly start the walk again from the top
+    and hand back tasks the client has seen.
+    """
+    if cursor is None or cursor == "":
+        return 0
+    try:
+        start = int(str(cursor))
+    except ValueError:
+        start = -1
+    if start < 0:
+        raise MCPError(
+            code=INVALID_PARAMS, message=f"Not a cursor this server issued: {cursor!r}"
+        )
+    return start
+
+
 def _no_such_task(task_id: str) -> MCPError:
     """The one answer for a task that never existed and one that expired.
 
@@ -655,8 +682,25 @@ class TasksExtension(Extension):
         return GetTaskResult(**record.public().model_dump(by_alias=False))
 
     async def _handle_list(self, ctx: Any, params: Any) -> ListTasksResult:
-        records = await self.store.list()
-        return ListTasksResult(tasks=[record.public() for record in records])
+        """One page of tasks, and where the next one starts.
+
+        `next_cursor` absent means there are no more, so leaving it off a
+        truncated answer tells the client it has all of them. A server that
+        has held more than `LIST_PAGE` tasks at once then loses the rest: the
+        ids are gone, and `tasks/get` needs an id.
+
+        One record past the page is fetched so "is there more" is answered by
+        what came back rather than by a second count taken a moment later.
+        """
+        start = _page_start(getattr(params, "cursor", None))
+        records = await self.store.list(limit=start + LIST_PAGE + 1)
+        page = records[start : start + LIST_PAGE]
+        return ListTasksResult(
+            tasks=[record.public() for record in page],
+            next_cursor=(
+                str(start + LIST_PAGE) if len(records) > start + LIST_PAGE else None
+            ),
+        )
 
     async def _handle_cancel(self, ctx: Any, params: Any) -> CancelTaskResult:
         record = await self.store.get(params.task_id)
