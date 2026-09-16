@@ -4,7 +4,7 @@
 
 """List all files and directories tool."""
 
-import fnmatch
+import re
 from typing import Any
 
 from jupyter_core.utils import ensure_async
@@ -22,6 +22,36 @@ def format_size(size_bytes: int) -> str:
         return f"{size_bytes / 1024:.1f}KB"
     else:
         return f"{size_bytes / (1024 * 1024):.1f}MB"
+
+
+_GLOB_TOKEN = re.compile(r"\*\*/|\*\*|[*?]|\[[^\]]*\]")
+
+
+def compile_glob(pattern: str) -> re.Pattern:
+    """Compile a glob pattern into a regex that knows where the directories are.
+
+    ``*`` and ``?`` stop at a ``/``, ``**/`` stands for any number of leading
+    directories including none, and ``**`` spans the rest of the path.
+    """
+    parts = []
+    index = 0
+    for token in _GLOB_TOKEN.finditer(pattern):
+        parts.append(re.escape(pattern[index : token.start()]))
+        text = token.group()
+        if text == "**/":
+            parts.append(r"(?:[^/]+/)*")
+        elif text == "**":
+            parts.append(r".*")
+        elif text == "*":
+            parts.append(r"[^/]*")
+        elif text == "?":
+            parts.append(r"[^/]")
+        else:
+            body = text[1:-1]
+            parts.append("[" + ("^" + body[1:] if body.startswith("!") else body) + "]")
+        index = token.end()
+    parts.append(re.escape(pattern[index:]))
+    return re.compile("".join(parts) + r"\Z")
 
 
 def _list_files_mcp(
@@ -193,7 +223,8 @@ class ListFilesTool(BaseTool):
             max_depth: Maximum depth to recurse into subdirectories (0 means list current directory only, default: 1)
             start_index: Starting index for pagination (0-based, default: 0)
             limit: Maximum number of items to return (0 means no limit, default: 25)
-            pattern: Glob pattern to filter file paths (e.g., '*.py', '**/*.ipynb', default: "")
+            pattern: Glob pattern to filter file paths (e.g., '*.py' for this directory,
+                '**/*.ipynb' for any depth; '*' stops at a '/', default: "")
             **kwargs: Additional parameters
 
         Returns:
@@ -222,8 +253,8 @@ class ListFilesTool(BaseTool):
         # Apply glob pattern filter if provided
         if pattern:
             try:
-                filtered_files = [f for f in all_files if fnmatch.fnmatch(f["path"], pattern)]
-                all_files = filtered_files
+                matcher = compile_glob(pattern)
+                all_files = [f for f in all_files if matcher.match(f["path"])]
             except Exception:
                 result += f"[WARNING] Invalid glob pattern '{pattern}', skipping pattern filter. \n"
 
