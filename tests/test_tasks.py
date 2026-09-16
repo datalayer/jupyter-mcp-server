@@ -35,6 +35,7 @@ from jupyter_mcp_server.tasks import (
     CURRENT_TASK,
     record_output,
     IDEMPOTENCY_KEY_META,
+    LIST_PAGE,
     TASK_STATUS_NOTIFICATION,
     MAX_TTL_MS,
     POLL_INTERVAL_MS,
@@ -1302,6 +1303,59 @@ async def test_the_listing_is_bound_the_same_way(extension):
     binding = _binding(extension, "tasks/list")
     answer = await binding.handler(object(), binding.params_type.model_validate({}))
     assert hasattr(answer, "tasks")
+
+
+@pytest.mark.asyncio
+async def test_a_client_walking_the_cursor_reaches_every_task(store, extension):
+    """More tasks than fit a page, and the client gets all of them.
+
+    Without a `next_cursor` the first page is the whole answer as far as the
+    client is concerned, and the tasks after it have no id anywhere the client
+    can see, so `tasks/get` cannot reach them either.
+
+    Every record here shares a `created_at` second, which is the case the
+    ordering has to survive: the timestamp is ISO seconds, so a page boundary
+    would otherwise fall inside a tie and the same task could arrive twice or
+    not at all.
+    """
+    made = LIST_PAGE + 10
+    for index in range(made):
+        await store.create(
+            TaskRecord(task_id=f"tsk_{index:04d}", created_at="2026-09-15T00:00:00Z")
+        )
+
+    binding = _binding(extension, "tasks/list")
+    seen: list[str] = []
+    cursor = None
+    while True:
+        params = binding.params_type.model_validate(
+            {} if cursor is None else {"cursor": cursor}
+        )
+        answer = await binding.handler(object(), params)
+        assert len(answer.tasks) <= LIST_PAGE
+        seen += [task.task_id for task in answer.tasks]
+        cursor = answer.next_cursor
+        if cursor is None:
+            break
+
+    assert len(seen) == made
+    assert len(set(seen)) == made
+    assert seen == sorted(seen, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_a_cursor_this_server_did_not_issue_is_refused(store, extension):
+    """Rather than read as zero, which would hand back the first page again.
+
+    A client walking the list would take that for a page it had not seen and
+    keep walking, so a wrong cursor becomes a loop instead of an error.
+    """
+    await store.create(TaskRecord(task_id="tsk_0"))
+    binding = _binding(extension, "tasks/list")
+    with pytest.raises(MCPError):
+        await binding.handler(
+            object(), binding.params_type.model_validate({"cursor": "halfway"})
+        )
 
 
 def test_the_bindings_match_the_sdk_s_handler_type():
