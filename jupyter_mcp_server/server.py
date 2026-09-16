@@ -1988,5 +1988,10 @@ def register_extension_tools() -> None:
     of them has to know whether another got there first. Extensions are
     resolved through the ``jupyter_mcp_server.extensions`` entry-point group
     and coordinated by the reactor plugin platform.
+
+    What they declare goes into the registry here too, so a tool that consults
+    a capability on the request path sees it. Collected only on a read of
+    ``capabilities://``, it was absent until somebody happened to look.
     """
     extension_manager.register_tools(mcp, once=True)
+    extension_manager.collect_capabilities(get_capabilities())

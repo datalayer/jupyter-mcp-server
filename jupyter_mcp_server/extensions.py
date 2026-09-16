@@ -112,6 +112,7 @@ class ExtensionManager:
         self._started = False
         self._discovered = False
         self._tools_registered = False
+        self._capabilities_collected: set[str] = set()
 
     def _ensure_platform(self) -> Any:
         if self._platform is None:
@@ -214,8 +215,16 @@ class ExtensionManager:
         One extension raising must not cost the others their declarations, so
         each is asked on its own: a plugin with a broken `capabilities()`
         loses only its own, and says so in the log.
+
+        Each extension is asked once. `registry.declare` applies the
+        extension's own `enabled` value, so asking a second time re-imposes it
+        over whatever the operator has set since, and this runs on a resource
+        read: any client could turn a capability back on by looking at it.
         """
         for name, extension in self._extensions.items():
+            if name in self._capabilities_collected:
+                continue
+            self._capabilities_collected.add(name)
             try:
                 declared = extension.capabilities() or []
             except Exception:  # noqa: BLE001 - one plugin never breaks the rest
