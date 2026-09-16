@@ -196,6 +196,47 @@ class TestExtensionsDeclareTheirOwn:
         manager.collect_capabilities(registry)
         assert registry.enabled("fine.thing")
 
+    def test_asking_twice_does_not_undo_what_the_operator_set(self):
+        """`declare` applies the extension's own `enabled`, and this used to
+        run on every read of `capabilities://`, so an operator turned a
+        capability off and the next client to look turned it back on."""
+        from jupyter_mcp_server.extensions import ExtensionManager, JupyterMCPExtension
+
+        class Plugin(JupyterMCPExtension):
+            def capabilities(self):
+                return [Capability(name="plugin.thing", description="d" * 50, enabled=True)]
+
+        manager = ExtensionManager()
+        manager._extensions = {"plugin": Plugin()}
+        registry = CapabilityRegistry()
+        manager.collect_capabilities(registry)
+        registry.set("plugin.thing", False, source="cli")
+
+        manager.collect_capabilities(registry)
+        assert registry.enabled("plugin.thing") is False
+        assert registry.get("plugin.thing").source == "cli"
+
+    def test_an_extension_registered_later_is_still_asked(self):
+        """Collecting once must not mean collecting only the first batch."""
+        from jupyter_mcp_server.extensions import ExtensionManager, JupyterMCPExtension
+
+        class Early(JupyterMCPExtension):
+            def capabilities(self):
+                return [Capability(name="early.thing", description="d" * 50, enabled=True)]
+
+        class Late(JupyterMCPExtension):
+            def capabilities(self):
+                return [Capability(name="late.thing", description="d" * 50, enabled=True)]
+
+        manager = ExtensionManager()
+        manager._extensions = {"early": Early()}
+        registry = CapabilityRegistry()
+        manager.collect_capabilities(registry)
+
+        manager._extensions["late"] = Late()
+        manager.collect_capabilities(registry)
+        assert registry.enabled("late.thing")
+
     def test_something_that_is_not_a_capability_is_logged_not_raised(self):
         from jupyter_mcp_server.extensions import ExtensionManager, JupyterMCPExtension
 
