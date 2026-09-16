@@ -879,20 +879,14 @@ async def restart_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to restart")],
 ) -> ToolAnswer:
     """Restart the kernel for a specific notebook."""
-    result = await RestartNotebookTool().execute(
+    # The tool reports KERNEL_LIFECYCLE "restarted" itself, only when a
+    # kernel actually restarted; a failed restart must not be recorded as one.
+    return await RestartNotebookTool().execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
         kernel_manager=server_context.kernel_manager,
     )
-    kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
-    await HookRegistry.get_instance().fire(
-        HookEvent.KERNEL_LIFECYCLE,
-        event_type="restarted",
-        kernel_id=kid,
-        kernel_name=notebook_name,
-    )
-    return result
 
 
 @mcp.tool(
