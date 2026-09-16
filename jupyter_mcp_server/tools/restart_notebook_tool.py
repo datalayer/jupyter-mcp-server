@@ -9,6 +9,7 @@ from typing import Any
 
 from jupyter_server_client import JupyterServerClient
 
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
@@ -17,6 +18,15 @@ logger = logging.getLogger(__name__)
 
 class RestartNotebookTool(BaseTool):
     """Tool to restart the kernel for a specific notebook."""
+
+    async def _report_restarted(self, kernel_id: str, notebook_name: str) -> None:
+        """Tell the hooks a kernel restarted. Called only once one actually has."""
+        await HookRegistry.get_instance().fire(
+            HookEvent.KERNEL_LIFECYCLE,
+            event_type="restarted",
+            kernel_id=kernel_id,
+            kernel_name=notebook_name,
+        )
 
     async def _reprovision_kernel(
         self,
@@ -39,18 +49,19 @@ class RestartNotebookTool(BaseTool):
                 token=None,
                 path=notebook_path,
             )
-            logger.info(f"Provisioned fresh kernel {new_kernel_id} for notebook '{notebook_name}'")
-            return (
-                f"Notebook '{notebook_name}' kernel was no longer available and has been "
-                f"reprovisioned (new kernel '{new_kernel_id}'). Memory state and imported "
-                f"packages have been cleared."
-            )
         except Exception as e:
             logger.error(f"Failed to reprovision kernel for notebook '{notebook_name}': {e}")
             return (
                 f"Failed to restart notebook '{notebook_name}': the kernel was no longer "
                 f"available and reprovisioning failed: {e}"
             )
+        logger.info(f"Provisioned fresh kernel {new_kernel_id} for notebook '{notebook_name}'")
+        await self._report_restarted(new_kernel_id, notebook_name)
+        return (
+            f"Notebook '{notebook_name}' kernel was no longer available and has been "
+            f"reprovisioned (new kernel '{new_kernel_id}'). Memory state and imported "
+            f"packages have been cleared."
+        )
 
     async def execute(
         self,
@@ -106,7 +117,6 @@ class RestartNotebookTool(BaseTool):
                     f"Restarting kernel {kernel_id} for notebook '{notebook_name}' in JUPYTER_SERVER mode"
                 )
                 await kernel_manager.restart_kernel(kernel_id)
-                return f"Notebook '{notebook_name}' kernel restarted successfully. Memory state and imported packages have been cleared."
             except Exception as e:
                 # The kernel may have been culled between the liveness check and the
                 # restart call; treat a now-missing kernel as a reprovision, not a failure.
@@ -120,12 +130,18 @@ class RestartNotebookTool(BaseTool):
                     )
                 logger.error(f"Failed to restart kernel {kernel_id}: {e}")
                 return f"Failed to restart notebook '{notebook_name}': {e}"
+            await self._report_restarted(kernel_id, notebook_name)
+            return f"Notebook '{notebook_name}' kernel restarted successfully. Memory state and imported packages have been cleared."
 
         elif mode == ServerMode.MCP_SERVER:
             # MCP_SERVER mode: Use notebook_manager's restart_notebook method
             success = notebook_manager.restart_notebook(notebook_name)
 
             if success:
+                await self._report_restarted(
+                    notebook_manager.get_code_sandbox_id(notebook_name) or "unknown",
+                    notebook_name,
+                )
                 return f"Notebook '{notebook_name}' kernel restarted successfully. Memory state and imported packages have been cleared."
             else:
                 return f"Failed to restart notebook '{notebook_name}'. The kernel may not support restart operation."
