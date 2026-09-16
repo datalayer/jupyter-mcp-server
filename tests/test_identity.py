@@ -18,8 +18,8 @@ from types import SimpleNamespace
 import pytest
 
 from jupyter_mcp_server.identity import (
+    FORWARD_CLAIM,
     TOKEN_VERIFIER_CLASS_ENV,
-    EndpointOnlyVerifier,
     Identity,
     TokenVerifier,
     current_identity,
@@ -93,6 +93,27 @@ class TestIdentityFromAccessToken:
 
         assert identity.username == "mcp-client"
         assert identity.scopes == ()
+
+    def test_does_not_forward_token_by_default(self):
+        access_token = SimpleNamespace(
+            token="secret-bearer-token", subject="alice", client_id="claude-code"
+        )
+
+        identity = identity_from_access_token(access_token)
+
+        assert identity.token == ""
+
+    def test_forwards_token_when_forward_claim_is_set(self):
+        access_token = SimpleNamespace(
+            token="secret-bearer-token",
+            subject="alice",
+            client_id="claude-code",
+            claims={FORWARD_CLAIM: True},
+        )
+
+        identity = identity_from_access_token(access_token)
+
+        assert identity.token == "secret-bearer-token"
 
 
 class TestIdentityFromJupyterUser:
@@ -201,8 +222,7 @@ class TestResolveTokenVerifier:
 
         verifier = resolve_token_verifier("secret-token")
 
-        assert isinstance(verifier, EndpointOnlyVerifier)
-        assert isinstance(verifier.verifier, CodeSandboxTokenVerifier)
+        assert isinstance(verifier, CodeSandboxTokenVerifier)
 
     def test_a_named_class_wins_over_the_shared_secret(self, monkeypatch):
         """The point of the hook: a platform's own OAuth takes precedence."""
@@ -234,7 +254,7 @@ class TestResolveTokenVerifier:
         assert identity_from_access_token(access_token).client_id == "test-client"
 
 
-class TestEndpointOnlyVerifier:
+class TestTokenForwardingPolicy:
     """``MCP_TOKEN`` says who may call this endpoint, and nothing more.
 
     It is documented as independent of the Jupyter credential, so a deployment
@@ -288,9 +308,6 @@ class TestEndpointOnlyVerifier:
         verifier = resolve_token_verifier("MCP_CLIENT_SECRET")
 
         assert await verifier.verify_token("JUPYTER_SECRET") is None
-
-    def test_it_satisfies_the_verifier_protocol(self):
-        assert isinstance(EndpointOnlyVerifier(AcceptingVerifier()), TokenVerifier)
 
 
 class TestTokenVerifierProtocol:
