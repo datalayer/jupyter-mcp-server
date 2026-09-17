@@ -26,6 +26,8 @@ from http import HTTPStatus
 import pytest
 import requests
 
+from jupyter_mcp_server import __version__
+
 from .conftest import JUPYTER_TOKEN
 
 ###############################################################################
@@ -79,6 +81,16 @@ def test_extension_health(jupyter_server_with_extension):
     )
     assert response.status_code == HTTPStatus.OK
     logging.info("✅ Jupyter API is accessible")
+
+
+def test_extension_healthz_reports_package_version(jupyter_server_with_extension):
+    """/mcp/healthz must report the installed version, like serverInfo in the MCP handshake."""
+    response = requests.get(
+        f"{jupyter_server_with_extension}/mcp/healthz",
+        headers={"Authorization": f"token {JUPYTER_TOKEN}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["version"] == __version__
 
 
 def test_mode_comparison_documentation(jupyter_server_with_extension, jupyter_server):
