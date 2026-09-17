@@ -257,6 +257,7 @@ def do_start(
     otel_file: str = "",
     mcp_token: str = None,
     insecure_mcp_noauth: bool = False,
+    host: str = "127.0.0.1",
     reconnect_interval: int = 0,
     execution_timeout: int = 120,
     max_execution_timeout: int = 3600,
@@ -427,7 +428,7 @@ def do_start(
         )
         uvicorn.run(
             mcp.streamable_http_app(stateless_http=stateless),
-            host="0.0.0.0",  # noqa: S104
+            host=host,
             port=port,
         )
     else:
