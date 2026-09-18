@@ -57,6 +57,9 @@ if TYPE_CHECKING:
 #: instantiated with no arguments, so it reads whatever configuration it needs
 #: from the environment.
 TOKEN_VERIFIER_CLASS_ENV = "JUPYTER_MCP_TOKEN_VERIFIER_CLASS"  # noqa: S105
+#: AccessToken claim that explicitly marks a token as an upstream credential
+#: to present to Jupyter document and sandbox servers.
+FORWARD_CLAIM = "jupyter_mcp_forward_token"  # noqa: S105
 
 
 @dataclass(frozen=True)
@@ -145,13 +148,17 @@ class TokenVerifier(Protocol):
 def identity_from_access_token(access_token: AccessToken) -> Identity:
     """The :class:`Identity` behind an MCP ``AccessToken``.
 
-    The bearer token is carried through as the caller's credential, so a
-    server acting for many users presents each user's own token to the
-    document and sandbox servers rather than one configured for all of them.
-    A verifier that would rather not do that can return an ``AccessToken``
-    with no ``token``, and the configured credential is used as before.
+    By default, an ``AccessToken`` does not forward its bearer token upstream
+    to document and sandbox servers. A custom verifier (such as a platform's
+    OAuth verifier) that wants its bearer token forwarded upstream sets the
+    claim ``FORWARD_CLAIM`` (``"jupyter_mcp_forward_token"``) to a truthy value
+    when building the ``AccessToken``.
     """
     scopes = tuple(getattr(access_token, "scopes", ()) or ())
+    claims = getattr(access_token, "claims", None) or {}
+    should_forward = bool(claims.get(FORWARD_CLAIM)) if isinstance(claims, dict) else False
+    raw_token = str(getattr(access_token, "token", "") or "")
+    token = raw_token if should_forward else ""
     return Identity(
         username=str(
             getattr(access_token, "subject", "")
@@ -160,7 +167,8 @@ def identity_from_access_token(access_token: AccessToken) -> Identity:
         ),
         client_id=str(getattr(access_token, "client_id", "") or ""),
         scopes=scopes,
-        token=str(getattr(access_token, "token", "") or ""),
+        token=token,
+        extra=claims if isinstance(claims, dict) else {},
     )
 
 
@@ -212,7 +220,8 @@ def resolve_token_verifier(default_token: str | None = None) -> TokenVerifier | 
     1. ``JUPYTER_MCP_TOKEN_VERIFIER_CLASS`` — a class supplied by the
        deployment, which is how a platform plugs in its own OAuth;
     2. ``default_token`` — the shared secret of ``--mcp-token``, the simple
-       case that needs no code;
+       case that needs no code. It authenticates the endpoint only, so its token
+       is never forwarded upstream unless marked with ``FORWARD_CLAIM``;
     3. nothing, leaving the endpoint unauthenticated, which the caller is
        expected to refuse unless it was asked for explicitly.
     """

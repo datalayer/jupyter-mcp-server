@@ -22,6 +22,7 @@ import pytest
 
 from jupyter_mcp_server.config import get_config, reset_config, set_config
 from jupyter_mcp_server.identity import (
+    FORWARD_CLAIM,
     Identity,
     IdentityMiddleware,
     current_identity,
@@ -34,11 +35,12 @@ from jupyter_mcp_server.identity import (
 class _AccessToken:
     """The shape the MCP SDK hands to a verifier's caller."""
 
-    def __init__(self, token="tok", client_id="cli", scopes=(), subject="user"):
+    def __init__(self, token="tok", client_id="cli", scopes=(), subject="user", claims=None):
         self.token = token
         self.client_id = client_id
         self.scopes = list(scopes)
         self.subject = subject
+        self.claims = claims if claims is not None else {FORWARD_CLAIM: True}
 
 
 class _AuthenticatedUser:

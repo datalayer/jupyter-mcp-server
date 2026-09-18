@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import pytest
 
 from jupyter_mcp_server.identity import (
+    FORWARD_CLAIM,
     TOKEN_VERIFIER_CLASS_ENV,
     Identity,
     TokenVerifier,
@@ -92,6 +93,27 @@ class TestIdentityFromAccessToken:
 
         assert identity.username == "mcp-client"
         assert identity.scopes == ()
+
+    def test_does_not_forward_token_by_default(self):
+        access_token = SimpleNamespace(
+            token="secret-bearer-token", subject="alice", client_id="claude-code"
+        )
+
+        identity = identity_from_access_token(access_token)
+
+        assert identity.token == ""
+
+    def test_forwards_token_when_forward_claim_is_set(self):
+        access_token = SimpleNamespace(
+            token="secret-bearer-token",
+            subject="alice",
+            client_id="claude-code",
+            claims={FORWARD_CLAIM: True},
+        )
+
+        identity = identity_from_access_token(access_token)
+
+        assert identity.token == "secret-bearer-token"
 
 
 class TestIdentityFromJupyterUser:
@@ -230,6 +252,62 @@ class TestResolveTokenVerifier:
         access_token = await verifier.verify_token("anything")
 
         assert identity_from_access_token(access_token).client_id == "test-client"
+
+
+class TestTokenForwardingPolicy:
+    """``MCP_TOKEN`` says who may call this endpoint, and nothing more.
+
+    It is documented as independent of the Jupyter credential, so a deployment
+    gives it a different value. Carrying it through as `Identity.token` would
+    make `resolved_document_token()` prefer it over the configured token, and
+    every document and kernel request would present the MCP endpoint's secret
+    to the Jupyter server.
+    """
+
+    @pytest.mark.asyncio
+    async def test_the_shared_secret_is_not_a_credential_upstream(self, monkeypatch):
+        monkeypatch.delenv(TOKEN_VERIFIER_CLASS_ENV, raising=False)
+
+        verifier = resolve_token_verifier("MCP_CLIENT_SECRET")
+        access_token = await verifier.verify_token("MCP_CLIENT_SECRET")
+
+        assert access_token is not None, "the shared secret must still be accepted"
+        assert not identity_from_access_token(access_token).token
+
+    @pytest.mark.asyncio
+    async def test_the_configured_jupyter_token_is_what_travels(self, monkeypatch):
+        """The end of the chain: what a tool actually presents to Jupyter."""
+        monkeypatch.delenv(TOKEN_VERIFIER_CLASS_ENV, raising=False)
+        from jupyter_mcp_server.config import get_config, reset_config, set_config
+
+        reset_config()
+        try:
+            set_config(
+                code_sandbox_url="http://jupyter:8888",
+                code_sandbox_token="JUPYTER_SECRET",
+                document_url="http://jupyter:8888",
+                document_token="JUPYTER_SECRET",
+            )
+            verifier = resolve_token_verifier("MCP_CLIENT_SECRET")
+            access_token = await verifier.verify_token("MCP_CLIENT_SECRET")
+
+            token = set_current_identity(identity_from_access_token(access_token))
+            try:
+                assert get_config().resolved_document_token() == "JUPYTER_SECRET"
+                assert get_config().resolved_code_sandbox_token() == "JUPYTER_SECRET"
+            finally:
+                reset_current_identity(token)
+        finally:
+            reset_config()
+
+    @pytest.mark.asyncio
+    async def test_a_wrong_token_is_still_refused(self, monkeypatch):
+        """Emptying the credential must not soften the check that earns it."""
+        monkeypatch.delenv(TOKEN_VERIFIER_CLASS_ENV, raising=False)
+
+        verifier = resolve_token_verifier("MCP_CLIENT_SECRET")
+
+        assert await verifier.verify_token("JUPYTER_SECRET") is None
 
 
 class TestTokenVerifierProtocol:
