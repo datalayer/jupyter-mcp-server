@@ -284,6 +284,11 @@ class ExtensionManager:
                 )
             except Exception:
                 logger.exception("Tool '%s' could not be registered", spec.name)
+        # Started here, which is what fires `on_start`: an extension with work
+        # to do once — registering a hook, opening a client — does it where
+        # its tools have just been put on a server, and every entry point
+        # reaches this. Idempotent, so calling it again starts nothing again.
+        self.start()
         # What an extension does to the server itself, once its tools are on
         # it: take one off, add a resource, read what else was offered. A
         # host building a server per toolset does this too, and an entry

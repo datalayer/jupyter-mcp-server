@@ -2012,12 +2012,9 @@ def register_extension_tools() -> None:
     And **started**, which is what fires ``on_start``: this is where
     configuration has been read and the tools are on the server.
     """
+    # Registering starts them, which is what fires `on_start`. Nothing
+    # started the platform before, so it was a hook the documentation
+    # described and no entry point ever reached; `stop()` is called on
+    # shutdown, on `/api/stop`.
     extension_manager.register_tools(mcp, once=True)
     extension_manager.collect_capabilities(get_capabilities())
-    # And started, which is what fires `on_start`: an extension that has work
-    # to do once — registering a hook, opening a client — does it here, where
-    # configuration is read and the tools are on the server. Nothing started
-    # the platform before, so `on_start` was a hook the documentation
-    # described and no entry point ever reached. `stop()` is called on
-    # shutdown, on `/api/stop`.
-    extension_manager.start()

@@ -219,20 +219,21 @@ class TestTheExtensionsAreStarted:
     """
 
     @pytest.fixture
-    def manager(self, monkeypatch):
-        """A manager of this test's own, where `register_extension_tools`
-        looks for one.
+    def manager(self):
+        """A manager of this test's own, and a server of its own.
 
-        The module keeps a singleton, and whatever ran before this in the
-        session has usually started it already — so a test using it would be
-        asking whether it was *still* started, which is true whether or not
-        registering the tools starts anything.
+        Not the module's singleton: whatever ran before this in the session
+        has usually started it, so the test would be asking whether it was
+        *still* started — true whether or not registering the tools starts
+        anything. And not the module's server either. Registering replaces a
+        tool of the same name, so registering this manager's tools on the
+        running server would rebind every handler to *this* manager's
+        extension instances — a `launch_sandbox` writing to a sandbox
+        registry nothing else reads.
         """
-        from jupyter_mcp_server import server
         from jupyter_mcp_server.extensions import ExtensionManager
 
         fresh = ExtensionManager()
-        monkeypatch.setattr(server, "extension_manager", fresh)
         Counts.started = 0
         fresh.register(Counts())
         try:
@@ -241,15 +242,24 @@ class TestTheExtensionsAreStarted:
             fresh.stop()
 
     def test_registering_the_tools_starts_them(self, manager):
-        from jupyter_mcp_server import server
+        from mcp.server.mcpserver import MCPServer
 
-        server.register_extension_tools()
+        manager.register_tools(MCPServer("somewhere else"))
         assert Counts.started == 1
 
     def test_and_starting_twice_starts_nothing_twice(self, manager):
-        """Every entry point calls it, and one of them is a tool listing."""
+        """Every entry point registers, and one of them is a tool listing."""
+        from mcp.server.mcpserver import MCPServer
+
+        manager.register_tools(MCPServer("somewhere else"))
+        manager.register_tools(MCPServer("somewhere else again"))
+        assert Counts.started == 1
+
+    def test_the_entry_point_every_surface_calls_is_what_registers(self):
+        """`register_extension_tools` is what the CLI, the Jupyter extension
+        and a tool listing all reach, so it is where this has to happen."""
+        import inspect
+
         from jupyter_mcp_server import server
 
-        server.register_extension_tools()
-        server.register_extension_tools()
-        assert Counts.started == 1
+        assert "register_tools" in inspect.getsource(server.register_extension_tools)
