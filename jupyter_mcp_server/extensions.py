@@ -8,32 +8,60 @@ Extensions are standalone Python packages that plug additional capabilities
 into the server — extra MCP tools, alternative kernel factories, or custom
 ``execute_code`` routing — without the core needing to know about them.
 
-Discovery and lifecycle are powered by :mod:`reactor`, a small
-``pluggy``-based plugin platform. Each extension:
+Discovery, registration and lifecycle are :mod:`reactor_mcp_server`'s, the
+extensible MCP server foundation built on :mod:`reactor`. What that gives this
+server, and what this module used to do by hand:
 
-* is published on the ``jupyter_mcp_server.extensions`` entry-point group,
+* **a tool is a contribution.** An extension declares its tools with
+  :func:`~reactor_mcp_server.tool` and the host collects them, rather than
+  being handed the server and registering functions on it;
+* **a tool can be extended.** An extension narrows, wraps or re-describes a
+  tool *another* extension declared, by name and in a declared order. Before
+  this the only lever was to register a tool of the same name and be loaded
+  second — the SDK keeps the first registration — so which extension won
+  depended on how the entry point names happened to sort;
+* **toolsets.** Tools belong to a named set, and a deployment that serves this
+  through ``reactor_mcp_server``'s application lets a client pick them in the
+  URL (``/mcp?sandboxes``). An extension whose toolset nobody asked for is not
+  registered at all.
+
+What stays here is what is *Jupyter's*: making a code sandbox, intercepting
+``execute_code``, and declaring capabilities.
+
+Each extension:
+
+* is published on the ``reactor.mcp.extensions`` entry-point group,
 * subclasses :class:`JupyterMCPExtension`,
-* is registered with a :class:`~reactor.PluginManifest` so the reactor
-  platform can track versions, compatibility and lifecycle.
+* describes itself with a :class:`~reactor.PluginManifest`.
 
-The first bundled extension is ``jupyter_mcp_sandboxes`` (see ``extensions/sandboxes``),
-which contributes the sandbox lifecycle tools and sandbox-backed execution.
+The first bundled extension is ``jupyter_mcp_sandboxes`` (see
+``extensions/sandboxes``), which contributes the sandbox lifecycle tools and
+sandbox-backed execution.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-from importlib import metadata
-from typing import TYPE_CHECKING, Any, Optional
+from collections.abc import Sequence
+from typing import Any
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from reactor import PluginManifest
+from reactor_mcp_server import (
+    ENTRY_POINT_GROUP,
+    McpExtension,
+    McpHost,
+    ToolSpec,
+    load_extensions,
+)
 
 logger = logging.getLogger(__name__)
 
 #: Entry-point group used to discover installed extensions.
-ENTRY_POINT_GROUP = "jupyter_mcp_server.extensions"
+#:
+#: The foundation's group, not one of this server's own: an extension written
+#: for any ``reactor_mcp_server`` host works here, and one written for this
+#: server works in any other.
+EXTENSION_ENTRY_POINT_GROUP = ENTRY_POINT_GROUP
 
 #: Comma-separated entry-point names to load, to the exclusion of everything
 #: else on the group. Unset or empty means every installed extension, which is
@@ -41,38 +69,28 @@ ENTRY_POINT_GROUP = "jupyter_mcp_server.extensions"
 EXTENSIONS_ENV = "JUPYTER_MCP_EXTENSIONS"
 
 
-class JupyterMCPExtension:
+class JupyterMCPExtension(McpExtension):
     """Base class for Jupyter MCP Server extensions.
 
-    Subclasses override the hooks they care about. Every hook has a safe default
-    so an extension only implements what it needs.
+    Everything :class:`~reactor_mcp_server.McpExtension` offers — tools,
+    extensions of other extensions' tools, toolsets, resources, prompts — plus
+    the three hooks that are about *this* server rather than about MCP.
+
+    Subclasses override what they need; every hook has a safe default.
     """
 
-    def manifest(self) -> "PluginManifest":
-        """Return the reactor manifest describing this extension.
-
-        Subclasses must override this to provide at least a name and version.
-        """
-        raise NotImplementedError
-
-    def register_tools(self, mcp: Any) -> None:
-        """Register MCP tools on the given ``MCPServer`` instance.
-
-        Called once during server startup, after the core tools are registered.
-        """
-
-    def create_code_sandbox(self, config: Any, logger: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, logger: logging.Logger) -> Any | None:
         """Optionally build a kernel for the current configuration.
 
-        Return a kernel-like object (exposing the ``JupyterKernelClient`` interface) to
-        take over kernel creation, or ``None`` to let the core / other extensions
-        handle it.
+        Return a kernel-like object (exposing the ``JupyterKernelClient``
+        interface) to take over kernel creation, or ``None`` to let the core /
+        other extensions handle it.
         """
         return None
 
     async def intercept_execute_code(
         self, code: str, timeout: int
-    ) -> Optional[list[Any]]:
+    ) -> list[Any] | None:
         """Optionally handle an ``execute_code`` call.
 
         Return a list of outputs to short-circuit execution, or ``None`` to let
@@ -90,67 +108,50 @@ class JupyterMCPExtension:
         """
         return []
 
-    def on_start(self) -> None:
-        """Called when the extension platform starts."""
-
-    def on_stop(self) -> None:
-        """Called when the server shuts down. Release resources here."""
-
 
 class ExtensionManager:
     """Discover, register and coordinate :class:`JupyterMCPExtension` plugins.
 
-    Uses a :class:`reactor.PluginPlatform` as the underlying registry
-    for manifests, version compatibility and lifecycle hooks, while dispatching
-    the MCP-specific hooks (tool registration, kernel creation, execute_code
-    interception) to the registered extensions directly.
+    A thin layer over :class:`reactor_mcp_server.McpHost`, which owns the
+    reactor platform: manifests, compatibility, activation events, enablement
+    and disposal are all its. What is added here is the three Jupyter hooks,
+    which are dispatched to the extensions directly.
     """
 
-    def __init__(self) -> None:
-        self._extensions: dict[str, JupyterMCPExtension] = {}
-        self._platform: Any = None
+    def __init__(self, host: McpHost | None = None) -> None:
+        self._host = host or McpHost(name="jupyter-mcp-server")
+        self._extensions: dict[str, McpExtension] = {}
         self._started = False
         self._discovered = False
         self._tools_registered = False
         self._capabilities_collected: set[str] = set()
 
-    def _ensure_platform(self) -> Any:
-        if self._platform is None:
-            try:
-                from reactor import PluginPlatform
-            except ImportError:  # pragma: no cover - optional dependency
-                logger.warning(
-                    "reactor is not installed; extension mechanism disabled."
-                )
-                return None
-            self._platform = PluginPlatform()
-        return self._platform
-
     @property
-    def platform(self) -> Any:
-        """The underlying reactor plugin platform (or ``None`` if unavailable)."""
-        return self._ensure_platform()
+    def host(self) -> McpHost:
+        """The MCP host. What a caller reaches for to build a server."""
+        return self._host
 
-    def register(self, extension: JupyterMCPExtension) -> None:
-        """Register a single extension with the reactor platform."""
-        manifest = extension.manifest()
-        platform = self._ensure_platform()
-        if platform is not None:
-            platform.register_plugin(manifest, extension)
-        self._extensions[manifest.name] = extension
-        logger.info("Registered Jupyter MCP extension: %s", manifest.name)
+    def register(self, extension: McpExtension) -> None:
+        """Register one extension with the platform.
 
-    def get(self, name: str) -> Optional[JupyterMCPExtension]:
-        """The registered extension published under this manifest name.
+        Any :class:`~reactor_mcp_server.McpExtension` is welcome, not only a
+        :class:`JupyterMCPExtension`: an extension written for another
+        ``reactor_mcp_server`` host contributes tools that are valid here, and
+        refusing it would make the entry-point group this server reads a
+        different group in all but name. The three Jupyter hooks are asked for
+        by name below, so an extension that has none simply has none.
+        """
+        if not isinstance(extension, McpExtension):
+            raise TypeError(
+                f"{extension!r} is not an McpExtension; an extension declares "
+                "its tools so a host can collect them"
+            )
+        name = self._host.add(extension)
+        self._extensions[name] = extension
+        self._tools_registered = False
 
-        Extensions are meant to compose — that is what registering them in
-        name order is *for*: one extension narrowing or extending a tool an
-        earlier one put on the server. Composing needs a way to reach the
-        extension being built on, and until now the only route was
-        ``manager._extensions``, another object's private dict. A downstream
-        extension reaching in that way keeps working right up to the day this
-        class stores its extensions differently, and then breaks with an
-        ``AttributeError`` in somebody else's package.
+    def get(self, name: str) -> McpExtension | None:
+        """One registered extension by name, for extensions built on others.
 
         ``None`` for a name that is not registered, because "the extension you
         build on is not installed" is an ordinary configuration, not an error:
@@ -162,17 +163,6 @@ class ExtensionManager:
     def discover(self) -> None:
         """Discover extensions published on the entry-point group.
 
-        Registered in **name order**. `importlib.metadata` returns entry
-        points in whatever order the installation happens to produce, which
-        varies between machines and between a wheel and an editable install —
-        so two extensions that interact would work on one and not the other,
-        and nothing would say why.
-
-        Order matters because registration is not independent: an extension
-        may *replace* a tool another registered, and the SDK keeps the
-        original when a name is registered twice. Sorting by name gives such
-        an extension something it can rely on.
-
         ``JUPYTER_MCP_EXTENSIONS`` narrows discovery to the entry-point names
         it lists. What it is for: the tool surface a client sees is whatever
         happens to be installed beside the server, so an environment carrying
@@ -180,34 +170,33 @@ class ExtensionManager:
         problem when the answer has to be reproducible, as it does for the
         generated reference in ``docs/sourcey``. Unset, every installed
         extension loads, which is what a server should normally do.
+
+        Load order no longer decides anything: an extension that acts on
+        another's tool says so with
+        :meth:`~reactor_mcp_server.McpExtension.tool_extensions` and is applied
+        in a declared order whichever way the names sort.
         """
         if self._discovered:
             return
         self._discovered = True
-        allowed = {
+        allowed = [
             part.strip()
             for part in (os.environ.get(EXTENSIONS_ENV) or "").split(",")
             if part.strip()
-        }
-        try:
-            entry_points = metadata.entry_points(group=ENTRY_POINT_GROUP)
-        except TypeError:  # pragma: no cover - Python < 3.10 compatibility
-            entry_points = metadata.entry_points().get(ENTRY_POINT_GROUP, [])
-        for entry_point in sorted(entry_points, key=lambda point: point.name):
-            if allowed and entry_point.name not in allowed:
-                logger.info(
-                    "Skipping Jupyter MCP extension '%s': %s selects %s",
-                    entry_point.name, EXTENSIONS_ENV, ", ".join(sorted(allowed)),
-                )
-                continue
+        ]
+        # `load_extensions` reads the entry points sorted( ) by name, so two
+        # runs on two machines build the same server. Not for precedence any
+        # more — extending a tool is declared, not raced for.
+        for extension in load_extensions(allowed or None):
             try:
-                factory = entry_point.load()
-                extension = factory() if callable(factory) else factory
                 self.register(extension)
-            except Exception:  # pragma: no cover - defensive
-                logger.exception(
-                    "Failed to load Jupyter MCP extension '%s'", entry_point.name
-                )
+            except Exception:
+                logger.exception("Failed to register extension %r", extension)
+
+    def tools(self) -> Sequence[ToolSpec]:
+        """Every tool the registered extensions offer, extensions applied."""
+        self.discover()
+        return self._host.offered_tools()
 
     def collect_capabilities(self, registry: Any) -> None:
         """Ask every extension what it adds, and record it.
@@ -221,26 +210,34 @@ class ExtensionManager:
         over whatever the operator has set since, and this runs on a resource
         read: any client could turn a capability back on by looking at it.
         """
+        self.discover()
         for name, extension in self._extensions.items():
             if name in self._capabilities_collected:
                 continue
             self._capabilities_collected.add(name)
+            declare = getattr(extension, "capabilities", None)
+            if declare is None:
+                continue
             try:
-                declared = extension.capabilities() or []
-            except Exception:  # noqa: BLE001 - one plugin never breaks the rest
+                declared = declare() or []
+            except Exception:
                 logger.exception("Extension %s could not declare its capabilities", name)
                 continue
             for capability in declared:
                 try:
                     registry.declare(capability)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     logger.exception(
                         "Extension %s declared something that is not a capability: %r",
                         name, capability,
                     )
 
     def register_tools(self, mcp: Any, *, once: bool = False) -> None:
-        """Discover extensions (if needed) and register all their tools.
+        """Put every extension's tools on this server.
+
+        The tools are read from the contributions with every extension of them
+        already applied, so what lands on the server is the resolved tool — not
+        one tool per extension of it, and not whichever one registered first.
 
         Args:
             once: Do nothing if tools have already been registered on this
@@ -253,11 +250,17 @@ class ExtensionManager:
             return
         self.discover()
         self._tools_registered = True
-        for name, extension in self._extensions.items():
+        for spec in self._host.offered_tools():
             try:
-                extension.register_tools(mcp)
-            except Exception:  # pragma: no cover - defensive
-                logger.exception("Extension '%s' failed to register tools", name)
+                mcp.add_tool(
+                    spec.handler,
+                    name=spec.name,
+                    title=spec.title or None,
+                    description=spec.documentation or None,
+                    annotations=spec.annotations,
+                )
+            except Exception:
+                logger.exception("Tool '%s' could not be registered", spec.name)
 
     def start(self) -> None:
         """Start the platform and notify extensions."""
@@ -265,12 +268,10 @@ class ExtensionManager:
         if self._started:
             return
         self._started = True
-        platform = self._ensure_platform()
-        if platform is not None:
-            try:
-                platform.start()
-            except Exception:  # pragma: no cover - defensive
-                logger.exception("Reactor platform failed to start")
+        try:
+            self._host.start()
+        except Exception:  # pragma: no cover - defensive
+            logger.exception("Reactor platform failed to start")
         for name, extension in self._extensions.items():
             try:
                 extension.on_start()
@@ -284,34 +285,20 @@ class ExtensionManager:
                 extension.on_stop()
             except Exception:  # pragma: no cover - defensive
                 logger.exception("Extension '%s' failed on stop", name)
-        platform = self._platform
-        if platform is not None:
-            try:
-                platform.stop()
-            except Exception:  # pragma: no cover - defensive
-                logger.exception("Reactor platform failed to stop")
+        try:
+            self._host.stop()
+        except Exception:  # pragma: no cover - defensive
+            logger.exception("Reactor platform failed to stop")
         self._started = False
 
-    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
         """Ask extensions to build a code sandbox; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
-            if hasattr(extension, "create_kernel") and (
-                type(extension).create_code_sandbox
-                is JupyterMCPExtension.create_code_sandbox
-            ):
-                # An extension built before the factory hook was renamed: its
-                # `create_kernel` would never be called and execution would
-                # silently fall back to a Jupyter kernel that is not there.
-                # Say it, loudly — this is a version mismatch, not a choice.
-                log.warning(
-                    "Extension '%s' defines the legacy 'create_kernel' hook but "
-                    "not 'create_code_sandbox'; it is outdated for this "
-                    "jupyter-mcp-server and its sandboxes will not be used. "
-                    "Upgrade the extension package.",
-                    name,
-                )
-            code_sandbox = extension.create_code_sandbox(config, log)
+            make = getattr(extension, "create_code_sandbox", None)
+            if make is None:
+                continue
+            code_sandbox = make(config, log)
             if code_sandbox is not None:
                 # The caller's logger, as for the warning above: one method,
                 # one logging configuration.
@@ -321,16 +308,20 @@ class ExtensionManager:
 
     async def intercept_execute_code(
         self, code: str, timeout: int
-    ) -> Optional[list[Any]]:
+    ) -> list[Any] | None:
         """Give extensions a chance to handle ``execute_code``."""
+        self.discover()
         for extension in self._extensions.values():
-            result = await extension.intercept_execute_code(code, timeout)
+            intercept = getattr(extension, "intercept_execute_code", None)
+            if intercept is None:
+                continue
+            result = await intercept(code, timeout)
             if result is not None:
                 return result
         return None
 
 
-_EXTENSION_MANAGER: Optional[ExtensionManager] = None
+_EXTENSION_MANAGER: ExtensionManager | None = None
 
 
 def get_extension_manager() -> ExtensionManager:

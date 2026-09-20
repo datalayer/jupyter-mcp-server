@@ -3,7 +3,7 @@
   "mcpVersion": "2025-11-25",
   "server": {
     "name": "Jupyter MCP Server",
-    "version": "2.1.16"
+    "version": "2.2.0"
   },
   "capabilities": {
     "experimental": {},
@@ -716,7 +716,7 @@
         "openWorldHint": true,
         "title": "Launch Sandbox"
       },
-      "description": "Launch a code sandbox that can be used instead of Jupyter kernels.\n\nAfter launch, call use_sandbox to make execute_code run on this sandbox\n(as an alternative to notebook-bound kernel execution). Works in both\nMCP_SERVER and JUPYTER_SERVER modes.\n",
+      "description": "Launch a code sandbox that can be used instead of Jupyter kernels.\n\nAfter launch, call use_sandbox to make execute_code run on this sandbox\n(as an alternative to notebook-bound kernel execution). Works in both\nMCP_SERVER and JUPYTER_SERVER modes.",
       "inputSchema": {
         "properties": {
           "sandbox_name": {

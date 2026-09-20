@@ -10,9 +10,8 @@ Subclass `JupyterMCPExtension` and override only what you need. Every hook has
 a default.
 
 ```python
-from typing import Any
-
 from reactor import PluginCompatibility, PluginManifest
+from reactor_mcp_server import tool
 
 from jupyter_mcp_server.extensions import JupyterMCPExtension
 
@@ -27,17 +26,20 @@ class MyExtension(JupyterMCPExtension):
             compatibility=PluginCompatibility(api_version="v1"),
         )
 
-    def register_tools(self, mcp: Any) -> None:
-        @mcp.tool()
-        async def my_tool(argument: str) -> str:
-            """What it does."""
-            return "…"
+    @tool()
+    async def my_tool(self, argument: str) -> str:
+        """What it does."""
+        return "…"
 ```
+
+A tool is *declared*, not registered: the server collects what extensions
+offer and builds a server from it. The function stays an ordinary method, so a
+test can call it without a server.
 
 Publish it on the entry-point group:
 
 ```toml
-[project.entry-points."jupyter_mcp_server.extensions"]
+[project.entry-points."reactor.mcp.extensions"]
 my-extension = "my_package:MyExtension"
 ```
 
@@ -52,59 +54,40 @@ parsed. An extension asking what the server was pointed at was told the
 default however the server had been invoked — and the only place the intent
 existed yet was `sys.argv`.
 
-That is fixed. `get_config()` inside `register_tools` gives you the truth. If
-you read `sys.argv` to work around it, you can stop.
+That is fixed. `get_config()` inside a tool, or inside `tools()`, gives you
+the truth. If you read `sys.argv` to work around it, you can stop.
 
-**In name order.** This is not cosmetic. Registration is not independent: an
-extension may replace a tool another registered, and the SDK keeps the
-**original** when a name is registered twice. So a replacement that happens to
-run first silently does nothing — no error, no log line, the old tool still
-there.
-
+**In name order**, for reproducibility rather than for precedence.
 `importlib.metadata` returns entry points in whatever order the installation
-produced, which varies between a wheel and an editable install. Sorting by
-name makes it something you can rely on: an extension that must run after
-another can be *named* to.
+produced, which varies between a wheel and an editable install; sorting by
+name makes two runs on two machines build the same server.
 
-```
-sandboxes            registers launch_sandbox
-sandboxes-datalayer  sorts after it, so it can replace it
-```
-
-## Replacing a tool rather than adding one
-
-Remove it first. Registering over a live name does nothing:
-
+Order no longer decides which extension wins. It used to: an extension
+narrowing another's tool had to register a tool of the same name *after* it,
+because the SDK keeps the **original** when a name is registered twice — so a
+replacement that ran first silently did nothing, and whether it ran first
+depended on how the names happened to sort. Extending a tool is now something
+an extension says, not something it has to be named for:
 ```python
-def register_tools(self, mcp: Any) -> None:
-    manager = getattr(mcp, "_tool_manager", None)
-    if manager is not None:
-        try:
-            manager.remove_tool("list_notebooks")
-        except Exception:
-            pass  # never registered; an upstream rename must not stop startup
+class DatalayerSandboxes(JupyterMCPExtension):
+    def tool_extensions(self):
+        def on_datalayer(handler):
+            async def narrowed(sandbox_name: str, environment: str = "ai-env"):
+                return await handler(sandbox_name, variant="datalayer")
+            return narrowed
 
-    @mcp.tool()
-    async def list_notebooks() -> list[dict]:
-        """Yours instead."""
+        return (("launch_sandbox", ToolExtension(
+            wrap=on_datalayer,
+            description="Launch a sandbox on Datalayer.",
+        )),)
 ```
 
-To *wrap* rather than replace — keeping everything the original does after
-some argument is resolved — take its function before removing it:
-
-```python
-original = manager._tools["use_notebook"].fn
-manager.remove_tool("use_notebook")
-
-@mcp.tool()
-async def use_notebook(notebook_name: str, notebook_path: str = "", **rest):
-    """Accepts a name as well as a uid."""
-    return await original(notebook_name=notebook_name,
-                          notebook_path=resolve(notebook_path), **rest)
-```
-
-Wrapping is usually the better bargain: everything after the part you care
-about stays upstream's, and does not rot when upstream changes it.
+`tool_extensions()` names the tool and says what to do to it: wrap the handler,
+replace what a model reads, replace the annotations. They are applied in a
+declared order, whichever order the extensions loaded in, and the result is
+**one** tool rather than two with the same name. An extension of a tool nobody
+offered simply never applies — which is the right behaviour when the thing
+being extended is not installed.
 
 ## Declaring a capability
 
@@ -137,7 +120,9 @@ the others are still collected, and the failure is logged.
 
 | Hook | For |
 |---|---|
-| `register_tools(mcp)` | Add, replace or wrap tools |
+| `tools()` | The tools this extension offers |
+| `tool_extensions()` | What it does to *another* extension's tools |
+| `toolsets()` | The named sets its tools belong to, and whether they are on by default |
 | `capabilities()` | Declare what the server can now do |
 | `create_code_sandbox(config, logger)` | Provide a kernel for a sandbox variant |
 | `intercept_execute_code(code, timeout)` | Handle `execute_code` yourself |

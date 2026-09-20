@@ -44,7 +44,13 @@ SKIP_DIRS = {
 
 
 def decorated_functions(source: str):
-    """Every function this module decorates with `@mcp.tool` / `@mcp.prompt`.
+    """Every function this module registers as a tool or a prompt.
+
+    Two spellings, because there are two: `@mcp.tool` / `@mcp.prompt`, where an
+    extension is handed a server, and `@tool` from `reactor_mcp_server`, where
+    it declares what it offers and the host collects it. A generator that knew
+    only the first would leave every declared tool out of the reference, and
+    `build_pages.mjs` would fail on the first page that names one.
 
     Parsed rather than matched. A regex for the decorator finds it in prose
     too — a docstring saying "applied under `@mcp.tool`" reads as a
@@ -67,6 +73,28 @@ def decorated_functions(source: str):
                 and call.attr in ("tool", "prompt")
             ):
                 yield call.attr, node.name
+                break
+            # `@tool()` / `@tool(title=…)` from reactor_mcp_server. A bare
+            # name, so the check is the name itself — and `tool` is not a
+            # decorator anything else in this tree uses.
+            if isinstance(call, ast.Name) and call.id == "tool":
+                yield "tool", node.name
+                break
+
+    # `ToolSpec(name="launch_sandbox", handler=launch_sandbox, …)`, the other
+    # way a tool is offered. The name is written down here rather than taken
+    # from a function's `__name__`, which is the point of it — so this reads
+    # the name it was given rather than guessing from the handler.
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        called = node.func
+        if not (isinstance(called, ast.Name) and called.id == "ToolSpec"):
+            continue
+        for keyword in node.keywords:
+            if keyword.arg == "name" and isinstance(keyword.value, ast.Constant):
+                if isinstance(keyword.value.value, str) and keyword.value.value:
+                    yield "tool", keyword.value.value
                 break
 
 
