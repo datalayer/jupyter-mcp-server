@@ -218,26 +218,38 @@ class TestTheExtensionsAreStarted:
     registered an execution hook there registered it nowhere.
     """
 
-    def test_registering_the_tools_starts_them(self):
+    @pytest.fixture
+    def manager(self, monkeypatch):
+        """A manager of this test's own, where `register_extension_tools`
+        looks for one.
+
+        The module keeps a singleton, and whatever ran before this in the
+        session has usually started it already — so a test using it would be
+        asking whether it was *still* started, which is true whether or not
+        registering the tools starts anything.
+        """
+        from jupyter_mcp_server import server
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        fresh = ExtensionManager()
+        monkeypatch.setattr(server, "extension_manager", fresh)
+        Counts.started = 0
+        fresh.register(Counts())
+        try:
+            yield fresh
+        finally:
+            fresh.stop()
+
+    def test_registering_the_tools_starts_them(self, manager):
         from jupyter_mcp_server import server
 
-        Counts.started = 0
-        server.extension_manager.register(Counts())
-        try:
-            server.register_extension_tools()
-            assert Counts.started == 1
-        finally:
-            server.extension_manager.stop()
+        server.register_extension_tools()
+        assert Counts.started == 1
 
-    def test_and_starting_twice_starts_nothing_twice(self):
+    def test_and_starting_twice_starts_nothing_twice(self, manager):
         """Every entry point calls it, and one of them is a tool listing."""
         from jupyter_mcp_server import server
 
-        Counts.started = 0
-        server.extension_manager.register(Counts())
-        try:
-            server.register_extension_tools()
-            server.register_extension_tools()
-            assert Counts.started == 1
-        finally:
-            server.extension_manager.stop()
+        server.register_extension_tools()
+        server.register_extension_tools()
+        assert Counts.started == 1
