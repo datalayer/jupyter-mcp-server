@@ -179,6 +179,17 @@ class ExtensionManager:
         if self._discovered:
             return
         self._discovered = True
+        # This server's own tools first, so an extension that narrows one is
+        # narrowing something the host already knows about. Registered here
+        # rather than published on the entry-point group: it contributes what
+        # this distribution ships, and a distribution cannot be missing
+        # itself.
+        from jupyter_mcp_server.core_tools import CoreToolsExtension  # noqa: PLC0415
+
+        try:
+            self.register(CoreToolsExtension())
+        except Exception:  # pragma: no cover - defensive
+            logger.exception("This server could not offer its own tools")
         allowed = [
             part.strip()
             for part in (os.environ.get(EXTENSIONS_ENV) or "").split(",")
@@ -252,6 +263,18 @@ class ExtensionManager:
         self._tools_registered = True
         for spec in self._host.offered_tools():
             try:
+                # Off first, on second. The SDK keeps the tool that was
+                # registered first and warns, so a name already on the server
+                # — every one of this server's own, and any tool an extension
+                # narrowed — would keep the unextended version and say so in
+                # a log nobody reads. What the host resolved is what a client
+                # should get.
+                remove = getattr(mcp, "remove_tool", None)
+                if callable(remove):
+                    try:
+                        remove(spec.name)
+                    except Exception:  # noqa: BLE001 - it was not there
+                        pass
                 mcp.add_tool(
                     spec.handler,
                     name=spec.name,
@@ -261,6 +284,24 @@ class ExtensionManager:
                 )
             except Exception:
                 logger.exception("Tool '%s' could not be registered", spec.name)
+        # Started here, which is what fires `on_start`: an extension with work
+        # to do once — registering a hook, opening a client — does it where
+        # its tools have just been put on a server, and every entry point
+        # reaches this. Idempotent, so calling it again starts nothing again.
+        self.start()
+        # What an extension does to the server itself, once its tools are on
+        # it: take one off, add a resource, read what else was offered. A
+        # host building a server per toolset does this too, and an entry
+        # point that serves this one server would otherwise be the only place
+        # where it silently did not happen.
+        for name, extension in self._extensions.items():
+            act = getattr(extension, "on_server", None)
+            if act is None:
+                continue
+            try:
+                act(mcp)
+            except Exception:
+                logger.exception("Extension '%s' failed acting on the server", name)
 
     def start(self) -> None:
         """Start the platform and notify extensions."""

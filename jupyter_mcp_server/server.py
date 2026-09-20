@@ -1972,6 +1972,22 @@ async def get_registered_tools():
 # Extension registration.
 
 
+#: The tools this server ships itself, by the name a client calls them.
+#:
+#: Read off the server once, here, because every one of them was put there by
+#: a decorator at import time and this line runs after the last of them. What
+#: it is for: :class:`~jupyter_mcp_server.core_tools.CoreToolsExtension` offers
+#: these as contributions, so that an extension can narrow one by name and a
+#: host serving toolsets can build a server that has them — neither of which
+#: is possible for a tool that exists only as a registration on this module's
+#: own server.
+#:
+#: Taken before any extension registers, so it names what is *ours*: an
+#: extension's tools land on this same server later, and lifting those back
+#: into contributions would offer each of them twice.
+SCAFFOLD_TOOLS: tuple[str, ...] = tuple(mcp._tool_manager._tools)
+
+
 def register_extension_tools() -> None:
     """Let installed extensions contribute their tools — after configuration.
 
@@ -1986,12 +2002,19 @@ def register_extension_tools() -> None:
 
     Called after configuration by every entry point, and idempotent, so none
     of them has to know whether another got there first. Extensions are
-    resolved through the ``jupyter_mcp_server.extensions`` entry-point group
-    and coordinated by the reactor plugin platform.
+    resolved through the ``reactor.mcp.extensions`` entry-point group and
+    coordinated by the reactor plugin platform.
 
     What they declare goes into the registry here too, so a tool that consults
     a capability on the request path sees it. Collected only on a read of
     ``capabilities://``, it was absent until somebody happened to look.
+
+    And **started**, which is what fires ``on_start``: this is where
+    configuration has been read and the tools are on the server.
     """
+    # Registering starts them, which is what fires `on_start`. Nothing
+    # started the platform before, so it was a hook the documentation
+    # described and no entry point ever reached; `stop()` is called on
+    # shutdown, on `/api/stop`.
     extension_manager.register_tools(mcp, once=True)
     extension_manager.collect_capabilities(get_capabilities())
