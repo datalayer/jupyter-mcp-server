@@ -337,9 +337,9 @@ class TestExtensionsRegisterAfterConfiguration:
         Jupyter Server extension, the tool listing — and none of them has to
         know whether another got there first."""
         from reactor import PluginManifest
+        from reactor_mcp_server import tool
 
         from jupyter_mcp_server.extensions import ExtensionManager, JupyterMCPExtension
-        from reactor_mcp_server import tool
 
         class Counting(JupyterMCPExtension):
             def manifest(self):
@@ -411,9 +411,9 @@ class TestOneExtensionActingOnAnothersTool:
     @staticmethod
     def _pair():
         from reactor import PluginManifest
+        from reactor_mcp_server import ToolExtension, tool
 
         from jupyter_mcp_server.extensions import JupyterMCPExtension
-        from reactor_mcp_server import ToolExtension, tool
 
         class Offers(JupyterMCPExtension):
             def manifest(self):

@@ -43,7 +43,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from reactor_mcp_server import (
     ENTRY_POINT_GROUP,
@@ -78,7 +79,7 @@ class JupyterMCPExtension(McpExtension):
     Subclasses override what they need; every hook has a safe default.
     """
 
-    def create_code_sandbox(self, config: Any, logger: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, logger: logging.Logger) -> Any | None:
         """Optionally build a kernel for the current configuration.
 
         Return a kernel-like object (exposing the ``JupyterKernelClient``
@@ -89,7 +90,7 @@ class JupyterMCPExtension(McpExtension):
 
     async def intercept_execute_code(
         self, code: str, timeout: int
-    ) -> Optional[list[Any]]:
+    ) -> list[Any] | None:
         """Optionally handle an ``execute_code`` call.
 
         Return a list of outputs to short-circuit execution, or ``None`` to let
@@ -117,7 +118,7 @@ class ExtensionManager:
     which are dispatched to the extensions directly.
     """
 
-    def __init__(self, host: Optional[McpHost] = None) -> None:
+    def __init__(self, host: McpHost | None = None) -> None:
         self._host = host or McpHost(name="jupyter-mcp-server")
         self._extensions: dict[str, JupyterMCPExtension] = {}
         self._started = False
@@ -141,7 +142,7 @@ class ExtensionManager:
         self._extensions[name] = extension
         self._tools_registered = False
 
-    def get(self, name: str) -> Optional[JupyterMCPExtension]:
+    def get(self, name: str) -> JupyterMCPExtension | None:
         """One registered extension by name, for extensions built on others.
 
         ``None`` for a name that is not registered, because "the extension you
@@ -175,6 +176,9 @@ class ExtensionManager:
             for part in (os.environ.get(EXTENSIONS_ENV) or "").split(",")
             if part.strip()
         ]
+        # `load_extensions` reads the entry points sorted( ) by name, so two
+        # runs on two machines build the same server. Not for precedence any
+        # more — extending a tool is declared, not raced for.
         for extension in load_extensions(allowed or None):
             if not isinstance(extension, JupyterMCPExtension):
                 logger.warning(
@@ -184,7 +188,7 @@ class ExtensionManager:
                 continue
             try:
                 self.register(extension)
-            except Exception:  # noqa: BLE001 - one plugin never breaks the rest
+            except Exception:
                 logger.exception("Failed to register extension %r", extension)
 
     def tools(self) -> Sequence[ToolSpec]:
@@ -211,13 +215,13 @@ class ExtensionManager:
             self._capabilities_collected.add(name)
             try:
                 declared = extension.capabilities() or []
-            except Exception:  # noqa: BLE001 - one plugin never breaks the rest
+            except Exception:
                 logger.exception("Extension %s could not declare its capabilities", name)
                 continue
             for capability in declared:
                 try:
                     registry.declare(capability)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     logger.exception(
                         "Extension %s declared something that is not a capability: %r",
                         name, capability,
@@ -250,7 +254,7 @@ class ExtensionManager:
                     description=spec.documentation or None,
                     annotations=spec.annotations,
                 )
-            except Exception:  # noqa: BLE001 - one tool never breaks the rest
+            except Exception:
                 logger.exception("Tool '%s' could not be registered", spec.name)
 
     def start(self) -> None:
@@ -282,7 +286,7 @@ class ExtensionManager:
             logger.exception("Reactor platform failed to stop")
         self._started = False
 
-    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Optional[Any]:
+    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
         """Ask extensions to build a code sandbox; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
@@ -296,7 +300,7 @@ class ExtensionManager:
 
     async def intercept_execute_code(
         self, code: str, timeout: int
-    ) -> Optional[list[Any]]:
+    ) -> list[Any] | None:
         """Give extensions a chance to handle ``execute_code``."""
         self.discover()
         for extension in self._extensions.values():
@@ -306,7 +310,7 @@ class ExtensionManager:
         return None
 
 
-_EXTENSION_MANAGER: Optional[ExtensionManager] = None
+_EXTENSION_MANAGER: ExtensionManager | None = None
 
 
 def get_extension_manager() -> ExtensionManager:

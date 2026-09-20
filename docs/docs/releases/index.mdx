@@ -4,6 +4,64 @@
 
 See the latest release notes on the [GitHub Releases page](https://github.com/datalayer/jupyter-mcp-server/releases).
 
+## Jupyter MCP Server 2.2
+
+**Extensions are built on [`reactor_mcp_server`](https://pypi.org/project/reactor-mcp-server/) now.** The mechanism this
+server grew for itself — a base class, a manager, an entry-point group — is
+released as a foundation any MCP server can use, and this one uses it. Nothing
+changes for a client: the same tools, the same calls, the same transports.
+
+### A tool is declared, not registered
+
+An extension used to be handed the server and register functions on it. It now
+*offers* its tools, and the server collects them:
+
+```python
+class MyExtension(JupyterMCPExtension):
+    @tool()
+    async def my_tool(self, argument: str) -> str:
+        """What it does."""
+        return "…"
+```
+
+What that buys is the next part.
+
+### Extending another extension's tool is something you say
+
+An extension that wanted to narrow somebody else's tool had exactly one lever:
+register a tool of the same name and be loaded **second**, because the SDK keeps
+the first registration. Whether it worked depended on how two distributions'
+entry point names happened to sort — it worked where it was written and
+silently did nothing elsewhere.
+
+```python
+def tool_extensions(self):
+    return (("launch_sandbox", ToolExtension(
+        wrap=on_datalayer,
+        description="Launch a sandbox on Datalayer.",
+    )),)
+```
+
+Applied by name, in a declared order, whichever order the extensions loaded
+in — and the result is one tool rather than two with the same name.
+
+### Toolsets, and a URL that picks them
+
+Tools belong to a named toolset. A host serving through the foundation's
+application lets a client choose in the URL it connects to —
+`/mcp?sandboxes` — and an extension whose toolset nobody asked for is never
+registered at all.
+
+### Breaking changes
+
+| Was | Is |
+|---|---|
+| `JupyterMCPExtension.register_tools(mcp)` | `tools()`, or `@tool`-decorated methods |
+| entry-point group `jupyter_mcp_server.extensions` | `reactor.mcp.extensions` |
+| narrow a tool by re-registering its name, sorted later | `tool_extensions()` |
+
+`jupyter-mcp-sandboxes` 0.2.4 is migrated with it.
+
 ## Jupyter MCP Server 2.1
 
 Most of 2.1 is about the same thing: **a server does work a client cannot see,
