@@ -118,5 +118,5 @@ class TestTheToolSurfaceIsProviderNeutral:
 
         from jupyter_mcp_sandboxes import extension
 
-        source = inspect.getsource(extension.SandboxesExtension.register_tools)
+        source = inspect.getsource(extension.SandboxesExtension.tools)
         assert "Datalayer API token override" not in source

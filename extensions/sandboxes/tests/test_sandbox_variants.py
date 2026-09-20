@@ -373,22 +373,14 @@ def test_extension_create_kernel_supports_non_kernel_variant():
     fake_sandbox_client.start.assert_called_once_with()
 
 
-class _FakeMCP:
-    def __init__(self):
-        self.tools = {}
-
-    def tool(self, **_kwargs):
-        def _decorator(func):
-            self.tools[func.__name__] = func
-            return func
-
-        return _decorator
+def _tools_of(extension) -> dict:
+    """The extension's tools by name, as the host would collect them."""
+    return {spec.name: spec.handler for spec in extension.tools()}
 
 
 @pytest.mark.asyncio
 async def test_launch_sandbox_defaults_to_configured_non_jupyter_variant():
     extension = SandboxesExtension()
-    mcp = _FakeMCP()
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
 
     with (
@@ -403,8 +395,8 @@ async def test_launch_sandbox_defaults_to_configured_non_jupyter_variant():
             return_value={"message": "ok", "sandbox": {}},
         ) as mock_execute,
     ):
-        extension.register_tools(mcp)
-        await mcp.tools["launch_sandbox"](sandbox_name="my_sandbox")
+        tools = _tools_of(extension)
+        await tools["launch_sandbox"](sandbox_name="my_sandbox")
 
     assert mock_execute.await_args.kwargs["variant"] == "monty"
 
@@ -412,7 +404,6 @@ async def test_launch_sandbox_defaults_to_configured_non_jupyter_variant():
 @pytest.mark.asyncio
 async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
     extension = SandboxesExtension()
-    mcp = _FakeMCP()
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
 
     with (
@@ -427,8 +418,8 @@ async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
             return_value={"message": "ok", "sandbox": {}},
         ) as mock_execute,
     ):
-        extension.register_tools(mcp)
-        await mcp.tools["launch_sandbox"](sandbox_name="my_sandbox")
+        tools = _tools_of(extension)
+        await tools["launch_sandbox"](sandbox_name="my_sandbox")
 
     assert mock_execute.await_args.kwargs["variant"] == "eval"
 
@@ -436,7 +427,6 @@ async def test_launch_sandbox_defaults_to_eval_for_jupyter_configured_variant():
 @pytest.mark.asyncio
 async def test_launch_sandbox_kaggle_variant_forwards_code_sandbox_fields():
     extension = SandboxesExtension()
-    mcp = _FakeMCP()
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
 
     with (
@@ -451,8 +441,8 @@ async def test_launch_sandbox_kaggle_variant_forwards_code_sandbox_fields():
             return_value={"message": "ok", "sandbox": {}},
         ) as mock_execute,
     ):
-        extension.register_tools(mcp)
-        await mcp.tools["launch_sandbox"](
+        tools = _tools_of(extension)
+        await tools["launch_sandbox"](
             sandbox_name="kaggle-sbx",
             variant="kaggle",
             server_url="https://kaggle.example/proxy",
