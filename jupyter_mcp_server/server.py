@@ -2002,12 +2002,15 @@ def register_extension_tools() -> None:
 
     Called after configuration by every entry point, and idempotent, so none
     of them has to know whether another got there first. Extensions are
-    resolved through the ``jupyter_mcp_server.extensions`` entry-point group
-    and coordinated by the reactor plugin platform.
+    resolved through the ``reactor.mcp.extensions`` entry-point group and
+    coordinated by the reactor plugin platform.
 
     What they declare goes into the registry here too, so a tool that consults
     a capability on the request path sees it. Collected only on a read of
     ``capabilities://``, it was absent until somebody happened to look.
+
+    And **started**, which is what fires ``on_start``: this is where
+    configuration has been read and the tools are on the server.
     """
     extension_manager.register_tools(mcp, once=True)
     extension_manager.collect_capabilities(get_capabilities())
