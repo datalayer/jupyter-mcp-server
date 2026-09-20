@@ -385,10 +385,19 @@ class TestThePageSaysWhatHappens:
         assert "`notebook://{name}` in" in page
         assert notifications.notebook_uri("x") == "notebook://x"
 
-    def test_it_still_says_another_party_is_not_covered(self):
-        """A negative claim: nothing about adding a persistent observer later
-        makes anybody re-read the paragraph explaining its absence."""
-        assert "A change by somebody else is not covered" in self._page()
+    def test_it_says_another_party_s_change_is_covered_by_a_watcher(self):
+        """The claim flipped, and the code is what flipped it.
+
+        The page warned that a person typing in JupyterLab is not seen. The
+        watcher is the persistent connection that changed that, and it is on
+        unless a deployment turns it off — so the page and the default are
+        held together here rather than drifting apart again.
+        """
+        from jupyter_mcp_server import watchers
+
+        assert "A change by somebody else *is* covered, by a watcher" in self._page()
+        assert watchers.ENABLED_ENV == "JUPYTER_MCP_WATCH_NOTEBOOKS"
+        assert watchers.enabled() is True
 
 
 class TestOneTestsSubscriptionsAreNotAnothers:
