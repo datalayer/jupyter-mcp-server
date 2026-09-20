@@ -78,6 +78,13 @@ a hook the documentation described and no entry point ever reached — an
 extension that registered an execution hook there registered it nowhere. It
 fires where the tools are registered, after the command line has been read.
 
+**`jupyter-mcp-sandboxes` 0.2.5** names its toolset `sandboxes`. A tool that
+names no toolset goes in one named after its plugin, so the four lifecycle
+tools were in `jupyter-mcp-sandboxes` — a package name, not something a
+client would put in a URL — and a deployment adding its own sandbox tools
+under `sandboxes` split the two: `?only=sandboxes` answered with tools that
+each need a sandbox and no way to launch one.
+
 ## Jupyter MCP Server 2.1
 
 Most of 2.1 is about the same thing: **a server does work a client cannot see,
