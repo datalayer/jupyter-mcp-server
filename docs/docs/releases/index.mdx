@@ -62,6 +62,22 @@ registered at all.
 
 `jupyter-mcp-sandboxes` 0.2.4 is migrated with it.
 
+### 2.2.1
+
+**This server's own tools are contributions too.** `use_notebook`,
+`execute_cell`, `list_notebooks` and the other seventeen are offered by a
+built-in extension, in the `notebooks` toolset. Two things follow: an
+extension can narrow one by naming it in `tool_extensions()`, instead of
+reaching into the running server's tool manager to take the original off and
+register a replacement; and a host that builds a server per toolset selection
+builds one that *has* them — `/mcp?only=notebooks` is the notebook tools and
+nothing else.
+
+**`on_start()` is called.** Nothing started the extension platform, so it was
+a hook the documentation described and no entry point ever reached — an
+extension that registered an execution hook there registered it nowhere. It
+fires where the tools are registered, after the command line has been read.
+
 ## Jupyter MCP Server 2.1
 
 Most of 2.1 is about the same thing: **a server does work a client cannot see,

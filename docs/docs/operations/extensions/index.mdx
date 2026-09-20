@@ -89,6 +89,26 @@ declared order, whichever order the extensions loaded in, and the result is
 offered simply never applies — which is the right behaviour when the thing
 being extended is not installed.
 
+**The server's own tools can be extended the same way.** `use_notebook`,
+`execute_cell`, `list_notebooks` and the rest are offered by a built-in
+extension named `jupyter-mcp-server`, in the `notebooks` toolset — so naming
+one in `tool_extensions()` narrows it, and a client that wants only those
+connects to `/mcp?only=notebooks`. Nothing has to reach into the running
+server's tool manager to take a tool off and register a replacement.
+
+## `on_start`, and when it fires
+
+An extension with work to do once — registering a hook, opening a client —
+does it in `on_start()`. It is called when the server's tools are registered,
+which is after the command line has been read: `get_config()` answers there.
+`on_stop()` is called when the server shuts down.
+
+`on_server(server)` is different and rarer: it is handed the built server
+itself, after every extension's tools are on it, for the things a tool list
+cannot express — taking a tool off, say, because the deployment it runs on has
+nothing for it to talk to. It is called once per server built, and a host that
+builds one per toolset selection calls it for each.
+
 ## Declaring a capability
 
 If your extension genuinely lets the server do something, say so, rather than
@@ -127,6 +147,7 @@ the others are still collected, and the failure is logged.
 | `create_code_sandbox(config, logger)` | Provide a kernel for a sandbox variant |
 | `intercept_execute_code(code, timeout)` | Handle `execute_code` yourself |
 | `on_start()` / `on_stop()` | Acquire and release resources |
+| `on_server(server)` | Act on a built server, once its tools are on it |
 
 For observing calls rather than changing them — logging, metrics, auditing —
 use [Hooks](/operations/hooks) instead: they fire around every tool call and
