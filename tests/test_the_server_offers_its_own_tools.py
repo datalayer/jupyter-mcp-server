@@ -84,6 +84,70 @@ class TestAHostBuildsAServerThatHasThem:
         assert set(built.tool_names) == set(SCAFFOLD_TOOLS)
 
 
+class TestABuiltServerIsFurnished:
+    """A built server is not only its tools.
+
+    `initialize` is where a client learns whether this server does
+    subscriptions, and a client that reads "no" does not then ask — so a
+    built server missing the handler is worse than one missing a tool, which
+    at least fails loudly when something calls it.
+    """
+
+    @pytest.fixture(scope="class")
+    def built(self):
+        manager = ExtensionManager()
+        manager.discover()
+        return manager.host.build().server
+
+    def test_it_serves_the_methods_this_server_added(self, built):
+        from mcp.server.mcpserver import MCPServer
+
+        added = set(built._lowlevel_server._request_handlers) - set(
+            MCPServer("bare")._lowlevel_server._request_handlers
+        )
+        assert {"resources/subscribe", "resources/unsubscribe", "logging/setLevel"} <= added
+
+    def test_and_says_so_when_a_client_asks(self, built):
+        capabilities = built._lowlevel_server.get_capabilities(
+            notification_options=None, experimental_capabilities={}
+        )
+        assert capabilities.resources.subscribe is True
+
+    def test_it_has_the_resources(self, built):
+        assert "capabilities://" in built._resource_manager._resources
+        assert built._resource_manager._templates
+
+    def test_it_has_the_prompt(self, built):
+        assert "jupyter_cite" in built._prompt_manager._prompts
+
+    def test_it_has_the_management_routes(self, built):
+        served = {getattr(route, "path", None) for route in built._custom_starlette_routes}
+        assert {"/api/healthz", "/api/connect", "/api/stop"} <= served
+
+    def test_what_the_built_server_already_had_is_not_replaced(self):
+        """An extension that put its own `capabilities://` on the server it
+        was handed meant that one."""
+        from mcp.server.mcpserver import MCPServer
+
+        from jupyter_mcp_server.core_tools import furnish
+        from jupyter_mcp_server.server import mcp
+
+        target = MCPServer("target")
+        mine = object()
+        target._resource_manager._resources["capabilities://"] = mine
+        furnish(target, mcp)
+        assert target._resource_manager._resources["capabilities://"] is mine
+
+    def test_furnishing_the_module_server_is_not_attempted(self):
+        """It has its own, and putting them back is a duplicate registration
+        at best."""
+        from jupyter_mcp_server.server import mcp
+
+        before = dict(mcp._resource_manager._resources)
+        CoreToolsExtension().on_server(mcp)
+        assert mcp._resource_manager._resources == before
+
+
 class Narrows(McpExtension):
     """An extension of a tool the server itself ships."""
 

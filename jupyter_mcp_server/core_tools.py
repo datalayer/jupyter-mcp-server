@@ -23,6 +23,15 @@ So they are contributed here, by one extension that is registered like any
 other. Nothing about how they are written changes: the decorators stay, the
 names stay, and this reads what they registered.
 
+The same is true of everything else the module-level server holds — its
+resources, its prompt, the request handlers for `resources/subscribe`,
+`logging/setLevel` and the task methods, and the management routes — but none
+of that is a contribution and some of it could not be one. A built server is
+*furnished* with them instead, on `on_server`, which is the hook for what a
+tool list cannot express. Leaving them out is worse than losing the tools:
+`initialize` would tell a client this server does not do subscriptions, and a
+client that reads the capability does not then ask.
+
 @module jupyter_mcp_server.core_tools
 """
 
@@ -90,6 +99,16 @@ class CoreToolsExtension(McpExtension):
             self._lifted = tuple(self._lift())
         return self._lifted
 
+    def on_server(self, server: Any) -> None:
+        """Furnish a built server with everything else this one registers."""
+        from jupyter_mcp_server.server import mcp  # noqa: PLC0415
+
+        if server is mcp:
+            # The module server already has its own; putting them back would
+            # be a no-op at best and a duplicate-registration warning at worst.
+            return
+        furnish(server, mcp)
+
     def _lift(self) -> list[ToolSpec]:
         from jupyter_mcp_server.server import SCAFFOLD_TOOLS, mcp  # noqa: PLC0415
 
@@ -111,3 +130,55 @@ class CoreToolsExtension(McpExtension):
                 )
             )
         return specs
+
+
+def furnish(target: Any, source: Any) -> None:
+    """Give `target` what `source` holds besides its tools.
+
+    Resources, templates, prompts, the request handlers registered on the
+    low-level server, and the management routes. Each is copied only where
+    the target has nothing under that name: an extension that put its own
+    `capabilities://` on the server it was handed meant that one.
+
+    Reaching into the SDK's registries, deliberately and in one place. There
+    is no public "register what that server registered", and the alternative
+    — every deployment that builds its own server rediscovering which
+    internals to copy — is the same reach, spread out and unversioned.
+
+    Never raises: a server without the notebook resources still serves
+    notebooks, and failing the build over the furniture would take the tools
+    with it.
+    """
+    try:
+        registry = target._resource_manager
+        held = source._resource_manager
+        for uri, resource in held._resources.items():
+            registry._resources.setdefault(uri, resource)
+        for uri, template in held._templates.items():
+            registry._templates.setdefault(uri, template)
+    except Exception:  # noqa: BLE001 - the SDK moved its registry
+        logger.exception("The built server has none of this server's resources")
+
+    try:
+        for name, prompt in source._prompt_manager._prompts.items():
+            target._prompt_manager._prompts.setdefault(name, prompt)
+    except Exception:  # noqa: BLE001
+        logger.exception("The built server has none of this server's prompts")
+
+    try:
+        handlers = target._lowlevel_server._request_handlers
+        for method, entry in source._lowlevel_server._request_handlers.items():
+            handlers.setdefault(method, entry)
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "The built server serves none of this server's extra methods; "
+            "subscriptions and tasks will be missing from what it advertises"
+        )
+
+    try:
+        known = {getattr(route, "path", None) for route in target._custom_starlette_routes}
+        for route in source._custom_starlette_routes:
+            if getattr(route, "path", None) not in known:
+                target._custom_starlette_routes.append(route)
+    except Exception:  # noqa: BLE001
+        logger.exception("The built server serves none of this server's own routes")
