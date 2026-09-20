@@ -336,27 +336,35 @@ class TestExtensionsRegisterAfterConfiguration:
         """Every entry point calls it — the CLI after configuring, the
         Jupyter Server extension, the tool listing — and none of them has to
         know whether another got there first."""
+        from reactor import PluginManifest
+
         from jupyter_mcp_server.extensions import ExtensionManager, JupyterMCPExtension
+        from reactor_mcp_server import tool
 
         class Counting(JupyterMCPExtension):
-            def __init__(self):
-                self.times = 0
-
             def manifest(self):
-                from reactor import PluginManifest
-
                 return PluginManifest(name="counting", version="1.0.0")
 
-            def register_tools(self, mcp):
-                self.times += 1
+            @tool()
+            async def counted(self) -> str:
+                """A tool, so there is something to register."""
+                return "counted"
+
+        class Server:
+            def __init__(self):
+                self.added = []
+
+            def add_tool(self, handler, **kwargs):
+                self.added.append(kwargs.get("name"))
 
         manager = ExtensionManager()
-        counting = Counting()
-        manager._extensions = {"counting": counting}
+        manager.register(Counting())
         manager._discovered = True
-        manager.register_tools(object(), once=True)
-        manager.register_tools(object(), once=True)
-        assert counting.times == 1
+        server = Server()
+        manager.register_tools(server, once=True)
+        manager.register_tools(server, once=True)
+
+        assert server.added == ["counted"]
 
     def test_the_cli_registers_after_it_has_configured(self):
         """The fix itself, and the order is the whole of it.
@@ -387,56 +395,80 @@ class TestExtensionsRegisterAfterConfiguration:
         assert "register_extension_tools()" in inspect.getsource(get_registered_tools)
 
 
-class TestExtensionsRegisterInAOrderTheyCanRelyOn:
-    """Registration is not independent, so the order cannot be accidental.
+class TestOneExtensionActingOnAnothersTool:
+    """Which extension wins is no longer a question about load order.
 
-    An extension may replace a tool another registered — the hosted gateway's
-    sandboxes extension narrows the scaffold's `launch_sandbox` — and the SDK
-    keeps the *original* when a name is registered twice. So a replacement
-    that runs first silently does nothing.
+    It used to be one. An extension that narrowed another's tool — the hosted
+    gateway's sandboxes extension narrows the scaffold's `launch_sandbox` —
+    had to register a tool of the same name *after* it, because the SDK keeps
+    the original when a name is registered twice. Entry points come back in
+    whatever order the installation produced, so the narrowing worked where
+    the names happened to sort right and silently did nothing elsewhere.
 
-    `importlib.metadata` returns entry points in whatever order the
-    installation produced. It varies between machines and between a wheel and
-    an editable install, which is the worst kind of ordering bug: it works
-    where it was written.
+    An extension now says which tool it acts on, and the host applies it.
     """
 
-    def test_they_are_registered_in_name_order(self):
+    @staticmethod
+    def _pair():
+        from reactor import PluginManifest
+
+        from jupyter_mcp_server.extensions import JupyterMCPExtension
+        from reactor_mcp_server import ToolExtension, tool
+
+        class Offers(JupyterMCPExtension):
+            def manifest(self):
+                return PluginManifest(name="zebra", version="1.0.0")
+
+            @tool()
+            async def launch_sandbox(self, name: str) -> str:
+                """Launch one."""
+                return f"launched {name}"
+
+        class Narrows(JupyterMCPExtension):
+            def manifest(self):
+                return PluginManifest(name="alpha", version="1.0.0")
+
+            def tool_extensions(self):
+                return (
+                    (
+                        "launch_sandbox",
+                        ToolExtension(description="Launch one on Datalayer."),
+                    ),
+                )
+
+        return Offers, Narrows
+
+    def test_the_narrowing_applies_whichever_order_they_load_in(self):
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        offers, narrows = self._pair()
+        outcomes = []
+        for order in ((offers, narrows), (narrows, offers)):
+            manager = ExtensionManager()
+            for extension in order:
+                manager.register(extension())
+            manager._discovered = True
+            [spec] = manager.tools()
+            outcomes.append(spec.documentation)
+
+        assert outcomes == ["Launch one on Datalayer."] * 2
+
+    def test_it_is_one_tool_not_two_of_the_same_name(self):
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        offers, narrows = self._pair()
+        manager = ExtensionManager()
+        manager.register(offers())
+        manager.register(narrows())
+        manager._discovered = True
+
+        assert [spec.name for spec in manager.tools()] == ["launch_sandbox"]
+
+    def test_discovery_is_still_in_a_defined_order(self):
+        """Not for overriding any more — for reproducibility. Two runs on two
+        machines should build the same server."""
         import inspect
 
-        from jupyter_mcp_server.extensions import ExtensionManager
+        from reactor_mcp_server import extension as foundation
 
-        source = inspect.getsource(ExtensionManager.discover)
-        assert "sorted(" in source, "entry points are registered in arbitrary order"
-
-    def test_the_order_is_the_one_extensions_are_told_about(self, monkeypatch):
-        """Sorted by name, so an extension wanting to run after another can
-        be named to. Proven by driving the manager rather than by reading it."""
-        from jupyter_mcp_server.extensions import ExtensionManager
-
-        registered: list[str] = []
-
-        class _Point:
-            def __init__(self, name):
-                self.name = name
-
-            def load(self):
-                def factory():
-                    registered.append(self.name)
-                    return _Noop()
-
-                return factory
-
-        class _Noop:
-            def manifest(self):
-                from reactor import PluginManifest
-
-                return PluginManifest(name=registered[-1], version="0.0.1")
-
-        manager = ExtensionManager()
-        monkeypatch.setattr(
-            "jupyter_mcp_server.extensions.metadata.entry_points",
-            lambda group=None: [_Point("zebra"), _Point("alpha"), _Point("middle")],
-        )
-        manager.discover()
-        assert registered == ["alpha", "middle", "zebra"]
+        assert "sorted(" in inspect.getsource(foundation.load_extensions)

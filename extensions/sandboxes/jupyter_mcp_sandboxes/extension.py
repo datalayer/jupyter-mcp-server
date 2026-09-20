@@ -19,6 +19,7 @@ from code_sandboxes import normalize_variant
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from reactor import PluginCompatibility, PluginManifest
+from reactor_mcp_server import ToolSpec
 
 from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 from jupyter_mcp_sandboxes.tools import (
@@ -35,6 +36,44 @@ from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.utils import safe_notebook_operation
 
 logger = logging.getLogger(__name__)
+
+#: What each tool tells a client about itself. Module level, so the
+#: annotations are one fact per tool rather than one per registration.
+LAUNCH_SANDBOX_ANNOTATIONS = ToolAnnotations(
+    title="Launch Sandbox",
+    destructiveHint=True,
+    # Each call launches another sandbox, which costs money; and
+    # a sandbox runs arbitrary code, so its reach is whatever the
+    # provider's is.
+    idempotentHint=False,
+    openWorldHint=True,
+)
+
+LIST_SANDBOXES_ANNOTATIONS = ToolAnnotations(
+    title="List Sandboxes",
+    readOnlyHint=True,
+    idempotentHint=True,
+    openWorldHint=False,
+)
+
+USE_SANDBOX_ANNOTATIONS = ToolAnnotations(
+    title="Use Sandbox",
+    destructiveHint=True,
+    # Selecting the same sandbox again leaves the same selection.
+    idempotentHint=True,
+    openWorldHint=False,
+)
+
+TERMINATE_SANDBOX_ANNOTATIONS = ToolAnnotations(
+    title="Terminate Sandbox",
+    destructiveHint=True,
+    # Terminating one already gone leaves it gone. Safe to retry,
+    # which is what a client needs to know when a call times out
+    # and it cannot tell whether the sandbox went.
+    idempotentHint=True,
+    openWorldHint=False,
+)
+
 
 
 class SandboxesExtension(JupyterMCPExtension):
@@ -153,23 +192,19 @@ class SandboxesExtension(JupyterMCPExtension):
     def on_stop(self) -> None:
         self._manager.terminate_all()
 
-    # -- Tool registration --------------------------------------------------
+    # -- The tools this extension offers -------------------------------------
 
-    def register_tools(self, mcp: Any) -> None:
+    def tools(self) -> list[ToolSpec]:
+        """The four sandbox lifecycle tools.
+
+        Declared rather than registered: the host collects them, applies
+        whatever other extensions have contributed *to* them, and puts the
+        result on a server. `launch_sandbox` is the one downstream extensions
+        narrow, which they now do by name instead of by loading second.
+        """
         manager = self._manager
         server_context = ServerContext.get_instance()
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="Launch Sandbox",
-                destructiveHint=True,
-                # Each call launches another sandbox, which costs money; and
-                # a sandbox runs arbitrary code, so its reach is whatever the
-                # provider's is.
-                idempotentHint=False,
-                openWorldHint=True,
-            ),
-        )
         @structured("sandbox.launch")
         @with_hooks("launch_sandbox")
         async def launch_sandbox(
@@ -349,14 +384,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 )
             )
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="List Sandboxes",
-                readOnlyHint=True,
-                idempotentHint=True,
-                openWorldHint=False,
-            ),
-        )
         @structured("sandboxes.list")
         @with_hooks("list_sandboxes")
         async def list_sandboxes() -> ToolAnswer:
@@ -368,15 +395,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 )
             )
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="Use Sandbox",
-                destructiveHint=True,
-                # Selecting the same sandbox again leaves the same selection.
-                idempotentHint=True,
-                openWorldHint=False,
-            ),
-        )
         @structured("sandbox.use")
         @with_hooks("use_sandbox")
         async def use_sandbox(
@@ -399,17 +417,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 )
             )
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="Terminate Sandbox",
-                destructiveHint=True,
-                # Terminating one already gone leaves it gone. Safe to retry,
-                # which is what a client needs to know when a call times out
-                # and it cannot tell whether the sandbox went.
-                idempotentHint=True,
-                openWorldHint=False,
-            ),
-        )
         @structured("sandbox.terminate")
         @with_hooks("terminate_sandbox")
         async def terminate_sandbox(
@@ -425,3 +432,26 @@ class SandboxesExtension(JupyterMCPExtension):
                     sandbox_name=sandbox_name,
                 )
             )
+
+        return [
+            ToolSpec(
+                name="launch_sandbox",
+                handler=launch_sandbox,
+                annotations=LAUNCH_SANDBOX_ANNOTATIONS,
+            ),
+            ToolSpec(
+                name="list_sandboxes",
+                handler=list_sandboxes,
+                annotations=LIST_SANDBOXES_ANNOTATIONS,
+            ),
+            ToolSpec(
+                name="use_sandbox",
+                handler=use_sandbox,
+                annotations=USE_SANDBOX_ANNOTATIONS,
+            ),
+            ToolSpec(
+                name="terminate_sandbox",
+                handler=terminate_sandbox,
+                annotations=TERMINATE_SANDBOX_ANNOTATIONS,
+            ),
+        ]

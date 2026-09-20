@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jupyter_mcp_sandboxes"
-version = "0.2.3"
+version = "0.2.4"
 description = "Sandboxes extension for Jupyter MCP Server (launch/use code-sandboxes code sandboxes as an alternative to Jupyter kernels)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,7 @@ test = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0"]
 build = ["build>=1.2.1", "twine>=5.1.1"]
 
 # Register the extension so Jupyter MCP Server can discover it at startup.
-[project.entry-points."jupyter_mcp_server.extensions"]
+[project.entry-points."reactor.mcp.extensions"]
 sandboxes = "jupyter_mcp_sandboxes:SandboxesExtension"
 
 [project.urls]
