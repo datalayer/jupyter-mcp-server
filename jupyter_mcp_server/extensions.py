@@ -120,7 +120,7 @@ class ExtensionManager:
 
     def __init__(self, host: McpHost | None = None) -> None:
         self._host = host or McpHost(name="jupyter-mcp-server")
-        self._extensions: dict[str, JupyterMCPExtension] = {}
+        self._extensions: dict[str, McpExtension] = {}
         self._started = False
         self._discovered = False
         self._tools_registered = False
@@ -131,18 +131,26 @@ class ExtensionManager:
         """The MCP host. What a caller reaches for to build a server."""
         return self._host
 
-    def register(self, extension: JupyterMCPExtension) -> None:
-        """Register one extension with the platform."""
-        if not isinstance(extension, JupyterMCPExtension):
+    def register(self, extension: McpExtension) -> None:
+        """Register one extension with the platform.
+
+        Any :class:`~reactor_mcp_server.McpExtension` is welcome, not only a
+        :class:`JupyterMCPExtension`: an extension written for another
+        ``reactor_mcp_server`` host contributes tools that are valid here, and
+        refusing it would make the entry-point group this server reads a
+        different group in all but name. The three Jupyter hooks are asked for
+        by name below, so an extension that has none simply has none.
+        """
+        if not isinstance(extension, McpExtension):
             raise TypeError(
-                f"{extension!r} is not a JupyterMCPExtension; extensions must "
-                "subclass it so the server's own hooks are answered"
+                f"{extension!r} is not an McpExtension; an extension declares "
+                "its tools so a host can collect them"
             )
         name = self._host.add(extension)
         self._extensions[name] = extension
         self._tools_registered = False
 
-    def get(self, name: str) -> JupyterMCPExtension | None:
+    def get(self, name: str) -> McpExtension | None:
         """One registered extension by name, for extensions built on others.
 
         ``None`` for a name that is not registered, because "the extension you
@@ -180,12 +188,6 @@ class ExtensionManager:
         # runs on two machines build the same server. Not for precedence any
         # more — extending a tool is declared, not raced for.
         for extension in load_extensions(allowed or None):
-            if not isinstance(extension, JupyterMCPExtension):
-                logger.warning(
-                    "Extension %r is not a JupyterMCPExtension and is skipped",
-                    extension,
-                )
-                continue
             try:
                 self.register(extension)
             except Exception:
@@ -213,8 +215,11 @@ class ExtensionManager:
             if name in self._capabilities_collected:
                 continue
             self._capabilities_collected.add(name)
+            declare = getattr(extension, "capabilities", None)
+            if declare is None:
+                continue
             try:
-                declared = extension.capabilities() or []
+                declared = declare() or []
             except Exception:
                 logger.exception("Extension %s could not declare its capabilities", name)
                 continue
@@ -290,7 +295,10 @@ class ExtensionManager:
         """Ask extensions to build a code sandbox; return the first non-None result."""
         self.discover()
         for name, extension in self._extensions.items():
-            code_sandbox = extension.create_code_sandbox(config, log)
+            make = getattr(extension, "create_code_sandbox", None)
+            if make is None:
+                continue
+            code_sandbox = make(config, log)
             if code_sandbox is not None:
                 # The caller's logger, as for the warning above: one method,
                 # one logging configuration.
@@ -304,7 +312,10 @@ class ExtensionManager:
         """Give extensions a chance to handle ``execute_code``."""
         self.discover()
         for extension in self._extensions.values():
-            result = await extension.intercept_execute_code(code, timeout)
+            intercept = getattr(extension, "intercept_execute_code", None)
+            if intercept is None:
+                continue
+            result = await intercept(code, timeout)
             if result is not None:
                 return result
         return None

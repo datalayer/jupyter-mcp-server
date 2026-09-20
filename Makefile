@@ -182,7 +182,7 @@ SOURCEY_SNAPSHOT_TIMEOUT ?= 180
 
 # The extension entry-point names this repo publishes, read out of its own
 # pyproject files: the root package and everything under extensions/.
-SOURCEY_REPO_EXTENSIONS = python -c 'import glob,tomllib;fs=["pyproject.toml"]+sorted(glob.glob("extensions/*/pyproject.toml"));print(",".join(sorted({n for f in fs for n in ((tomllib.load(open(f,"rb")).get("project") or {}).get("entry-points") or {}).get("jupyter_mcp_server.extensions",{}) or {}})))'
+SOURCEY_REPO_EXTENSIONS = python -c 'import glob,tomllib;fs=["pyproject.toml"]+sorted(glob.glob("extensions/*/pyproject.toml"));print(",".join(sorted({n for f in fs for n in ((tomllib.load(open(f,"rb")).get("project") or {}).get("entry-points") or {}).get("reactor.mcp.extensions",{}) or {}})))'
 
 sync-sourcey: ## regenerate the generated MCP reference under docs/sourcey
 	@# The four steps of the Docs workflow's "Regenerate the MCP reference",

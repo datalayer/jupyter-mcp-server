@@ -24,8 +24,14 @@ classifiers = [
 ]
 dependencies = [
     "code-sandboxes",
-    "datalayer-reactor",
-    "jupyter-mcp-server",
+    "datalayer-reactor>=1.0.2",
+    # The floor is the release that reads this entry-point group. Installed
+    # beside a 2.1.x server, the group is never read: the extension is present,
+    # its tools are absent, and nothing says why.
+    "jupyter-mcp-server>=2.2.0",
+    # Imported directly — `ToolSpec` — so it is declared directly rather than
+    # relied on through the server.
+    "reactor_mcp_server>=1.0.0",
 ]
 
 [project.optional-dependencies]
