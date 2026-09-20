@@ -19,7 +19,7 @@ from code_sandboxes import normalize_variant
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from reactor import PluginCompatibility, PluginManifest
-from reactor_mcp_server import ToolSpec
+from reactor_mcp_server import ToolSpec, Toolset
 
 from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 from jupyter_mcp_sandboxes.tools import (
@@ -109,6 +109,27 @@ class SandboxesExtension(JupyterMCPExtension):
             author="Datalayer",
             tags=["sandbox", "execution"],
             compatibility=PluginCompatibility(api_version="v1"),
+        )
+
+    def toolsets(self) -> tuple[Toolset, ...]:
+        """`sandboxes`, and named rather than left to default.
+
+        A tool that names no toolset goes in one named after its plugin, so
+        these four were in `jupyter-mcp-sandboxes` — which is a package name,
+        not something a client would put in a URL. Worse, a deployment adding
+        its own sandbox tools under `sandboxes` (the Datalayer gateway
+        attaches contents, takes snapshots and reads an environment
+        catalogue there) split the two: `?only=sandboxes` gave twenty tools
+        that each need a sandbox and no way to launch one.
+
+        One name for one subject. A deployment that adds to it declares
+        `sandboxes` as well, and the tools arrive together.
+        """
+        return (
+            Toolset(
+                name="sandboxes",
+                description="Launch, use and terminate code sandboxes.",
+            ),
         )
 
     # -- Kernel factory -----------------------------------------------------
