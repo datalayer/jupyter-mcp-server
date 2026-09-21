@@ -23,8 +23,9 @@ this page:
 - **the URL decides what is served** — tools belong to named toolsets, and a
   client picks them in the URL it connects to.
 
-If you are writing an extension, [Operations → Extensions](../../operations/extensions/index.mdx)
-is the guide. This page is how the ones in this repository are built.
+This page is both halves: how to write an extension, and how the ones in this
+repository are built — because they are the same mechanism, and the shipped
+ones are the worked examples.
 
 ## The shape of it
 
@@ -60,6 +61,157 @@ Two things are served, and they are the same tools either way:
   URL uses. The [Datalayer gateway](https://datalayer.ai) does this, so
   `/mcp?only=notebooks` is the notebook tools and nothing else.
 
+## Writing one
+
+Subclass `JupyterMCPExtension` and override only what you need. Every hook has
+a default.
+
+```python
+from reactor import PluginCompatibility, PluginManifest
+from reactor_mcp_server import tool
+
+from jupyter_mcp_server.extensions import JupyterMCPExtension
+
+
+class MyExtension(JupyterMCPExtension):
+    def manifest(self) -> PluginManifest:
+        return PluginManifest(
+            name="my-extension",
+            version="1.0.0",
+            description="What it adds.",
+            author="You",
+            compatibility=PluginCompatibility(api_version="v1"),
+        )
+
+    @tool()
+    async def my_tool(self, argument: str) -> str:
+        """What it does."""
+        return "…"
+```
+
+A tool is *declared*, not registered: the server collects what extensions
+offer and builds a server from it. The function stays an ordinary method, so a
+test can call it without a server. The docstring is what a model reads.
+
+Publish it on the entry-point group:
+
+```toml
+[project.entry-points."reactor.mcp.extensions"]
+my-extension = "my_package:MyExtension"
+```
+
+Being installed is all it takes. The server discovers extensions at startup.
+
+### The hooks
+
+| Hook | For |
+|---|---|
+| `manifest()` | What the extension says about itself before anything runs it |
+| `tools()` | The tools this extension offers |
+| `tool_extensions()` | What it does to *another* extension's tools |
+| `toolsets()` | The named sets its tools belong to, and whether they are on by default |
+| `resources()` / `prompts()` | Callables that register MCP resources or prompts on a server |
+| `capabilities()` | Declare what the server can now do |
+| `create_code_sandbox(config, logger)` | Provide a kernel for a sandbox variant |
+| `intercept_execute_code(code, timeout)` | Handle `execute_code` yourself |
+| `on_start()` / `on_stop()` | Acquire and release resources |
+| `on_server(server)` | Act on a built server, once its tools are on it |
+
+The first six are [`reactor_mcp_server`](https://github.com/datalayer/reactor)'s
+and work on any host built on it; the two in the middle are this server's own.
+
+For observing calls rather than changing them — logging, metrics, auditing —
+use [Hooks](../../operations/hooks/index.mdx) instead: they fire around every
+tool call and kernel execution without an extension having to own a tool.
+
+### When your extension runs, and why it matters
+
+**After the server is configured.** Extensions used to register at import,
+which is earlier than it sounds: the CLI imports the server module *in order
+to start it*, so extensions registered while the command line was still being
+parsed. An extension asking what the server was pointed at was told the
+default however the server had been invoked — and the only place the intent
+existed yet was `sys.argv`.
+
+That is fixed. `get_config()` inside a tool, or inside `tools()`, gives you
+the truth. If you read `sys.argv` to work around it, you can stop.
+
+**In name order**, for reproducibility rather than for precedence.
+`importlib.metadata` returns entry points in whatever order the installation
+produced, which varies between a wheel and an editable install; sorting by
+name makes two runs on two machines build the same server.
+
+**`on_start()` is called where the tools are registered**, so an extension
+with work to do once — registering a hook, opening a client — does it with the
+command line already read. `on_stop()` is called when the server shuts down.
+
+`on_server(server)` is different and rarer: it is handed the built server
+itself, after every extension's tools are on it, for the things a tool list
+cannot express — taking a tool off, say, because the deployment it runs on has
+nothing for it to talk to. It is called once per server built, and a host that
+builds one per toolset selection calls it for each.
+
+### Extending another extension's tool
+
+Order no longer decides which extension wins. It used to: an extension
+narrowing another's tool had to register a tool of the same name *after* it,
+because the SDK keeps the **original** when a name is registered twice — so a
+replacement that ran first silently did nothing, and whether it ran first
+depended on how the names happened to sort. Extending a tool is something an
+extension says, not something it has to be named for:
+
+```python
+class DatalayerSandboxes(JupyterMCPExtension):
+    def tool_extensions(self):
+        def on_datalayer(handler):
+            async def narrowed(sandbox_name: str, environment: str = "ai-env"):
+                return await handler(sandbox_name, variant="datalayer")
+
+            return narrowed
+
+        return (("launch_sandbox", ToolExtension(
+            wrap=on_datalayer,
+            description="Launch a sandbox on Datalayer.",
+        )),)
+```
+
+`tool_extensions()` names the tool and says what to do to it: wrap the handler,
+replace what a model reads, replace the annotations. They are applied in a
+declared order, whichever order the extensions loaded in, and the result is
+**one** tool rather than two with the same name. An extension of a tool nobody
+offered simply never applies — which is the right behaviour when the thing
+being extended is not installed.
+
+**The server's own tools are extended the same way**, which the next section is
+about.
+
+### Declaring a capability
+
+If your extension genuinely lets the server do something, say so, rather than
+leaving the core to guess from what is installed:
+
+```python
+from jupyter_mcp_server.capabilities import Capability
+
+
+def capabilities(self) -> list[Capability]:
+    return [
+        Capability(
+            name="myext.snapshots",
+            description="Snapshot and restore the sandbox filesystem.",
+            enabled=True,
+            source="my-extension",
+        )
+    ]
+```
+
+Namespace the name; the registry is shared. It then appears in the server's
+advertised capabilities and at `capabilities://`, where a client finds it. See
+[Capabilities](../../operations/capabilities/index.mdx).
+
+One extension raising in `capabilities()` costs only its own declarations —
+the others are still collected, and the failure is logged.
+
 ## The server's own tools are an extension
 
 The eighteen tools in `server.py` are written as they always were, with
@@ -93,12 +245,12 @@ distribution ships, and a distribution cannot be missing itself.
 
 ### Why it matters
 
-**An extension can narrow one of them.** Extending a tool is declared by name
-against a contribution, and a decorated function is not a contribution. Before
-this, an extension that addressed notebooks by uid rather than by path had to
-reach into the running server's tool manager, take `use_notebook` off, and
-register a replacement — and be loaded second, or the SDK would keep the
-original. Now:
+**An extension can narrow one of them**, by name, the way the section above
+describes — because extending a tool is declared against a *contribution*, and
+a decorated function is not one. An extension that addresses notebooks by uid
+rather than by path used to have to reach into the running server's tool
+manager, take `use_notebook` off and register a replacement; it writes this
+instead:
 
 ```python
 def tool_extensions(self):
@@ -107,7 +259,8 @@ def tool_extensions(self):
 
 **A host can build a server that has them.** A server built from contributions
 alone would carry every extension's tools and none of the notebook ones — the
-notebook tools missing from the notebook server.
+notebook tools missing from the notebook server. `/mcp?only=notebooks` is
+those eighteen and nothing else.
 
 ### A built server is not only its tools
 
@@ -364,9 +517,8 @@ None of that is in this repository, and none of it needs to be.
 
 ## See also
 
-- [Extensions](../../operations/extensions/index.mdx) — writing one.
-- [Capabilities](../../operations/capabilities/index.mdx) — declaring what an
-  extension lets the server do.
+- [Capabilities](../../operations/capabilities/index.mdx) — the registry an
+  extension declares into.
 - [Hooks](../../operations/hooks/index.mdx) — observing calls rather than
   changing them.
 - [Code sandboxes](../../code-sandboxes/index.mdx) — the engines behind the
