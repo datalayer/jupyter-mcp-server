@@ -703,7 +703,7 @@ class MCPHealthHandler(MCPHandler):
             "document_url": context.document_url or self.settings.get("mcp_document_url"),
             "code_sandbox_url": context.code_sandbox_url or self.settings.get("mcp_code_sandbox_url"),
             "extension": "jupyter_mcp_server",
-            "version": "0.20.0",
+            "version": __version__,
         }
 
         self.set_header("Content-Type", "application/json")
