@@ -85,6 +85,29 @@ client would put in a URL — and a deployment adding its own sandbox tools
 under `sandboxes` split the two: `?only=sandboxes` answered with tools that
 each need a sandbox and no way to launch one.
 
+### 2.2.2
+
+Documentation, and one fix in the bundled extension. The server package is
+unchanged.
+
+**One extensions page.** `operations/extensions` and `architecture/extensions`
+were two accounts of the same mechanism, and the older outranked the newer in
+a search. They are one page now, in
+[Architecture](/architecture/extensions): writing an extension, and how this
+server's own tools, the sandboxes extension and a third-party one are built
+on exactly that.
+
+**The generated reference stops claiming a decorator that is not there.**
+Every tool page ended "Registered by the `@mcp.tool` decorator on …",
+including the four offered as `ToolSpec` values. The sourcemap records how a
+tool was declared and each page says that.
+
+**`jupyter-mcp-sandboxes` 0.2.6** reads its manifest version from the
+distribution. It said `0.1.0` while the wheel said `0.2.5`, so an installed
+extension identified itself to the plugin platform as a release from before
+the entry-point group it is published on existed. Its README named that old
+group too, which produced an extension nothing discovers.
+
 ## Jupyter MCP Server 2.1
 
 Most of 2.1 is about the same thing: **a server does work a client cannot see,
