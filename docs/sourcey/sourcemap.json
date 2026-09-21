@@ -1,94 +1,117 @@
 {
  "clear_cell_output": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "connect_to_jupyter": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "delete_cell": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "edit_cell_source": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "execute_cell": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "execute_code": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "insert_cell": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "insert_execute_code_cell": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "jupyter_cite": {
   "kind": "prompt",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.prompt"
  },
  "launch_sandbox": {
   "kind": "tool",
-  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py"
+  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py",
+  "how": "ToolSpec"
  },
  "list_files": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "list_kernels": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "list_notebooks": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "list_sandboxes": {
   "kind": "tool",
-  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py"
+  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py",
+  "how": "ToolSpec"
  },
  "move_cell": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "overwrite_cell_source": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "read_cell": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "read_notebook": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "restart_notebook": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "terminate_sandbox": {
   "kind": "tool",
-  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py"
+  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py",
+  "how": "ToolSpec"
  },
  "unuse_notebook": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "use_notebook": {
   "kind": "tool",
-  "file": "jupyter_mcp_server/server.py"
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
  },
  "use_sandbox": {
   "kind": "tool",
-  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py"
+  "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py",
+  "how": "ToolSpec"
  }
 }

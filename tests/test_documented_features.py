@@ -488,7 +488,7 @@ def structured(kind):
 async def read_cell(cell_index: int) -> str:
     """Read a cell."""
 '''
-        assert self._scan(source) == [("tool", "read_cell")]
+        assert self._scan(source) == [("tool", "read_cell", "@mcp.tool")]
 
     def test_a_prompt_is_found_and_named_as_one(self):
         source = '''
@@ -496,7 +496,7 @@ async def read_cell(cell_index: int) -> str:
 def jupyter_cite(cells: list) -> str:
     """Cite cells."""
 '''
-        assert self._scan(source) == [("prompt", "jupyter_cite")]
+        assert self._scan(source) == [("prompt", "jupyter_cite", "@mcp.prompt")]
 
     def test_a_decorator_split_across_lines_is_found(self):
         """Which the line-window scan could miss entirely."""
@@ -511,7 +511,7 @@ def jupyter_cite(cells: list) -> str:
 async def read_cell() -> str:
     """Read."""
 '''
-        assert self._scan(source) == [("tool", "read_cell")]
+        assert self._scan(source) == [("tool", "read_cell", "@mcp.tool")]
 
     def test_a_resource_is_not_indexed_as_a_tool(self):
         """This server registers `capabilities://` with `@mcp.resource`. The
@@ -530,8 +530,39 @@ def capabilities_resource() -> dict:
         import pathlib as _pathlib
 
         server = _pathlib.Path(__file__).resolve().parents[1] / "jupyter_mcp_server" / "server.py"
-        found = {name for _kind, name in self._scan(server.read_text())}
+        found = {name for _kind, name, _how in self._scan(server.read_text())}
         assert "capabilities_resource" not in found
+
+    def test_it_records_how_a_tool_was_declared(self):
+        """The reference prints this. A `ToolSpec` has no decorator, and a
+        page saying "registered by the `@mcp.tool` decorator" sent a reader
+        looking for something that is not in the file."""
+        source = '''
+def tools():
+    return [ToolSpec(name="launch_sandbox", handler=launch_sandbox)]
+'''
+        assert self._scan(source) == [("tool", "launch_sandbox", "ToolSpec")]
+
+    def test_and_a_marked_method_says_that_instead(self):
+        source = '''
+@tool(title="Launch Sandbox")
+async def launch_sandbox(self, sandbox_name: str) -> dict:
+    """Launch one."""
+'''
+        assert self._scan(source) == [("tool", "launch_sandbox", "@tool")]
+
+    def test_the_generated_pages_say_it(self):
+        """End to end: the checked-in reference, which CI holds in sync."""
+        import json as _json
+        import pathlib as _pathlib
+
+        sourcey = _pathlib.Path(__file__).resolve().parents[1] / "docs" / "sourcey"
+        srcmap = _json.loads((sourcey / "sourcemap.json").read_text())
+        assert srcmap["launch_sandbox"]["how"] == "ToolSpec"
+        assert srcmap["execute_cell"]["how"] == "@mcp.tool"
+        page = (sourcey / "tools" / "launch_sandbox.md").read_text()
+        assert "Declared as a `ToolSpec`" in page
+        assert "@mcp.tool` decorator" not in page
 
     def test_somebody_elses_tool_decorator_is_not_ours(self):
         """`other.tool` is not `mcp.tool`, and indexing it would document a

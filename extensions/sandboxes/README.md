@@ -19,8 +19,11 @@
 `jupyter_mcp_sandboxes` is an optional extension for
 [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server) that adds
 sandbox-backed code execution. It is discovered automatically through the
-`jupyter_mcp_server.extensions` entry point (powered by
-[`reactor`](https://github.com/datalayer/reactor)) once installed.
+`reactor.mcp.extensions` entry point (powered by
+[`reactor`](https://github.com/datalayer/reactor) and
+[`reactor_mcp_server`](https://pypi.org/project/reactor-mcp-server/)) once
+installed. Its four tools are in the `sandboxes` toolset, so a client that
+wants them and nothing else connects to `/mcp?only=sandboxes`.
 
 ## Features
 

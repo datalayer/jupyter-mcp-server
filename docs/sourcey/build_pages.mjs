@@ -98,12 +98,15 @@ const pyLit = (v) => {
 };
 const sourceSection = (name) => {
   const e = srcmap[name];
-  return [
-    "## Source",
-    "",
-    `Registered by the \`@mcp.${e.kind}\` decorator on \`${name}\` in [\`${e.file}\`](${BLOB}/${e.file}).`,
-    "",
-  ].join("\n");
+  // How it got there, not how it used to. A tool offered as a `ToolSpec` has
+  // no decorator, and a page that claimed one sent a reader looking for
+  // something that is not in the file.
+  const how = e.how || `@mcp.${e.kind}`;
+  const sentence =
+    how === "ToolSpec"
+      ? `Declared as a \`ToolSpec\` named \`${name}\` in [\`${e.file}\`](${BLOB}/${e.file}), and collected by the host.`
+      : `Registered by the \`${how}\` decorator on \`${name}\` in [\`${e.file}\`](${BLOB}/${e.file}).`;
+  return ["## Source", "", sentence, ""].join("\n");
 };
 
 const files = [];

@@ -37,6 +37,26 @@ from jupyter_mcp_server.utils import safe_notebook_operation
 
 logger = logging.getLogger(__name__)
 
+
+def _version() -> str:
+    """This distribution's version, as installed.
+
+    Read rather than written down: the manifest is the version reactor lists,
+    and a literal here said `0.1.0` while the wheel said `0.2.5` — so an
+    installed extension identified itself as a release from before the
+    entry-point group it is published on existed.
+
+    A checkout that is not installed has no metadata to read; `0.0.0` is the
+    honest answer, and is what a test importing the module from the source
+    tree sees.
+    """
+    from importlib.metadata import PackageNotFoundError, version  # noqa: PLC0415
+
+    try:
+        return version("jupyter_mcp_sandboxes")
+    except PackageNotFoundError:  # pragma: no cover - a source tree, uninstalled
+        return "0.0.0"
+
 #: What each tool tells a client about itself. Module level, so the
 #: annotations are one fact per tool rather than one per registration.
 LAUNCH_SANDBOX_ANNOTATIONS = ToolAnnotations(
@@ -101,7 +121,7 @@ class SandboxesExtension(JupyterMCPExtension):
     def manifest(self) -> PluginManifest:
         return PluginManifest(
             name="jupyter-mcp-sandboxes",
-            version="0.1.0",
+            version=_version(),
             description=(
                 "Launch and use code-sandboxes code sandboxes as an alternative to "
                 "Jupyter kernels for code execution."
