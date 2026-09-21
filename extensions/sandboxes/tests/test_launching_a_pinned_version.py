@@ -41,22 +41,14 @@ def fake_sandbox() -> MagicMock:
     return sandbox
 
 
-class _FakeMCP:
-    def __init__(self):
-        self.tools = {}
-
-    def tool(self, **_kwargs):
-        def _decorator(func):
-            self.tools[func.__name__] = func
-            return func
-
-        return _decorator
+def _tools_of(extension) -> dict:
+    """The extension's tools by name, as the host would collect them."""
+    return {spec.name: spec.handler for spec in extension.tools()}
 
 
 @pytest.mark.asyncio
 async def test_the_mcp_tool_forwards_the_version_it_was_given():
     extension = SandboxesExtension()
-    mcp = _FakeMCP()
     fake_context = type("FakeContext", (), {"mode": ServerMode.MCP_SERVER})()
 
     with (
@@ -74,8 +66,8 @@ async def test_the_mcp_tool_forwards_the_version_it_was_given():
             return_value={"message": "ok", "sandbox": {}},
         ) as mock_execute,
     ):
-        extension.register_tools(mcp)
-        await mcp.tools["launch_sandbox"](
+        tools = _tools_of(extension)
+        await tools["launch_sandbox"](
             sandbox_name="geo-sbx",
             environment="ada/geo",
             environment_version=3,

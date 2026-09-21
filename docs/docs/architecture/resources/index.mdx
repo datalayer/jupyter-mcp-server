@@ -153,13 +153,24 @@ It never fails the edit. Failing an edit because the news about the edit would
 not go out trades the work for the story about the work — the same call the
 tasks extension makes about its status notifications.
 
-:::warning A change by somebody else is not covered
+:::note A change by somebody else *is* covered, by a watcher
 
-This announces what *this worker* changed. A person typing in JupyterLab is
-not seen: notebook connections here are per call, so between calls there is
-no live document to observe. That needs a persistent connection per
-subscribed notebook, with its own lifecycle, and it is a different kind of
-thing from this.
+This section describes what *this worker* changed, and for a while that was
+the whole story: notebook connections were per call, so between calls there
+was no live document to observe and a person typing in JupyterLab was
+invisible.
+
+That is what `watchers.py` added. A notebook an agent holds open is watched
+over a persistent connection for as long as it holds it, so an edit made
+anywhere reaches a subscriber. A burst of keystrokes is one notification —
+announced a quarter of a second after the typing pauses, and at most two
+seconds after it starts however continuously the document is being edited,
+because a timer re-armed on every keystroke tells a subscriber nothing at all
+in a notebook two agents are working in.
+
+`JUPYTER_MCP_WATCH_NOTEBOOKS=false` turns it off, for the one deployment that
+should: one publishing through a configured publisher fed by the document
+server itself has no use for a second observer of the same document.
 :::
 
 ## Seams for a deployment

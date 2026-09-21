@@ -19,6 +19,7 @@ from code_sandboxes import normalize_variant
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from reactor import PluginCompatibility, PluginManifest
+from reactor_mcp_server import ToolSpec, Toolset
 
 from jupyter_mcp_sandboxes.manager import CodeSandboxManager
 from jupyter_mcp_sandboxes.tools import (
@@ -35,6 +36,64 @@ from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.utils import safe_notebook_operation
 
 logger = logging.getLogger(__name__)
+
+
+def _version() -> str:
+    """This distribution's version, as installed.
+
+    Read rather than written down: the manifest is the version reactor lists,
+    and a literal here said `0.1.0` while the wheel said `0.2.5` — so an
+    installed extension identified itself as a release from before the
+    entry-point group it is published on existed.
+
+    A checkout that is not installed has no metadata to read; `0.0.0` is the
+    honest answer, and is what a test importing the module from the source
+    tree sees.
+    """
+    from importlib.metadata import PackageNotFoundError, version  # noqa: PLC0415
+
+    try:
+        return version("jupyter_mcp_sandboxes")
+    except PackageNotFoundError:  # pragma: no cover - a source tree, uninstalled
+        return "0.0.0"
+
+#: What each tool tells a client about itself. Module level, so the
+#: annotations are one fact per tool rather than one per registration.
+LAUNCH_SANDBOX_ANNOTATIONS = ToolAnnotations(
+    title="Launch Sandbox",
+    destructiveHint=True,
+    # Each call launches another sandbox, which costs money; and
+    # a sandbox runs arbitrary code, so its reach is whatever the
+    # provider's is.
+    idempotentHint=False,
+    openWorldHint=True,
+)
+
+LIST_SANDBOXES_ANNOTATIONS = ToolAnnotations(
+    title="List Sandboxes",
+    readOnlyHint=True,
+    idempotentHint=True,
+    openWorldHint=False,
+)
+
+USE_SANDBOX_ANNOTATIONS = ToolAnnotations(
+    title="Use Sandbox",
+    destructiveHint=True,
+    # Selecting the same sandbox again leaves the same selection.
+    idempotentHint=True,
+    openWorldHint=False,
+)
+
+TERMINATE_SANDBOX_ANNOTATIONS = ToolAnnotations(
+    title="Terminate Sandbox",
+    destructiveHint=True,
+    # Terminating one already gone leaves it gone. Safe to retry,
+    # which is what a client needs to know when a call times out
+    # and it cannot tell whether the sandbox went.
+    idempotentHint=True,
+    openWorldHint=False,
+)
+
 
 
 class SandboxesExtension(JupyterMCPExtension):
@@ -62,7 +121,7 @@ class SandboxesExtension(JupyterMCPExtension):
     def manifest(self) -> PluginManifest:
         return PluginManifest(
             name="jupyter-mcp-sandboxes",
-            version="0.1.0",
+            version=_version(),
             description=(
                 "Launch and use code-sandboxes code sandboxes as an alternative to "
                 "Jupyter kernels for code execution."
@@ -70,6 +129,27 @@ class SandboxesExtension(JupyterMCPExtension):
             author="Datalayer",
             tags=["sandbox", "execution"],
             compatibility=PluginCompatibility(api_version="v1"),
+        )
+
+    def toolsets(self) -> tuple[Toolset, ...]:
+        """`sandboxes`, and named rather than left to default.
+
+        A tool that names no toolset goes in one named after its plugin, so
+        these four were in `jupyter-mcp-sandboxes` — which is a package name,
+        not something a client would put in a URL. Worse, a deployment adding
+        its own sandbox tools under `sandboxes` (the Datalayer gateway
+        attaches contents, takes snapshots and reads an environment
+        catalogue there) split the two: `?only=sandboxes` gave twenty tools
+        that each need a sandbox and no way to launch one.
+
+        One name for one subject. A deployment that adds to it declares
+        `sandboxes` as well, and the tools arrive together.
+        """
+        return (
+            Toolset(
+                name="sandboxes",
+                description="Launch, use and terminate code sandboxes.",
+            ),
         )
 
     # -- Kernel factory -----------------------------------------------------
@@ -153,23 +233,19 @@ class SandboxesExtension(JupyterMCPExtension):
     def on_stop(self) -> None:
         self._manager.terminate_all()
 
-    # -- Tool registration --------------------------------------------------
+    # -- The tools this extension offers -------------------------------------
 
-    def register_tools(self, mcp: Any) -> None:
+    def tools(self) -> list[ToolSpec]:
+        """The four sandbox lifecycle tools.
+
+        Declared rather than registered: the host collects them, applies
+        whatever other extensions have contributed *to* them, and puts the
+        result on a server. `launch_sandbox` is the one downstream extensions
+        narrow, which they now do by name instead of by loading second.
+        """
         manager = self._manager
         server_context = ServerContext.get_instance()
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="Launch Sandbox",
-                destructiveHint=True,
-                # Each call launches another sandbox, which costs money; and
-                # a sandbox runs arbitrary code, so its reach is whatever the
-                # provider's is.
-                idempotentHint=False,
-                openWorldHint=True,
-            ),
-        )
         @structured("sandbox.launch")
         @with_hooks("launch_sandbox")
         async def launch_sandbox(
@@ -349,14 +425,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 )
             )
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="List Sandboxes",
-                readOnlyHint=True,
-                idempotentHint=True,
-                openWorldHint=False,
-            ),
-        )
         @structured("sandboxes.list")
         @with_hooks("list_sandboxes")
         async def list_sandboxes() -> ToolAnswer:
@@ -368,15 +436,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 )
             )
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="Use Sandbox",
-                destructiveHint=True,
-                # Selecting the same sandbox again leaves the same selection.
-                idempotentHint=True,
-                openWorldHint=False,
-            ),
-        )
         @structured("sandbox.use")
         @with_hooks("use_sandbox")
         async def use_sandbox(
@@ -399,17 +458,6 @@ class SandboxesExtension(JupyterMCPExtension):
                 )
             )
 
-        @mcp.tool(
-            annotations=ToolAnnotations(
-                title="Terminate Sandbox",
-                destructiveHint=True,
-                # Terminating one already gone leaves it gone. Safe to retry,
-                # which is what a client needs to know when a call times out
-                # and it cannot tell whether the sandbox went.
-                idempotentHint=True,
-                openWorldHint=False,
-            ),
-        )
         @structured("sandbox.terminate")
         @with_hooks("terminate_sandbox")
         async def terminate_sandbox(
@@ -425,3 +473,26 @@ class SandboxesExtension(JupyterMCPExtension):
                     sandbox_name=sandbox_name,
                 )
             )
+
+        return [
+            ToolSpec(
+                name="launch_sandbox",
+                handler=launch_sandbox,
+                annotations=LAUNCH_SANDBOX_ANNOTATIONS,
+            ),
+            ToolSpec(
+                name="list_sandboxes",
+                handler=list_sandboxes,
+                annotations=LIST_SANDBOXES_ANNOTATIONS,
+            ),
+            ToolSpec(
+                name="use_sandbox",
+                handler=use_sandbox,
+                annotations=USE_SANDBOX_ANNOTATIONS,
+            ),
+            ToolSpec(
+                name="terminate_sandbox",
+                handler=terminate_sandbox,
+                annotations=TERMINATE_SANDBOX_ANNOTATIONS,
+            ),
+        ]

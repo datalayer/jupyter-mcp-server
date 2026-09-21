@@ -81,3 +81,59 @@ def test_the_sandboxes_extension_is_found_under_the_name_it_publishes():
     extension = SandboxesExtension()
     manager.register(extension)
     assert manager.get(extension.manifest().name) is extension
+
+
+class TestAnExtensionFromAnotherHost:
+    """The entry-point group is `reactor.mcp.extensions`, not this server's own.
+
+    So an extension written against `reactor_mcp_server.McpExtension` — with
+    none of this server's hooks — is a legitimate thing to find on it. Refusing
+    it would make the shared group a private one in all but name.
+    """
+
+    @staticmethod
+    def _generic():
+        from reactor import PluginManifest
+        from reactor_mcp_server import McpExtension, tool
+
+        class Generic(McpExtension):
+            def manifest(self):
+                return PluginManifest(name="generic", version="1.0.0")
+
+            @tool()
+            async def from_elsewhere(self) -> str:
+                """A tool that knows nothing about Jupyter."""
+                return "ok"
+
+        return Generic()
+
+    def test_its_tools_are_collected(self):
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        manager = ExtensionManager()
+        manager.register(self._generic())
+        manager._discovered = True
+
+        assert [spec.name for spec in manager.tools()] == ["from_elsewhere"]
+
+    def test_the_jupyter_hooks_it_does_not_have_are_not_demanded(self):
+        """Asked for by name, so an extension without them has none rather
+        than breaking the sandbox factory for everybody else."""
+        import logging
+        from types import SimpleNamespace
+
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        manager = ExtensionManager()
+        manager.register(self._generic())
+        manager._discovered = True
+
+        assert manager.create_code_sandbox(SimpleNamespace(), logging.getLogger("t")) is None
+
+    def test_something_that_is_not_an_extension_at_all_is_refused(self):
+        import pytest
+
+        from jupyter_mcp_server.extensions import ExtensionManager
+
+        with pytest.raises(TypeError):
+            ExtensionManager().register(object())

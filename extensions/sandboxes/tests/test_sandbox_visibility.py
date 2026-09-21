@@ -118,5 +118,70 @@ class TestTheToolSurfaceIsProviderNeutral:
 
         from jupyter_mcp_sandboxes import extension
 
-        source = inspect.getsource(extension.SandboxesExtension.register_tools)
+        source = inspect.getsource(extension.SandboxesExtension.tools)
         assert "Datalayer API token override" not in source
+
+
+class TestTheToolsetTheyBelongTo:
+    """`sandboxes`, and named rather than left to default.
+
+    A tool that names no toolset goes in one named after its plugin, so these
+    four were in `jupyter-mcp-sandboxes` — a package name, not something a
+    client would put in a URL. And a deployment adding its own sandbox tools
+    under `sandboxes` split the two: `?only=sandboxes` answered with twenty
+    tools that each need a sandbox and no way to launch one.
+    """
+
+    def test_it_is_named_for_its_subject(self):
+        from jupyter_mcp_sandboxes import SandboxesExtension
+
+        assert [toolset.name for toolset in SandboxesExtension().toolsets()] == [
+            "sandboxes"
+        ]
+
+    def test_and_the_tools_are_in_it(self):
+        from reactor_mcp_server import build_host, parse_selection
+
+        from jupyter_mcp_sandboxes import SandboxesExtension
+
+        host = build_host([SandboxesExtension()], name="tests")
+        built = host.build(parse_selection("only=sandboxes"))
+        assert "launch_sandbox" in built.tool_names
+
+    def test_and_a_deployment_can_add_to_it(self):
+        """The case that made this wrong: another extension declaring
+        `sandboxes` puts its tools beside these rather than beyond them."""
+        from typing import Any
+
+        from reactor import PluginCompatibility, PluginManifest
+        from reactor_mcp_server import (
+            McpExtension,
+            Toolset,
+            ToolSpec,
+            build_host,
+            parse_selection,
+        )
+
+        from jupyter_mcp_sandboxes import SandboxesExtension
+
+        class Deployment(McpExtension):
+            def manifest(self) -> Any:
+                return PluginManifest(
+                    name="sandboxes-somewhere",
+                    version="0.0.1",
+                    compatibility=PluginCompatibility(api_version="v1"),
+                )
+
+            def toolsets(self) -> Any:
+                return (Toolset(name="sandboxes", description="And these too."),)
+
+            def tools(self) -> Any:
+                async def snapshot_sandbox(sandbox_name: str) -> str:
+                    """Keep this sandbox's state."""
+                    return sandbox_name
+
+                return [ToolSpec(name="snapshot_sandbox", handler=snapshot_sandbox)]
+
+        host = build_host([SandboxesExtension(), Deployment()], name="tests")
+        offered = set(host.build(parse_selection("only=sandboxes")).tool_names)
+        assert {"launch_sandbox", "snapshot_sandbox"} <= offered

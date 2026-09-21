@@ -288,28 +288,37 @@ The security pages cover this in depth:
 ### Extensions
 
 `extensions.py` lets separate packages plug into the server without the core
-knowing them. Discovery and lifecycle run on
-[reactor](https://github.com/datalayer/reactor), a small `pluggy`-based plugin
-platform: an extension is published on the `jupyter_mcp_server.extensions`
-entry-point group, subclasses `JupyterMCPExtension`, and overrides the hooks it
-needs — `manifest()`, `register_tools(mcp)`, `create_code_sandbox(config)`,
-`intercept_execute_code(code, timeout)`, `on_start()`, `on_stop()`.
-`ExtensionManager` discovers them at import of `server.py`, registers their
-tools after the core ones, and asks them, in turn, whether they want to
-provide the code sandbox or handle an `execute_code` call.
+knowing them — and the server uses the same mechanism for its own tools, so
+there is one way in rather than a core and a plugin system beside it.
 
-One Python extension ships in `extensions/`:
+Discovery, contributions and lifecycle run on
+[`reactor_mcp_server`](https://github.com/datalayer/reactor), an extensible
+MCP server foundation built on `reactor`. An extension is published on the
+`reactor.mcp.extensions` entry-point group, subclasses
+`JupyterMCPExtension`, and overrides what it offers — `manifest()`, `tools()`,
+`tool_extensions()`, `toolsets()`, `resources()`, `on_server(server)`,
+`on_start()` / `on_stop()` — plus the two hooks that are about this server
+rather than about MCP: `create_code_sandbox(config, logger)` and
+`intercept_execute_code(code, timeout)`. A tool is *offered* rather than
+registered, which is what lets another extension narrow it **by name** instead
+of registering the same name and hoping to load second.
+
+This server's own eighteen tools are offered the same way, by a built-in
+`CoreToolsExtension` in the `notebooks` toolset, and one Python extension
+ships in `extensions/`:
 
 - **jupyter-mcp-sandboxes** (`extensions/sandboxes`) — the sandbox lifecycle tools
-  (`launch_sandbox`, `list_sandboxes`, `use_sandbox`, `terminate_sandbox`),
-  routing of `execute_code` to the selected sandbox, and sandbox-backed
-  kernels for the non-Jupyter variants.
+  (`launch_sandbox`, `list_sandboxes`, `use_sandbox`, `terminate_sandbox`) in
+  the `sandboxes` toolset, routing of `execute_code` to the selected sandbox,
+  and sandbox-backed kernels for the non-Jupyter variants.
 
 The extension for the `datalayer` document provider — listing the notebooks in
 a user's spaces, resolving a notebook by name — lives in the Datalayer gateway
 that serves it, not here. It is the same entry-point group: nothing about this
 repository knows the difference between an extension shipped alongside it and
 one installed from elsewhere, which is the point of the group.
+
+How both are implemented, with the diagrams: [Extensions](extensions/index.mdx).
 
 `extensions/` also holds packaging that is not Python — the MCPB bundle for one-click
 installation in Claude Desktop (`extensions/mcpb`), a Claude plugin

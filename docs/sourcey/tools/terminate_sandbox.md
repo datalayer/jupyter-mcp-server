@@ -63,5 +63,5 @@ result = await session.call_tool("terminate_sandbox", arguments={"sandbox_name":
 
 ## Source
 
-Registered by the `@mcp.tool` decorator on `terminate_sandbox` in [`extensions/sandboxes/jupyter_mcp_sandboxes/extension.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/extensions/sandboxes/jupyter_mcp_sandboxes/extension.py).
+Declared as a `ToolSpec` named `terminate_sandbox` in [`extensions/sandboxes/jupyter_mcp_sandboxes/extension.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/extensions/sandboxes/jupyter_mcp_sandboxes/extension.py), and collected by the host.
 

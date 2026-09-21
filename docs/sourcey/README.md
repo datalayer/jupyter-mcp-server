@@ -42,7 +42,7 @@ produced a usable `mcp.json` before the steps that read it.
 
 It also pins which extensions load. The snapshot is whatever the *installed* server
 advertises, so an unrelated extension installed beside it silently changes the reference:
-`datalayer_jupyter_mcp_server`'s `spaces` adds `find_notebook` and `list_spaces`, and its
+`datalayer_mcp_server`'s `spaces` adds `find_notebook` and `list_spaces`, and its
 tool policy hides `connect_to_jupyter`, `list_files` and `list_kernels` — 21 tools where
 CI, which installs only this package and `extensions/sandboxes`, sees 22. The target sets
 `JUPYTER_MCP_EXTENSIONS` to the entry-point names this repo's own `pyproject.toml` files
