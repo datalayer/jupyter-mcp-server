@@ -46,11 +46,14 @@ SKIP_DIRS = {
 def decorated_functions(source: str):
     """Every function this module registers as a tool or a prompt.
 
-    Two spellings, because there are two: `@mcp.tool` / `@mcp.prompt`, where an
-    extension is handed a server, and `@tool` from `reactor_mcp_server`, where
-    it declares what it offers and the host collects it. A generator that knew
-    only the first would leave every declared tool out of the reference, and
-    `build_pages.mjs` would fail on the first page that names one.
+    Three spellings, and each yields how it was written: `@mcp.tool` /
+    `@mcp.prompt`, where an extension is handed a server; `@tool` from
+    `reactor_mcp_server`, where a method is marked and the host collects it;
+    and a `ToolSpec(name=…)` built at run time. A generator that knew only the
+    first would leave every declared tool out of the reference, and
+    `build_pages.mjs` would fail on the first page that names one — and one
+    that recorded only *where* would have the page claim a decorator that a
+    declared tool does not have.
 
     Parsed rather than matched. A regex for the decorator finds it in prose
     too — a docstring saying "applied under `@mcp.tool`" reads as a
@@ -72,13 +75,13 @@ def decorated_functions(source: str):
                 and call.value.id == "mcp"
                 and call.attr in ("tool", "prompt")
             ):
-                yield call.attr, node.name
+                yield call.attr, node.name, f"@mcp.{call.attr}"
                 break
             # `@tool()` / `@tool(title=…)` from reactor_mcp_server. A bare
             # name, so the check is the name itself — and `tool` is not a
             # decorator anything else in this tree uses.
             if isinstance(call, ast.Name) and call.id == "tool":
-                yield "tool", node.name
+                yield "tool", node.name, "@tool"
                 break
 
     # `ToolSpec(name="launch_sandbox", handler=launch_sandbox, …)`, the other
@@ -94,7 +97,7 @@ def decorated_functions(source: str):
         for keyword in node.keywords:
             if keyword.arg == "name" and isinstance(keyword.value, ast.Constant):
                 if isinstance(keyword.value.value, str) and keyword.value.value:
-                    yield "tool", keyword.value.value
+                    yield "tool", keyword.value.value, "ToolSpec"
                 break
 
 
@@ -119,7 +122,7 @@ for base, dirs, files in os.walk(SRC):
             # cannot be indexed. Saying so beats silently documenting fewer
             # tools than the server has.
             raise SystemExit(f"{rel} could not be parsed: {error}") from error
-        for kind, name in found:
+        for kind, name, how in found:
             prev = entries.get(name)
             if prev and prev["file"] != rel:
                 # Fail loudly rather than let os.walk order pick a winner.
@@ -136,7 +139,10 @@ for base, dirs, files in os.walk(SRC):
                     "CONDITIONAL_EXTENSIONS if it replaces the tool "
                     "deliberately, and re-run."
                 )
-            entries[name] = {"kind": kind, "file": rel}
+            # `how` is what the page says about it. A tool offered as a
+            # `ToolSpec` has no decorator, and a reference that claimed one
+            # sent a reader looking for something that is not there.
+            entries[name] = {"kind": kind, "file": rel, "how": how}
 
 # Sorted so the output is byte-stable whatever order os.walk yields.
 entries = dict(sorted(entries.items()))
