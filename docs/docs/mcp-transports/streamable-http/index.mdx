@@ -128,6 +128,12 @@ jupyter mcp start \
   --port 4040
 ```
 
+This binds the listener to loopback, so it is reachable only from the same machine.
+To accept connections from other hosts, pass `--host 0.0.0.0` (or set `HOST`), and put
+the server behind something that terminates TLS. The Docker image sets `HOST=0.0.0.0`
+already, because a published port is forwarded to the container's own interface rather
+than to its loopback.
+
 :::tip Dynamic Connection
 The `--jupyter-url` and `--jupyter-token` parameters are optional thanks to the [`connect_to_jupyter`](pathname:///mcp/features/#operation-connect-to-jupyter-tool) tool. This tool allows you to connect to different Jupyter servers dynamically during your conversation without restarting the MCP server.
 

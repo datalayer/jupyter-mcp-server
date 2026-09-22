@@ -43,6 +43,7 @@ def _resolve_and_start(
     jupyter_token: str | None,
     jupyter_password: str | None,
     port: int,
+    host: str,
     document_provider: str,
     jupyterlab: str,
     open_notebook_in_ui: str,
@@ -98,6 +99,7 @@ def _resolve_and_start(
         document_token=resolved_document_token,
         document_password=resolved_document_password,
         port=port,
+        host=host,
         document_provider=document_provider,
         jupyterlab=parse_bool_option(jupyterlab, "--jupyterlab"),
         open_notebook_in_ui=parse_bool_option(open_notebook_in_ui, "--open-notebook-in-ui"),
@@ -142,6 +144,17 @@ def server_callback(
             help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.",
         ),
     ] = 4040,
+    host: Annotated[
+        str,
+        typer.Option(
+            "--host",
+            envvar="HOST",
+            help=(
+                "The address to bind for the Streamable HTTP transport. Defaults to loopback; "
+                "pass 0.0.0.0 to accept connections from other hosts. Ignored for stdio transport."
+            ),
+        ),
+    ] = "127.0.0.1",
     capability: Annotated[
         list[str] | None,
         typer.Option(
@@ -398,6 +411,7 @@ def server_callback(
         jupyter_token=jupyter_token,
         jupyter_password=jupyter_password,
         port=port,
+        host=host,
         document_provider=document_provider.value,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
@@ -440,6 +454,17 @@ def start_command(
             help="The port to use for the Streamable HTTP transport. Ignored for stdio transport.",
         ),
     ] = 4040,
+    host: Annotated[
+        str,
+        typer.Option(
+            "--host",
+            envvar="HOST",
+            help=(
+                "The address to bind for the Streamable HTTP transport. Defaults to loopback; "
+                "pass 0.0.0.0 to accept connections from other hosts. Ignored for stdio transport."
+            ),
+        ),
+    ] = "127.0.0.1",
     capability: Annotated[
         list[str] | None,
         typer.Option(
@@ -693,6 +718,7 @@ def start_command(
         jupyter_token=jupyter_token,
         jupyter_password=jupyter_password,
         port=port,
+        host=host,
         document_provider=document_provider.value,
         jupyterlab=jupyterlab,
         open_notebook_in_ui=open_notebook_in_ui,
