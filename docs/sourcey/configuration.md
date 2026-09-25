@@ -29,6 +29,7 @@ All runtime settings live on the `JupyterMCPConfig` pydantic model ([`jupyter_mc
 | `jupyterlab` | bool | `true` | Enable JupyterLab mode (defaults to True) |
 | `open_notebook_in_ui` | bool | `false` | Open the notebook in the JupyterLab UI when using it, which activates its tab (defaults to False) |
 | `allowed_jupyter_mcp_tools` | str | `"notebook_run-all-cells,notebook_get-selected-cell"` | Comma-separated list of jupyter-mcp-tools to enable |
+| `jupyter_mcp_tools_timeout` | int | `5` | Seconds to wait for jupyter-mcp-tools to answer a tools query. Deployments with many JupyterLab commands need more than a few seconds; the default stays at 5 so a missing frontend still fails fast. |
 | `reconnect_interval` | int | `0` | Seconds to wait before reconnecting a dropped WebSocket connection to the kernel. 0 disables auto-reconnect. |
 | `execution_timeout` | int | `120` | Default timeout in seconds for code execution. |
 | `max_execution_timeout` | int | `3600` | Maximum allowed timeout in seconds for code execution. |

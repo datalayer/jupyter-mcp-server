@@ -123,6 +123,12 @@
    "description": "Comma-separated list of jupyter-mcp-tools to enable"
   },
   {
+   "name": "jupyter_mcp_tools_timeout",
+   "type": "<class 'int'>",
+   "default": 5,
+   "description": "Seconds to wait for jupyter-mcp-tools to answer a tools query. Deployments with many JupyterLab commands need more than a few seconds; the default stays at 5 so a missing frontend still fails fast."
+  },
+  {
    "name": "reconnect_interval",
    "type": "<class 'int'>",
    "default": 0,
