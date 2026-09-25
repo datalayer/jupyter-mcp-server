@@ -56,9 +56,9 @@ async def _fetch_jupyter_tools(**kwargs):
     concurrent tools/list requests from sharing one call. The timeout is read
     from the config inside each call instead.
     """
-    from jupyter_mcp_server.config import get_config
-
     from jupyter_mcp_tools import get_tools
+
+    from jupyter_mcp_server.config import get_config
 
     return await get_tools(wait_timeout=get_config().jupyter_mcp_tools_timeout, **kwargs)
 
