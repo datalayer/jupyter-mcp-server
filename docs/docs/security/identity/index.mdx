@@ -157,26 +157,33 @@ instead of the configured one:
 
 ```python
 from mcp.server.auth.provider import AccessToken
+from jupyter_mcp_server.identity import FORWARD_CLAIM
 
 
 class MyVerifier:
-    async def verify_token(self, token: str) -> AccessToken | None:
-        claims = my_platform.verify(token)
-        if claims is None:
-            return None
-        return AccessToken(
-            token=token,          # carried through as identity.token
-            client_id=claims["client_id"],
-            scopes=claims["scopes"],
-            subject=claims["user_id"],
-        )
+
+  async def verify_token(self, token: str) -> AccessToken | None:
+    claims = my_platform.verify(token)
+    if claims is None:
+      return None
+    return AccessToken(
+        token=token,  # carried through as identity.token
+        client_id=claims["client_id"],
+        scopes=claims["scopes"],
+        subject=claims["user_id"],
+        claims={FORWARD_CLAIM: True},  # Opt-in: mark token for upstream forwarding
+    )
 ```
 
 Nothing else is needed. `identity_from_access_token()` copies the bearer token
-onto the `Identity`, and the configuration resolves it:
+onto the `Identity` when `FORWARD_CLAIM` (`"jupyter_mcp_forward_token"`) is set to `True`
+in `claims`. By default (when `FORWARD_CLAIM` is omitted), bearer tokens are not
+forwarded upstream, ensuring verifiers such as `--mcp-token` remain safe by construction.
+
+The configuration resolves it:
 
 ```python
-config.resolved_document_token()      # the caller's, else the configured one
+config.resolved_document_token()  # the caller's (if marked for forwarding), else the configured one
 config.resolved_code_sandbox_token()  # the same rule, for the execution server
 ```
 
