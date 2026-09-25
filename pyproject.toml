@@ -55,6 +55,7 @@ jupyterlab = ["jupyter-mcp-tools>=0.1.7"]
 test = [
     "httpx2",
     "ipykernel",
+    "matplotlib",
     "jupyter_server>=1.6,<3",
     "pytest>=7.0",
     "pytest-asyncio",

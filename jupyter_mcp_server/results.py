@@ -265,6 +265,25 @@ def _default_shape(value: Any) -> dict[str, Any]:
     return {"result": as_text(value)}
 
 
+def _without_image_data(value: Any) -> Any:
+    """Reference images in structured content; their bytes travel in content.
+
+    Keep a digest so image-only changes still invalidate the answer's ETag.
+    Copy containers rather than mutating the tool's original content blocks.
+    """
+    if isinstance(value, ImageContent):
+        value = value.model_dump(by_alias=True, exclude_none=True)
+    if isinstance(value, Mapping):
+        scrubbed = {key: _without_image_data(item) for key, item in value.items()}
+        if value.get("type") == "image" and isinstance(value.get("data"), str):
+            digest = hashlib.sha256(value["data"].encode("utf-8")).hexdigest()[:16]
+            scrubbed["data"] = f"[omitted: see image content block; sha256:{digest}]"
+        return scrubbed
+    if isinstance(value, (list, tuple)):
+        return [_without_image_data(item) for item in value]
+    return value
+
+
 def etag_for(payload: Any) -> str:
     """A version identifier for whatever this answer is made of.
 
@@ -327,10 +346,14 @@ def answer(
     annotations = _annotations(audience, priority)
     structured: dict[str, Any] = {"kind": kind}
     try:
-        shaped = shape(value) if shape is not None else _default_shape(value)
+        shaped = (
+            _without_image_data(shape(value))
+            if shape is not None
+            else _default_shape(_without_image_data(value))
+        )
     except Exception:  # a shaping bug must not lose the answer
         logger.exception("Could not shape the result of %s; answering text only", kind)
-        shaped = {"result": as_text(value)}
+        shaped = {"result": as_text(_without_image_data(value))}
     if isinstance(shaped, dict):
         structured.update(shaped)
     else:
