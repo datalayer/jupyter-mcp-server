@@ -137,6 +137,15 @@ class JupyterMCPConfig(BaseModel):
         default="notebook_run-all-cells,notebook_get-selected-cell",
         description="Comma-separated list of jupyter-mcp-tools to enable",
     )
+    jupyter_mcp_tools_timeout: int = Field(
+        default=5,
+        gt=0,
+        description=(
+            "Seconds to wait for jupyter-mcp-tools to answer a tools query. "
+            "Deployments with many JupyterLab commands need more than a few "
+            "seconds; the default stays at 5 so a missing frontend still fails fast."
+        ),
+    )
     reconnect_interval: int = Field(
         default=0,
         description=(
