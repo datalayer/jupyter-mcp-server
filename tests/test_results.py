@@ -29,6 +29,7 @@ $ pytest tests/test_results.py -v
 """
 
 import asyncio
+import json
 
 import pytest
 from mcp.types import CallToolResult, ImageContent, TextContent
@@ -87,6 +88,78 @@ class TestTheShapeItself:
     def test_a_shape_that_is_not_a_mapping_is_still_carried(self):
         built = answer("x", kind="thing", shape=lambda value: [1, 2])
         assert built.structured_content["result"] == [1, 2]
+
+
+class TestImagesOnlyTravelInContent:
+    @pytest.mark.parametrize("mode", ["outputs", "default", "single", "fallback"])
+    def test_image_bytes_are_only_sent_once(self, mode):
+        from jsonschema import validate
+
+        from jupyter_mcp_server.server import _outputs
+
+        image = ImageContent(type="image", data="A" * 50_000, mime_type="image/png")
+        original = image.model_dump()
+        value = image if mode == "single" else ["before", image, "after"]
+
+        def explode(value):
+            raise RuntimeError("bad shape")
+
+        shape = _outputs if mode == "outputs" else explode if mode == "fallback" else None
+        built = answer(value, kind="cell.execute", shape=shape)
+        wire = built.model_dump(by_alias=True, exclude_none=True, mode="json")
+        assert image.data not in json.dumps(wire["structuredContent"])
+        assert json.dumps(wire).count(image.data) == 1
+        assert next(block for block in built.content if block.type == "image") == image
+        assert image.model_dump() == original
+        schema = results.OutputsAnswer if mode == "outputs" else results.ToolAnswer
+        validate(wire["structuredContent"], schema.model_json_schema())
+        if mode == "outputs":
+            structured = wire["structuredContent"]
+            assert structured["images"] == 1
+            assert structured["count"] == 3
+            assert structured["outputs"] == structured["result"]
+            assert structured["outputs"][::2] == ["before", "after"]
+            reference = structured["outputs"][1]
+            assert reference["type"] == "image"
+            assert reference["mimeType"] == "image/png"
+            assert reference["data"].startswith("[omitted: see image content block; sha256:")
+
+    def test_nested_image_objects_and_mappings_are_scrubbed_without_mutation(self):
+        image = _image()
+        dumped = image.model_dump(by_alias=True, exclude_none=True)
+        shaped = {"nested": ([image, dumped],)}
+        built = answer("text", kind="thing", shape=lambda value: shaped)
+        wire = built.model_dump(by_alias=True, exclude_none=True, mode="json")
+        assert image.data not in json.dumps(wire["structuredContent"])
+        assert shaped["nested"][0][0] is image
+        assert dumped["data"] == image.data
+
+    @pytest.mark.parametrize("mode", ["outputs", "default", "fallback"])
+    def test_image_changes_invalidate_etags(self, mode):
+        from jupyter_mcp_server.server import _outputs
+
+        def explode(value):
+            raise RuntimeError("bad shape")
+
+        shape = _outputs if mode == "outputs" else explode if mode == "fallback" else None
+
+        def etag(data):
+            image = ImageContent(type="image", data=data, mime_type="image/png")
+            built = answer([image], kind="cell.read", shape=shape, ttl_ms=100, etag=True)
+            assert built.meta is not None
+            return built.meta[results.CACHE_META_KEY]["etag"]
+
+        assert etag("AAAA") == etag("AAAA")
+        assert etag("AAAA") != etag("BBBB")
+
+    @pytest.mark.parametrize(
+        "value",
+        ["text", ["one", "two"], {"data": "keep", "nested": {"type": "text", "data": "keep"}}],
+    )
+    def test_non_image_answers_are_unchanged(self, value):
+        built = answer(value, kind="thing")
+        assert built.structured_content == {"kind": "thing", **results._default_shape(value)}
+        assert built.content == results._content_of(value, annotations=None)
 
 
 class TestAnnotationsAreSetInOnePlace:
