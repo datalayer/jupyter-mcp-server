@@ -309,23 +309,17 @@ class ExtensionManager:
         if self._started:
             return
         self._started = True
+        # Starting the host is what reaches every extension's `on_start`:
+        # since reactor_mcp_server 1.0.3 the platform delivers it through
+        # pluggy (`on_reactor_start`). Calling `on_start` here as well started
+        # every extension twice.
         try:
             self._host.start()
         except Exception:  # pragma: no cover - defensive
             logger.exception("Reactor platform failed to start")
-        for name, extension in self._extensions.items():
-            try:
-                extension.on_start()
-            except Exception:  # pragma: no cover - defensive
-                logger.exception("Extension '%s' failed on start", name)
 
     def stop(self) -> None:
-        """Stop the platform and notify extensions."""
-        for name, extension in self._extensions.items():
-            try:
-                extension.on_stop()
-            except Exception:  # pragma: no cover - defensive
-                logger.exception("Extension '%s' failed on stop", name)
+        """Stop the platform, which reaches every extension's `on_stop`."""
         try:
             self._host.stop()
         except Exception:  # pragma: no cover - defensive
