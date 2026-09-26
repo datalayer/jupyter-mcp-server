@@ -131,6 +131,22 @@ sources, and dropping an image breaks one reading a plot. An image is dropped
 *silently*, because the text beside it still arrives, so `images` is there to
 be counted against what you expected.
 
+### Image bytes travel once
+
+The image's base64 stays in `content`. In `structuredContent`, its `data`
+field is a short reference; `type`, `mimeType`, `count` and `images` stay
+available. A client rendering the structured answer as text no longer gets
+the same image again as base64 under both `result` and `outputs`.
+
+For a 50,000-character image alongside a text output, structured JSON shrinks
+from **100,193 to 311 bytes** with the outputs shape, and from **50,123 to 149
+bytes** with the default shape. The native image block is unchanged.
+
+`answer()` replaces image data before default or fallback text rendering,
+and after custom shaping so the shaper can still count images. The reference
+includes the first 16 hex characters of SHA-256 over the base64 data, keeping
+ETags sensitive to image-only changes without carrying the bytes twice.
+
 ## Every tool advertises its schema
 
 All 22 tools declare an output schema, so a client can learn the shape without
