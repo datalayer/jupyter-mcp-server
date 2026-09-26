@@ -44,18 +44,23 @@ logger = logging.getLogger(__name__)
 
 
 async def _fetch_jupyter_tools(**kwargs):
-    """Fetch jupyter-mcp-tools with the shorter timeout this transport wants.
+    """Fetch jupyter-mcp-tools with the configured timeout.
 
-    If the JupyterLab frontend is not loaded there is nothing to wait for, so
-    tools/list should not sit here for the library default of 30 seconds.
+    The default of 5 seconds keeps tools/list fast when the JupyterLab
+    frontend is not loaded and there is nothing to wait for; deployments
+    with many commands raise it via `jupyter_mcp_tools_timeout`
+    (`c.JupyterMCPServerExtensionApp.jupyter_mcp_tools_timeout`).
 
     Defined at module level on purpose: ToolCache keys its in-flight fetches by
     fetcher as well as by query, so a function rebuilt per request would stop
-    concurrent tools/list requests from sharing one call.
+    concurrent tools/list requests from sharing one call. The timeout is read
+    from the config inside each call instead.
     """
     from jupyter_mcp_tools import get_tools
 
-    return await get_tools(wait_timeout=5, **kwargs)
+    from jupyter_mcp_server.config import get_config
+
+    return await get_tools(wait_timeout=get_config().jupyter_mcp_tools_timeout, **kwargs)
 
 
 def _sdk_result(request_id: Any, result: Any) -> dict:
@@ -183,9 +188,6 @@ class MCPSSEHandler(JupyterHandler):
                     tools_list = await mcp.list_tools()
                     logger.info(f"Got {len(tools_list)} tools from MCPServer")
 
-                    # Track jupyter_mcp_tools tool names
-                    jupyter_tool_names = set()
-
                     # Get tools from jupyter_mcp_tools extension first to identify duplicates
                     jupyter_tools_data = []
                     try:
@@ -243,7 +245,7 @@ class MCPSSEHandler(JupyterHandler):
                                     query=search_query,
                                     enabled_only=False,
                                     ttl_seconds=180,  # 3 minutes for handlers (shorter than server.py)
-                                    fetch_func=_fetch_jupyter_tools,  # module-level wrapper carrying wait_timeout=5
+                                    fetch_func=_fetch_jupyter_tools,  # module-level wrapper with the configured timeout
                                 )
                                 logger.info(
                                     f"Query returned {len(jupyter_tools_data)} tools (from cache or fresh)"
@@ -269,14 +271,23 @@ class MCPSSEHandler(JupyterHandler):
                                 f"allowed={allowed_jupyter_mcp_tools})"
                             )
 
-                        # Build set of jupyter tool names and cache it for routing decisions
-                        jupyter_tool_names = {
-                            tool_data.get("id", "") for tool_data in jupyter_tools_data
-                        }
-                        MCPSSEHandler._jupyter_tool_names = jupyter_tool_names
-                        logger.info(
-                            f"Cached {len(jupyter_tool_names)} jupyter_mcp_tools names for routing: {jupyter_tool_names}"
-                        )
+                        # Build set of jupyter tool names and cache it for routing decisions.
+                        # An empty answer (503, timeout, ...) says nothing about which
+                        # tools exist, so it must not wipe the names a previous
+                        # tools/list already learned: tools/call routes on them.
+                        if jupyter_tools_data:
+                            jupyter_tool_names = {
+                                tool_data.get("id", "") for tool_data in jupyter_tools_data
+                            }
+                            MCPSSEHandler._jupyter_tool_names = jupyter_tool_names
+                            logger.info(
+                                f"Cached {len(jupyter_tool_names)} jupyter_mcp_tools names for routing: {jupyter_tool_names}"
+                            )
+                        else:
+                            logger.info(
+                                "Empty jupyter_mcp_tools answer; keeping "
+                                f"{len(MCPSSEHandler._jupyter_tool_names)} known names for routing"
+                            )
 
                     except Exception as jupyter_error:
                         # Log but don't fail - just return MCPServer tools

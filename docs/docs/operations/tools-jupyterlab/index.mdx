@@ -48,6 +48,18 @@ For developers who want to modify the default list programmatically, you can sti
 - [`jupyter_mcp_server/server.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/server.py) - for standalone/STDIO mode
 - [`jupyter_mcp_server/jupyter_extension/handlers.py`](https://github.com/datalayer/jupyter-mcp-server/blob/main/jupyter_mcp_server/jupyter_extension/handlers.py) - for Jupyter server extension mode
 
+## Frontend Wait Timeout
+
+Answering `tools/list` waits for the JupyterLab frontend (`jupyter-mcp-tools`) to finish registering its tools. Registration walks every installed JupyterLab command, so on deployments with many extensions it can take far longer than the default wait of 5 seconds (44 seconds measured with 585 registered commands, see [#470](https://github.com/datalayer/jupyter-mcp-server/issues/470)). When the wait expires, the session silently ends up with zero frontend tools.
+
+If your deployment ships many JupyterLab extensions, raise the wait:
+
+```bash
+jupyter lab --port 4040 --IdentityProvider.token MY_TOKEN --JupyterMCPServerExtensionApp.jupyter_mcp_tools_timeout=60
+```
+
+The default stays at 5 seconds so a missing frontend still fails fast.
+
 ## Architecture
 
 ```mermaid

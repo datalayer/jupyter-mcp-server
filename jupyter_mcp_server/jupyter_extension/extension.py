@@ -13,7 +13,7 @@ import logging
 
 from jupyter_server.extension.application import ExtensionApp, ExtensionAppJinjaMixin
 from jupyter_server.utils import url_path_join
-from traitlets import Bool, Unicode
+from traitlets import Bool, Int, Unicode
 
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.jupyter_extension.handlers import (
@@ -95,6 +95,13 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config=True,
         help="Comma-separated list of jupyter-mcp-tools to enable",
     )
+
+    jupyter_mcp_tools_timeout = Int(
+        5,
+        config=True,
+        help="Seconds to wait for jupyter-mcp-tools to answer a tools query "
+        "(deployments with many commands need more; defaults to 5)",
+    )
     otel_file = Unicode(
         "",
         config=True,
@@ -153,6 +160,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
         config.jupyterlab = self.jupyterlab
         config.open_notebook_in_ui = self.open_notebook_in_ui
         config.allowed_jupyter_mcp_tools = self.allowed_jupyter_mcp_tools
+        config.jupyter_mcp_tools_timeout = self.jupyter_mcp_tools_timeout
 
         # Store configuration in settings for handlers
         self.settings.update(
@@ -168,6 +176,7 @@ class JupyterMCPServerExtensionApp(ExtensionAppJinjaMixin, ExtensionApp):
                 "mcp_jupyterlab": self.jupyterlab,
                 "mcp_open_notebook_in_ui": self.open_notebook_in_ui,
                 "mcp_allowed_jupyter_mcp_tools": self.allowed_jupyter_mcp_tools,
+                "mcp_jupyter_mcp_tools_timeout": self.jupyter_mcp_tools_timeout,
                 "mcp_serverapp": self.serverapp,
             }
         )
