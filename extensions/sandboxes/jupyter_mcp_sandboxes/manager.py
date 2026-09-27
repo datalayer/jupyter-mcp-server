@@ -183,7 +183,7 @@ class CodeSandboxManager:
             return self._serialize(sandbox_name, self._sandboxes[sandbox_name])
         if normalize_variant(variant) != "datalayer":
             raise ValueError(f"Sandbox variant '{variant}' cannot be attached by name; only 'datalayer' can.")
-        from code_sandboxes.datalayer_sandbox import DatalayerSandbox  # noqa: PLC0415
+        from code_sandboxes import DatalayerSandbox  # noqa: PLC0415
 
         sandbox = CodeSandboxClient(
             DatalayerSandbox.from_id(sandbox_name, token=token, run_url=run_url),

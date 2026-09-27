@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jupyter_mcp_sandboxes"
-version = "0.2.6"
+version = "0.2.7"
 description = "Sandboxes extension for Jupyter MCP Server (launch/use code-sandboxes code sandboxes as an alternative to Jupyter kernels)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "code-sandboxes",
+    "code-sandboxes>=1.10.0",
     "datalayer-reactor>=1.0.4",
     # The floor is the release that reads this entry-point group. Installed
     # beside a 2.1.x server, the group is never read: the extension is present,
