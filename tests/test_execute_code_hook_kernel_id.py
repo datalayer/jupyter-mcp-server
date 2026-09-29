@@ -35,7 +35,7 @@ class FakeCodeSandbox:
     def is_alive(self):
         return True
 
-    def execute(self, code):
+    def execute(self, code, timeout=None):
         return {"outputs": []}
 
 

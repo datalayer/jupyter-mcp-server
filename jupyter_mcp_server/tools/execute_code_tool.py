@@ -16,6 +16,7 @@ from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
+    KERNEL_TIMEOUT_GRACE_SECONDS,
     emit_execution_progress,
     settle_timed_out_execution,
     track_pending_execution,
@@ -200,7 +201,11 @@ class ExecuteCodeTool(BaseTool):
 
         try:
             execution_task = asyncio.create_task(
-                asyncio.to_thread(code_sandbox_client.execute, code)
+                asyncio.to_thread(
+                    code_sandbox_client.execute,
+                    code,
+                    timeout=timeout + KERNEL_TIMEOUT_GRACE_SECONDS,
+                )
             )
             track_pending_execution(code_sandbox_client, execution_task)
 
