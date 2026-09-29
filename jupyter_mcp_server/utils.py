@@ -24,6 +24,10 @@ from jupyter_mcp_server.capabilities import enabled as capabilities_enabled
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 
+# Let the tool interrupt at its deadline before the backend stops waiting for
+# the reply. This grace period does not extend the tool's execution budget.
+KERNEL_TIMEOUT_GRACE_SECONDS = 5
+
 #: MIME types that carry readable text, richest first. ``text/plain`` is the
 #: universal fallback. ``text/html`` is intentionally absent: it is markup
 #: rather than readable text, and results that emit both an ASCII ``text/plain``
@@ -881,6 +885,23 @@ async def settle_timed_out_execution(
         pass
 
 
+def ensure_execution_completed(reply) -> None:
+    """Raise unless ``reply`` is the reply of a cell the kernel actually ran.
+
+    A reply without an ``execution_count`` means the kernel never ran the
+    code: no reply arrived, or the request was aborted (e.g. queued behind an
+    error or an interrupt). Reporting that as completed would hide it.
+    """
+    if not reply:
+        raise RuntimeError("Execution did not complete: no reply from the kernel")
+    if reply.get("execution_count") is None:
+        status = reply.get("status") or "unknown"
+        raise RuntimeError(
+            f"Execution did not complete: the kernel reply (status: {status}) "
+            "has no execution_count"
+        )
+
+
 async def emit_execution_progress(
     progress_callback,
     *,
@@ -923,7 +944,12 @@ async def execute_cell_with_forced_sync(
     # messages and reply envelopes directly, so the notebook model consumes it
     # as-is.
     execution_future = asyncio.create_task(
-        asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
+        asyncio.to_thread(
+            notebook.execute_cell,
+            cell_index,
+            kernel,
+            timeout=timeout_seconds + KERNEL_TIMEOUT_GRACE_SECONDS,
+        )
     )
     track_pending_execution(kernel, execution_future)
 
@@ -1018,7 +1044,7 @@ async def execute_cell_with_forced_sync(
 
     # Get final result
     try:
-        await execution_future
+        ensure_execution_completed(await execution_future)
     except asyncio.CancelledError:
         pass
 

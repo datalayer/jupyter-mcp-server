@@ -15,9 +15,11 @@ from mcp.types import ImageContent
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
+    KERNEL_TIMEOUT_GRACE_SECONDS,
     clean_notebook_outputs,
     document_id_from_ws_url,
     emit_execution_progress,
+    ensure_execution_completed,
     execute_cell_with_forced_sync,
     execute_via_execution_stack,
     execute_via_execution_stack_http,
@@ -532,7 +534,10 @@ class ExecuteCellTool(BaseTool):
                     # directly, so the notebook model can consume it as-is.
                     execution_task = asyncio.create_task(
                         asyncio.to_thread(
-                            notebook.execute_cell, cell_index, kernel
+                            notebook.execute_cell,
+                            cell_index,
+                            kernel,
+                            timeout=timeout_seconds + KERNEL_TIMEOUT_GRACE_SECONDS,
                         )
                     )
                     track_pending_execution(kernel, execution_task)
@@ -638,7 +643,7 @@ class ExecuteCellTool(BaseTool):
                         await settle_timed_out_execution(execution_task)
                     else:
                         try:
-                            await execution_task
+                            ensure_execution_completed(await execution_task)
                             timeline.append(
                                 f"[COMPLETED in {time.perf_counter() - start_time:.1f}s]"
                             )

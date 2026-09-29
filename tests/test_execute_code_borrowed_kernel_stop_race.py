@@ -37,7 +37,7 @@ class FakeBorrowedKernel:
         self.stop_calls = []
         self.stopped_while_task_pending = None
 
-    def execute(self, code):
+    def execute(self, code, timeout=None):
         try:
             return self._execute_impl()
         finally:

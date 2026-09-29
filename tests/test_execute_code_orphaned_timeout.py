@@ -31,7 +31,7 @@ class FakeKernel:
         self.interrupted = False
         self._execute_impl = execute_impl
 
-    def execute(self, code):
+    def execute(self, code, timeout=None):
         return self._execute_impl()
 
     def interrupt(self):

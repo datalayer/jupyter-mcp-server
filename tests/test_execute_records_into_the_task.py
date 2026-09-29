@@ -79,10 +79,11 @@ class FakeNotebook:
     def __getitem__(self, index):
         return self._cell
 
-    def execute_cell(self, cell_index, kernel):
+    def execute_cell(self, cell_index, kernel, timeout=None):
         time.sleep(1.2)
         self._cell["outputs"] = list(TWO_OUTPUTS)
         time.sleep(1.2)
+        return {"status": "ok", "execution_count": 1}
 
     @property
     def _doc(self):

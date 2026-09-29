@@ -29,7 +29,7 @@ class FakeKernel:
     def interrupt(self):
         self.interrupted = True
 
-    def execute(self, code):
+    def execute(self, code, timeout=None):
         time.sleep(2.2)
         return {"outputs": [{"output_type": "stream", "name": "stdout", "text": "done\n"}]}
 
@@ -45,8 +45,9 @@ class FakeNotebook:
     def __getitem__(self, index):
         return self._cell
 
-    def execute_cell(self, cell_index, kernel):
-        return self._execute_impl()
+    def execute_cell(self, cell_index, kernel, timeout=None):
+        self._execute_impl()
+        return {"status": "ok", "execution_count": 1}
 
 
 class FakeNotebookManager:
