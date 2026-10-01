@@ -19,7 +19,7 @@ from mcp.types import ImageContent
 # The capability name is declared once, where the registry declares it: two
 # spellings would drift, and the one that drifted would silently govern
 # nothing.
-from jupyter_mcp_server.capabilities import KERNEL_AUTO_RESTART
+from jupyter_mcp_server.capabilities import KERNEL_ADOPT_SESSION, KERNEL_AUTO_RESTART
 from jupyter_mcp_server.capabilities import enabled as capabilities_enabled
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
@@ -710,6 +710,7 @@ def create_code_sandbox(
     from jupyter_mcp_server.extensions import get_extension_manager
     from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
 
+    existing_kernel_id = code_sandbox_id or config.code_sandbox_id
     if code_sandbox_id:
         config = config.model_copy(update={"code_sandbox_id": code_sandbox_id})
 
@@ -719,9 +720,11 @@ def create_code_sandbox(
 
     from jupyter_mcp_server.server_context import ServerContext
 
+    context = ServerContext.get_instance()
+
     # Password auth carries credentials as cookie/XSRF headers; drop the token
     # when they are present so it cannot override them.
-    auth_headers = ServerContext.get_instance().code_sandbox_auth_headers
+    auth_headers = context.code_sandbox_auth_headers
 
     try:
         code_sandbox = create_jupyter_sandbox_client(
@@ -734,6 +737,34 @@ def create_code_sandbox(
             headers=auth_headers or None,
             logger=logger,
         )
+        if (
+            not existing_kernel_id
+            and path
+            and capabilities_enabled(KERNEL_ADOPT_SESSION)
+        ):
+            server_client = getattr(context, "sandbox_server_client", None)
+            sessions = getattr(server_client, "sessions", None)
+            create_session = getattr(sessions, "create_session", None)
+            if create_session is not None:
+                try:
+                    session = create_session(
+                        path=path,
+                        kernel={"id": code_sandbox.id},
+                        session_type="notebook",
+                        name=path,
+                    )
+                    logger.info(
+                        "Created Jupyter session '%s' for notebook '%s' with kernel '%s'",
+                        getattr(session, "id", None),
+                        path,
+                        code_sandbox.id,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to create Jupyter session for notebook '%s': %s",
+                        path,
+                        e,
+                    )
         logger.info("Code sandbox created and started successfully")
         return cast(CodeSandboxClient, code_sandbox)
     except Exception as e:

@@ -105,6 +105,10 @@ notebook's existing Jupyter session instead of starting or selecting a
 separate kernel. This keeps the variables, imports and execution state the
 person in JupyterLab is already using in the notebook the agent operates on.
 
+When the MCP server starts the kernel first, the same capability registers a
+notebook session for it. Opening that notebook in JupyterLab then reuses the
+running kernel instead of starting a second one.
+
 The capability only applies when the caller did not pass an explicit
 `kernel_id`: an explicit kernel still wins. If the notebook has no existing
 session, or if the server cannot inspect sessions, `use_notebook` falls back
