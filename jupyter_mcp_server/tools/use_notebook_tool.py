@@ -15,6 +15,8 @@ from jupyter_core.utils import ensure_async
 from jupyter_nbmodel_client import NbModelClient
 from jupyter_server_client import JupyterServerClient, NotFoundError
 
+from jupyter_mcp_server.capabilities import KERNEL_ADOPT_SESSION
+from jupyter_mcp_server.capabilities import enabled as capability_enabled
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
@@ -29,6 +31,34 @@ COLLABORATION_EXTENSION = "jupyter-collaboration-extension"
 # probe that failed says nothing, and caching that silence would retire the
 # warning for the rest of the process over one timeout.
 _COLLABORATION_VERDICTS: dict[str, str | None] = {}
+
+
+def _field(record: Any, name: str) -> Any:
+    """Read a field from either a dict model or an object model."""
+    if isinstance(record, dict):
+        return record.get(name)
+    return getattr(record, name, None)
+
+
+async def _session_kernel_id(session_source: Any, notebook_path: str) -> str | None:
+    """Return the kernel id of the session already bound to ``notebook_path``."""
+    list_sessions = getattr(session_source, "list_sessions", None)
+    if list_sessions is None:
+        return None
+
+    sessions = list_sessions()
+    if inspect.isawaitable(sessions):
+        sessions = await sessions
+
+    wanted = str(notebook_path).lstrip("/")
+    for session in sessions or ():
+        path = str(_field(session, "path") or "").lstrip("/")
+        if path != wanted:
+            continue
+        kernel_id = _field(_field(session, "kernel"), "id")
+        if kernel_id:
+            return str(kernel_id)
+    return None
 
 
 def _major(version: str | None) -> int | None:
@@ -407,6 +437,47 @@ class UseNotebookTool(BaseTool):
                         session.headers["X-XSRFToken"] = xsrf_token
                     document_server_client.contents.create_notebook(notebook_path, content=content)
 
+            # The opt-in path: a notebook opened in JupyterLab or another
+            # frontend already owns a session and kernel. Reuse that kernel
+            # rather than creating an isolated one the caller cannot see.
+            # Explicit kernel_id still wins, and capability-off takes the
+            # original branch below without inspecting sessions at all.
+            adopted_session = False
+            if (
+                use_mode == "connect"
+                and kernel_id is None
+                and capability_enabled(KERNEL_ADOPT_SESSION)
+            ):
+                session_source = None
+                if (
+                    mode == ServerMode.MCP_SERVER
+                    and sandbox_server_client is not None
+                    and not config.uses_sandbox_variant()
+                ):
+                    session_source = getattr(sandbox_server_client, "sessions", None)
+                elif mode == ServerMode.JUPYTER_SERVER:
+                    session_source = session_manager
+
+                if session_source is not None:
+                    try:
+                        adopted_kernel_id = await _session_kernel_id(
+                            session_source, notebook_path
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Could not inspect existing Jupyter sessions for '%s': %s",
+                            notebook_path,
+                            e,
+                        )
+                    else:
+                        if adopted_kernel_id:
+                            kernel_id = adopted_kernel_id
+                            adopted_session = True
+                            info_list.append(
+                                f"[INFO] Adopted kernel '{kernel_id}' from the existing "
+                                f"Jupyter session for '{notebook_path}'."
+                            )
+
             # # Create/connect to kernel based on mode
             if mode == ServerMode.MCP_SERVER and sandbox_server_client is not None:
                 # The Jupyter kernel list can only vouch for a Jupyter kernel;
@@ -463,7 +534,12 @@ class UseNotebookTool(BaseTool):
                 info_list.append(f"[INFO] Connected to kernel '{kernel_id}'.")
                 # Create a Jupyter session to associate the kernel with the notebook
                 # This is CRITICAL for JupyterLab to recognize the kernel-notebook connection
-                if session_manager is not None:
+                if adopted_session:
+                    logger.info(
+                        f"Reusing existing Jupyter session for notebook '{notebook_path}' "
+                        f"with kernel '{kernel_id}'"
+                    )
+                elif session_manager is not None:
                     try:
                         # create_session is an async method, so we await it directly
                         session_dict = await session_manager.create_session(

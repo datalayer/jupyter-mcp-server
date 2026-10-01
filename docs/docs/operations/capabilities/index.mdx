@@ -96,6 +96,28 @@ time is not a restart — there was no session to lose — and is never refused.
 And `restart_notebook` is a caller asking for exactly this, so it is never
 blocked by a switch about doing it behind somebody's back.
 
+### `kernel.adopt-session`
+
+**Off by default.**
+
+On, `use_notebook` in connect mode reuses the kernel already bound to the
+notebook's existing Jupyter session instead of starting or selecting a
+separate kernel. This keeps the variables, imports and execution state the
+person in JupyterLab is already using in the notebook the agent operates on.
+
+The capability only applies when the caller did not pass an explicit
+`kernel_id`: an explicit kernel still wins. If the notebook has no existing
+session, or if the server cannot inspect sessions, `use_notebook` falls back
+to the normal new-kernel path.
+
+Off, the server keeps its current isolation behaviour and does not inspect
+sessions at all. Enable it with the same switches as any other capability:
+
+```bash
+jupyter-mcp-server start --capability kernel.adopt-session
+export JUPYTER_MCP_CAPABILITIES="kernel.adopt-session"
+```
+
 ## Declaring one from an extension
 
 An extension that genuinely adds an ability says so, rather than the core

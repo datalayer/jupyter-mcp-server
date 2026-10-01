@@ -28,6 +28,7 @@ from jupyter_mcp_server.capabilities import (
     CAPABILITIES_ENV,
     CAPABILITIES_EXTENSION,
     CAPABILITIES_RESOURCE,
+    KERNEL_ADOPT_SESSION,
     KERNEL_AUTO_RESTART,
     Capability,
     CapabilityRegistry,
@@ -263,8 +264,11 @@ class TestAdvertising:
         answer decides whether asking an operator is worth it."""
         block = get_capabilities().advertise()
         assert block["capabilities"] == []
-        assert [entry["name"] for entry in block["declared"]] == [KERNEL_AUTO_RESTART]
-        assert block["declared"][0]["enabled"] is False
+        assert {entry["name"] for entry in block["declared"]} == {
+            KERNEL_ADOPT_SESSION,
+            KERNEL_AUTO_RESTART,
+        }
+        assert all(entry["enabled"] is False for entry in block["declared"])
 
     def test_the_registry_is_advertised_on_the_server(self):
         """Not only readable at `capabilities://`, which a client has to know
