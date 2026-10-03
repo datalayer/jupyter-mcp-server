@@ -12,8 +12,8 @@ Reactivate previously activated notebook using same notebook_name and notebook_p
 
 The kernel is chosen explicitly: pass kernel_id of a running kernel to
 attach to it and share its state, or kernel_id=NEW to start an isolated
-kernel. While another Jupyter session this server did not start is live,
-opening a notebook fails rather than quietly starting a second kernel.
+kernel. A notebook that already has a live Jupyter session this server did
+not start fails rather than quietly starting a second kernel.
 
 > destructive: **yes** · idempotent: **yes** · open-world: **no**
 
@@ -24,7 +24,7 @@ opening a notebook fails rather than quietly starting a second kernel.
 | `notebook_name` | string | yes | — | Unique identifier for the notebook |
 | `notebook_path` | string | yes | — | Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb') |
 | `mode` | `connect` · `create` | no | `"connect"` | Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it |
-| `kernel_id` | string | no | `null` | Kernel the notebook runs on. Omit it only if nothing else is running: while the Jupyter server has live sessions this server did not start, use_notebook fails rather than adding a second kernel. Pass an existing id (see list_kernels) to attach to that kernel and share its variables and imports, or 'NEW' to start an isolated kernel. |
+| `kernel_id` | string | no | `null` | Kernel the notebook runs on. Omit it only if nothing else is using one: when the notebook already has a live Jupyter session this server did not start, use_notebook fails rather than adding a second kernel. Pass that kernel's id (see list_kernels) to attach to it and share its variables and imports, or 'NEW' to start an isolated kernel. |
 
 ## Output
 

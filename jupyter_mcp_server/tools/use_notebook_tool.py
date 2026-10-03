@@ -108,37 +108,27 @@ def _conflicting_kernel_reply(
     """A refusal to start a rival kernel, or None when it is safe to continue.
 
     A Jupyter *session* is a notebook a frontend has open on a kernel: it is
-    how a person's work in JupyterLab is visible from here. While one exists
-    that this server did not start, opening another notebook silently either
-    hijacks that session or adds a second kernel nobody is watching (#478).
-    The choice belongs to the caller: name a running kernel to share its
-    state, or ask for an isolated one with ``kernel_id=NEW``.
+    how a person's work in JupyterLab is visible from here. When the notebook
+    being opened already has one this server did not start, silently binding
+    it to another kernel either hijacks that session or leaves a second
+    kernel nobody is watching (#478). The choice belongs to the caller: name
+    that kernel to share its state, or ask for an isolated one with
+    ``kernel_id=NEW``.
 
-    Bare kernels are deliberately not counted. A long-lived Jupyter server
-    accumulates kernels nothing is attached to — an earlier agent, a
-    finished test, a notebook closed without shutting down — and refusing on
-    those made every open fail on a busy server without protecting anything.
+    Only *this* notebook's session counts. A long-lived Jupyter server holds
+    sessions and bare kernels for plenty of other notebooks — somebody
+    else's work, an earlier agent, a finished test — and refusing on those
+    made every open fail on a busy server without protecting anything.
     """
-    managed = _managed_kernel_ids(notebook_manager)
-    live = [
-        (str(_field(session, "path") or ""), str(kernel_id))
-        for session in sessions or ()
-        for kernel_id in [_field(_field(session, "kernel"), "id")]
-        if kernel_id and str(kernel_id) not in managed
-    ]
-    if not live:
+    live_kernel_id = _session_kernel_id_for_path(sessions, notebook_path)
+    if not live_kernel_id or live_kernel_id in _managed_kernel_ids(notebook_manager):
         return None
-    listed = ", ".join(
-        f"'{path or '(unnamed)'}' on kernel '{kernel_id}'" for path, kernel_id in live[:5]
-    )
-    more = "" if len(live) <= 5 else f" (and {len(live) - 5} more)"
-    first_kernel = live[0][1]
     return (
-        f"Cannot open '{notebook_path}' on a new kernel: the Jupyter server already has "
-        f"{len(live)} live session(s) this server did not start ({listed}{more}). Pass "
-        f"kernel_id='{first_kernel}' to reuse that kernel and share its state, or "
-        f"kernel_id='{NEW_KERNEL_ID}' to start an isolated kernel that leaves the others "
-        f"alone."
+        f"Cannot open '{notebook_path}' on a new kernel: it already has a live Jupyter "
+        f"session on kernel '{live_kernel_id}' this server did not start. Pass "
+        f"kernel_id='{live_kernel_id}' to attach to that kernel and share its state, or "
+        f"kernel_id='{NEW_KERNEL_ID}' to start an isolated kernel that leaves the other "
+        f"notebook alone."
     )
 
 

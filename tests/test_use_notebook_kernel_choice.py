@@ -128,9 +128,9 @@ def _enable_adoption():
 
 
 @pytest.mark.asyncio
-async def test_it_refuses_while_another_session_runs(sandbox):
+async def test_it_refuses_while_the_notebook_has_a_live_session(sandbox):
     client = FakeServerClient(
-        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
+        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
     )
 
     reply = await _use(client)
@@ -142,14 +142,21 @@ async def test_it_refuses_while_another_session_runs(sandbox):
 
 
 @pytest.mark.asyncio
-async def test_a_running_session_kernel_is_named_in_the_refusal(sandbox):
-    client = FakeServerClient(kernels=[], sessions=[_session(NB_PATH, SESSION_KERNEL)])
+async def test_another_notebooks_session_is_not_a_rival(sandbox):
+    """Refusing because somebody else's notebook is open helps nobody.
+
+    A long-lived Jupyter server holds sessions for plenty of other notebooks —
+    a person's own work, an earlier agent, a finished test — and counting
+    those made every open fail on a busy server.
+    """
+    client = FakeServerClient(
+        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
+    )
 
     reply = await _use(client)
 
-    assert "Cannot open" in reply
-    assert SESSION_KERNEL in reply
-    assert sandbox == {}
+    assert "Cannot open" not in reply
+    assert "A kernel starts on the first execution" in reply
 
 
 @pytest.mark.asyncio
@@ -186,7 +193,11 @@ async def test_a_failed_probe_is_not_a_refusal(sandbox):
 
 @pytest.mark.asyncio
 async def test_kernel_id_new_starts_an_isolated_kernel(sandbox):
-    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]), kernel_id=NEW_KERNEL_ID)
+    client = FakeServerClient(
+        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
+    )
+
+    reply = await _use(client, kernel_id=NEW_KERNEL_ID)
 
     assert "Cannot open" not in reply
     assert sandbox.get("kernel_id") is None, "a NEW request must not name an existing kernel"
@@ -196,7 +207,11 @@ async def test_kernel_id_new_starts_an_isolated_kernel(sandbox):
 @pytest.mark.asyncio
 async def test_kernel_id_new_wins_over_a_deferred_open(sandbox):
     """`--start-new-code-sandbox false` defers a bare open, not a NEW request."""
-    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]), kernel_id=NEW_KERNEL_ID)
+    client = FakeServerClient(
+        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
+    )
+
+    reply = await _use(client, kernel_id=NEW_KERNEL_ID)
 
     assert "isolated kernel" in reply
     assert sandbox.get("path") == NB_PATH
@@ -215,11 +230,9 @@ async def test_a_kernel_this_server_started_is_not_a_rival(sandbox):
     """The server's own kernels are what the notebooks it manages run on."""
     manager = NotebookManager()
     manager.add_notebook(
-        "other", SimpleNamespace(id=LIVE_KERNEL), server_url="u", path="other.ipynb"
+        "other", SimpleNamespace(id=LIVE_KERNEL), server_url="u", path=NB_PATH
     )
-    client = FakeServerClient(
-        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
-    )
+    client = FakeServerClient(kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)])
 
     reply = await _use(client, notebook_manager=manager)
 
@@ -232,7 +245,7 @@ async def test_creating_a_notebook_is_an_explicit_choice(sandbox):
     """`mode='create'` names a new notebook; the kernel decision is already made."""
     client = FakeServerClient(
         kernels=[LIVE_KERNEL],
-        sessions=[_session("other.ipynb", LIVE_KERNEL)],
+        sessions=[_session(NB_PATH, LIVE_KERNEL)],
         names=[],
     )
 
@@ -257,7 +270,7 @@ async def test_adoption_still_wins_over_the_refusal(sandbox):
 
 
 @pytest.mark.asyncio
-async def test_adoption_does_not_rescue_a_foreign_kernel(sandbox):
+async def test_adoption_does_not_reach_another_notebooks_session(sandbox):
     _enable_adoption()
     client = FakeServerClient(
         kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
@@ -265,8 +278,9 @@ async def test_adoption_does_not_rescue_a_foreign_kernel(sandbox):
 
     reply = await _use(client)
 
-    assert "Cannot open" in reply
-    assert sandbox == {}
+    assert "Cannot open" not in reply
+    assert "Adopted kernel" not in reply
+    assert "A kernel starts on the first execution" in reply
 
 
 #### JUPYTER_SERVER mode ####################################################

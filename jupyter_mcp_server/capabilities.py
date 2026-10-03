@@ -62,10 +62,10 @@ CAPABILITIES_ENV = "JUPYTER_MCP_CAPABILITIES"
 KERNEL_AUTO_RESTART = "kernel.auto-restart"
 
 #: Adopt the kernel a notebook's existing Jupyter session is already bound to
-#: instead of refusing to open the notebook while another live session runs,
-#: and register a Jupyter session for a kernel this server starts. Off by
-#: default: without it, `use_notebook` never picks a kernel silently — it
-#: names a conflict and asks the caller to choose one by id or `kernel_id=NEW`.
+#: instead of refusing to open that notebook, and register a Jupyter session
+#: for a kernel this server starts. Off by default: without it, `use_notebook`
+#: never picks a kernel silently — a notebook that already has a live session
+#: fails and the caller chooses a kernel by id or with `kernel_id=NEW`.
 KERNEL_ADOPT_SESSION = "kernel.adopt-session"
 
 
@@ -111,11 +111,11 @@ BUILT_IN: tuple[Capability, ...] = (
         name=KERNEL_ADOPT_SESSION,
         description=(
             "Adopt the kernel a notebook's existing Jupyter session is bound "
-            "to instead of refusing to open it while another live session "
-            "runs, and register a Jupyter session for a kernel this server "
-            "starts. Off by default: without it, use_notebook never picks a "
-            "kernel silently and asks the caller to choose an existing kernel "
-            "id or kernel_id=NEW."
+            "to instead of refusing to open that notebook, and register a "
+            "Jupyter session for a kernel this server starts. Off by default: "
+            "without it, use_notebook never picks a kernel silently — a "
+            "notebook that already has a live session fails and the caller "
+            "chooses a kernel id or kernel_id=NEW."
         ),
         enabled=False,
     ),

@@ -198,22 +198,22 @@ cells: a Jupyter kernel reached over HTTP/WebSocket, an engine from the
 local kernel manager owns.
 
 `use_notebook` opens a notebook onto a kernel, and it never picks one
-silently. In connect mode, when the Jupyter server already has a live session
-this server did not start — a notebook a frontend has open on a kernel — the
-call **fails** and names it, so the caller has to choose:
+silently. In connect mode, when the notebook being opened already has a live
+Jupyter session this server did not start — it is open in a frontend on a
+kernel — the call **fails** and names it, so the caller has to choose:
 
 - pass the `kernel_id` of that session's kernel to attach to it and share its
   variables and imports;
 - pass `kernel_id=NEW` to start a fresh kernel, isolated from the others.
 
-An explicit `kernel_id` — including `NEW` — skips the check. A server with
-nothing running opens the notebook as before: the kernel starts on the first
+An explicit `kernel_id` — including `NEW` — skips the check. A notebook with
+no session of its own opens as before: the kernel starts on the first
 execution, or straight away with `--start-new-code-sandbox`. `mode='create'`
 names a new notebook, so it is already an explicit choice and does not refuse.
 Kernels this server started itself — the ones `NotebookManager` tracks — are
-not counted as rivals, so its own multi-notebook workflows keep working. Bare
-kernels nothing is attached to are not counted either: a long-lived Jupyter
-server accumulates them, and refusing on those protected nobody.
+not counted as rivals, so its own multi-notebook workflows keep working.
+Sessions for *other* notebooks are not counted either: a long-lived Jupyter
+server holds plenty of them, and refusing on those protected nobody.
 
 The `kernel.adopt-session` capability is the start-time switch: on, the kernel
 already bound to the notebook's Jupyter session is adopted instead of refused.
