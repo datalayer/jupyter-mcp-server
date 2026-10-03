@@ -817,8 +817,11 @@ async def use_notebook(
     kernel_id: Annotated[
         str,
         Field(
-            description="Id of an existing kernel (or sandbox, for a non-Jupyter sandbox variant)"
-            " to attach the notebook to. A new one is created if skipped."
+            description="Kernel the notebook runs on. Omit it only when nothing else is"
+            " running: while the Jupyter server has live kernels or sessions this server"
+            " did not start, use_notebook fails rather than adding a second kernel."
+            " Pass an existing id (see list_kernels) to attach to that kernel and share"
+            " its variables and imports, or 'NEW' to start an isolated kernel."
         ),
     ] = None,
 ) -> ToolAnswer:
@@ -826,6 +829,11 @@ async def use_notebook(
     All cell operations will be performed on the currently activated notebook.
     Activate new notebook will deactivate the previously activated notebook.
     Reactivate previously activated notebook using same notebook_name and notebook_path.
+
+    The kernel is chosen explicitly: pass kernel_id of a running kernel to
+    attach to it and share its state, or kernel_id=NEW to start an isolated
+    kernel. Opening a notebook while kernels or sessions are already running
+    fails rather than quietly starting a second kernel.
     """
     config = get_config()
     result = await safe_notebook_operation(

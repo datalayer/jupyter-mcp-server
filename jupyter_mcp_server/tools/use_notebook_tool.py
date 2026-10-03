@@ -7,6 +7,7 @@
 import importlib.metadata
 import inspect
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -40,16 +41,51 @@ def _field(record: Any, name: str) -> Any:
     return getattr(record, name, None)
 
 
-async def _session_kernel_id(session_source: Any, notebook_path: str) -> str | None:
-    """Return the kernel id of the session already bound to ``notebook_path``."""
+#: The ``kernel_id`` a caller passes to ask for a fresh, isolated kernel
+#: rather than attaching to (or adopting) one that already runs.
+NEW_KERNEL_ID = "NEW"
+
+
+def is_new_kernel_request(kernel_id: str | None) -> bool:
+    """Whether ``kernel_id`` asks for a new kernel instead of naming one."""
+    return isinstance(kernel_id, str) and kernel_id.strip().upper() == NEW_KERNEL_ID
+
+
+async def _list_sessions(session_source: Any) -> list[Any]:
+    """Every session a client can see, or nothing when it cannot say.
+
+    A client without ``list_sessions`` says nothing about the server, which is
+    not the same as saying the server has no sessions: the empty answer is
+    returned as an empty list and every caller here treats it as silence. A
+    probe that fails answers the same way, for the same reason.
+    """
     list_sessions = getattr(session_source, "list_sessions", None)
     if list_sessions is None:
-        return None
+        return []
+    try:
+        sessions = list_sessions()
+        if inspect.isawaitable(sessions):
+            sessions = await sessions
+    except Exception as error:
+        # A probe that fails says nothing about the server, so it answers the
+        # same way a missing API does: "nothing known".
+        logger.warning("Could not inspect existing Jupyter sessions: %s", error)
+        return []
+    return list(sessions or ())
 
-    sessions = list_sessions()
-    if inspect.isawaitable(sessions):
-        sessions = await sessions
 
+def _session_kernel_ids(sessions: Iterable[Any]) -> set[str]:
+    """The kernel ids the given sessions are bound to."""
+    ids: set[str] = set()
+    for session in sessions or ():
+        kernel_id = _field(_field(session, "kernel"), "id")
+        if kernel_id:
+            ids.add(str(kernel_id))
+    return ids
+
+
+def _session_kernel_id_for_path(sessions: Iterable[Any], notebook_path: str) -> str | None:
+    """The kernel id of the session already bound to ``notebook_path``, if any."""
     wanted = str(notebook_path).lstrip("/")
     for session in sessions or ():
         path = str(_field(session, "path") or "").lstrip("/")
@@ -59,6 +95,71 @@ async def _session_kernel_id(session_source: Any, notebook_path: str) -> str | N
         if kernel_id:
             return str(kernel_id)
     return None
+
+
+def _listed_kernel_ids(kernel_source: Any) -> set[str]:
+    """The kernel ids a kernel listing exposes.
+
+    A probe that fails (or a client that cannot list kernels) returns an empty
+    set, so callers treat it as "nothing known" rather than inventing a
+    refusal out of a missing API.
+    """
+    list_kernels = getattr(kernel_source, "list_kernels", None)
+    if list_kernels is None:
+        return set()
+    try:
+        kernels = list_kernels()
+    except Exception as error:
+        logger.debug("Could not list kernels: %s", error)
+        return set()
+    ids: set[str] = set()
+    for kernel in kernels or ():
+        kernel_id = _field(kernel, "id")
+        if kernel_id:
+            ids.add(str(kernel_id))
+    return ids
+
+
+def _managed_kernel_ids(notebook_manager: NotebookManager | None) -> set[str]:
+    """The kernels this server already bound, which are not rivals to it."""
+    ids: set[str] = set()
+    if notebook_manager is None:
+        return ids
+    for name, _info in notebook_manager:
+        kernel_id = notebook_manager.get_code_sandbox_id(name)
+        if kernel_id:
+            ids.add(str(kernel_id))
+    return ids
+
+
+def _conflicting_kernel_reply(
+    *,
+    notebook_path: str,
+    sessions: Iterable[Any],
+    kernel_source: Any,
+    notebook_manager: NotebookManager | None,
+) -> str | None:
+    """A refusal to start a rival kernel, or None when it is safe to continue.
+
+    Opening a notebook picks a kernel to run it on. When the server already
+    runs kernels or sessions this server did not start, silently choosing one
+    either hijacks the person's session or adds a second kernel nobody is
+    watching (#478). The choice belongs to the caller: name an existing kernel
+    to share its state, or ask for an isolated one with ``kernel_id=NEW``.
+    """
+    live = _listed_kernel_ids(kernel_source) | _session_kernel_ids(sessions)
+    rivals = sorted(live - _managed_kernel_ids(notebook_manager))
+    if not rivals:
+        return None
+    listed = ", ".join(f"'{kernel_id}'" for kernel_id in rivals[:5])
+    more = "" if len(rivals) <= 5 else f" (and {len(rivals) - 5} more)"
+    return (
+        f"Cannot open '{notebook_path}' on a new kernel: the Jupyter server already has "
+        f"{len(rivals)} live kernel(s)/session(s) this server did not start "
+        f"({listed}{more}). Pass kernel_id='<id>' to reuse one of them and share its "
+        f"state, or kernel_id='{NEW_KERNEL_ID}' to start an isolated kernel that leaves "
+        f"the others alone."
+    )
 
 
 def _major(version: str | None) -> int | None:
@@ -437,46 +538,71 @@ class UseNotebookTool(BaseTool):
                         session.headers["X-XSRFToken"] = xsrf_token
                     document_server_client.contents.create_notebook(notebook_path, content=content)
 
+            # `kernel_id=NEW` is a request, not an id: it names no kernel to
+            # look up but asks for an isolated one, so it opts out of both
+            # adopting and refusing what is already running.
+            request_new_kernel = is_new_kernel_request(kernel_id)
+            if request_new_kernel:
+                kernel_id = None
+
+            # Which clients can answer "what is running here?".
+            #
+            # Only Jupyter exposes sessions and kernels; a non-Jupyter sandbox
+            # variant resolves its own backend, so it is left out and the
+            # checks below find nothing to object to.
+            session_source = None
+            kernel_source = None
+            if (
+                mode == ServerMode.MCP_SERVER
+                and sandbox_server_client is not None
+                and not config.uses_sandbox_variant()
+            ):
+                session_source = getattr(sandbox_server_client, "sessions", None)
+                kernel_source = getattr(sandbox_server_client, "kernels", None)
+            elif mode == ServerMode.JUPYTER_SERVER:
+                session_source = session_manager
+                kernel_source = kernel_manager
+
             # The opt-in path: a notebook opened in JupyterLab or another
             # frontend already owns a session and kernel. Reuse that kernel
             # rather than creating an isolated one the caller cannot see.
-            # Explicit kernel_id still wins, and capability-off takes the
-            # original branch below without inspecting sessions at all.
+            # Explicit kernel_id still wins, and capability-off leaves the
+            # decision to the conflict check below.
             adopted_session = False
+            # Listed once: the adoption path and the conflict check below ask
+            # the same question, and a server that changes its answer between
+            # the two would only make the reply self-contradictory.
+            sessions: list[Any] = []
+            if use_mode == "connect" and session_source is not None:
+                sessions = await _list_sessions(session_source)
             if (
                 use_mode == "connect"
                 and kernel_id is None
+                and not request_new_kernel
                 and capability_enabled(KERNEL_ADOPT_SESSION)
             ):
-                session_source = None
-                if (
-                    mode == ServerMode.MCP_SERVER
-                    and sandbox_server_client is not None
-                    and not config.uses_sandbox_variant()
-                ):
-                    session_source = getattr(sandbox_server_client, "sessions", None)
-                elif mode == ServerMode.JUPYTER_SERVER:
-                    session_source = session_manager
+                adopted_kernel_id = _session_kernel_id_for_path(sessions, notebook_path)
+                if adopted_kernel_id:
+                    kernel_id = adopted_kernel_id
+                    adopted_session = True
+                    info_list.append(
+                        f"[INFO] Adopted kernel '{kernel_id}' from the existing "
+                        f"Jupyter session for '{notebook_path}'."
+                    )
 
-                if session_source is not None:
-                    try:
-                        adopted_kernel_id = await _session_kernel_id(
-                            session_source, notebook_path
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "Could not inspect existing Jupyter sessions for '%s': %s",
-                            notebook_path,
-                            e,
-                        )
-                    else:
-                        if adopted_kernel_id:
-                            kernel_id = adopted_kernel_id
-                            adopted_session = True
-                            info_list.append(
-                                f"[INFO] Adopted kernel '{kernel_id}' from the existing "
-                                f"Jupyter session for '{notebook_path}'."
-                            )
+            # Default: do not add a silent rival kernel. When the server
+            # already runs kernels or sessions this server did not start, the
+            # caller chooses between sharing one and isolating a new one
+            # (#478) instead of us guessing.
+            if use_mode == "connect" and kernel_id is None and not request_new_kernel:
+                conflict = _conflicting_kernel_reply(
+                    notebook_path=notebook_path,
+                    sessions=sessions,
+                    kernel_source=kernel_source,
+                    notebook_manager=notebook_manager,
+                )
+                if conflict is not None:
+                    return conflict
 
             # # Create/connect to kernel based on mode
             if mode == ServerMode.MCP_SERVER and sandbox_server_client is not None:
@@ -504,17 +630,24 @@ class UseNotebookTool(BaseTool):
                 # honoured rather than assumed.
                 #
                 # A `kernel_id` names a backend that already exists, so attaching
-                # to it starts nothing and is done right away (#425).
-                if kernel_id is not None or config.start_new_code_sandbox:
-                    # The operator asked for a sandbox up front, so start one.
-                    # Through the shared factory, which consults the installed
-                    # extensions first and so honours `--sandbox-variant`.
+                # to it starts nothing and is done right away (#425). A `NEW`
+                # request starts one here too: the caller asked for it, so it
+                # is not deferred to the first execution the way a bare open is.
+                if kernel_id is not None or request_new_kernel or config.start_new_code_sandbox:
+                    # The caller or operator asked for a sandbox up front, so
+                    # start one. Through the shared factory, which consults the
+                    # installed extensions first and honours `--sandbox-variant`.
                     from jupyter_mcp_server.utils import create_code_sandbox
 
                     kernel = create_code_sandbox(
                         config, logger, path=notebook_path, code_sandbox_id=kernel_id
                     )
-                    info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
+                    if request_new_kernel:
+                        info_list.append(
+                            f"[INFO] Started a new isolated kernel '{kernel.id}'."
+                        )
+                    else:
+                        info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
                 else:
                     kernel = None
                     info_list.append(

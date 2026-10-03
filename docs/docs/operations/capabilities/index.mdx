@@ -100,10 +100,19 @@ blocked by a switch about doing it behind somebody's back.
 
 **Off by default.**
 
+`use_notebook` never chooses a kernel silently. In connect mode, when the
+Jupyter server already has live kernels or sessions this server did not start,
+the call fails and names them, so the caller has to choose: pass an existing
+`kernel_id` to attach to that kernel and share its variables and imports, or
+pass `kernel_id=NEW` to start an isolated kernel that leaves the others alone.
+An explicit `kernel_id` (including `NEW`) always skips the check. A server
+with nothing running keeps its current behaviour: the notebook opens and a
+kernel starts on the first execution.
+
 On, `use_notebook` in connect mode reuses the kernel already bound to the
-notebook's existing Jupyter session instead of starting or selecting a
-separate kernel. This keeps the variables, imports and execution state the
-person in JupyterLab is already using in the notebook the agent operates on.
+notebook's existing Jupyter session instead of refusing. This keeps the
+variables, imports and execution state the person in JupyterLab is already
+using in the notebook the agent operates on.
 
 When the MCP server starts the kernel first, the same capability registers a
 notebook session for it. Opening that notebook in JupyterLab then reuses the
@@ -111,11 +120,10 @@ running kernel instead of starting a second one.
 
 The capability only applies when the caller did not pass an explicit
 `kernel_id`: an explicit kernel still wins. If the notebook has no existing
-session, or if the server cannot inspect sessions, `use_notebook` falls back
-to the normal new-kernel path.
+session — and other kernels are running — `use_notebook` still fails and asks
+the caller to choose, exactly as it does with the capability off.
 
-Off, the server keeps its current isolation behaviour and does not inspect
-sessions at all. Enable it with the same switches as any other capability:
+Enable it with the same switches as any other capability:
 
 ```bash
 jupyter-mcp-server start --capability kernel.adopt-session

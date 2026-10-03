@@ -41,7 +41,13 @@ class FakeServerClient:
             list_directory=lambda path: [SimpleNamespace(name="nb.ipynb")],
             get=lambda path: {"content": {"cells": []}},
         )
-        self.kernels = SimpleNamespace(list_kernels=lambda: [SimpleNamespace(id=SESSION_KERNEL)])
+        # A live session implies a live kernel; the kernel list mirrors the
+        # sessions so the two answers cannot contradict each other.
+        self.kernels = SimpleNamespace(
+            list_kernels=lambda: [
+                SimpleNamespace(id=session.kernel.id) for session in sessions
+            ]
+        )
         self.sessions = FakeSessions(sessions)
 
     def get_status(self):
@@ -144,7 +150,9 @@ async def _use_mcp(client):
     ("enabled", "start_new", "sessions", "calls", "kernel_id", "reply"),
     [
         (True, False, [MCP_SESSION], 1, SESSION_KERNEL, "Adopted kernel"),
-        (False, False, [MCP_SESSION], 0, None, "A kernel starts on the first execution"),
+        # Adoption off, a kernel is running, and nothing names one: refuse
+        # rather than add a second kernel (#478).
+        (False, False, [MCP_SESSION], 1, None, "Cannot open"),
         (True, True, [], 1, None, "Connected to kernel 'new-kernel'"),
     ],
 )
@@ -166,7 +174,8 @@ async def test_mcp_server_session_adoption_paths(
     ("enabled", "sessions", "calls", "started", "created", "kernel_id", "reply"),
     [
         (True, [SESSION], 1, [], [], SESSION_KERNEL, "Adopted kernel"),
-        (False, [SESSION], 0, ["nb.ipynb"], ["new-kernel"], "new-kernel", None),
+        # Adoption off, a kernel is running, nothing names it: refuse.
+        (False, [SESSION], 1, [], [], None, "Cannot open"),
         (True, [], 1, ["nb.ipynb"], ["new-kernel"], "new-kernel", None),
     ],
 )

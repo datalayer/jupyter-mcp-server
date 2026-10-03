@@ -61,10 +61,11 @@ CAPABILITIES_ENV = "JUPYTER_MCP_CAPABILITIES"
 #: told its kernel died, not handed a different one wearing its name.
 KERNEL_AUTO_RESTART = "kernel.auto-restart"
 
-#: Keep a notebook's MCP kernel and its Jupyter session bound together: adopt
-#: the session kernel when one exists, or register a session when this server
-#: starts the kernel. Off by default so the current isolation behaviour stands
-#: unless the operator opts in.
+#: Adopt the kernel a notebook's existing Jupyter session is already bound to
+#: instead of refusing to open the notebook while other kernels run, and
+#: register a Jupyter session for a kernel this server starts. Off by default:
+#: without it, `use_notebook` never picks a kernel silently — it names a
+#: conflict and asks the caller to choose one by id or with `kernel_id=NEW`.
 KERNEL_ADOPT_SESSION = "kernel.adopt-session"
 
 
@@ -109,11 +110,12 @@ BUILT_IN: tuple[Capability, ...] = (
     Capability(
         name=KERNEL_ADOPT_SESSION,
         description=(
-            "Keep the notebook's MCP kernel and Jupyter session bound in "
-            "both directions: reuse the kernel of an existing session, or "
-            "register a session for a kernel this server starts. Off by "
-            "default so the current isolated-kernel behaviour stands unless "
-            "the operator opts in."
+            "Adopt the kernel a notebook's existing Jupyter session is bound "
+            "to instead of refusing to open it while other kernels run, and "
+            "register a Jupyter session for a kernel this server starts. Off "
+            "by default: without it, use_notebook never picks a kernel "
+            "silently and asks the caller to choose an existing kernel id or "
+            "kernel_id=NEW."
         ),
         enabled=False,
     ),
