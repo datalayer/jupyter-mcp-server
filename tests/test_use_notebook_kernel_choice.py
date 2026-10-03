@@ -128,8 +128,12 @@ def _enable_adoption():
 
 
 @pytest.mark.asyncio
-async def test_it_refuses_while_another_kernel_runs(sandbox):
-    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]))
+async def test_it_refuses_while_another_session_runs(sandbox):
+    client = FakeServerClient(
+        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
+    )
+
+    reply = await _use(client)
 
     assert "Cannot open" in reply
     assert LIVE_KERNEL in reply
@@ -146,6 +150,20 @@ async def test_a_running_session_kernel_is_named_in_the_refusal(sandbox):
     assert "Cannot open" in reply
     assert SESSION_KERNEL in reply
     assert sandbox == {}
+
+
+@pytest.mark.asyncio
+async def test_a_bare_kernel_is_not_a_session(sandbox):
+    """A kernel nothing is attached to is not a person's work to protect.
+
+    A long-lived Jupyter server accumulates them (an earlier agent, a
+    finished test), and refusing on those made every open fail on a busy
+    server without protecting anything.
+    """
+    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]))
+
+    assert "Cannot open" not in reply
+    assert "A kernel starts on the first execution" in reply
 
 
 @pytest.mark.asyncio
@@ -199,8 +217,11 @@ async def test_a_kernel_this_server_started_is_not_a_rival(sandbox):
     manager.add_notebook(
         "other", SimpleNamespace(id=LIVE_KERNEL), server_url="u", path="other.ipynb"
     )
+    client = FakeServerClient(
+        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
+    )
 
-    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]), notebook_manager=manager)
+    reply = await _use(client, notebook_manager=manager)
 
     assert "Cannot open" not in reply
     assert "A kernel starts on the first execution" in reply
@@ -209,7 +230,11 @@ async def test_a_kernel_this_server_started_is_not_a_rival(sandbox):
 @pytest.mark.asyncio
 async def test_creating_a_notebook_is_an_explicit_choice(sandbox):
     """`mode='create'` names a new notebook; the kernel decision is already made."""
-    client = FakeServerClient(kernels=[LIVE_KERNEL], names=[])
+    client = FakeServerClient(
+        kernels=[LIVE_KERNEL],
+        sessions=[_session("other.ipynb", LIVE_KERNEL)],
+        names=[],
+    )
 
     reply = await _use(client, use_mode="create")
 
@@ -234,8 +259,11 @@ async def test_adoption_still_wins_over_the_refusal(sandbox):
 @pytest.mark.asyncio
 async def test_adoption_does_not_rescue_a_foreign_kernel(sandbox):
     _enable_adoption()
+    client = FakeServerClient(
+        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
+    )
 
-    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]))
+    reply = await _use(client)
 
     assert "Cannot open" in reply
     assert sandbox == {}
@@ -304,7 +332,9 @@ async def _use_local(kernel_id=None, *, kernels=(), sessions=()):
 
 @pytest.mark.asyncio
 async def test_jupyter_server_refuses_while_a_kernel_runs():
-    reply, kernel_manager, _ = await _use_local(kernels=[LIVE_KERNEL])
+    reply, kernel_manager, _ = await _use_local(
+        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
+    )
 
     assert "Cannot open" in reply
     assert kernel_manager.started == []

@@ -1669,7 +1669,7 @@
         "openWorldHint": false,
         "title": "Use Notebook"
       },
-      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n\nThe kernel is chosen explicitly: pass kernel_id of a running kernel to\nattach to it and share its state, or kernel_id=NEW to start an isolated\nkernel. Opening a notebook while kernels or sessions are already running\nfails rather than quietly starting a second kernel.\n",
+      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n\nThe kernel is chosen explicitly: pass kernel_id of a running kernel to\nattach to it and share its state, or kernel_id=NEW to start an isolated\nkernel. While another Jupyter session this server did not start is live,\nopening a notebook fails rather than quietly starting a second kernel.\n",
       "inputSchema": {
         "properties": {
           "notebook_name": {
@@ -1694,7 +1694,7 @@
           },
           "kernel_id": {
             "default": null,
-            "description": "Kernel the notebook runs on. Omit it only when nothing else is running: while the Jupyter server has live kernels or sessions this server did not start, use_notebook fails rather than adding a second kernel. Pass an existing id (see list_kernels) to attach to that kernel and share its variables and imports, or 'NEW' to start an isolated kernel.",
+            "description": "Kernel the notebook runs on. Omit it only if nothing else is running: while the Jupyter server has live sessions this server did not start, use_notebook fails rather than adding a second kernel. Pass an existing id (see list_kernels) to attach to that kernel and share its variables and imports, or 'NEW' to start an isolated kernel.",
             "title": "Kernel Id",
             "type": "string"
           }

@@ -74,16 +74,6 @@ async def _list_sessions(session_source: Any) -> list[Any]:
     return list(sessions or ())
 
 
-def _session_kernel_ids(sessions: Iterable[Any]) -> set[str]:
-    """The kernel ids the given sessions are bound to."""
-    ids: set[str] = set()
-    for session in sessions or ():
-        kernel_id = _field(_field(session, "kernel"), "id")
-        if kernel_id:
-            ids.add(str(kernel_id))
-    return ids
-
-
 def _session_kernel_id_for_path(sessions: Iterable[Any], notebook_path: str) -> str | None:
     """The kernel id of the session already bound to ``notebook_path``, if any."""
     wanted = str(notebook_path).lstrip("/")
@@ -95,29 +85,6 @@ def _session_kernel_id_for_path(sessions: Iterable[Any], notebook_path: str) -> 
         if kernel_id:
             return str(kernel_id)
     return None
-
-
-def _listed_kernel_ids(kernel_source: Any) -> set[str]:
-    """The kernel ids a kernel listing exposes.
-
-    A probe that fails (or a client that cannot list kernels) returns an empty
-    set, so callers treat it as "nothing known" rather than inventing a
-    refusal out of a missing API.
-    """
-    list_kernels = getattr(kernel_source, "list_kernels", None)
-    if list_kernels is None:
-        return set()
-    try:
-        kernels = list_kernels()
-    except Exception as error:
-        logger.debug("Could not list kernels: %s", error)
-        return set()
-    ids: set[str] = set()
-    for kernel in kernels or ():
-        kernel_id = _field(kernel, "id")
-        if kernel_id:
-            ids.add(str(kernel_id))
-    return ids
 
 
 def _managed_kernel_ids(notebook_manager: NotebookManager | None) -> set[str]:
@@ -136,29 +103,42 @@ def _conflicting_kernel_reply(
     *,
     notebook_path: str,
     sessions: Iterable[Any],
-    kernel_source: Any,
     notebook_manager: NotebookManager | None,
 ) -> str | None:
     """A refusal to start a rival kernel, or None when it is safe to continue.
 
-    Opening a notebook picks a kernel to run it on. When the server already
-    runs kernels or sessions this server did not start, silently choosing one
-    either hijacks the person's session or adds a second kernel nobody is
-    watching (#478). The choice belongs to the caller: name an existing kernel
-    to share its state, or ask for an isolated one with ``kernel_id=NEW``.
+    A Jupyter *session* is a notebook a frontend has open on a kernel: it is
+    how a person's work in JupyterLab is visible from here. While one exists
+    that this server did not start, opening another notebook silently either
+    hijacks that session or adds a second kernel nobody is watching (#478).
+    The choice belongs to the caller: name a running kernel to share its
+    state, or ask for an isolated one with ``kernel_id=NEW``.
+
+    Bare kernels are deliberately not counted. A long-lived Jupyter server
+    accumulates kernels nothing is attached to — an earlier agent, a
+    finished test, a notebook closed without shutting down — and refusing on
+    those made every open fail on a busy server without protecting anything.
     """
-    live = _listed_kernel_ids(kernel_source) | _session_kernel_ids(sessions)
-    rivals = sorted(live - _managed_kernel_ids(notebook_manager))
-    if not rivals:
+    managed = _managed_kernel_ids(notebook_manager)
+    live = [
+        (str(_field(session, "path") or ""), str(kernel_id))
+        for session in sessions or ()
+        for kernel_id in [_field(_field(session, "kernel"), "id")]
+        if kernel_id and str(kernel_id) not in managed
+    ]
+    if not live:
         return None
-    listed = ", ".join(f"'{kernel_id}'" for kernel_id in rivals[:5])
-    more = "" if len(rivals) <= 5 else f" (and {len(rivals) - 5} more)"
+    listed = ", ".join(
+        f"'{path or '(unnamed)'}' on kernel '{kernel_id}'" for path, kernel_id in live[:5]
+    )
+    more = "" if len(live) <= 5 else f" (and {len(live) - 5} more)"
+    first_kernel = live[0][1]
     return (
         f"Cannot open '{notebook_path}' on a new kernel: the Jupyter server already has "
-        f"{len(rivals)} live kernel(s)/session(s) this server did not start "
-        f"({listed}{more}). Pass kernel_id='<id>' to reuse one of them and share its "
-        f"state, or kernel_id='{NEW_KERNEL_ID}' to start an isolated kernel that leaves "
-        f"the others alone."
+        f"{len(live)} live session(s) this server did not start ({listed}{more}). Pass "
+        f"kernel_id='{first_kernel}' to reuse that kernel and share its state, or "
+        f"kernel_id='{NEW_KERNEL_ID}' to start an isolated kernel that leaves the others "
+        f"alone."
     )
 
 
@@ -545,23 +525,20 @@ class UseNotebookTool(BaseTool):
             if request_new_kernel:
                 kernel_id = None
 
-            # Which clients can answer "what is running here?".
+            # Which client can answer "what is running here?".
             #
-            # Only Jupyter exposes sessions and kernels; a non-Jupyter sandbox
-            # variant resolves its own backend, so it is left out and the
-            # checks below find nothing to object to.
+            # Only Jupyter exposes sessions; a non-Jupyter sandbox variant
+            # resolves its own backend, so it is left out and the checks below
+            # find nothing to object to.
             session_source = None
-            kernel_source = None
             if (
                 mode == ServerMode.MCP_SERVER
                 and sandbox_server_client is not None
                 and not config.uses_sandbox_variant()
             ):
                 session_source = getattr(sandbox_server_client, "sessions", None)
-                kernel_source = getattr(sandbox_server_client, "kernels", None)
             elif mode == ServerMode.JUPYTER_SERVER:
                 session_source = session_manager
-                kernel_source = kernel_manager
 
             # The opt-in path: a notebook opened in JupyterLab or another
             # frontend already owns a session and kernel. Reuse that kernel
@@ -591,14 +568,13 @@ class UseNotebookTool(BaseTool):
                     )
 
             # Default: do not add a silent rival kernel. When the server
-            # already runs kernels or sessions this server did not start, the
-            # caller chooses between sharing one and isolating a new one
-            # (#478) instead of us guessing.
+            # already has sessions this server did not start, the caller
+            # chooses between sharing one and isolating a new one (#478)
+            # instead of us guessing.
             if use_mode == "connect" and kernel_id is None and not request_new_kernel:
                 conflict = _conflicting_kernel_reply(
                     notebook_path=notebook_path,
                     sessions=sessions,
-                    kernel_source=kernel_source,
                     notebook_manager=notebook_manager,
                 )
                 if conflict is not None:

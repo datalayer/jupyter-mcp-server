@@ -23,14 +23,11 @@ EXISTING_KERNEL_ID = "afd51e4a-existing"
 
 
 class FakeServerClient:
-    def __init__(self, kernels=(EXISTING_KERNEL_ID,)):
-        self.contents = SimpleNamespace(
-            list_directory=lambda path: [SimpleNamespace(name="nb.ipynb")],
-            get=lambda path: {"content": {"cells": []}},
-        )
-        self.kernels = SimpleNamespace(
-            list_kernels=lambda: [SimpleNamespace(id=kernel_id) for kernel_id in kernels]
-        )
+    contents = SimpleNamespace(
+        list_directory=lambda path: [SimpleNamespace(name="nb.ipynb")],
+        get=lambda path: {"content": {"cells": []}},
+    )
+    kernels = SimpleNamespace(list_kernels=lambda: [SimpleNamespace(id=EXISTING_KERNEL_ID)])
 
     def get_status(self):
         return {}
@@ -68,10 +65,10 @@ def recorded_sandbox_kwargs(monkeypatch):
     reset_config()
 
 
-async def _use_notebook(notebook_manager, kernel_id, client=None):
+async def _use_notebook(notebook_manager, kernel_id):
     return await UseNotebookTool().execute(
         mode=ServerMode.MCP_SERVER,
-        sandbox_server_client=client or FakeServerClient(),
+        sandbox_server_client=FakeServerClient(),
         notebook_manager=notebook_manager,
         notebook_name="demo",
         notebook_path="nb.ipynb",
@@ -101,10 +98,7 @@ async def test_use_notebook__without_kernel_id_stays_lazy(recorded_sandbox_kwarg
     set_config(code_sandbox_url=SANDBOX_URL, start_new_code_sandbox=False)
     notebook_manager = NotebookManager()
 
-    # Nothing runs on the server, so a bare open stays lazy. A server that
-    # already had a kernel would refuse instead — see
-    # tests/test_use_notebook_kernel_choice.py.
-    await _use_notebook(notebook_manager, None, client=FakeServerClient(kernels=[]))
+    await _use_notebook(notebook_manager, None)
 
     assert recorded_sandbox_kwargs == {}
     assert notebook_manager.get_code_sandbox("demo") is None

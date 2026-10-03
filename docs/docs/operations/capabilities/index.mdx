@@ -101,13 +101,13 @@ blocked by a switch about doing it behind somebody's back.
 **Off by default.**
 
 `use_notebook` never chooses a kernel silently. In connect mode, when the
-Jupyter server already has live kernels or sessions this server did not start,
-the call fails and names them, so the caller has to choose: pass an existing
-`kernel_id` to attach to that kernel and share its variables and imports, or
-pass `kernel_id=NEW` to start an isolated kernel that leaves the others alone.
-An explicit `kernel_id` (including `NEW`) always skips the check. A server
-with nothing running keeps its current behaviour: the notebook opens and a
-kernel starts on the first execution.
+Jupyter server already has a live session this server did not start — a
+notebook a frontend has open on a kernel — the call fails and names it, so the
+caller has to choose: pass that session's `kernel_id` to attach to it and share
+its variables and imports, or pass `kernel_id=NEW` to start an isolated kernel
+that leaves the other notebook alone. An explicit `kernel_id` (including
+`NEW`) always skips the check. A server with nothing running keeps its current
+behaviour: the notebook opens and a kernel starts on the first execution.
 
 On, `use_notebook` in connect mode reuses the kernel already bound to the
 notebook's existing Jupyter session instead of refusing. This keeps the
@@ -120,8 +120,14 @@ running kernel instead of starting a second one.
 
 The capability only applies when the caller did not pass an explicit
 `kernel_id`: an explicit kernel still wins. If the notebook has no existing
-session — and other kernels are running — `use_notebook` still fails and asks
-the caller to choose, exactly as it does with the capability off.
+session for it — and another live session is running — `use_notebook` still
+fails and asks the caller to choose, exactly as it does with the capability
+off.
+
+Bare kernels are deliberately not counted. A long-lived Jupyter server
+accumulates kernels nothing is attached to — an earlier agent, a finished run,
+a notebook closed without shutting down — and refusing on those made every
+open fail on a busy server without protecting anybody's work.
 
 Enable it with the same switches as any other capability:
 
