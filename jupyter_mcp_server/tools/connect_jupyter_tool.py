@@ -4,12 +4,48 @@
 
 """Tool for dynamically connecting to Jupyter server with URL and token."""
 
+import asyncio
 import logging
+
+import requests
 
 from jupyter_mcp_server.config import set_config
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
 logger = logging.getLogger(__name__)
+
+_STATUS_TIMEOUT_SECONDS = 10.0
+
+
+def _unset(value: str | None) -> bool:
+    """`set_config` reads "None", "null" and "" as no value; read them the same here."""
+    return value is None or value.lower() in ("none", "null", "")
+
+
+def _check_jupyter_server(jupyter_url: str, jupyter_token: str | None) -> None:
+    """Ask the server for `/api/status` with the token the agent was given.
+
+    Switching the configuration does not touch the server, so without this a
+    typo'd URL, a dead port or a wrong token all came back as "Successfully
+    connected", and every later tool failed instead. Same check as the
+    password login's verification step in `auth.py`.
+
+    Raises:
+        RuntimeError: The server can't be reached, rejects the token, or
+            doesn't answer `/api/status` with a 200.
+    """
+    url = f"{jupyter_url.rstrip('/')}/api/status"
+    headers = {"Authorization": f"token {jupyter_token}"} if not _unset(jupyter_token) else {}
+    try:
+        response = requests.get(url, headers=headers, timeout=_STATUS_TIMEOUT_SECONDS)
+    except requests.exceptions.RequestException as error:
+        raise RuntimeError(f"could not reach {url}: {error}") from error
+    if response.status_code in (401, 403):
+        raise RuntimeError(
+            f"the server rejected the token (GET /api/status returned {response.status_code})"
+        )
+    if response.status_code != 200:
+        raise RuntimeError(f"GET /api/status returned {response.status_code}")
 
 
 class ConnectJupyterTool(BaseTool):
@@ -40,6 +76,19 @@ class ConnectJupyterTool(BaseTool):
             f"Connecting to Jupyter server - URL: {jupyter_url}, "
             f"Token: {'***' if jupyter_token else 'None'}"
         )
+
+        if document_provider == "jupyter" and jupyter_url != "local" and not _unset(jupyter_url):
+            try:
+                await asyncio.to_thread(_check_jupyter_server, jupyter_url, jupyter_token)
+            except RuntimeError as error:
+                # Leave the current connection in place: it may still work,
+                # and the new one is known not to.
+                error_msg = (
+                    f"Failed to connect to Jupyter server {jupyter_url}: {error}. "
+                    "The previous connection is unchanged."
+                )
+                logger.error(error_msg)
+                raise Exception(error_msg) from error
 
         try:
             # Update configuration with new connection parameters
