@@ -139,6 +139,8 @@ The `--jupyter-url` and `--jupyter-token` parameters are optional thanks to the 
 
 Example usage: *"Connect to jupyter server http://localhost:8888 with token MY_TOKEN"*
 
+Before switching, the tool checks the server by requesting `/api/status` with the given token. If the server can't be reached or rejects the token, the call returns an error and the previous connection stays in place.
+
 ⚠️ **Security Warning**: Using the `connect_to_jupyter` tool means providing the Jupyter token to the LLM, which is not secure in production environments.
 :::
 

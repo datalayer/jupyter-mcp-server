@@ -9,6 +9,7 @@ port or a wrong token used to come back as "Successfully connected". These
 tests stub `requests.get`, so no running Jupyter server is required.
 """
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -103,3 +104,26 @@ async def test_a_non_jupyter_document_provider_is_not_checked(monkeypatch):
     calls = _stub_get(monkeypatch, raises=AssertionError("should not be called"))
     await _connect(jupyter_url="https://prod1.datalayer.run", document_provider="datalayer")
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_the_check_does_not_block_a_server_on_the_same_event_loop(monkeypatch):
+    # Inside the Jupyter server extension the tool runs on the server's own
+    # event loop, so connecting to that same server must not hold the loop
+    # while it waits for `/api/status`, or the server can't answer and the
+    # check times out.
+    async def answer(reader, writer):
+        await reader.readuntil(b"\r\n\r\n")
+        writer.write(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}")
+        await writer.drain()
+        writer.close()
+
+    server = await asyncio.start_server(answer, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    monkeypatch.setattr(connect_jupyter_tool, "_STATUS_TIMEOUT_SECONDS", 3.0)
+    try:
+        result = await _connect(jupyter_url=f"http://127.0.0.1:{port}", jupyter_token="abc")
+    finally:
+        server.close()
+        await server.wait_closed()
+    assert "Successfully connected" in result

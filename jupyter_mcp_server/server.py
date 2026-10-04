@@ -1708,6 +1708,11 @@ async def connect_to_jupyter(
     - Jupyter server token changes dynamically
     - Need to switch between different Jupyter instances
 
+    The server is checked first: the tool asks it for `/api/status` with the
+    given token, and if it can't be reached, rejects the token or doesn't
+    answer with a 200, the call fails and the previous connection stays in
+    place. The `local` URL and non-Jupyter document providers are not checked.
+
     Example usage:
     - "Connect to http://localhost:8888 with token abc123"
     - "Connect to http://localhost:8889 without authentication"

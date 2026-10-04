@@ -6,7 +6,6 @@
     "version": "2.2.3"
   },
   "capabilities": {
-    "experimental": {},
     "logging": {},
     "prompts": {
       "listChanged": false
@@ -114,7 +113,7 @@
         "openWorldHint": false,
         "title": "Connect to Jupyter Server"
       },
-      "description": "Connect to a Jupyter server dynamically with URL and token.\n\nThis tool allows you to connect to different Jupyter servers without needing to\nrestart the MCP server or modify configuration files. Particularly useful when:\n- Working with multiple Jupyter servers with different ports/tokens\n- Jupyter server token changes dynamically\n- Need to switch between different Jupyter instances\n\nExample usage:\n- \"Connect to http://localhost:8888 with token abc123\"\n- \"Connect to http://localhost:8889 without authentication\"\n",
+      "description": "Connect to a Jupyter server dynamically with URL and token.\n\nThis tool allows you to connect to different Jupyter servers without needing to\nrestart the MCP server or modify configuration files. Particularly useful when:\n- Working with multiple Jupyter servers with different ports/tokens\n- Jupyter server token changes dynamically\n- Need to switch between different Jupyter instances\n\nThe server is checked first: the tool asks it for `/api/status` with the\ngiven token, and if it can't be reached, rejects the token or doesn't\nanswer with a 200, the call fails and the previous connection stays in\nplace. The `local` URL and non-Jupyter document providers are not checked.\n\nExample usage:\n- \"Connect to http://localhost:8888 with token abc123\"\n- \"Connect to http://localhost:8889 without authentication\"\n",
       "inputSchema": {
         "properties": {
           "jupyter_url": {
