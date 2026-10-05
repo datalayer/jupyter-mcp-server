@@ -6,7 +6,8 @@ description: How Jupyter MCP Server is put together — its two modes, the layer
 # Architecture
 
 Jupyter MCP Server has two deployment entry points and two backend access
-modes. They usually line up, but an extension can use either access mode:
+modes. They usually line up, but the **Jupyter Server extension deployment**
+can use either access mode:
 
 - A **standalone deployment**, started with `jupyter-mcp-server start`, serves
   MCP over `stdio` or Streamable HTTP and uses **MCP_SERVER** access: remote
