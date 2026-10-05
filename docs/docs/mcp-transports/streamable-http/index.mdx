@@ -1,78 +1,54 @@
 # Streamable HTTP Transport
 
-The following diagram illustrates how **Jupyter MCP Server** connects to a **Jupyter server** or **Datalayer** and communicates with an MCP client.
+In standalone mode, Jupyter MCP Server is a separate process between the MCP
+client and Jupyter. The client connects only to the MCP endpoint; Jupyter MCP
+Server connects downstream to the notebook documents and kernels.
+
+## How it is connected
+
+### Default: one downstream Jupyter Server
 
 ```mermaid
 flowchart TB
-  mcp[Jupyter MCP Server]
-  client(["MCP Client\n(Claude, VS-Code, ...)"])
+    client["MCP client"]
+    mcp["Jupyter MCP Server<br/>standalone process"]
 
-  j[Datalayer]:::host
-  jup[Jupyter]:::host
-  hub[JupyterHub]:::host
-  eg[Jupyter Enterprise Gateway]:::host
+    subgraph jupyter["Downstream Jupyter Server"]
+        direction TB
+        documents["Notebook documents"]
+        kernels["Kernels"]
+    end
 
-  jd((D))
-  jr{R}
-  hd((D))
-  hr{R}
-  ed((D))
-  er{R}
-  dd((D))
-  dr{R}
-
-  jupTop1[Jupyter]
-  jupTop2[Jupyter]
-  dTop1((D))
-  rTop1{R}
-  dTop2((D))
-  rTop2{R}
-
-  or1([OR])
-  or2([OR])
-  or3([OR])
-
-  jd --- jup
-  jr --- jup
-  hd --- hub
-  hr --- hub
-  ed --- eg
-  er --- eg
-  dd --- j
-  dr --- j
-
-  dTop1 --- jupTop1
-  rTop1 --- jupTop1
-  dTop2 --- jupTop2
-  rTop2 --- jupTop2
-
-  hub --> jupTop1
-  eg --> jupTop2
-
-  jup <-- RTC --> mcp
-  hub <-- RTC --> mcp
-  eg <-- RTC --> mcp
-  j <-- RTC --> mcp
-
-  mcp <-- "STDIO or Streamable HTTP Transport" --> client
-
-  jup --- or1
-  or1 --- hub
-  hub --- or2
-  or2 --- eg
-  eg --- or3
-  or3 --- j
-
-  classDef host fill:#fff,stroke:#888,stroke-width:1px;
-  classDef orLabel fill:transparent,stroke:transparent,color:#333;
-  class or1,or2,or3 orLabel;
+    client -- "Streamable HTTP<br/>/mcp + MCP token" --> mcp
+    mcp -- "REST + RTC WebSocket" --> documents
+    mcp -- "REST + kernel WebSocket" --> kernels
 ```
 
-Legend:
+The MCP token protects the public `/mcp` endpoint. The Jupyter token is a
+separate credential used by Jupyter MCP Server on the two downstream links.
 
-- D: Document (= Notebook)
-- R: Code Sandbox (= Kernel)
-- Jupyter Server or JupyterLab, Jupyter Notebook: host
+### Optional: separate document and execution providers
+
+The notebook document and its execution backend do not have to live on the
+same service. This is useful when documents are collaborative or centrally
+hosted while code runs in a dedicated sandbox.
+
+```mermaid
+flowchart TB
+    client["MCP client"]
+    mcp["Jupyter MCP Server<br/>standalone process"]
+
+    documentProvider["Document provider<br/>Jupyter Server or Datalayer"]
+    executionProvider["Execution provider<br/>Jupyter kernel or code sandbox"]
+
+    client -- "Streamable HTTP /mcp" --> mcp
+    mcp -- "read and edit notebook" --> documentProvider
+    mcp -- "execute code" --> executionProvider
+```
+
+Jupyter Server, JupyterHub and Enterprise Gateway are deployment layers rather
+than alternative MCP transports: the standalone server still connects through
+the same document and kernel APIs.
 
 ## 1. Start JupyterLab
 

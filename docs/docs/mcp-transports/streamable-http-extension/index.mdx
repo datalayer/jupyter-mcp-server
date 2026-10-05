@@ -1,38 +1,44 @@
 # Streamable HTTP Transport with Jupyter Server Extension
 
-The following diagram illustrates how **Jupyter MCP Server** runs as an extension inside a **Jupyter server** and communicates with an MCP client.
-In this configuration, you don't need to run a separate MCP server. It will start automatically when you start your Jupyter server.
-Note that only **Streamable HTTP** transport is supported in this configuration.
+In this mode, Jupyter MCP Server runs inside the Jupyter Server process. There
+is no separate MCP server to start. The extension starts with Jupyter Server
+and exposes `/mcp` on the same host and port. By default it uses that server's
+local managers; it can instead be configured with remote document and code
+sandbox URLs. Only **Streamable HTTP** is supported in this deployment.
+
+## How it is connected
 
 ```mermaid
 flowchart TB
-  subgraph transportTargets["Jupyter deployment targets"]
-    direction TB
-    subgraph top[ ]
-      direction LR
-      direct["Jupyter Server or JupyterLab\nJupyter MCP Server as Jupyter Server Extension"]
-      or1([OR])
-      hub["JupyterHub"]
-      or2([OR])
-      eg["Jupyter Enterprise Gateway"]
+    client["MCP client"]
+
+    subgraph host["Host Jupyter Server"]
+        direction TB
+        extension["Jupyter MCP Server extension<br/>/mcp endpoint"]
+        managers["In-process Jupyter managers"]
+        documents["Notebook documents"]
+        kernels["Kernels"]
+
+        extension -- "local URLs<br/>JUPYTER_SERVER access" --> managers
+        managers --> documents
+        managers --> kernels
     end
-  end
 
-  client(["MCP Client\n(Claude, VS-Code, ...)"])
+    remote["Remote document and<br/>execution services"]
 
-  transportTargets <-- Streamable HTTP Transport --> client
-
-  classDef orLabel fill:transparent,stroke:transparent,color:#333;
-  classDef topBorder fill:transparent,stroke:transparent;
-  class or1,or2 orLabel;
-  class top topBorder;
+    client -- "Streamable HTTP<br/>/mcp + Jupyter token" --> extension
+    extension -- "non-local document URL<br/>MCP_SERVER access<br/>HTTP + WebSocket" --> remote
 ```
 
-Legend:
-
-- D: Document aka Notebook
-- R: Code Sandbox aka Kernel
-- Jupyter Server or JupyterLab or Jupyter Notebook: host containing the Jupyter MCP Server extension
+With the default local URLs, the extension uses Jupyter's managers directly,
+without a downstream HTTP and WebSocket hop. When `document_url` is non-local,
+`ServerContext` switches to `MCP_SERVER` access and creates remote clients for
+the configured document and execution services; configure their corresponding
+tokens as well. Jupyter's identity provider still authenticates the incoming
+MCP request, so the client sends the same token it uses for the host Jupyter
+Server. In JupyterHub, install the extension in each user's Jupyter Server
+environment; an Enterprise Gateway can still provide remote kernels behind
+that server.
 
 ## 1. Start JupyterLab and the MCP Server
 

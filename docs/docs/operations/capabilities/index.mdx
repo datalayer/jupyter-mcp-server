@@ -75,6 +75,16 @@ unchanged. The error names the capabilities that do exist.
 
 ## The capabilities
 
+:::note Version compatibility
+
+Some server versions also declare `kernel.adopt-session`. That legacy switch
+opted into reusing the kernel from an existing Jupyter session. It is
+superseded by the automatic active-sandbox and session selection described in
+[Architecture](/architecture#how-a-notebook-gets-an-execution-backend), and
+should not be enabled in new configurations.
+
+:::
+
 ### `kernel.auto-restart`
 
 **Off by default.**
