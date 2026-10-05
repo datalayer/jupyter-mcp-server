@@ -117,7 +117,7 @@ flowchart TB
     manager["NotebookManager<br/>notebook name + path → backend id"]
 
     subgraph choices["Possible execution backends"]
-        direction LR
+        direction TB
         documentKernel["Jupyter kernel<br/>on the document server"]
         remoteKernel["Jupyter kernel<br/>on another server"]
         otherSandbox["Non-Jupyter sandbox<br/>Datalayer · E2B · Daytona · …"]
@@ -129,8 +129,8 @@ flowchart TB
     manager --> documentKernel
     manager --> remoteKernel
     manager --> otherSandbox
-    session -. "describes the association<br/>when Jupyter sessions apply" .-> documentKernel
-    session -. "optional on an execution-only<br/>Jupyter server" .-> remoteKernel
+    session -. "records the association<br/>for Jupyter-backed kernels" .-> documentKernel
+    session -. "records the association<br/>for Jupyter-backed kernels" .-> remoteKernel
 ```
 
 A Jupyter **session** is metadata maintained by a Jupyter Server: it associates
@@ -138,7 +138,13 @@ a notebook path with a kernel id so frontends such as JupyterLab can find the
 kernel for that notebook. It is not the notebook document and it is not the
 kernel itself. Non-Jupyter sandboxes do not need a Jupyter session.
 
-`use_notebook` assigns the backend as follows on the current server:
+For a Jupyter-backed kernel, registering a new notebook-to-kernel binding also
+creates the corresponding Jupyter session when one does not already exist. An
+existing session is left unchanged. This rule does not apply to non-Jupyter
+sandboxes.
+
+`use_notebook` first determines whether it is opening a notebook or returning
+to one that is already managed:
 
 ```mermaid
 flowchart TD
@@ -150,29 +156,48 @@ flowchart TD
     pathMatches -- "yes" --> active{"Already active?"}
     active -- "yes" --> keep["Keep its current backend<br/>and return its status"]
     active -- "no" --> reactivate["Reactivate it<br/>keep its current backend"]
-    known -- "no" --> explicit{"kernel_id supplied?"}
-
-    explicit -- "yes" --> attach["Validate and attach<br/>the requested kernel or sandbox"]
-    explicit -- "no" --> adopt{"connect mode +<br/>kernel.adopt-session enabled +<br/>matching Jupyter session?"}
-    adopt -- "yes" --> reuse["Reuse that session's kernel"]
-    adopt -- "no" --> mode{"Backend access mode?"}
-
-    mode -- "JUPYTER_SERVER" --> localKernel["Start a local kernel now<br/>and create a Jupyter session"]
-    mode -- "MCP_SERVER" --> eager{"start_new_code_sandbox?"}
-    eager -- "yes" --> startBackend["Start the configured backend now"]
-    eager -- "no" --> lazy["Open document without a backend<br/>first execution starts it"]
-
-    attach --> record["Record notebook → backend"]
-    reuse --> record
-    localKernel --> record
-    startBackend --> record
-    lazy --> record
+    known -- "no" --> choose["Choose an execution backend"]
 ```
 
-`kernel.adopt-session` is off by default. When it is enabled, adoption is
-considered only in `connect` mode and only when the caller did not provide a
-`kernel_id`; an explicit id always wins. See
-[Capabilities](../operations/capabilities/index.mdx#kerneladopt-session).
+For a newly managed notebook, an explicit `kernel_id` takes precedence over
+both the current sandbox selection and any existing notebook session.
+
+```mermaid
+flowchart TD
+    start["Choose an execution backend"] --> explicit{"kernel_id supplied?"}
+
+    explicit -- "yes" --> newRequested{"kernel_id = NEW?"}
+    newRequested -- "yes" --> provision["Start a new configured backend<br/>ignore the active sandbox"]
+    newRequested -- "no" --> validate["Validate and attach<br/>the requested backend"]
+
+    explicit -- "no" --> selected{"Active use_sandbox<br/>selection?"}
+    selected -- "yes" --> useSelected["Bind the exact selected<br/>live sandbox client"]
+    selected -- "no" --> liveSession{"Notebook has a live<br/>Jupyter session?"}
+    liveSession -- "yes" --> useSession["Select that session's kernel<br/>through the sandbox factory"]
+    liveSession -- "no" --> lazy["Open without a backend<br/>attach on first execution"]
+
+    provision --> jupyter{"Jupyter-backed?"}
+    validate --> jupyter
+    jupyter -- "yes" --> session{"Notebook session exists?"}
+    session -- "yes" --> keepSession["Leave the existing<br/>session unchanged"]
+    session -- "no" --> createSession["Create a session bound<br/>to that kernel"]
+    jupyter -- "no" --> noSession["Do not create a<br/>Jupyter session"]
+
+    useSelected --> jupyter
+    useSession --> record
+    lazy --> record
+    keepSession --> record
+    createSession --> record
+    noSession --> record
+```
+
+When `kernel_id` names an existing kernel, validation uses the appropriate
+Jupyter kernel list or local kernel manager. `kernel_id=NEW` deliberately
+bypasses the active `use_sandbox` selection. Without a `kernel_id`, the exact
+live sandbox most recently selected by `use_sandbox` wins; otherwise an
+existing notebook session is reused through the normal sandbox-selection
+path. If neither exists, `use_notebook` does not create a kernel—the first
+execution attaches one.
 
 ## Components
 
