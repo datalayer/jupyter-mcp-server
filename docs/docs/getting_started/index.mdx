@@ -45,90 +45,40 @@ If you choose Streamable HTTP transport, you can also choose to run the MCP serv
 
 ## Code Sandbox Options
 
-### Jupyter Server (Local/Remote)
+Choose where notebook code runs. The MCP tools remain the same whichever
+backend you use; the provider-specific pages explain credentials and setup.
 
-Connect to any standard JupyterLab or Jupyter Notebook server.
+| Code sandbox | Best suited for | Setup |
+| --- | --- | --- |
+| Jupyter Server (local or remote) | Standard JupyterLab and Jupyter Notebook servers | [Jupyter Server documentation](/code-sandboxes/jupyter-server) |
+| JupyterHub | Multi-user deployments with authentication and resource management | [JupyterHub setup guide](/code-sandboxes/jupyterhub) |
+| Datalayer | Hosted Jupyter with collaboration and security features | [Datalayer documentation](/code-sandboxes/datalayer) |
+| Kaggle | Kaggle interactive notebook runtimes | [Kaggle documentation](/code-sandboxes/kaggle) |
+| Monty | Secure, in-process execution of lightweight Python snippets | [Monty documentation](/code-sandboxes/monty) |
+| Google Colab | Google Colab notebook runtimes (experimental) | [Google Colab documentation](/code-sandboxes/google-colab) |
+| Modal | Isolated, on-demand cloud execution | [Modal documentation](/code-sandboxes/modal) |
+| Daytona | Cloud sandboxes with GPU and preemptible GPU capacity | [Daytona documentation](/code-sandboxes/daytona) |
+| E2B | Sandboxes where each context is a Jupyter kernel with rich outputs | [E2B documentation](/code-sandboxes/e2b) |
+| CoreWeave | Containers running on CoreWeave's GPU cloud | [CoreWeave documentation](/code-sandboxes/coreweave) |
+| Cloudflare | Sandboxes reached through the sandbox bridge Worker | [Cloudflare documentation](/code-sandboxes/cloudflare) |
 
-👉 [Jupyter Server Documentation](/code-sandboxes/jupyter-server)
-
-👉 Choose your transport:
-- [STDIO Transport](/mcp-transports/stdio)
-- [Streamable HTTP (Standalone)](/mcp-transports/streamable-http)
-- [Streamable HTTP (Extension)](/mcp-transports/streamable-http-extension)
-
-### JupyterHub
-
-Multi-user deployments with authentication and resource management.
-
-👉 [JupyterHub Setup Guide](/code-sandboxes/jupyterhub)
+With Jupyter Server, you can use [STDIO](/mcp-transports/stdio),
+[Streamable HTTP as a standalone server](/mcp-transports/streamable-http), or
+[Streamable HTTP as a Jupyter Server extension](/mcp-transports/streamable-http-extension).
 
 :::tip Multi-User Deployments
 If you're deploying for multiple users, see the [Multi-User Documentation](/security/multi-users) for architecture patterns and best practices.
 :::
 
-### Datalayer
-
-Enterprise-grade hosted Jupyter with built-in collaboration and security features.
-
-👉 [Datalayer Documentation](/code-sandboxes/datalayer)
-
-### Kaggle
-
-Connect to Kaggle interactive notebook code sandboxes.
-
-👉 [Kaggle Documentation](/code-sandboxes/kaggle)
-
-### Monty
-
-Run code with Monty, a secure in-process interpreter for lightweight Python snippets.
-
-👉 [Monty Documentation](/code-sandboxes/monty)
-
-### Google Colab
-
-Connect to Google Colab notebooks (experimental).
-
-👉 [Google Colab Documentation](/code-sandboxes/google-colab)
-
-### Modal
-
-Run code in Modal cloud sandboxes for isolated, on-demand execution.
-
-👉 [Modal Documentation](/code-sandboxes/modal)
-
-### Daytona
-
-Run code in Daytona cloud sandboxes, with GPU and preemptible GPU capacity.
-
-👉 [Daytona Documentation](/code-sandboxes/daytona)
-
-### E2B
-
-Run code in E2B sandboxes, where each context is a Jupyter kernel and rich outputs come back as results.
-
-👉 [E2B Documentation](/code-sandboxes/e2b)
-
-### CoreWeave
-
-Run code in CoreWeave sandboxes, containers on CoreWeave's GPU cloud.
-
-👉 [CoreWeave Documentation](/code-sandboxes/coreweave)
-
-### Cloudflare
-
-Run code in Cloudflare sandboxes, reached through the sandbox bridge Worker.
-
-👉 [Cloudflare Documentation](/code-sandboxes/cloudflare)
-
 ## MCP Client Configuration
 
 Once you've set up your MCP server, you need to configure your MCP client. Choose your client:
 
-- [Claude Desktop](https://datalayer.ai/docs/mcp-clients/claude-desktop) - Anthropic's desktop app
-- [VS Code](https://datalayer.ai/docs/mcp-clients/vscode) - GitHub Copilot integration
-- [Cursor](https://datalayer.ai/docs/mcp-clients/cursor) - AI-first code editor
-- [Cline](https://datalayer.ai/docs/mcp-clients/cline) - VS Code extension
-- [Windsurf](https://datalayer.ai/docs/mcp-clients/windsurf) - Collaborative coding environment
+- [Claude Desktop](https://datalayer.ai/docs/mcp/client-configuration/claude-desktop) - Anthropic's desktop app
+- [VS Code](https://datalayer.ai/docs/mcp/client-configuration/vscode) - GitHub Copilot integration
+- [Cursor](https://datalayer.ai/docs/mcp/client-configuration/cursor) - AI-first code editor
+- [Cline](https://datalayer.ai/docs/mcp/client-configuration/cline) - VS Code extension
+- [Windsurf](https://datalayer.ai/docs/mcp/client-configuration/windsurf) - Collaborative coding environment
 
 ## Next Steps
 

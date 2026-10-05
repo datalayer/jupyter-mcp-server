@@ -11,14 +11,29 @@ module.exports = {
   url: 'https://datalayer.ai',
   baseUrl: '/',
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'datalayer', // Usually your GitHub org/user name.
   projectName: 'jupyter-mcp-server', // Usually your repo name.
+  future: {
+    faster: {
+      rspackBundler: true,
+    },
+  },
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
   },
   plugins: [
+    function safeGoogleAnalytics() {
+      return {
+        name: 'safe-google-analytics',
+        getClientModules() {
+          return [require.resolve('./src/clientModules/gtag.js')];
+        },
+      };
+    },
     '@docusaurus/theme-live-codeblock',
     'docusaurus-lunr-search',
   ],

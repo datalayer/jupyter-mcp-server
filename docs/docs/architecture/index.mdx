@@ -27,66 +27,138 @@ different servers:
   `--sandbox-variant` it can be any engine from the
   [`code-sandboxes`](../code-sandboxes/index.mdx) package.
 
+## At a glance
+
+```mermaid
+flowchart TB
+    client["Any MCP client"]
+
+    client --> standalone["MCP_SERVER mode<br/>Standalone Jupyter MCP Server"]
+    standalone -- "HTTP + WebSocket" --> downstream["Downstream Jupyter Server<br/>notebooks + kernels"]
+
+    subgraph jupyterServerMode["JUPYTER_SERVER mode"]
+        direction TB
+        embedded["Jupyter MCP Server extension"]
+        host["Host Jupyter Server<br/>notebooks + kernels"]
+        embedded -- "runs inside" --> host
+    end
+
+    client --> embedded
+```
+
+The same MCP tools are available in both modes. In `MCP_SERVER` mode, Jupyter
+MCP Server is a separate process that connects to a downstream Jupyter Server.
+In `JUPYTER_SERVER` mode, it runs as an extension inside the Jupyter Server and
+uses that server's managers directly.
+
 ## High-level view
 
 ```mermaid
 flowchart TB
-    client["MCP client<br/>(Claude, VS Code, Cursor, pydantic-ai, …)"]
+    client["Any MCP client"]
 
-    subgraph standalone["MCP_SERVER mode — jupyter-mcp-server start"]
-        direction TB
-        cli["CLI<br/>cli/"]
-        server["Server layer<br/>server.py — MCPServerWithCORS"]
-        mw["ASGI middleware<br/>CORS · bearer auth · management routes · identity"]
-        cli --> server
-        mw --> server
+    subgraph modes["Two ways to run the same server"]
+        direction LR
+        standalone["MCP_SERVER<br/>Standalone process<br/>jupyter-mcp-server start"]
+        embedded["JUPYTER_SERVER<br/>Extension inside Jupyter Server"]
     end
 
-    subgraph extension["JUPYTER_SERVER mode — Jupyter Server extension"]
-        direction TB
-        ext["JupyterMCPServerExtensionApp<br/>jupyter_extension/extension.py"]
-        handlers["Tornado handlers<br/>/mcp · /mcp/tools/list · /mcp/tools/call · /mcp/healthz"]
-        ext --> handlers
+    tools["Shared MCP tools<br/>BaseTool.execute(mode, ...)"]
+
+    subgraph access["Mode-specific access"]
+        direction LR
+        remote["Remote clients<br/>HTTP + WebSocket"]
+        local["In-process managers<br/>contents · kernels · sessions"]
     end
 
-    client -- "stdio / Streamable HTTP" --> mw
-    client -- "HTTP, Jupyter token" --> handlers
+    documents["Notebook documents<br/>Jupyter collaboration or Datalayer"]
+    execution["Execution backends<br/>Jupyter kernels or other sandboxes"]
 
-    tools["Tool layer<br/>tools/ — 22 tools + jupyter_cite prompt<br/>BaseTool.execute(mode, …)"]
-    server --> tools
-    handlers --> tools
-
-    hooks["Hooks & OpenTelemetry<br/>hooks.py · otel_hook.py"]
-    ident["Identity<br/>identity.py"]
-    exts["Extensions<br/>extensions.py — reactor / pluggy"]
-    tools -.-> hooks
-    tools -.-> ident
-    exts -.-> server
-
-    ctx["ServerContext<br/>server_context.py"]
-    nm["NotebookManager<br/>notebook_manager.py"]
-    tools --> ctx
-    tools --> nm
-
-    subgraph backends["Backends — jupyter_extension/backends/"]
-        remote["RemoteBackend<br/>HTTP + WebSocket"]
-        local["LocalBackend<br/>serverapp managers"]
-    end
-    ctx --> remote
-    ctx --> local
-
-    docs["Document server<br/>Jupyter (collaboration) or Datalayer spaces"]
-    sandbox["Code sandbox<br/>Jupyter kernel or a code-sandboxes variant"]
-    remote --> docs
-    remote --> sandbox
-    nm --> docs
-    nm --> sandbox
-    local --> jupyter["The Jupyter Server this process runs in"]
+    client -- "stdio or Streamable HTTP" --> standalone
+    client -- "HTTP /mcp with Jupyter auth" --> embedded
+    standalone --> tools
+    embedded --> tools
+    tools -- "MCP_SERVER" --> remote
+    tools -- "JUPYTER_SERVER" --> local
+    remote --> documents
+    remote --> execution
+    local --> documents
+    local --> execution
 ```
 
 Whichever way a call comes in, it ends in the same place: a tool's
 `execute()` method, told which `ServerMode` it is running in and handed the
 clients or managers that mode provides.
+
+The mode changes **how** the tools reach Jupyter, not which tools the MCP
+client sees. In `MCP_SERVER` mode, the document server and execution server
+can be different remote services. In `JUPYTER_SERVER` mode, the extension uses
+the managers of the Jupyter Server process it is running inside.
+
+## How a notebook gets an execution backend
+
+The notebook document and the process that executes its code are separate.
+`NotebookManager` records the association between a notebook opened with
+`use_notebook` and its execution backend. That backend may be a kernel on the
+document's Jupyter Server, a kernel on another Jupyter Server, or a non-Jupyter
+sandbox.
+
+```mermaid
+flowchart TB
+    document["Notebook document<br/>cells · outputs · metadata"]
+    manager["NotebookManager<br/>notebook name + path → backend id"]
+
+    subgraph choices["Possible execution backends"]
+        direction LR
+        documentKernel["Jupyter kernel<br/>on the document server"]
+        remoteKernel["Jupyter kernel<br/>on another server"]
+        otherSandbox["Non-Jupyter sandbox<br/>Datalayer · E2B · Daytona · …"]
+    end
+
+    session["Jupyter session<br/>notebook path ↔ kernel id"]
+
+    document --> manager
+    manager --> documentKernel
+    manager --> remoteKernel
+    manager --> otherSandbox
+    session -. "describes the association<br/>when Jupyter sessions apply" .-> documentKernel
+    session -. "optional on an execution-only<br/>Jupyter server" .-> remoteKernel
+```
+
+A Jupyter **session** is metadata maintained by a Jupyter Server: it associates
+a notebook path with a kernel id so frontends such as JupyterLab can find the
+kernel for that notebook. It is not the notebook document and it is not the
+kernel itself. Non-Jupyter sandboxes do not need a Jupyter session.
+
+`use_notebook` assigns the backend as follows on the current server:
+
+```mermaid
+flowchart TD
+    start["use_notebook"] --> known{"Already managed?"}
+    known -- "yes" --> reactivate["Reactivate it<br/>keep its current backend"]
+    known -- "no" --> explicit{"kernel_id supplied?"}
+
+    explicit -- "yes" --> attach["Validate and attach<br/>the requested kernel or sandbox"]
+    explicit -- "no" --> adopt{"connect mode +<br/>kernel.adopt-session enabled +<br/>matching Jupyter session?"}
+    adopt -- "yes" --> reuse["Reuse that session's kernel"]
+    adopt -- "no" --> mode{"Server mode?"}
+
+    mode -- "JUPYTER_SERVER" --> localKernel["Start a local kernel now<br/>and create a Jupyter session"]
+    mode -- "MCP_SERVER" --> eager{"start_new_code_sandbox?"}
+    eager -- "yes" --> startBackend["Start the configured backend now"]
+    eager -- "no" --> lazy["Open document without a backend<br/>first execution starts it"]
+
+    attach --> record["Record notebook → backend"]
+    reuse --> record
+    localKernel --> record
+    startBackend --> record
+    lazy --> record
+```
+
+`kernel.adopt-session` is off by default. When it is enabled, adoption is
+considered only in `connect` mode and only when the caller did not provide a
+`kernel_id`; an explicit id always wins. See
+[Capabilities](../operations/capabilities/index.mdx#kerneladopt-session).
 
 ## Components
 
