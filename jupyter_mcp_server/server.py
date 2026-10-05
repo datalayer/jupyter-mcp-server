@@ -1780,8 +1780,9 @@ async def get_registered_tools():
     # remembered. Idempotent, so asking twice costs nothing.
     register_extension_tools()
 
-    context = ServerContext.get_instance()
-    mode = context._mode
+    # `.mode`, not `._mode`: the property initializes the context on first
+    # use, and `_mode` is still None on a server nothing else has touched yet.
+    mode = ServerContext.get_instance().mode
 
     # For JUPYTER_SERVER mode, expose BOTH MCPServer tools AND jupyter-mcp-tools (when enabled)
     if mode == ServerMode.JUPYTER_SERVER:
