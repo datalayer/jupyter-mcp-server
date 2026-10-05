@@ -1669,7 +1669,7 @@
         "openWorldHint": false,
         "title": "Use Notebook"
       },
-      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n",
+      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n\nKernel selection follows the notebook's existing context. Pass kernel_id to\nuse a kernel that is already running; use_notebook verifies it is alive and\ncreates a Jupyter session for the notebook when no session exists. Without\nkernel_id, a sandbox already selected with use_sandbox is reused. If none is\nselected but the notebook already has a live Jupyter session, use_notebook\ntriggers use_sandbox for that session's kernel and reports that in the\nreply. With neither, no kernel is created. Pass kernel_id=NEW to start an\nisolated kernel.\n",
       "inputSchema": {
         "properties": {
           "notebook_name": {
@@ -1694,7 +1694,7 @@
           },
           "kernel_id": {
             "default": null,
-            "description": "Id of an existing kernel (or sandbox, for a non-Jupyter sandbox variant) to attach the notebook to. A new one is created if skipped.",
+            "description": "Existing kernel to use for this notebook. When provided, use_notebook verifies it is alive and creates a Jupyter session binding the notebook to it when no session exists. When omitted, a sandbox already selected with use_sandbox is reused; otherwise, if the notebook has a live Jupyter session, use_notebook triggers use_sandbox for that session and says so in the reply. With neither, no kernel is created. Pass 'NEW' to start an isolated kernel.",
             "title": "Kernel Id",
             "type": "string"
           }

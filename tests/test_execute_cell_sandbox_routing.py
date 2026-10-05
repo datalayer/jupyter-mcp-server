@@ -54,17 +54,26 @@ class TestTheFactoryHonoursTheSelection:
     def test_without_a_selection_a_sandbox_is_created(self):
         extension = SandboxesExtension()
         built = object()
-        with patch(
-            "jupyter_mcp_sandboxes.kernel.create_sandbox_client", return_value=built
-        ):
+        with patch("jupyter_mcp_sandboxes.kernel.create_sandbox_client", return_value=built):
             assert extension.create_code_sandbox(_config(), LOG) is built
 
-    def test_the_jupyter_server_variant_is_left_to_the_core(self):
-        # A plain Jupyter deployment has no sandbox layer to consult.
+    def test_a_selected_jupyter_server_sandbox_is_still_honoured(self):
+        # A sandbox selected with use_sandbox is the caller's explicit backend,
+        # even when the configured variant is the core Jupyter path.
+        extension = SandboxesExtension()
+        chosen = object()
+        extension._manager._sandboxes["mine"] = chosen
+        extension._manager._active_name = "mine"
+        assert extension.get_active_code_sandbox(_config("jupyter-server"), LOG) is chosen
+        assert extension.create_code_sandbox(_config("jupyter-server"), LOG) is chosen
+
+    def test_new_request_bypasses_the_active_selection(self):
         extension = SandboxesExtension()
         extension._manager._sandboxes["mine"] = object()
         extension._manager._active_name = "mine"
-        assert extension.create_code_sandbox(_config("jupyter-server"), LOG) is None
+        built = object()
+        with patch("jupyter_mcp_sandboxes.kernel.create_sandbox_client", return_value=built):
+            assert extension.create_new_code_sandbox(_config(), LOG) is built
 
 
 class TestExecuteCellIsNotIntercepted:

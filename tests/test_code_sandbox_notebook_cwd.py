@@ -76,6 +76,7 @@ def recorded_sandbox_kwargs(monkeypatch):
     )
     with patch("jupyter_mcp_server.extensions.get_extension_manager") as manager:
         manager.return_value.create_code_sandbox.return_value = None
+        manager.return_value.get_active_code_sandbox.return_value = None
         yield seen
 
 

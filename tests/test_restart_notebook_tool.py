@@ -42,6 +42,17 @@ class FakeKernelManager:
         return new_id
 
 
+class FakeSessionManager:
+    """Record the session binding created for a freshly provisioned kernel."""
+
+    def __init__(self):
+        self.created = []
+
+    async def create_session(self, **kwargs):
+        self.created.append(kwargs)
+        return {"id": "session-new"}
+
+
 class RacyKernelManager(FakeKernelManager):
     """Kernel manager whose kernel is culled exactly during the restart call,
     so the liveness check passes but restart_kernel then 404s."""
@@ -83,6 +94,34 @@ async def test_restart_reprovisions_when_kernel_culled():
     assert nm.get_code_sandbox_id("nb") == "kernel-new-1"
     # The new kernel was started with the notebook's path (cwd), matching use_notebook.
     assert km.started_paths == ["work/test.ipynb"]
+
+
+@pytest.mark.asyncio
+async def test_restart_provisions_when_no_kernel_is_bound():
+    """The lazy use_notebook path leaves no kernel; an explicit restart creates one."""
+    nm = NotebookManager()
+    nm.add_notebook("nb", None, server_url="local", token=None, path="work/test.ipynb")
+    km = FakeKernelManager()
+    sessions = FakeSessionManager()
+
+    result = await RestartNotebookTool().execute(
+        mode=ServerMode.JUPYTER_SERVER,
+        kernel_manager=km,
+        session_manager=sessions,
+        notebook_manager=nm,
+        notebook_name="nb",
+    )
+
+    assert "restarted successfully" in result
+    assert nm.get_code_sandbox_id("nb") == "kernel-new-1"
+    assert sessions.created == [
+        {
+            "path": "work/test.ipynb",
+            "kernel_id": "kernel-new-1",
+            "type": "notebook",
+            "name": "work/test.ipynb",
+        }
+    ]
 
 
 @pytest.mark.asyncio

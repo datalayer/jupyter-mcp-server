@@ -197,6 +197,17 @@ cells: a Jupyter kernel reached over HTTP/WebSocket, an engine from the
 `docker`), or, inside the Jupyter extension, a plain handle to a kernel the
 local kernel manager owns.
 
+`use_notebook` follows the execution context the caller already established.
+Without `kernel_id`, a code sandbox already selected with `use_sandbox` is
+bound to the notebook. If no sandbox is selected but the notebook has a live
+Jupyter session, `use_notebook` triggers `use_sandbox` for that session's
+kernel and says so in its reply, so the agent and JupyterLab share one kernel.
+If neither exists, no kernel is created; the notebook opens without a backend.
+
+An explicit `kernel_id` is verified to be alive. If the notebook has no session
+for that kernel, `use_notebook` creates one so JupyterLab can find it. Pass
+`kernel_id=NEW` when an isolated kernel is wanted instead of an existing one.
+
 In MCP_SERVER mode `NotebookConnection` opens the notebook's collaborative
 document with `NbModelClient` (jupyter-nbmodel-client over Y.js), so cell edits
 land in the same document the user's JupyterLab is showing. Execution goes
