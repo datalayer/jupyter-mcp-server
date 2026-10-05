@@ -171,33 +171,60 @@ class SandboxesExtension(JupyterMCPExtension):
             log.warning("Liveness check on the active sandbox failed", exc_info=True)
             return False
 
-    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
-        """Build a sandbox-backed kernel when a non-jupyter-server variant is set."""
+    def get_active_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
+        """Return the sandbox selected with ``use_sandbox`` when it is live."""
+        active = self._manager.get_active()
+        if active is None:
+            return None
+        if self._is_reusable(active, log):
+            return active
+        log.warning(
+            "The active sandbox [%s] is not alive; ignoring it",
+            self._manager.get_active_name(),
+        )
+        return None
+
+    def create_new_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
+        """Build a fresh sandbox, even when another one is selected."""
         uses_variant = getattr(config, "uses_sandbox_variant", None)
         if not (uses_variant and config.uses_sandbox_variant()):
             return None
 
+        from jupyter_mcp_sandboxes.kernel import create_sandbox_client
+
+        try:
+            sandbox_client = create_sandbox_client(config, log)
+            log.info(
+                "Code sandbox client created and started (variant=%s)",
+                config.sandbox_variant,
+            )
+            return sandbox_client
+        except Exception:
+            log.exception(
+                "Failed to create code sandbox client (variant=%s)", config.sandbox_variant
+            )
+            raise
+
+    def create_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
+        """Build a sandbox-backed kernel when a non-jupyter-server variant is set."""
         # The sandbox the caller selected with `use_sandbox`, when there is
         # one. Creating a fresh sandbox here would ignore that choice, pay for
         # a second runtime, and run the cell somewhere other than where the
         # caller pointed — the notebook binds to this client, so this is also
-        # what makes "assign the sandbox to the notebook" true.
-        active = self._manager.get_active()
+        # what makes "assign the sandbox to the notebook" true. A selected
+        # jupyter-server sandbox is equally valid even when the server's
+        # configured variant is the core Jupyter path.
+        active = self.get_active_code_sandbox(config, log)
         if active is not None:
-            if self._is_reusable(active, log):
-                log.info(
-                    "Reusing the active sandbox [%s] as the execution backend",
-                    self._manager.get_active_name(),
-                )
-                return active
-            # A dead selection must not become the notebook's backend: the
-            # factory would keep handing the same corpse back and
-            # ensure_code_sandbox_alive could never recover. Fall through to
-            # a fresh sandbox instead.
-            log.warning(
-                "The active sandbox [%s] is not alive; creating a fresh one",
+            log.info(
+                "Reusing the active sandbox [%s] as the execution backend",
                 self._manager.get_active_name(),
             )
+            return active
+
+        uses_variant = getattr(config, "uses_sandbox_variant", None)
+        if not (uses_variant and config.uses_sandbox_variant()):
+            return None
 
         from jupyter_mcp_sandboxes.kernel import create_sandbox_client
 

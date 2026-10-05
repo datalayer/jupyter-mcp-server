@@ -817,11 +817,13 @@ async def use_notebook(
     kernel_id: Annotated[
         str,
         Field(
-            description="Kernel the notebook runs on. Omit it only if nothing else is"
-            " using one: when the notebook already has a live Jupyter session this"
-            " server did not start, use_notebook fails rather than adding a second"
-            " kernel. Pass that kernel's id (see list_kernels) to attach to it and share"
-            " its variables and imports, or 'NEW' to start an isolated kernel."
+            description="Existing kernel to use for this notebook. When provided,"
+            " use_notebook verifies it is alive and creates a Jupyter session binding"
+            " the notebook to it when no session exists. When omitted, a sandbox already"
+            " selected with use_sandbox is reused; otherwise, if the notebook has a live"
+            " Jupyter session, use_notebook triggers use_sandbox for that session and"
+            " says so in the reply. With neither, no kernel is created. Pass 'NEW' to"
+            " start an isolated kernel."
         ),
     ] = None,
 ) -> ToolAnswer:
@@ -830,10 +832,14 @@ async def use_notebook(
     Activate new notebook will deactivate the previously activated notebook.
     Reactivate previously activated notebook using same notebook_name and notebook_path.
 
-    The kernel is chosen explicitly: pass kernel_id of a running kernel to
-    attach to it and share its state, or kernel_id=NEW to start an isolated
-    kernel. A notebook that already has a live Jupyter session this server did
-    not start fails rather than quietly starting a second kernel.
+    Kernel selection follows the notebook's existing context. Pass kernel_id to
+    use a kernel that is already running; use_notebook verifies it is alive and
+    creates a Jupyter session for the notebook when no session exists. Without
+    kernel_id, a sandbox already selected with use_sandbox is reused. If none is
+    selected but the notebook already has a live Jupyter session, use_notebook
+    triggers use_sandbox for that session's kernel and reports that in the
+    reply. With neither, no kernel is created. Pass kernel_id=NEW to start an
+    isolated kernel.
     """
     config = get_config()
     result = await safe_notebook_operation(

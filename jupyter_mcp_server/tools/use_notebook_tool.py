@@ -16,8 +16,6 @@ from jupyter_core.utils import ensure_async
 from jupyter_nbmodel_client import NbModelClient
 from jupyter_server_client import JupyterServerClient, NotFoundError
 
-from jupyter_mcp_server.capabilities import KERNEL_ADOPT_SESSION
-from jupyter_mcp_server.capabilities import enabled as capability_enabled
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
@@ -87,49 +85,39 @@ def _session_kernel_id_for_path(sessions: Iterable[Any], notebook_path: str) -> 
     return None
 
 
-def _managed_kernel_ids(notebook_manager: NotebookManager | None) -> set[str]:
-    """The kernels this server already bound, which are not rivals to it."""
-    ids: set[str] = set()
-    if notebook_manager is None:
-        return ids
-    for name, _info in notebook_manager:
-        kernel_id = notebook_manager.get_code_sandbox_id(name)
-        if kernel_id:
-            ids.add(str(kernel_id))
-    return ids
+def _active_code_sandbox(config: Any) -> Any | None:
+    """The execution backend already selected with ``use_sandbox``, if any."""
+    try:
+        from jupyter_mcp_server.extensions import get_extension_manager
 
-
-def _conflicting_kernel_reply(
-    *,
-    notebook_path: str,
-    sessions: Iterable[Any],
-    notebook_manager: NotebookManager | None,
-) -> str | None:
-    """A refusal to start a rival kernel, or None when it is safe to continue.
-
-    A Jupyter *session* is a notebook a frontend has open on a kernel: it is
-    how a person's work in JupyterLab is visible from here. When the notebook
-    being opened already has one this server did not start, silently binding
-    it to another kernel either hijacks that session or leaves a second
-    kernel nobody is watching (#478). The choice belongs to the caller: name
-    that kernel to share its state, or ask for an isolated one with
-    ``kernel_id=NEW``.
-
-    Only *this* notebook's session counts. A long-lived Jupyter server holds
-    sessions and bare kernels for plenty of other notebooks — somebody
-    else's work, an earlier agent, a finished test — and refusing on those
-    made every open fail on a busy server without protecting anything.
-    """
-    live_kernel_id = _session_kernel_id_for_path(sessions, notebook_path)
-    if not live_kernel_id or live_kernel_id in _managed_kernel_ids(notebook_manager):
+        get_active = getattr(get_extension_manager(), "get_active_code_sandbox", None)
+        if get_active is None:
+            return None
+        return get_active(config, logger)
+    except Exception as error:
+        # An extension that cannot answer does not make use_notebook fail: the
+        # notebook can still open without a backend, which is the same state
+        # as no sandbox having been selected.
+        logger.warning("Could not inspect the active code sandbox: %s", error)
         return None
-    return (
-        f"Cannot open '{notebook_path}' on a new kernel: it already has a live Jupyter "
-        f"session on kernel '{live_kernel_id}' this server did not start. Pass "
-        f"kernel_id='{live_kernel_id}' to attach to that kernel and share its state, or "
-        f"kernel_id='{NEW_KERNEL_ID}' to start an isolated kernel that leaves the other "
-        f"notebook alone."
+
+
+async def _create_mcp_session(
+    session_source: Any, notebook_path: str, kernel_id: str
+) -> str | None:
+    """Create the Jupyter session binding ``notebook_path`` to ``kernel_id``."""
+    create_session = getattr(session_source, "create_session", None)
+    if create_session is None:
+        return None
+    session = create_session(
+        path=notebook_path,
+        kernel={"id": kernel_id},
+        session_type="notebook",
+        name=notebook_path,
     )
+    if inspect.isawaitable(session):
+        session = await session
+    return str(_field(session, "id") or "created")
 
 
 def _major(version: str | None) -> int | None:
@@ -509,8 +497,7 @@ class UseNotebookTool(BaseTool):
                     document_server_client.contents.create_notebook(notebook_path, content=content)
 
             # `kernel_id=NEW` is a request, not an id: it names no kernel to
-            # look up but asks for an isolated one, so it opts out of both
-            # adopting and refusing what is already running.
+            # look up but asks for an isolated one.
             request_new_kernel = is_new_kernel_request(kernel_id)
             if request_new_kernel:
                 kernel_id = None
@@ -530,133 +517,247 @@ class UseNotebookTool(BaseTool):
             elif mode == ServerMode.JUPYTER_SERVER:
                 session_source = session_manager
 
-            # The opt-in path: a notebook opened in JupyterLab or another
-            # frontend already owns a session and kernel. Reuse that kernel
-            # rather than creating an isolated one the caller cannot see.
-            # Explicit kernel_id still wins, and capability-off leaves the
-            # decision to the conflict check below.
-            adopted_session = False
-            # Listed once: the adoption path and the conflict check below ask
-            # the same question, and a server that changes its answer between
-            # the two would only make the reply self-contradictory.
             sessions: list[Any] = []
             if use_mode == "connect" and session_source is not None:
                 sessions = await _list_sessions(session_source)
-            if (
-                use_mode == "connect"
-                and kernel_id is None
-                and not request_new_kernel
-                and capability_enabled(KERNEL_ADOPT_SESSION)
-            ):
-                adopted_kernel_id = _session_kernel_id_for_path(sessions, notebook_path)
-                if adopted_kernel_id:
-                    kernel_id = adopted_kernel_id
-                    adopted_session = True
-                    info_list.append(
-                        f"[INFO] Adopted kernel '{kernel_id}' from the existing "
-                        f"Jupyter session for '{notebook_path}'."
-                    )
+            session_kernel_id = _session_kernel_id_for_path(sessions, notebook_path)
 
-            # Default: do not add a silent rival kernel. When the server
-            # already has sessions this server did not start, the caller
-            # chooses between sharing one and isolating a new one (#478)
-            # instead of us guessing.
-            if use_mode == "connect" and kernel_id is None and not request_new_kernel:
-                conflict = _conflicting_kernel_reply(
-                    notebook_path=notebook_path,
-                    sessions=sessions,
-                    notebook_manager=notebook_manager,
-                )
-                if conflict is not None:
-                    return conflict
+            # A caller who already ran `use_sandbox` has named the notebook's
+            # execution backend. Bind that exact client before anything can
+            # create a second kernel.
+            active_sandbox = None
+            if kernel_id is None and not request_new_kernel:
+                active_sandbox = _active_code_sandbox(config)
 
-            # # Create/connect to kernel based on mode
+            # Create/connect the backend according to the server mode.
             if mode == ServerMode.MCP_SERVER and sandbox_server_client is not None:
-                # The Jupyter kernel list can only vouch for a Jupyter kernel;
-                # another variant's sandbox is resolved by that variant.
-                if kernel_id is not None and not config.uses_sandbox_variant():
-                    kernels = sandbox_server_client.kernels.list_kernels()
-                    kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
-                    if not kernel_exists:
-                        return f"Kernel '{kernel_id}' not found in jupyter server, please check whether the kernel already exists using 'list_kernels' tool."
-                # No kernel yet.
-                #
-                # Opening a notebook is not running one. Reading cells, their
-                # outputs and metadata happens over the document connection and
-                # needs no kernel at all; only execution does. Attaching one
-                # here spent a runtime on every open — and, worse, it always
-                # built a *Jupyter* sandbox whatever `--sandbox-variant` said,
-                # so pointing the server at any other backend meant waiting for
-                # an `/api/status` that would never answer and failing with
-                # "Timed out waiting for Jupyter Server" on a notebook that was
-                # perfectly reachable.
-                #
-                # `ensure_code_sandbox_alive` attaches one on the first execution,
-                # through whichever sandbox is configured — so the variant is
-                # honoured rather than assumed.
-                #
-                # A `kernel_id` names a backend that already exists, so attaching
-                # to it starts nothing and is done right away (#425). A `NEW`
-                # request starts one here too: the caller asked for it, so it
-                # is not deferred to the first execution the way a bare open is.
-                if kernel_id is not None or request_new_kernel or config.start_new_code_sandbox:
-                    # The caller or operator asked for a sandbox up front, so
-                    # start one. Through the shared factory, which consults the
-                    # installed extensions first and honours `--sandbox-variant`.
+                if kernel_id is not None:
+                    # The Jupyter kernel list can only vouch for a Jupyter
+                    # kernel; another variant's sandbox is resolved below.
+                    if not config.uses_sandbox_variant():
+                        kernels = sandbox_server_client.kernels.list_kernels()
+                        kernel_exists = any(kernel.id == kernel_id for kernel in kernels)
+                        if not kernel_exists:
+                            return (
+                                f"Kernel '{kernel_id}' not found in jupyter server, please "
+                                "check whether the kernel already exists using 'list_kernels' tool."
+                            )
+
                     from jupyter_mcp_server.utils import create_code_sandbox
 
                     kernel = create_code_sandbox(
                         config, logger, path=notebook_path, code_sandbox_id=kernel_id
                     )
-                    if request_new_kernel:
-                        info_list.append(
-                            f"[INFO] Started a new isolated kernel '{kernel.id}'."
-                        )
-                    else:
-                        info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
+                    bound_kernel_id = str(getattr(kernel, "id", kernel_id))
+                    info_list.append(f"[INFO] Connected to kernel '{bound_kernel_id}'.")
+
+                    # A session is what lets JupyterLab find this kernel for the
+                    # notebook. The caller named the kernel, so the session is
+                    # part of honouring that choice; an existing binding is left
+                    # alone.
+                    if not config.uses_sandbox_variant():
+                        if session_kernel_id is None:
+                            if session_source is not None:
+                                try:
+                                    created_session = await _create_mcp_session(
+                                        session_source, notebook_path, bound_kernel_id
+                                    )
+                                except Exception as error:
+                                    info_list.append(
+                                        f"[WARNING] Kernel connected, but its Jupyter session "
+                                        f"could not be created: {error}"
+                                    )
+                                else:
+                                    if created_session is not None:
+                                        info_list.append(
+                                            f"[INFO] Created Jupyter session '{created_session}' "
+                                            f"for notebook '{notebook_path}'."
+                                        )
+                        elif session_kernel_id == bound_kernel_id:
+                            info_list.append(
+                                f"[INFO] Existing Jupyter session already binds "
+                                f"'{notebook_path}' to kernel '{bound_kernel_id}'."
+                            )
+                        else:
+                            info_list.append(
+                                f"[WARNING] Existing Jupyter session for '{notebook_path}' uses "
+                                f"kernel '{session_kernel_id}', not requested kernel "
+                                f"'{bound_kernel_id}'."
+                            )
+                elif request_new_kernel:
+                    from jupyter_mcp_server.utils import create_code_sandbox
+
+                    kernel = create_code_sandbox(
+                        config,
+                        logger,
+                        path=notebook_path,
+                        code_sandbox_id=None,
+                        ignore_active=True,
+                    )
+                    info_list.append(
+                        f"[INFO] Started a new isolated kernel '{kernel.id}'."
+                    )
+                elif active_sandbox is not None:
+                    kernel = active_sandbox
+                    label = (
+                        getattr(kernel, "id", None)
+                        or getattr(kernel, "name", None)
+                        or type(kernel).__name__
+                    )
+                    info_list.append(
+                        f"[INFO] Notebook execution will use the active code sandbox "
+                        f"'{label}' selected with 'use_sandbox'."
+                    )
+                elif session_kernel_id is not None and use_mode == "connect":
+                    # The notebook is already open on a live kernel. Trigger
+                    # use_sandbox as part of opening it, so the MCP side and
+                    # JupyterLab share one execution state instead of starting
+                    # a second kernel.
+                    from jupyter_mcp_server.utils import create_code_sandbox
+
+                    kernel = create_code_sandbox(
+                        config, logger, path=notebook_path, code_sandbox_id=session_kernel_id
+                    )
+                    info_list.append(
+                        f"[INFO] Triggered 'use_sandbox' for the existing Jupyter session; "
+                        f"notebook execution will use kernel '{session_kernel_id}'."
+                    )
+                elif config.code_sandbox_id:
+                    from jupyter_mcp_server.utils import create_code_sandbox
+
+                    kernel = create_code_sandbox(
+                        config,
+                        logger,
+                        path=notebook_path,
+                        code_sandbox_id=config.code_sandbox_id,
+                    )
+                    info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
+                elif config.start_new_code_sandbox:
+                    from jupyter_mcp_server.utils import create_code_sandbox
+
+                    kernel = create_code_sandbox(config, logger, path=notebook_path)
+                    info_list.append(f"[INFO] Connected to kernel '{kernel.id}'.")
                 else:
                     kernel = None
                     info_list.append(
-                        "[INFO] Notebook opened. A kernel starts on the first execution."
+                        "[INFO] Notebook opened. No active sandbox or Jupyter session was "
+                        "found, so no kernel was created; a kernel can be attached on first "
+                        "execution."
                     )
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
-                # JUPYTER_SERVER mode: Use local kernel manager API directly
+                # JUPYTER_SERVER mode: use the local kernel/session managers.
                 if kernel_id:
-                    # Connect to existing kernel - verify it exists
-                    if kernel_id not in kernel_manager:
+                    # Connect to an existing kernel and verify it is alive.
+                    kernel_exists = False
+                    get_kernel = getattr(kernel_manager, "get_kernel", None)
+                    if callable(get_kernel):
+                        kernel_exists = get_kernel(kernel_id) is not None
+                    if not kernel_exists and hasattr(kernel_manager, "__contains__"):
+                        kernel_exists = kernel_id in kernel_manager
+                    if not kernel_exists:
                         return f"Kernel '{kernel_id}' not found in local kernel manager."
                     kernel = {"id": kernel_id}
-                else:
+                    info_list.append(f"[INFO] Connected to kernel '{kernel_id}'.")
+
+                    if session_kernel_id is None and session_manager is not None:
+                        try:
+                            session_dict = await session_manager.create_session(
+                                path=notebook_path,
+                                kernel_id=kernel_id,
+                                type="notebook",
+                                name=notebook_path,
+                            )
+                            info_list.append(
+                                f"[INFO] Created Jupyter session "
+                                f"'{session_dict.get('id')}' for notebook '{notebook_path}'."
+                            )
+                        except Exception as error:
+                            info_list.append(
+                                f"[WARNING] Kernel connected, but its Jupyter session "
+                                f"could not be created: {error}"
+                            )
+                    elif session_kernel_id == kernel_id:
+                        info_list.append(
+                            f"[INFO] Existing Jupyter session already binds "
+                            f"'{notebook_path}' to kernel '{kernel_id}'."
+                        )
+                    elif session_kernel_id is not None:
+                        info_list.append(
+                            f"[WARNING] Existing Jupyter session for '{notebook_path}' uses "
+                            f"kernel '{session_kernel_id}', not requested kernel '{kernel_id}'."
+                        )
+                elif request_new_kernel:
                     kernel = await self._start_kernel_local(kernel_manager, path=notebook_path)
                     kernel_id = kernel["id"]
-
-                info_list.append(f"[INFO] Connected to kernel '{kernel_id}'.")
-                # Create a Jupyter session to associate the kernel with the notebook
-                # This is CRITICAL for JupyterLab to recognize the kernel-notebook connection
-                if adopted_session:
-                    logger.info(
-                        f"Reusing existing Jupyter session for notebook '{notebook_path}' "
-                        f"with kernel '{kernel_id}'"
+                    info_list.append(
+                        f"[INFO] Started a new isolated kernel '{kernel_id}'."
                     )
-                elif session_manager is not None:
-                    try:
-                        # create_session is an async method, so we await it directly
-                        session_dict = await session_manager.create_session(
-                            path=notebook_path,
-                            kernel_id=kernel_id,
-                            type="notebook",
-                            name=notebook_path,
-                        )
-                        logger.info(
-                            f"Created Jupyter session '{session_dict.get('id')}' for notebook '{notebook_path}' with kernel '{kernel_id}'"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to create Jupyter session: {e}. Notebook may not be properly connected in JupyterLab UI."
-                        )
+                    if session_manager is not None:
+                        try:
+                            session_dict = await session_manager.create_session(
+                                path=notebook_path,
+                                kernel_id=kernel_id,
+                                type="notebook",
+                                name=notebook_path,
+                            )
+                            info_list.append(
+                                f"[INFO] Created Jupyter session "
+                                f"'{session_dict.get('id')}' for notebook '{notebook_path}'."
+                            )
+                        except Exception as error:
+                            info_list.append(
+                                f"[WARNING] Kernel started, but its Jupyter session "
+                                f"could not be created: {error}"
+                            )
+                elif active_sandbox is not None:
+                    kernel = active_sandbox
+                    label = (
+                        getattr(kernel, "id", None)
+                        or getattr(kernel, "name", None)
+                        or type(kernel).__name__
+                    )
+                    info_list.append(
+                        f"[INFO] Notebook execution will use the active code sandbox "
+                        f"'{label}' selected with 'use_sandbox'."
+                    )
+                elif session_kernel_id is not None and use_mode == "connect":
+                    kernel = {"id": session_kernel_id}
+                    kernel_id = session_kernel_id
+                    info_list.append(
+                        f"[INFO] Triggered 'use_sandbox' for the existing Jupyter session; "
+                        f"notebook execution will use kernel '{session_kernel_id}'."
+                    )
+                elif use_mode == "create":
+                    # Creating a notebook is already an explicit request for a
+                    # fresh local kernel; connect mode remains lazy.
+                    kernel = await self._start_kernel_local(kernel_manager, path=notebook_path)
+                    kernel_id = kernel["id"]
+                    info_list.append(f"[INFO] Connected to kernel '{kernel_id}'.")
+                    if session_manager is not None:
+                        try:
+                            session_dict = await session_manager.create_session(
+                                path=notebook_path,
+                                kernel_id=kernel_id,
+                                type="notebook",
+                                name=notebook_path,
+                            )
+                            logger.info(
+                                "Created Jupyter session '%s' for notebook '%s' with kernel '%s'",
+                                session_dict.get("id"),
+                                notebook_path,
+                                kernel_id,
+                            )
+                        except Exception as error:
+                            info_list.append(
+                                f"[WARNING] Kernel started, but its Jupyter session "
+                                f"could not be created: {error}"
+                            )
                 else:
-                    logger.warning(
-                        "No session_manager available. Notebook may not be properly connected in JupyterLab UI."
+                    kernel = None
+                    info_list.append(
+                        "[INFO] Notebook opened. No active sandbox or Jupyter session was "
+                        "found, so no kernel was created; a kernel can be attached on first "
+                        "execution."
                     )
 
             # Add notebook to notebook_manager

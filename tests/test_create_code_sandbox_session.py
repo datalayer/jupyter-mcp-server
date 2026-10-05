@@ -2,18 +2,13 @@
 #
 # BSD 3-Clause License
 
-"""MCP kernels are registered as Jupyter sessions when they are started (#478)."""
+"""New Jupyter-backed MCP kernels are registered as notebook sessions (#478)."""
 
 import logging
 from types import SimpleNamespace
 
 import pytest
 
-from jupyter_mcp_server.capabilities import (
-    KERNEL_ADOPT_SESSION,
-    get_capabilities,
-    reset_capabilities,
-)
 from jupyter_mcp_server.config import get_config, reset_config
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.utils import create_code_sandbox
@@ -41,10 +36,8 @@ def fresh_state(monkeypatch):
         "jupyter_mcp_server.extensions.get_extension_manager",
         lambda: SimpleNamespace(create_code_sandbox=lambda config, logger: None),
     )
-    reset_capabilities()
     reset_config()
     yield sessions
-    reset_capabilities()
     reset_config()
 
 
@@ -56,20 +49,12 @@ def sandbox_factory(monkeypatch):
         seen.update(kwargs)
         return SimpleNamespace(id="kernel-new", variant="jupyter-server")
 
-    monkeypatch.setattr(
-        "jupyter_mcp_server.sandbox_client.create_jupyter_sandbox_client", create
-    )
+    monkeypatch.setattr("jupyter_mcp_server.sandbox_client.create_jupyter_sandbox_client", create)
     return seen
-
-
-def _enable_adoption():
-    get_capabilities().set(KERNEL_ADOPT_SESSION, True, source="cli")
 
 
 def test_new_mcp_kernel_gets_a_session_for_its_notebook(fresh_state, sandbox_factory):
     """Opening the notebook in JupyterLab must find the kernel the agent started."""
-    _enable_adoption()
-
     sandbox = create_code_sandbox(get_config(), logging.getLogger("test"), path="dir/nb.ipynb")
 
     assert sandbox.id == "kernel-new"
@@ -84,9 +69,7 @@ def test_new_mcp_kernel_gets_a_session_for_its_notebook(fresh_state, sandbox_fac
 
 
 def test_existing_kernel_is_not_rebound_to_a_second_session(fresh_state, sandbox_factory):
-    """Adopting an existing session's kernel must not create a duplicate."""
-    _enable_adoption()
-
+    """use_notebook owns the explicit-kernel path and checks for a session first."""
     create_code_sandbox(
         get_config(),
         logging.getLogger("test"),
@@ -95,10 +78,4 @@ def test_existing_kernel_is_not_rebound_to_a_second_session(fresh_state, sandbox
     )
 
     assert sandbox_factory["kernel_id"] == "kernel-existing"
-    assert fresh_state.created == []
-
-
-def test_session_creation_stays_off_without_the_capability(fresh_state, sandbox_factory):
-    create_code_sandbox(get_config(), logging.getLogger("test"), path="dir/nb.ipynb")
-
     assert fresh_state.created == []

@@ -79,6 +79,16 @@ class JupyterMCPExtension(McpExtension):
     Subclasses override what they need; every hook has a safe default.
     """
 
+    def get_active_code_sandbox(self, config: Any, logger: logging.Logger) -> Any | None:
+        """Return the execution backend the caller selected, if any.
+
+        ``use_sandbox`` is owned by an extension, but ``use_notebook`` needs to
+        know whether the caller already chose a backend before it opens a
+        notebook. Return the live selected sandbox, or ``None`` when this
+        extension has no active selection.
+        """
+        return None
+
     def create_code_sandbox(self, config: Any, logger: logging.Logger) -> Any | None:
         """Optionally build a kernel for the current configuration.
 
@@ -86,6 +96,10 @@ class JupyterMCPExtension(McpExtension):
         interface) to take over kernel creation, or ``None`` to let the core /
         other extensions handle it.
         """
+        return None
+
+    def create_new_code_sandbox(self, config: Any, logger: logging.Logger) -> Any | None:
+        """Build a fresh backend, bypassing any active ``use_sandbox`` selection."""
         return None
 
     async def intercept_execute_code(
@@ -325,6 +339,32 @@ class ExtensionManager:
         except Exception:  # pragma: no cover - defensive
             logger.exception("Reactor platform failed to stop")
         self._started = False
+
+    def get_active_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
+        """Return the first execution backend an extension has selected."""
+        self.discover()
+        for name, extension in self._extensions.items():
+            get_active = getattr(extension, "get_active_code_sandbox", None)
+            if get_active is None:
+                continue
+            code_sandbox = get_active(config, log)
+            if code_sandbox is not None:
+                log.debug("Extension '%s' provided the active code sandbox", name)
+                return code_sandbox
+        return None
+
+    def create_new_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
+        """Ask extensions to build a fresh backend, bypassing active selections."""
+        self.discover()
+        for name, extension in self._extensions.items():
+            make = getattr(extension, "create_new_code_sandbox", None)
+            if make is None:
+                continue
+            code_sandbox = make(config, log)
+            if code_sandbox is not None:
+                log.debug("Extension '%s' provided a fresh code sandbox", name)
+                return code_sandbox
+        return None
 
     def create_code_sandbox(self, config: Any, log: logging.Logger) -> Any | None:
         """Ask extensions to build a code sandbox; return the first non-None result."""

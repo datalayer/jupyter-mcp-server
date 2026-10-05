@@ -28,7 +28,6 @@ from jupyter_mcp_server.capabilities import (
     CAPABILITIES_ENV,
     CAPABILITIES_EXTENSION,
     CAPABILITIES_RESOURCE,
-    KERNEL_ADOPT_SESSION,
     KERNEL_AUTO_RESTART,
     Capability,
     CapabilityRegistry,
@@ -265,7 +264,6 @@ class TestAdvertising:
         block = get_capabilities().advertise()
         assert block["capabilities"] == []
         assert {entry["name"] for entry in block["declared"]} == {
-            KERNEL_ADOPT_SESSION,
             KERNEL_AUTO_RESTART,
         }
         assert all(entry["enabled"] is False for entry in block["declared"])

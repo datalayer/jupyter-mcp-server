@@ -2,55 +2,47 @@
 #
 # BSD 3-Clause License
 
-"""`use_notebook` refuses to add a rival kernel, and starts one on request.
+"""The backend ``use_notebook`` selects, or deliberately does not select.
 
-Owning a kernel is a decision. While the Jupyter server already runs kernels
-or sessions this server did not start, opening a notebook silently would
-either hijack the person's session or add a second kernel nobody watches
-(#478). The caller chooses: name an existing kernel to share its state, or
-ask for an isolated one with ``kernel_id=NEW``.
+``use_notebook`` follows the context the caller already established:
+
+* an active ``use_sandbox`` selection wins;
+* otherwise a live session for the notebook is adopted as part of the call and
+  the reply says that ``use_sandbox`` was triggered;
+* with neither, no kernel is created;
+* an explicit ``kernel_id`` is verified and gets a session when one is missing.
 """
 
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
-from jupyter_mcp_server.capabilities import (
-    KERNEL_ADOPT_SESSION,
-    get_capabilities,
-    reset_capabilities,
-)
 from jupyter_mcp_server.config import reset_config, set_config
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import ServerMode
 from jupyter_mcp_server.tools.use_notebook_tool import NEW_KERNEL_ID, UseNotebookTool
 
 SANDBOX_URL = "http://sandbox.example"
-LIVE_KERNEL = "live-kernel-1"
-SESSION_KERNEL = "session-kernel-1"
+EXISTING_KERNEL = "kernel-existing"
+SESSION_KERNEL = "kernel-from-session"
 NB_PATH = "nb.ipynb"
 
 
 class FakeContents:
-    def __init__(self, names=(NB_PATH,)):
-        self._names = list(names)
-
-    def list_directory(self, path):
-        return [SimpleNamespace(name=name) for name in self._names]
+    @staticmethod
+    def list_directory(path):
+        return [SimpleNamespace(name=NB_PATH)]
 
     @staticmethod
     def get(path):
         return {"content": {"cells": []}}
 
-    @staticmethod
-    def create_notebook(path, content=None):
-        return None
-
 
 class FakeKernels:
-    def __init__(self, ids):
+    def __init__(self, ids=()):
         self._ids = list(ids)
 
     def list_kernels(self):
@@ -58,21 +50,45 @@ class FakeKernels:
 
 
 class FakeSessions:
-    def __init__(self, sessions):
+    def __init__(self, sessions=()):
         self._sessions = list(sessions)
+        self.created: list[dict] = []
 
     def list_sessions(self):
         return self._sessions
 
+    def create_session(self, **kwargs):
+        self.created.append(kwargs)
+        return SimpleNamespace(id="session-created")
+
 
 class FakeServerClient:
-    def __init__(self, kernels=(), sessions=(), names=(NB_PATH,)):
-        self.contents = FakeContents(names)
+    def __init__(self, *, kernels=(), sessions=()):
+        self.contents = FakeContents()
         self.kernels = FakeKernels(kernels)
         self.sessions = FakeSessions(sessions)
 
-    def get_status(self):
+    @staticmethod
+    def get_status():
         return {}
+
+
+class FakeExtensionManager:
+    def __init__(self, active=None):
+        self.active = active
+        self.created_with: list[str | None] = []
+        self.created_new = 0
+
+    def get_active_code_sandbox(self, config, logger):
+        return self.active
+
+    def create_code_sandbox(self, config, logger):
+        self.created_with.append(config.code_sandbox_id)
+        return SimpleNamespace(id=config.code_sandbox_id or "kernel-new")
+
+    def create_new_code_sandbox(self, config, logger):
+        self.created_new += 1
+        return SimpleNamespace(id="kernel-new")
 
 
 def _session(path, kernel_id):
@@ -80,210 +96,114 @@ def _session(path, kernel_id):
 
 
 @pytest.fixture(autouse=True)
-def sandbox(monkeypatch):
-    """Capture the sandbox the tool asks for, and keep the network out."""
-    seen: dict = {}
-
-    def fake_client(**kwargs):
-        seen.update(kwargs)
-        return SimpleNamespace(
-            id=kwargs.get("kernel_id") or "brand-new-kernel", is_alive=lambda: True
-        )
-
-    monkeypatch.setattr(
-        "jupyter_mcp_server.sandbox_client.create_jupyter_sandbox_client", fake_client
-    )
+def isolated_state(monkeypatch):
     monkeypatch.setattr("jupyter_mcp_server.watchers.watchers.watch", lambda name, manager: False)
-    monkeypatch.setattr(
+    reset_config()
+    yield
+    reset_config()
+
+
+async def _use(client, active_sandbox, *, kernel_id=None):
+    set_config(code_sandbox_url=SANDBOX_URL, start_new_code_sandbox=False)
+    extension_manager = FakeExtensionManager(active=active_sandbox)
+    notebook_manager = NotebookManager()
+    with patch(
         "jupyter_mcp_server.extensions.get_extension_manager",
-        lambda: SimpleNamespace(create_code_sandbox=lambda config, logger: None),
-    )
-    monkeypatch.setattr(
-        "jupyter_mcp_server.server_context.ServerContext.get_instance",
-        staticmethod(lambda: SimpleNamespace(code_sandbox_auth_headers={})),
-    )
-    reset_config()
-    reset_capabilities()
-    yield seen
-    reset_config()
-    reset_capabilities()
-
-
-def _use(client, *, kernel_id=None, start_new=False, notebook_manager=None, use_mode="connect"):
-    set_config(code_sandbox_url=SANDBOX_URL, start_new_code_sandbox=start_new)
-    return UseNotebookTool().execute(
-        mode=ServerMode.MCP_SERVER,
-        sandbox_server_client=client,
-        notebook_manager=notebook_manager or NotebookManager(),
-        notebook_name="demo",
-        notebook_path=NB_PATH,
-        use_mode=use_mode,
-        code_sandbox_url=SANDBOX_URL,
-        kernel_id=kernel_id,
-    )
-
-
-def _enable_adoption():
-    get_capabilities().set(KERNEL_ADOPT_SESSION, True, source="cli")
+        return_value=extension_manager,
+    ):
+        reply = await UseNotebookTool().execute(
+            mode=ServerMode.MCP_SERVER,
+            sandbox_server_client=client,
+            notebook_manager=notebook_manager,
+            notebook_name="demo",
+            notebook_path=NB_PATH,
+            use_mode="connect",
+            code_sandbox_url=SANDBOX_URL,
+            kernel_id=kernel_id,
+        )
+    return reply, extension_manager, notebook_manager
 
 
 @pytest.mark.asyncio
-async def test_it_refuses_while_the_notebook_has_a_live_session(sandbox):
-    client = FakeServerClient(
-        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
+async def test_active_use_sandbox_is_the_notebook_backend():
+    """A sandbox selected before opening the notebook must be the one used."""
+    active = SimpleNamespace(id="sandbox-selected", is_alive=lambda: True)
+    reply, extension_manager, notebook_manager = await _use(FakeServerClient(), active)
+
+    assert "active code sandbox" in reply
+    assert "use_sandbox" in reply
+    assert "sandbox-selected" in reply
+    assert extension_manager.created_with == []
+    assert notebook_manager.get_code_sandbox("demo") is active
+
+
+@pytest.mark.asyncio
+async def test_existing_session_triggers_use_sandbox_and_says_so():
+    """The notebook's live session is the backend, not a second kernel."""
+    session = _session(NB_PATH, SESSION_KERNEL)
+    client = FakeServerClient(kernels=[SESSION_KERNEL], sessions=[session])
+    reply, extension_manager, notebook_manager = await _use(client, None)
+
+    assert extension_manager.created_with == [SESSION_KERNEL]
+    assert notebook_manager.get_code_sandbox_id("demo") == SESSION_KERNEL
+    assert "Triggered 'use_sandbox'" in reply
+    assert SESSION_KERNEL in reply
+    assert client.sessions.created == [], "an existing session must not be duplicated"
+
+
+@pytest.mark.asyncio
+async def test_no_sandbox_and_no_session_does_not_create_a_kernel():
+    client = FakeServerClient()
+    reply, extension_manager, notebook_manager = await _use(client, None)
+
+    assert extension_manager.created_with == []
+    assert notebook_manager.get_code_sandbox("demo") is None
+    assert client.sessions.created == []
+    assert "no kernel was created" in reply
+
+
+@pytest.mark.asyncio
+async def test_explicit_kernel_gets_a_session_when_missing():
+    client = FakeServerClient(kernels=[EXISTING_KERNEL])
+    reply, extension_manager, notebook_manager = await _use(client, None, kernel_id=EXISTING_KERNEL)
+
+    assert extension_manager.created_with == [EXISTING_KERNEL]
+    assert notebook_manager.get_code_sandbox_id("demo") == EXISTING_KERNEL
+    assert client.sessions.created == [
+        {
+            "path": NB_PATH,
+            "kernel": {"id": EXISTING_KERNEL},
+            "session_type": "notebook",
+            "name": NB_PATH,
+        }
+    ]
+    assert "Created Jupyter session" in reply
+
+
+@pytest.mark.asyncio
+async def test_new_kernel_request_bypasses_the_active_sandbox():
+    active = SimpleNamespace(id="sandbox-selected", is_alive=lambda: True)
+    reply, extension_manager, notebook_manager = await _use(
+        FakeServerClient(), active, kernel_id=NEW_KERNEL_ID
     )
 
-    reply = await _use(client)
-
-    assert "Cannot open" in reply
-    assert LIVE_KERNEL in reply
-    assert NEW_KERNEL_ID in reply
-    assert sandbox == {}, "no sandbox may be built when the call is refused"
-
-
-@pytest.mark.asyncio
-async def test_another_notebooks_session_is_not_a_rival(sandbox):
-    """Refusing because somebody else's notebook is open helps nobody.
-
-    A long-lived Jupyter server holds sessions for plenty of other notebooks —
-    a person's own work, an earlier agent, a finished test — and counting
-    those made every open fail on a busy server.
-    """
-    client = FakeServerClient(
-        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
-    )
-
-    reply = await _use(client)
-
-    assert "Cannot open" not in reply
-    assert "A kernel starts on the first execution" in reply
-
-
-@pytest.mark.asyncio
-async def test_a_bare_kernel_is_not_a_session(sandbox):
-    """A kernel nothing is attached to is not a person's work to protect.
-
-    A long-lived Jupyter server accumulates them (an earlier agent, a
-    finished test), and refusing on those made every open fail on a busy
-    server without protecting anything.
-    """
-    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]))
-
-    assert "Cannot open" not in reply
-    assert "A kernel starts on the first execution" in reply
-
-
-@pytest.mark.asyncio
-async def test_nothing_running_keeps_the_lazy_open(sandbox):
-    reply = await _use(FakeServerClient(kernels=[]))
-
-    assert "A kernel starts on the first execution" in reply
-    assert sandbox == {}
-
-
-@pytest.mark.asyncio
-async def test_a_failed_probe_is_not_a_refusal(sandbox):
-    """A client that cannot answer must not be read as "kernels are running"."""
-    client = SimpleNamespace(contents=FakeContents(), get_status=lambda: {})
-
-    reply = await _use(client)
-
-    assert "A kernel starts on the first execution" in reply
-
-
-@pytest.mark.asyncio
-async def test_kernel_id_new_starts_an_isolated_kernel(sandbox):
-    client = FakeServerClient(
-        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
-    )
-
-    reply = await _use(client, kernel_id=NEW_KERNEL_ID)
-
-    assert "Cannot open" not in reply
-    assert sandbox.get("kernel_id") is None, "a NEW request must not name an existing kernel"
+    assert extension_manager.created_new == 1
+    assert extension_manager.created_with == []
+    assert notebook_manager.get_code_sandbox_id("demo") == "kernel-new"
     assert "isolated kernel" in reply
 
 
 @pytest.mark.asyncio
-async def test_kernel_id_new_wins_over_a_deferred_open(sandbox):
-    """`--start-new-code-sandbox false` defers a bare open, not a NEW request."""
-    client = FakeServerClient(
-        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
-    )
+async def test_explicit_kernel_that_is_not_alive_is_refused():
+    client = FakeServerClient(kernels=[])
+    reply, extension_manager, _notebook_manager = await _use(client, None, kernel_id="missing")
 
-    reply = await _use(client, kernel_id=NEW_KERNEL_ID)
-
-    assert "isolated kernel" in reply
-    assert sandbox.get("path") == NB_PATH
+    assert "not found" in reply
+    assert extension_manager.created_with == []
+    assert client.sessions.created == []
 
 
-@pytest.mark.asyncio
-async def test_naming_an_existing_kernel_attaches_to_it(sandbox):
-    reply = await _use(FakeServerClient(kernels=[LIVE_KERNEL]), kernel_id=LIVE_KERNEL)
-
-    assert sandbox.get("kernel_id") == LIVE_KERNEL
-    assert f"Connected to kernel '{LIVE_KERNEL}'" in reply
-
-
-@pytest.mark.asyncio
-async def test_a_kernel_this_server_started_is_not_a_rival(sandbox):
-    """The server's own kernels are what the notebooks it manages run on."""
-    manager = NotebookManager()
-    manager.add_notebook(
-        "other", SimpleNamespace(id=LIVE_KERNEL), server_url="u", path=NB_PATH
-    )
-    client = FakeServerClient(kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)])
-
-    reply = await _use(client, notebook_manager=manager)
-
-    assert "Cannot open" not in reply
-    assert "A kernel starts on the first execution" in reply
-
-
-@pytest.mark.asyncio
-async def test_creating_a_notebook_is_an_explicit_choice(sandbox):
-    """`mode='create'` names a new notebook; the kernel decision is already made."""
-    client = FakeServerClient(
-        kernels=[LIVE_KERNEL],
-        sessions=[_session(NB_PATH, LIVE_KERNEL)],
-        names=[],
-    )
-
-    reply = await _use(client, use_mode="create")
-
-    assert "Cannot open" not in reply
-    assert "A kernel starts on the first execution" in reply
-    assert sandbox.get("kernel_id") is None
-
-
-@pytest.mark.asyncio
-async def test_adoption_still_wins_over_the_refusal(sandbox):
-    _enable_adoption()
-    client = FakeServerClient(
-        kernels=[SESSION_KERNEL], sessions=[_session(NB_PATH, SESSION_KERNEL)]
-    )
-
-    reply = await _use(client)
-
-    assert f"Adopted kernel '{SESSION_KERNEL}'" in reply
-    assert sandbox.get("kernel_id") == SESSION_KERNEL
-
-
-@pytest.mark.asyncio
-async def test_adoption_does_not_reach_another_notebooks_session(sandbox):
-    _enable_adoption()
-    client = FakeServerClient(
-        kernels=[LIVE_KERNEL], sessions=[_session("other.ipynb", LIVE_KERNEL)]
-    )
-
-    reply = await _use(client)
-
-    assert "Cannot open" not in reply
-    assert "Adopted kernel" not in reply
-    assert "A kernel starts on the first execution" in reply
-
-
-#### JUPYTER_SERVER mode ####################################################
+#### JUPYTER_SERVER explicit kernel path #####################################
 
 
 class LocalContents:
@@ -292,82 +212,44 @@ class LocalContents:
 
 
 class LocalKernelManager:
-    def __init__(self, ids=()):
-        self._ids = set(ids)
-        self.started: list = []
-
-    def list_kernels(self):
-        return [{"id": kernel_id} for kernel_id in sorted(self._ids)]
-
-    def __contains__(self, kernel_id):
-        return kernel_id in self._ids
-
-    async def start_kernel(self, path=None):
-        self.started.append(path)
-        return "local-new-kernel"
-
     def get_kernel(self, kernel_id):
-        return object()
-
-    def get_connection_info(self, kernel_id):
-        return {"shell_port": 1}
+        return object() if kernel_id == EXISTING_KERNEL else None
 
 
 class LocalSessionManager:
     def __init__(self, sessions=()):
         self._sessions = list(sessions)
-        self.created: list = []
+        self.created: list[dict] = []
 
     async def list_sessions(self):
         return self._sessions
 
-    async def create_session(self, path=None, kernel_id=None, **kwargs):
-        self.created.append(kernel_id)
-        return {"id": "session-created"}
+    async def create_session(self, **kwargs):
+        self.created.append(kwargs)
+        return {"id": "local-session-created"}
 
 
-async def _use_local(kernel_id=None, *, kernels=(), sessions=()):
-    reset_config()
-    kernel_manager = LocalKernelManager(kernels)
-    session_manager = LocalSessionManager(sessions)
+@pytest.mark.asyncio
+async def test_jupyter_server_explicit_kernel_creates_session_when_missing():
+    session_manager = LocalSessionManager()
     reply = await UseNotebookTool().execute(
         mode=ServerMode.JUPYTER_SERVER,
         contents_manager=LocalContents(),
-        kernel_manager=kernel_manager,
+        kernel_manager=LocalKernelManager(),
         session_manager=session_manager,
         notebook_manager=NotebookManager(),
         notebook_name="demo",
         notebook_path=NB_PATH,
         use_mode="connect",
-        kernel_id=kernel_id,
-    )
-    return reply, kernel_manager, session_manager
-
-
-@pytest.mark.asyncio
-async def test_jupyter_server_refuses_while_a_kernel_runs():
-    reply, kernel_manager, _ = await _use_local(
-        kernels=[LIVE_KERNEL], sessions=[_session(NB_PATH, LIVE_KERNEL)]
+        kernel_id=EXISTING_KERNEL,
     )
 
-    assert "Cannot open" in reply
-    assert kernel_manager.started == []
-
-
-@pytest.mark.asyncio
-async def test_jupyter_server_new_starts_a_local_kernel():
-    reply, kernel_manager, session_manager = await _use_local(
-        NEW_KERNEL_ID, kernels=[LIVE_KERNEL]
-    )
-
-    assert kernel_manager.started == [NB_PATH]
-    assert session_manager.created == ["local-new-kernel"]
-    assert "Cannot open" not in reply
-
-
-@pytest.mark.asyncio
-async def test_jupyter_server_opens_when_nothing_runs():
-    reply, kernel_manager, _ = await _use_local()
-
-    assert kernel_manager.started == [NB_PATH]
-    assert "Connected to kernel 'local-new-kernel'" in reply
+    assert session_manager.created == [
+        {
+            "path": NB_PATH,
+            "kernel_id": EXISTING_KERNEL,
+            "type": "notebook",
+            "name": NB_PATH,
+        }
+    ]
+    assert "Created Jupyter session" in reply

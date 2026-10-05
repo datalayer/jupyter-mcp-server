@@ -197,27 +197,16 @@ cells: a Jupyter kernel reached over HTTP/WebSocket, an engine from the
 `docker`), or, inside the Jupyter extension, a plain handle to a kernel the
 local kernel manager owns.
 
-`use_notebook` opens a notebook onto a kernel, and it never picks one
-silently. In connect mode, when the notebook being opened already has a live
-Jupyter session this server did not start — it is open in a frontend on a
-kernel — the call **fails** and names it, so the caller has to choose:
+`use_notebook` follows the execution context the caller already established.
+Without `kernel_id`, a code sandbox already selected with `use_sandbox` is
+bound to the notebook. If no sandbox is selected but the notebook has a live
+Jupyter session, `use_notebook` triggers `use_sandbox` for that session's
+kernel and says so in its reply, so the agent and JupyterLab share one kernel.
+If neither exists, no kernel is created; the notebook opens without a backend.
 
-- pass the `kernel_id` of that session's kernel to attach to it and share its
-  variables and imports;
-- pass `kernel_id=NEW` to start a fresh kernel, isolated from the others.
-
-An explicit `kernel_id` — including `NEW` — skips the check. A notebook with
-no session of its own opens as before: the kernel starts on the first
-execution, or straight away with `--start-new-code-sandbox`. `mode='create'`
-names a new notebook, so it is already an explicit choice and does not refuse.
-Kernels this server started itself — the ones `NotebookManager` tracks — are
-not counted as rivals, so its own multi-notebook workflows keep working.
-Sessions for *other* notebooks are not counted either: a long-lived Jupyter
-server holds plenty of them, and refusing on those protected nobody.
-
-The `kernel.adopt-session` capability is the start-time switch: on, the kernel
-already bound to the notebook's Jupyter session is adopted instead of refused.
-See [Capabilities](/operations/capabilities#kerneladopt-session).
+An explicit `kernel_id` is verified to be alive. If the notebook has no session
+for that kernel, `use_notebook` creates one so JupyterLab can find it. Pass
+`kernel_id=NEW` when an isolated kernel is wanted instead of an existing one.
 
 In MCP_SERVER mode `NotebookConnection` opens the notebook's collaborative
 document with `NbModelClient` (jupyter-nbmodel-client over Y.js), so cell edits
