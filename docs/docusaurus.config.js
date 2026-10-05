@@ -4,6 +4,8 @@
  * BSD 3-Clause License
  */
 
+const { GTAG_TRACKING_ID } = require('./src/analytics');
+
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
   title: '🪐 🔧 Jupyter MCP Server documentation',
@@ -179,7 +181,7 @@ module.exports = {
           customCss: require.resolve('./src/css/custom.css'),
         },
         gtag: {
-          trackingID: 'G-EYRGHH1GN6',
+          trackingID: GTAG_TRACKING_ID,
           anonymizeIP: false,
         },
       },

@@ -1,9 +1,10 @@
 # Streamable HTTP Transport with Jupyter Server Extension
 
 In this mode, Jupyter MCP Server runs inside the Jupyter Server process. There
-is no separate MCP server to start or a downstream Jupyter connection to
-configure. The extension starts with Jupyter Server and exposes `/mcp` on the
-same host and port. Only **Streamable HTTP** is supported in this mode.
+is no separate MCP server to start. The extension starts with Jupyter Server
+and exposes `/mcp` on the same host and port. By default it uses that server's
+local managers; it can instead be configured with remote document and code
+sandbox URLs. Only **Streamable HTTP** is supported in this deployment.
 
 ## How it is connected
 
@@ -18,20 +19,26 @@ flowchart TB
         documents["Notebook documents"]
         kernels["Kernels"]
 
-        extension --> managers
+        extension -- "local URLs<br/>JUPYTER_SERVER access" --> managers
         managers --> documents
         managers --> kernels
     end
 
+    remote["Remote document and<br/>execution services"]
+
     client -- "Streamable HTTP<br/>/mcp + Jupyter token" --> extension
+    extension -- "non-local document URL<br/>MCP_SERVER access<br/>HTTP + WebSocket" --> remote
 ```
 
-The extension uses Jupyter's managers directly, without the downstream HTTP
-and WebSocket hop used in standalone mode. Jupyter's identity provider
-authenticates the MCP request, so the client sends the same token it uses for
-Jupyter Server. In JupyterHub, install the extension in each user's Jupyter
-Server environment; an Enterprise Gateway can still provide remote kernels
-behind that server.
+With the default local URLs, the extension uses Jupyter's managers directly,
+without a downstream HTTP and WebSocket hop. When `document_url` is non-local,
+`ServerContext` switches to `MCP_SERVER` access and creates remote clients for
+the configured document and execution services; configure their corresponding
+tokens as well. Jupyter's identity provider still authenticates the incoming
+MCP request, so the client sends the same token it uses for the host Jupyter
+Server. In JupyterHub, install the extension in each user's Jupyter Server
+environment; an Enterprise Gateway can still provide remote kernels behind
+that server.
 
 ## 1. Start JupyterLab and the MCP Server
 

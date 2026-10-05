@@ -5,15 +5,16 @@ description: How Jupyter MCP Server is put together — its two modes, the layer
 
 # Architecture
 
-Jupyter MCP Server is one codebase that runs in **two modes**, with the same
-tools in both:
+Jupyter MCP Server has two deployment entry points and two backend access
+modes. They usually line up, but an extension can use either access mode:
 
-- **MCP_SERVER mode** — a standalone process started with `jupyter-mcp-server start`.
-  It speaks MCP to the client over `stdio` or Streamable HTTP, and reaches the
-  notebooks and the execution environment over HTTP and WebSocket.
-- **JUPYTER_SERVER mode** — a Jupyter Server extension. The same tools run
-  inside the Jupyter process, talk to its managers directly, and are served
-  under the server's `/mcp` endpoint.
+- A **standalone deployment**, started with `jupyter-mcp-server start`, serves
+  MCP over `stdio` or Streamable HTTP and uses **MCP_SERVER** access: remote
+  HTTP and WebSocket clients for documents and execution.
+- A **Jupyter Server extension deployment** serves MCP at the host server's
+  `/mcp` endpoint. With local URLs it uses **JUPYTER_SERVER** access and calls
+  the host managers directly. With a non-local document URL it switches to
+  **MCP_SERVER** access and connects to the configured remote services.
 
 Two things are deliberately kept apart, because a deployment can host them on
 different servers:
@@ -36,20 +37,24 @@ flowchart TB
     client --> standalone["MCP_SERVER mode<br/>Standalone Jupyter MCP Server"]
     standalone -- "HTTP + WebSocket" --> downstream["Downstream Jupyter Server<br/>notebooks + kernels"]
 
-    subgraph jupyterServerMode["JUPYTER_SERVER mode"]
+    subgraph jupyterServerMode["Jupyter Server extension deployment"]
         direction TB
         embedded["Jupyter MCP Server extension"]
-        host["Host Jupyter Server<br/>notebooks + kernels"]
-        embedded -- "runs inside" --> host
+        host["Host managers<br/>local notebooks + kernels"]
+        embedded -- "local URLs<br/>JUPYTER_SERVER access" --> host
     end
 
+    remote["Remote document and<br/>execution services"]
+
     client --> embedded
+    embedded -- "non-local document URL<br/>MCP_SERVER access" --> remote
 ```
 
-The same MCP tools are available in both modes. In `MCP_SERVER` mode, Jupyter
-MCP Server is a separate process that connects to a downstream Jupyter Server.
-In `JUPYTER_SERVER` mode, it runs as an extension inside the Jupyter Server and
-uses that server's managers directly.
+Both deployments expose the core notebook and cell tools, but their complete
+tool lists can differ. A local extension omits `connect_to_jupyter`, and an
+extension can add configured tools from `jupyter-mcp-tools`. The extension's
+location therefore does not by itself determine either its backend access mode
+or its exposed tool set.
 
 ## High-level view
 
@@ -59,11 +64,11 @@ flowchart TB
 
     subgraph modes["Two ways to run the same server"]
         direction LR
-        standalone["MCP_SERVER<br/>Standalone process<br/>jupyter-mcp-server start"]
-        embedded["JUPYTER_SERVER<br/>Extension inside Jupyter Server"]
+        standalone["Standalone process<br/>jupyter-mcp-server start"]
+        embedded["Jupyter Server extension<br/>/mcp entry point"]
     end
 
-    tools["Shared MCP tools<br/>BaseTool.execute(mode, ...)"]
+    tools["Core notebook and cell tools<br/>BaseTool.execute(mode, ...)"]
 
     subgraph access["Mode-specific access"]
         direction LR
@@ -78,8 +83,9 @@ flowchart TB
     client -- "HTTP /mcp with Jupyter auth" --> embedded
     standalone --> tools
     embedded --> tools
-    tools -- "MCP_SERVER" --> remote
-    tools -- "JUPYTER_SERVER" --> local
+    standalone -- "MCP_SERVER access" --> remote
+    embedded -- "non-local document URL<br/>MCP_SERVER access" --> remote
+    embedded -- "local URLs<br/>JUPYTER_SERVER access" --> local
     remote --> documents
     remote --> execution
     local --> documents
@@ -90,10 +96,12 @@ Whichever way a call comes in, it ends in the same place: a tool's
 `execute()` method, told which `ServerMode` it is running in and handed the
 clients or managers that mode provides.
 
-The mode changes **how** the tools reach Jupyter, not which tools the MCP
-client sees. In `MCP_SERVER` mode, the document server and execution server
-can be different remote services. In `JUPYTER_SERVER` mode, the extension uses
-the managers of the Jupyter Server process it is running inside.
+The access mode changes **how** tools reach Jupyter. In `MCP_SERVER` mode, the
+document server and execution server can be different remote services. In
+`JUPYTER_SERVER` mode, the extension uses the managers of the Jupyter Server
+process it is running inside. Tool discovery is handled separately: the local
+extension removes `connect_to_jupyter` and can append its configured
+JupyterLab tools.
 
 ## How a notebook gets an execution backend
 
@@ -135,13 +143,19 @@ kernel itself. Non-Jupyter sandboxes do not need a Jupyter session.
 ```mermaid
 flowchart TD
     start["use_notebook"] --> known{"Already managed?"}
-    known -- "yes" --> reactivate["Reactivate it<br/>keep its current backend"]
+    known -- "yes" --> createAgain{"create mode?"}
+    createAgain -- "yes" --> duplicateError["Reject duplicate creation"]
+    createAgain -- "no" --> pathMatches{"Path matches the<br/>managed notebook?"}
+    pathMatches -- "no" --> pathError["Reject path mismatch"]
+    pathMatches -- "yes" --> active{"Already active?"}
+    active -- "yes" --> keep["Keep its current backend<br/>and return its status"]
+    active -- "no" --> reactivate["Reactivate it<br/>keep its current backend"]
     known -- "no" --> explicit{"kernel_id supplied?"}
 
     explicit -- "yes" --> attach["Validate and attach<br/>the requested kernel or sandbox"]
     explicit -- "no" --> adopt{"connect mode +<br/>kernel.adopt-session enabled +<br/>matching Jupyter session?"}
     adopt -- "yes" --> reuse["Reuse that session's kernel"]
-    adopt -- "no" --> mode{"Server mode?"}
+    adopt -- "no" --> mode{"Backend access mode?"}
 
     mode -- "JUPYTER_SERVER" --> localKernel["Start a local kernel now<br/>and create a Jupyter session"]
     mode -- "MCP_SERVER" --> eager{"start_new_code_sandbox?"}
@@ -251,10 +265,13 @@ what the tools need in that mode:
 
 - in **JUPYTER_SERVER** mode, the `ServerApp` managers — `contents_manager`,
   `kernel_manager`, `kernel_spec_manager`, `session_manager` — registered by
-  the extension through `jupyter_extension/context.py`;
+  the extension through `jupyter_extension/context.py`. This mode is selected
+  only when the extension's document configuration is local;
 - in **MCP_SERVER** mode, two `JupyterServerClient` instances,
   `sandbox_server_client` and `document_server_client`, since the two halves
   may be different servers, together with the authentication headers for each.
+  A standalone deployment always uses this mode, and an extension deployment
+  also uses it when configured with a non-local document URL.
   Password-protected Jupyter servers are handled by logging in for a session
   cookie (`auth.py`) and logging in again when a request is refused.
 
