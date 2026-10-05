@@ -912,6 +912,7 @@ async def restart_notebook(
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
         kernel_manager=server_context.kernel_manager,
+        session_manager=server_context.session_manager,
     )
 
 

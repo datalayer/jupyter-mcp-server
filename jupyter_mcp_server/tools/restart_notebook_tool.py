@@ -33,11 +33,13 @@ class RestartNotebookTool(BaseTool):
         kernel_manager: Any,
         notebook_manager: NotebookManager,
         notebook_name: str,
+        session_manager: Any | None = None,
     ) -> str:
-        """Start a fresh kernel and rebind it to the notebook (JUPYTER_SERVER mode).
+        """Start a fresh kernel, bind its notebook session, and rebind the manager.
 
-        Used when the notebook's recorded kernel has been culled or lost, so the
-        agent can self-heal instead of being stuck with a dead kernel binding.
+        Used when the notebook's recorded kernel has been culled or was never
+        created by the lazy ``use_notebook`` path, so the agent can self-heal
+        instead of being stuck without an execution kernel.
         """
         try:
             notebook_path = notebook_manager.get_notebook_path(notebook_name)
@@ -55,12 +57,41 @@ class RestartNotebookTool(BaseTool):
                 f"Failed to restart notebook '{notebook_name}': the kernel was no longer "
                 f"available and reprovisioning failed: {e}"
             )
+
+        session_warning = ""
+        if session_manager is not None:
+            try:
+                session = await session_manager.create_session(
+                    path=notebook_path,
+                    kernel_id=new_kernel_id,
+                    type="notebook",
+                    name=notebook_path,
+                )
+                session_id = (
+                    session.get("id") if isinstance(session, dict) else getattr(session, "id", None)
+                )
+                logger.info(
+                    "Created Jupyter session '%s' for notebook '%s' with kernel '%s'",
+                    session_id,
+                    notebook_path,
+                    new_kernel_id,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Kernel %s was provisioned for notebook '%s', but its Jupyter "
+                    "session could not be created: %s",
+                    new_kernel_id,
+                    notebook_path,
+                    e,
+                )
+                session_warning = f" The Jupyter session could not be created: {e}"
+
         logger.info(f"Provisioned fresh kernel {new_kernel_id} for notebook '{notebook_name}'")
         await self._report_restarted(new_kernel_id, notebook_name)
         return (
-            f"Notebook '{notebook_name}' kernel was no longer available and has been "
-            f"reprovisioned (new kernel '{new_kernel_id}'). Memory state and imported "
-            f"packages have been cleared."
+            f"Notebook '{notebook_name}' kernel restarted successfully. No usable kernel "
+            f"remained, so it was reprovisioned (new kernel '{new_kernel_id}'). Memory "
+            f"state and imported packages have been cleared.{session_warning}"
         )
 
     async def execute(
@@ -70,6 +101,7 @@ class RestartNotebookTool(BaseTool):
         contents_manager: Any | None = None,
         kernel_manager: Any | None = None,
         kernel_spec_manager: Any | None = None,
+        session_manager: Any | None = None,
         notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
         notebook_name: str = None,
@@ -98,7 +130,9 @@ class RestartNotebookTool(BaseTool):
             # Get kernel ID from notebook_manager
             kernel_id = notebook_manager.get_code_sandbox_id(notebook_name)
             if not kernel_id:
-                return f"Failed to restart notebook '{notebook_name}': kernel ID not found."
+                return await self._reprovision_kernel(
+                    kernel_manager, notebook_manager, notebook_name, session_manager
+                )
 
             # Self-heal a stale binding: if the recorded kernel no longer exists
             # (idle-culled on JupyterHub, or the single-user server was restarted),
@@ -109,7 +143,7 @@ class RestartNotebookTool(BaseTool):
                     f"provisioning a fresh kernel."
                 )
                 return await self._reprovision_kernel(
-                    kernel_manager, notebook_manager, notebook_name
+                    kernel_manager, notebook_manager, notebook_name, session_manager
                 )
 
             try:
@@ -126,7 +160,7 @@ class RestartNotebookTool(BaseTool):
                         f"restart; provisioning a fresh kernel."
                     )
                     return await self._reprovision_kernel(
-                        kernel_manager, notebook_manager, notebook_name
+                        kernel_manager, notebook_manager, notebook_name, session_manager
                     )
                 logger.error(f"Failed to restart kernel {kernel_id}: {e}")
                 return f"Failed to restart notebook '{notebook_name}': {e}"
