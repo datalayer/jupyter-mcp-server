@@ -15,9 +15,9 @@ use a kernel that is already running; use_notebook verifies it is alive and
 creates a Jupyter session for the notebook when no session exists. Without
 kernel_id, a sandbox already selected with use_sandbox is reused. If none is
 selected but the notebook already has a live Jupyter session, use_notebook
-triggers use_sandbox for that session's kernel and reports that in the reply.
-With neither, no kernel is created. Pass kernel_id=NEW to start an isolated
-kernel.
+triggers use_sandbox for that session's kernel and reports that in the
+reply. With neither, no kernel is created. Pass kernel_id=NEW to start an
+isolated kernel.
 
 > destructive: **yes** · idempotent: **yes** · open-world: **no**
 
