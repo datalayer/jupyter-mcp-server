@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jupyter_mcp_server.config import get_config, reset_config
+from jupyter_mcp_server.config import get_config, reset_config, set_config
 from jupyter_mcp_server.server_context import ServerContext
 from jupyter_mcp_server.utils import create_code_sandbox
 
@@ -78,4 +78,25 @@ def test_existing_kernel_is_not_rebound_to_a_second_session(fresh_state, sandbox
     )
 
     assert sandbox_factory["kernel_id"] == "kernel-existing"
+    assert fresh_state.created == []
+
+
+def test_new_kernel_request_ignores_the_configured_kernel(fresh_state, sandbox_factory):
+    """kernel_id=NEW starts a kernel even when CODE_SANDBOX_ID names a shared one."""
+    set_config(code_sandbox_id="kernel-configured")
+
+    create_code_sandbox(
+        get_config(), logging.getLogger("test"), path="dir/nb.ipynb", ignore_active=True
+    )
+
+    assert sandbox_factory["kernel_id"] is None
+    assert [s["kernel"] for s in fresh_state.created] == [{"id": "kernel-new"}]
+
+
+def test_configured_kernel_is_still_used_by_default(fresh_state, sandbox_factory):
+    set_config(code_sandbox_id="kernel-configured")
+
+    create_code_sandbox(get_config(), logging.getLogger("test"), path="dir/nb.ipynb")
+
+    assert sandbox_factory["kernel_id"] == "kernel-configured"
     assert fresh_state.created == []
