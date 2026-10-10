@@ -28,7 +28,7 @@ isolated kernel.
 | `notebook_name` | string | yes | — | Unique identifier for the notebook |
 | `notebook_path` | string | yes | — | Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb') |
 | `mode` | `connect` · `create` | no | `"connect"` | Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it |
-| `kernel_id` | string | no | `null` | Existing kernel to use for this notebook. When provided, use_notebook verifies it is alive and creates a Jupyter session binding the notebook to it when no session exists. When omitted, a sandbox already selected with use_sandbox is reused; otherwise, if the notebook has a live Jupyter session, use_notebook triggers use_sandbox for that session and says so in the reply. With neither, no kernel is created. Pass 'NEW' to start an isolated kernel. |
+| `kernel_id` | string \| null | no | `null` | Existing kernel to use for this notebook. When provided, use_notebook verifies it is alive and creates a Jupyter session binding the notebook to it when no session exists. When omitted, a sandbox already selected with use_sandbox is reused; otherwise, if the notebook has a live Jupyter session, use_notebook triggers use_sandbox for that session and says so in the reply. With neither, no kernel is created. Pass 'NEW' to start an isolated kernel. |
 
 ## Output
 

@@ -1693,10 +1693,17 @@
             "type": "string"
           },
           "kernel_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "default": null,
             "description": "Existing kernel to use for this notebook. When provided, use_notebook verifies it is alive and creates a Jupyter session binding the notebook to it when no session exists. When omitted, a sandbox already selected with use_sandbox is reused; otherwise, if the notebook has a live Jupyter session, use_notebook triggers use_sandbox for that session and says so in the reply. With neither, no kernel is created. Pass 'NEW' to start an isolated kernel.",
-            "title": "Kernel Id",
-            "type": "string"
+            "title": "Kernel Id"
           }
         },
         "required": [
