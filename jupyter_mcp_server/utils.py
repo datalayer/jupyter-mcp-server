@@ -734,6 +734,12 @@ def create_code_sandbox(
     if extension_code_sandbox is not None:
         return extension_code_sandbox
 
+    if ignore_active and not code_sandbox_id:
+        # `kernel_id=NEW` must not attach to the kernel CODE_SANDBOX_ID names
+        # either: that is the shared kernel the caller asked to get away from.
+        existing_kernel_id = None
+        config = config.model_copy(update={"code_sandbox_id": None})
+
     from jupyter_mcp_server.server_context import ServerContext
 
     context = ServerContext.get_instance()
