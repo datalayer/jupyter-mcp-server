@@ -815,7 +815,7 @@ async def use_notebook(
         ),
     ] = "connect",
     kernel_id: Annotated[
-        str,
+        str | None,
         Field(
             description="Existing kernel to use for this notebook. When provided,"
             " use_notebook verifies it is alive and creates a Jupyter session binding"
