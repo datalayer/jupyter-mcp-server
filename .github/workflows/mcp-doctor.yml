@@ -1,0 +1,25 @@
+name: mcp-doctor
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions: {}
+
+jobs:
+  mcp-doctor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write   # report comment + fix suggestions on same-repo PRs; fork PRs get the job summary
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # the scan reads the tree and never pushes
+
+      # Pinning the action also pins the analyser (v1.20.1 installs from the action's own checkout).
+      - uses: vishalhabib99/mcp-doctor@5d0688b1fcfbaae5e80a1059baf103d628e0ee7d  # v1.20.1
+        with:
+          path: .
+          fail-under: 0   # 0 = report only, never fails the PR
