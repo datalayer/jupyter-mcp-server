@@ -5,6 +5,9 @@ on:
     branches: ["main"]
   pull_request:
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash -eux {0}
@@ -21,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v7
@@ -28,7 +33,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Base Setup
-        uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+        uses: jupyterlab/maintainer-tools/.github/actions/base-setup@21b1cac622018fd37ec13a1c8081da814e10d94e  # v1.0.0
 
       - name: Install the extension
         run: |
@@ -60,7 +65,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+        with:
+          persist-credentials: false
+      - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@21b1cac622018fd37ec13a1c8081da814e10d94e  # v1.0.0
       - name: Run Linters
         run: |
           bash ./.github/workflows/lint.sh
@@ -78,6 +85,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Install Python
         uses: actions/setup-python@v7
         with:

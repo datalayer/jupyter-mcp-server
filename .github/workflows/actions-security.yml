@@ -1,0 +1,39 @@
+name: Actions Security
+
+# Audits the workflows themselves: a pull request that adds an unpinned
+# third-party action, a token wider than its job needs, an injectable
+# `${{ }}` in a `run:` block, or a `pull_request_target` checkout of
+# untrusted code fails here instead of being noticed later.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/**"
+      - ".github/zizmor.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install zizmor
+        run: pip install zizmor==1.31.0
+
+      - name: Audit the workflows
+        # `--offline` keeps the audit deterministic and lets this job run with
+        # no token at all. Dropping it (with `GH_TOKEN: ${{ github.token }}`)
+        # adds the audits that query GitHub, such as known-vulnerable actions.
+        run: zizmor --offline --format plain .github/workflows/

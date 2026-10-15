@@ -1,7 +1,11 @@
 name: Fix License Headers
 
 on:
-  pull_request_target:
+  # Not `pull_request_target`: that gives a write token to a job that checks
+  # out the pull request's own code. The one step that needs the token (the
+  # push below) only ever runs for a branch in this repository, which a
+  # `pull_request` run can still do.
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -12,11 +16,12 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write      # to push the header fix back to the branch
+      pull-requests: read  # for `gh pr checkout`
 
     steps:
       - name: Checkout
+        # zizmor: ignore[artipacked] - the credentials are what the push uses
         uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -56,6 +61,7 @@ jobs:
           git add *
           git commit -m "Automatic application of license header"
 
-          git push origin HEAD:refs/heads/${{ github.event.pull_request.head.ref }}
+          git push origin "HEAD:refs/heads/$HEAD_REF"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
