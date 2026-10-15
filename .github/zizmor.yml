@@ -1,0 +1,13 @@
+# Policy for `zizmor`, the GitHub Actions static analyser run by
+# .github/workflows/actions-security.yml.
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # GitHub's own actions are trusted to the same degree as the runner
+        # image, and Dependabot keeps the major tags current.
+        actions/*: ref-pin
+        # Everything else is a third party: pin to a commit, so that moving a
+        # tag cannot change what runs here. Dependabot bumps the hashes and
+        # keeps the `# vX.Y.Z` comment beside them readable.
+        "*": hash-pin
