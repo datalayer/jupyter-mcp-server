@@ -124,7 +124,7 @@ lifecycle tools and use any non-`jupyter-server` sandbox variant.
 
 | Variant | Description | Extra install | Key variables |
 |--------|-------------|---------------|---------------|
-| `jupyter` (default) | Jupyter Server via `code-sandboxes` (`jupyter` engine) | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `CODE_SANDBOX_*` + `DOCUMENT_*`) |
+| `jupyter-server` (default) | Jupyter Server via `code-sandboxes` (`jupyter-server` engine) | — | `JUPYTER_URL`, `JUPYTER_TOKEN` (or `CODE_SANDBOX_*` + `DOCUMENT_*`) |
 | `kaggle` | Kaggle notebook code sandbox | `jupyter-mcp-server[kaggle]` | Default batch mode: `KAGGLE_API_TOKEN` (or Kaggle credentials). Interactive mode: `CODE_SANDBOX_URL` (+ `KAGGLE_API_TOKEN`, or `CODE_SANDBOX_ID`). Optional accelerator: `SANDBOX_GPU`. |
 | `monty` | In-process secure Python interpreter ([Monty](https://github.com/pydantic/monty)) | `jupyter-mcp-server[monty]` | — |
 | `google-colab` | Google Colab code sandbox | `jupyter-mcp-server[google-colab]` (or base install) | `CODE_SANDBOX_URL`, `CODE_SANDBOX_ID`, `CODE_SANDBOX_PROXY_TOKEN` |
