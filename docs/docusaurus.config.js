@@ -150,14 +150,6 @@ module.exports = {
               href: 'https://datalayer.ai',
             },
             {
-              label: 'Datalayer Docs',
-              href: 'https://docs.datalayer.app',
-            },
-            {
-              label: 'Datalayer Guide',
-              href: 'https://datalayer.guide',
-            },
-            {
               label: 'Datalayer Blog',
               href: 'https://datalayer.blog',
             },
