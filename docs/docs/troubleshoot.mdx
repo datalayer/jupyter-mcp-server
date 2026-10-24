@@ -1,0 +1,79 @@
+---
+title: Troubleshooting
+slug: /troubleshoot
+---
+
+## Notebook cells duplicated after reconnecting
+
+Users in [issue #251](https://github.com/datalayer/jupyter-mcp-server/issues/251)
+reported whole sets of notebook cells being appended again, with cell source but
+no outputs in the appended copies.
+
+A reproduction in that thread used two real-time collaboration (RTC) clients on
+one notebook: disconnect one client, restart the server after removing
+`.jupyter_ystore.db`, then reconnect the stale client. The experiment reproduced
+duplication without MCP tooling or an LLM and attributed it to
+`jupyter-server-ydoc` room loading, rather than MCP cell insertion. See the
+[upstream discussion #594](https://github.com/jupyterlab/jupyter-collaboration/issues/594).
+This describes the reported scenario, not every possible cause of duplicate cells.
+
+### Reported workaround: reset collaboration persistence
+
+The [reporter's September 10 update](https://github.com/datalayer/jupyter-mcp-server/issues/251#issuecomment-5618929267)
+associated their corruption with deleting the ystore and recommended resetting
+both persistence files with all connected browser tabs closed before restarting.
+This is a reported workaround, not a universal repair or a fix for the upstream
+runtime defect.
+
+Resetting persistence can discard collaboration history. It does **not** remove
+cells already duplicated in a saved notebook. Before attempting a reset:
+
+1. Preserve copies of the affected notebooks and any saved backups. Export or
+   copy unsaved work from every connected client separately, including stale or
+   disconnected clients, so shutdown does not lose those edits. Keep these copies
+   separate from the notebook on disk for later comparison.
+2. Stop MCP activity and shut down the affected Jupyter server. Keep it stopped
+   while resetting persistence.
+3. Close every browser tab connected to that server, across all browsers, users,
+   and devices. Disconnect other RTC clients too, so none can reconnect with
+   stale state when the server starts again.
+4. Locate the affected server's `.jupyter_ystore.db` and
+   `.jupyter/collaboration_sessions.json`, and back up both before changing them.
+   Their locations depend on the deployment and configuration; for remote,
+   containerized, or custom deployments, confirm the paths on the server with
+   its operator. Do not assume they are in your local working directory.
+5. With the server stopped and clients closed, reset **both** persistence files
+   by removing those two files from their confirmed locations after backing them
+   up. Do not delete entire directories or unrelated server state.
+6. Restart the Jupyter server, then open fresh clients. Check the notebook's cell
+   sources and outputs before resuming MCP activity.
+
+### Recover an already damaged notebook
+
+Compare the damaged notebook with saved backups and the client copies preserved
+above before restoring or removing duplicated cells. Keep a copy of the damaged
+notebook until recovery is verified. Resetting collaboration state alone does not
+restore lost outputs or undo existing duplication.
+
+The thread also reports an output-loss tradeoff when testing the proposed
+[upstream fix #595](https://github.com/jupyterlab/jupyter-collaboration/pull/595):
+it kept the reconnecting client's copy, dropping outputs added while that client
+was disconnected. That observation does not establish the fix's current merge
+or release status, or guarantee that upgrading a dependency resolves duplication
+or preserves all outputs.
+
+### If duplication continues
+
+Add the following details to [issue #251](https://github.com/datalayer/jupyter-mcp-server/issues/251)
+to help distinguish this scenario from other failures:
+
+- Versions of Jupyter MCP Server, JupyterLab, Jupyter Server,
+  `jupyter-collaboration`, `jupyter-server-ydoc`, and `pycrdt`.
+- Deployment details and persistence reset history: which files were removed,
+  when, and whether both persistence files were reset together.
+- The number and types of clients, and the sequence of disconnects, server
+  shutdowns, restarts, and reconnects, including whether browser tabs stayed open.
+- A minimal reproduction, expected and actual cell counts, and whether sources,
+  outputs, or both were duplicated or lost.
+- Relevant server and MCP logs around the failure, with tokens, credentials,
+  private notebook content, and other sensitive information removed.
