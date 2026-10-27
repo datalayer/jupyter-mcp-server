@@ -947,6 +947,36 @@ class TestNotebookConnectionAuth:
         }
         assert mock_ws_url.call_args.kwargs["provider"] == "jupyter"
 
+    @pytest.mark.asyncio
+    async def test_unsynced_notebook_raises_instead_of_reading_empty(self):
+        """A document that never syncs (e.g. larger than the websocket message
+        limit) must fail loudly rather than look like a notebook with no cells."""
+        connection = self._make_password_auth_connection()
+        exited = []
+
+        async def fake_aenter(self_):
+            return self_
+
+        async def fake_aexit(self_, *args):
+            exited.append(True)
+
+        with patch(
+            "jupyter_mcp_server.notebook_manager.get_notebook_websocket_url",
+            return_value="ws://localhost:8888/api/collaboration/room/abc",
+        ), patch(
+            "jupyter_mcp_server.notebook_manager.NbModelClient"
+        ) as MockClient:
+            mock_notebook = MagicMock()
+            mock_notebook.__aenter__ = fake_aenter
+            mock_notebook.__aexit__ = fake_aexit
+            mock_notebook.synced = False
+            MockClient.return_value = mock_notebook
+
+            with pytest.raises(RuntimeError, match="WEBSOCKETS_MAX_BODY_SIZE"):
+                await connection.__aenter__()
+
+        assert exited == [True]
+
 
 # ---------------------------------------------------------------------------
 # End-to-end tests against a real password-protected Jupyter server

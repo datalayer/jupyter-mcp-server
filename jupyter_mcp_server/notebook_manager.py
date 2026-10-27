@@ -147,6 +147,17 @@ class NotebookConnection:
         )
         self._notebook = NbModelClient(ws_url, additional_headers=websocket_headers)
         await self._notebook.__aenter__()
+        # Older nbmodel clients only log a warning when the document never syncs
+        # (e.g. it is larger than the websocket message limit), leaving an empty
+        # model that reads as a notebook with no cells.
+        if not self._notebook.synced:
+            await self._notebook.__aexit__(None, None, None)
+            self._notebook = None
+            raise RuntimeError(
+                f"Notebook {path} failed to load: the collaborative document did not sync. "
+                "If the notebook is large, raise the WEBSOCKETS_MAX_BODY_SIZE environment "
+                "variable (in bytes) for the MCP server."
+            )
         return self._notebook
 
     def _get_ws_url(self, server_url, token, path, config, auth_headers):
