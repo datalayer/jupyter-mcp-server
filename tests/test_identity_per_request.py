@@ -233,6 +233,8 @@ class TestANotebookBindingDoesNotCarryACredential:
             return "ws://example.test/nb"
 
         class _FakeNbModelClient:
+            synced = True
+
             def __init__(self, ws_url, additional_headers=None):
                 pass
 
