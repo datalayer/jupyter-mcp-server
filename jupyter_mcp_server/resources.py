@@ -271,6 +271,10 @@ def output_text(output: Any) -> str:
     if isinstance(data, dict):
         chosen = output_mime(output)
         value = data.get(chosen, data.get("text/plain", ""))
+        if chosen == "application/json" or (
+            chosen.startswith("application/") and chosen.endswith("+json")
+        ):
+            return json.dumps(value)
         return "".join(value) if isinstance(value, list) else str(value)
     return json.dumps(output)
 
