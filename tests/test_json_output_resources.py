@@ -4,6 +4,7 @@
 
 """JSON output values must survive resource reads without becoming text fragments."""
 
+import contextlib
 import json
 import uuid
 from pathlib import Path
@@ -56,10 +57,19 @@ async def test_json_output_resources_preserve_their_values(mcp_client_parametriz
     try:
         nbformat.write(notebook, on_disk)
         async with mcp_client_parametrized as client:
-            await client.use_notebook("json_resources", notebook_file)
-            document = json.loads(await _read(client, f"notebook://json_resources/cells/{cell.id}"))
-            assert [output["mimeType"] for output in document["outputs"]] == mimetypes
-            for output, value in zip(document["outputs"], values, strict=True):
-                assert json.loads(await _read(client, output["uri"])) == value
+            try:
+                await client.use_notebook("json_resources", notebook_file)
+                document = json.loads(
+                    await _read(client, f"notebook://json_resources/cells/{cell.id}")
+                )
+                assert [output["mimeType"] for output in document["outputs"]] == mimetypes
+                for output, value in zip(document["outputs"], values, strict=True):
+                    assert json.loads(await _read(client, output["uri"])) == value
+            finally:
+                # The last used notebook stays the active document on the
+                # session-scoped extension server; release it so following
+                # tests fall back to their own notebook.
+                with contextlib.suppress(Exception):
+                    await client.unuse_notebook("json_resources")
     finally:
         on_disk.unlink(missing_ok=True)
