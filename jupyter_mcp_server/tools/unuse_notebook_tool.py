@@ -9,6 +9,7 @@ from typing import Any
 
 from jupyter_server_client import JupyterServerClient
 
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
@@ -48,6 +49,7 @@ class UnuseNotebookTool(BaseTool):
         # Get info about which notebook was current
         current_notebook = notebook_manager.get_current_notebook()
         was_current = current_notebook == notebook_name
+        released_id = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
 
         if mode == ServerMode.JUPYTER_SERVER:
             # JUPYTER_SERVER mode: Optionally shutdown kernel before removing
@@ -77,6 +79,12 @@ class UnuseNotebookTool(BaseTool):
             return f"Invalid mode: {mode}"
 
         if success:
+            await HookRegistry.get_instance().fire(
+                HookEvent.KERNEL_LIFECYCLE,
+                event_type="stopped",
+                kernel_id=released_id,
+                kernel_name=notebook_name,
+            )
             message = f"Notebook '{notebook_name}' unused successfully."
 
             if was_current:
