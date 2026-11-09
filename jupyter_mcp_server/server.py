@@ -52,7 +52,7 @@ from jupyter_mcp_server.results import (
     audience_annotations,
 )
 from jupyter_mcp_server.tasks import tasks_extension
-from jupyter_mcp_server.hooks import HookEvent, HookRegistry, with_hooks
+from jupyter_mcp_server.hooks import with_hooks
 from jupyter_mcp_server.jupyter_extension.context import get_server_context
 from jupyter_mcp_server.log import logger
 from jupyter_mcp_server.models import DocumentCodeSandbox
@@ -842,6 +842,8 @@ async def use_notebook(
     isolated kernel.
     """
     config = get_config()
+    # The tool reports KERNEL_LIFECYCLE "started" itself, once the notebook is
+    # active; a refused or failed use_notebook must not be recorded as a start.
     result = await safe_notebook_operation(
         lambda: UseNotebookTool().execute(
             mode=server_context.mode,
@@ -859,13 +861,6 @@ async def use_notebook(
             code_sandbox_token=config.code_sandbox_token,
             auth_headers=server_context.code_sandbox_auth_headers or None,
         )
-    )
-    kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
-    await HookRegistry.get_instance().fire(
-        HookEvent.KERNEL_LIFECYCLE,
-        event_type="started",
-        kernel_id=kid,
-        kernel_name=notebook_name,
     )
     return result
 
@@ -930,20 +925,14 @@ async def unuse_notebook(
     notebook_name: Annotated[str, Field(description="Notebook identifier to disconnect")],
 ) -> ToolAnswer:
     """Unuse from a specific notebook and release its resources."""
-    kid = notebook_manager.get_code_sandbox_id(notebook_name) or "unknown"
-    result = await UnuseNotebookTool().execute(
+    # Like restart_notebook, the tool reports KERNEL_LIFECYCLE itself, and only
+    # when the notebook was actually released.
+    return await UnuseNotebookTool().execute(
         mode=server_context.mode,
         notebook_name=notebook_name,
         notebook_manager=notebook_manager,
         kernel_manager=server_context.kernel_manager,
     )
-    await HookRegistry.get_instance().fire(
-        HookEvent.KERNEL_LIFECYCLE,
-        event_type="stopped",
-        kernel_id=kid,
-        kernel_name=notebook_name,
-    )
-    return result
 
 
 @mcp.tool(

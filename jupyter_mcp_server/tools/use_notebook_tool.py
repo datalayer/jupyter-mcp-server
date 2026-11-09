@@ -16,6 +16,7 @@ from jupyter_core.utils import ensure_async
 from jupyter_nbmodel_client import NbModelClient
 from jupyter_server_client import JupyterServerClient, NotFoundError
 
+from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.models import Notebook
 from jupyter_mcp_server.notebook_manager import NotebookManager
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
@@ -783,6 +784,14 @@ class UseNotebookTool(BaseTool):
 
             notebook_manager.set_current_notebook(notebook_name)
             info_list.append(f"[INFO] Successfully activate notebook '{notebook_name}'.")
+
+        # Every refusal above has returned by now, so the notebook is active.
+        await HookRegistry.get_instance().fire(
+            HookEvent.KERNEL_LIFECYCLE,
+            event_type="started",
+            kernel_id=notebook_manager.get_code_sandbox_id(notebook_name) or "unknown",
+            kernel_name=notebook_name,
+        )
 
         # Return the quick overview of currently activated notebook
         try:
