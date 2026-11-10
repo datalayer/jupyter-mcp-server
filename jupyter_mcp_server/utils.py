@@ -884,6 +884,37 @@ def ensure_code_sandbox_alive(
     )
 
 
+def cell_execution_client(code_sandbox):
+    """The client a notebook cell executes on, so its outputs stream.
+
+    The notebook model writes each output into the shared document from the
+    ``output_hook`` it hands to ``execute_interactive``. A
+    ``CodeSandboxClient`` is variant-neutral: its ``execute_interactive`` runs
+    the code to the end and only then replays the outputs to that hook, so
+    nothing reaches the notebook — or anyone reading it — until the cell
+    finishes. A cell run from JupyterLab shows each output as it comes.
+
+    A sandbox backed by a Jupyter kernel exposes the kernel client it executes
+    on as ``sandbox.kernel_client``, documented for exactly this. Its
+    ``execute_interactive`` calls the hook on every IOPub message, so the
+    notebook fills in live, as it did before cells went through the wrapper.
+    Any other sandbox has no such client and keeps the wrapper.
+
+    Interrupt through the client returned here, not the wrapper: the
+    sandbox's own ``interrupt()`` acts only while its ``run_code`` is running,
+    and a cell executed on the kernel client is not. Keep tracking the
+    execution on the wrapper (``track_pending_execution``), which is what
+    ``is_code_sandbox_busy`` reads.
+    """
+    if isinstance(code_sandbox, CodeSandboxClient):
+        kernel_client = getattr(code_sandbox.sandbox, "kernel_client", None)
+        if callable(getattr(kernel_client, "execute_interactive", None)) and callable(
+            getattr(kernel_client, "interrupt", None)
+        ):
+            return kernel_client
+    return code_sandbox
+
+
 def track_pending_execution(code_sandbox, task):
     """Remember a background execute_cell task on the code sandbox so
     is_code_sandbox_busy can see it, and forget it once the task actually finishes.
@@ -989,14 +1020,16 @@ async def execute_cell_with_forced_sync(
     # High-res monotonic clock: see execute_cell_tool streaming monitor.
     start_time = time.perf_counter()
 
-    # Start execution. The sandbox client emits Jupyter-shaped output-hook
-    # messages and reply envelopes directly, so the notebook model consumes it
-    # as-is.
+    # Start execution on the client that streams outputs into the notebook as
+    # they come (see cell_execution_client). Its output-hook messages and
+    # reply envelopes are Jupyter-shaped, so the notebook model consumes them
+    # as-is. Interrupts go to the same client; tracking stays on the sandbox.
+    runner = cell_execution_client(kernel)
     execution_future = asyncio.create_task(
         asyncio.to_thread(
             notebook.execute_cell,
             cell_index,
-            kernel,
+            runner,
             timeout=timeout_seconds + KERNEL_TIMEOUT_GRACE_SECONDS,
         )
     )
@@ -1010,11 +1043,11 @@ async def execute_cell_with_forced_sync(
     # holding the sandbox and keep costing money while the task said
     # `cancelled`. Registered here because this is the frame that holds the
     # kernel — a no-op for a synchronous call, which has no task.
-    if hasattr(kernel, "interrupt"):
+    if hasattr(runner, "interrupt"):
         try:
             from jupyter_mcp_server.tasks import register_interrupt
 
-            await register_interrupt(kernel.interrupt)
+            await register_interrupt(runner.interrupt)
         except Exception as error:  # noqa: BLE001 - never in the way of the cell
             logger.debug("The interrupt could not be registered: %s", error)
 
@@ -1023,8 +1056,8 @@ async def execute_cell_with_forced_sync(
 
         if elapsed >= timeout_seconds:
             try:
-                if hasattr(kernel, "interrupt"):
-                    kernel.interrupt()
+                if hasattr(runner, "interrupt"):
+                    runner.interrupt()
             except Exception:
                 pass
             # Do not cancel the asyncio Task: cancel completes the wrapper

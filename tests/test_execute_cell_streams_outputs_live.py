@@ -5,11 +5,13 @@
 """Does a cell executed by `execute_cell` show its output while it runs?
 
 A cell run from the JupyterLab UI writes each output into the notebook as the
-kernel produces it. The same cell run through `execute_cell` in MCP_SERVER mode
-does not: the code-sandboxes client behind it collects the outputs and replays
-them into the notebook only when the execution ends. Until then, anybody
-reading the cell — a person in JupyterLab, another agent, a `read_cell` on
-another request — sees no output at all.
+kernel produces it. A cell run through `execute_cell` in MCP_SERVER mode used
+not to: it executed on the code-sandboxes client, whose `execute_interactive`
+collects the outputs and replays them into the notebook only when the
+execution ends. Until then, anybody reading the cell — a person in JupyterLab,
+another agent, a `read_cell` on another request — saw no output at all. Cells
+now execute on the sandbox's own kernel client (`cell_execution_client`),
+which hands the notebook each output as it arrives.
 
 The cell under test prints a first tag and raises a flag, waits for the test
 to say go, prints a second tag and raises a second flag, then hangs. The
@@ -19,14 +21,12 @@ what a reader would see.
 
 * `TestOutputIsVisibleWhileTheCellRuns` reads the cell after each print while
   it still runs. The second print catches an implementation that publishes
-  once and buffers everything after. It fails today: nothing reaches the
-  notebook until the execution ends. It is marked as a strict xfail, so the
-  fix that makes it pass also has to remove the marker.
+  once and buffers everything after.
 * `TestOutputSurvivesStoppingTheCell` stops the cell — with an interrupt of
   its kernel, as the UI's Stop button does, or by letting the tool's own
-  timeout expire — and reads it again. It passes today: the interrupt makes
-  the kernel finish the request, and the replay then writes what the cell
-  printed.
+  timeout expire — and reads it again. The printed tag must still be there,
+  and the stop must have come from the mechanism under test: the tool's
+  timeout interrupts through the same client the cell executes on.
 
 MCP_SERVER mode only (`mcp_client`): the mode the code-sandboxes client is in.
 
@@ -236,13 +236,6 @@ async def running_cell(client, jupyter_url: str, s: Scratch, timeout: int):
 
 class TestOutputIsVisibleWhileTheCellRuns:
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "execute_cell does not stream yet: code-sandboxes' execute_interactive "
-            "replays outputs into the notebook only when the execution ends"
-        ),
-    )
     async def test_each_print_is_readable_before_the_cell_finishes(
         self, mcp_client, jupyter_server, scratch
     ):
