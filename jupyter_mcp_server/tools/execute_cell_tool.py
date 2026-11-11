@@ -16,6 +16,7 @@ from jupyter_mcp_server.hooks import HookEvent, HookRegistry
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import (
     KERNEL_TIMEOUT_GRACE_SECONDS,
+    cell_execution_client,
     clean_notebook_outputs,
     document_id_from_ws_url,
     emit_execution_progress,
@@ -529,14 +530,18 @@ class ExecuteCellTool(BaseTool):
                     # kernel order), with these log lines appended after them.
                     timeline: list[str] = []
 
-                    # Start execution in background. The sandbox client emits
-                    # Jupyter-shaped output-hook messages and reply envelopes
-                    # directly, so the notebook model can consume it as-is.
+                    # Start execution in background, on the client that streams
+                    # outputs into the notebook as they come (see
+                    # cell_execution_client). Its output-hook messages and reply
+                    # envelopes are Jupyter-shaped, so the notebook model
+                    # consumes them as-is. Interrupts go to the same client;
+                    # tracking stays on the sandbox.
+                    runner = cell_execution_client(kernel)
                     execution_task = asyncio.create_task(
                         asyncio.to_thread(
                             notebook.execute_cell,
                             cell_index,
-                            kernel,
+                            runner,
                             timeout=timeout_seconds + KERNEL_TIMEOUT_GRACE_SECONDS,
                         )
                     )
@@ -560,7 +565,7 @@ class ExecuteCellTool(BaseTool):
                     try:
                         from jupyter_mcp_server.tasks import register_interrupt
 
-                        await register_interrupt(kernel.interrupt)
+                        await register_interrupt(runner.interrupt)
                     except Exception as error:  # noqa: BLE001 - never in the way
                         logger.debug("The interrupt could not be registered: %s", error)
 
@@ -574,7 +579,7 @@ class ExecuteCellTool(BaseTool):
                             timed_out = True
                             timeline.append(f"[TIMEOUT at {elapsed:.1f}s: Interrupting execution]")
                             try:
-                                kernel.interrupt()
+                                runner.interrupt()
                                 timeline.append("[Sent interrupt signal to kernel]")
                             except Exception:
                                 pass
