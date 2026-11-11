@@ -67,6 +67,12 @@ def _resolve_and_start(
     # unchanged.
     get_capabilities().apply(capability or [], source="cli")
 
+    # Passwords mirror the token precedence: an individual --{code sandbox,document}-password
+    # wins, otherwise the shared --jupyter-password is used as the fallback. Passwords
+    # take precedence over tokens at the auth layer (see JupyterPasswordAuth).
+    resolved_document_password = document_password or jupyter_password
+    resolved_code_sandbox_password = code_sandbox_password or jupyter_password
+
     (
         resolved_document_url,
         resolved_document_token,
@@ -79,13 +85,12 @@ def _resolve_and_start(
         document_token=document_token,
         code_sandbox_url=code_sandbox_url,
         code_sandbox_token=code_sandbox_token,
+        autodiscover=(
+            document_provider == DocumentProvider.jupyter.value
+            and not resolved_code_sandbox_password
+            and not resolved_document_password
+        ),
     )
-
-    # Passwords mirror the token precedence: an individual --{code sandbox,document}-password
-    # wins, otherwise the shared --jupyter-password is used as the fallback. Passwords
-    # take precedence over tokens at the auth layer (see JupyterPasswordAuth).
-    resolved_document_password = document_password or jupyter_password
-    resolved_code_sandbox_password = code_sandbox_password or jupyter_password
 
     do_start(
         transport=transport,

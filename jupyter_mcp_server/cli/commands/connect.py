@@ -150,6 +150,7 @@ def connect_command(
         document_token=document_token,
         code_sandbox_url=code_sandbox_url,
         code_sandbox_token=code_sandbox_token,
+        autodiscover=(document_provider == DocumentProvider.jupyter),
     )
 
     config = set_config(

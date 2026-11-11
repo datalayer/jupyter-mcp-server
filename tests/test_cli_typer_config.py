@@ -56,6 +56,65 @@ def test_resolve_url_and_token_variables_document_url_none_when_all_unset():
     assert resolved_code_sandbox_token is None
 
 
+def test_resolve_url_and_token_variables_autodiscovers_running_local_server():
+    """When autodiscover=True and no URL/token is passed, discover from list_running_servers."""
+    running = [{"url": "http://localhost:8889/", "token": "68b13e2e"}]
+    with patch(
+        "jupyter_server.serverapp.list_running_servers",
+        return_value=running,
+    ):
+        (
+            resolved_document_url,
+            resolved_document_token,
+            resolved_code_sandbox_url,
+            resolved_code_sandbox_token,
+        ) = resolve_url_and_token_variables(
+            jupyter_url=None,
+            jupyter_token=None,
+            document_url=None,
+            document_token=None,
+            code_sandbox_url=None,
+            code_sandbox_token=None,
+            autodiscover=True,
+        )
+
+    assert resolved_document_url is None
+    assert resolved_document_token == "68b13e2e"
+    assert resolved_code_sandbox_url == "http://localhost:8889"
+    assert resolved_code_sandbox_token == "68b13e2e"
+
+
+def test_resolve_url_and_token_variables_autodiscovers_token_for_matching_url():
+    """When an explicit localhost URL is given without a token, autodiscover matches that server."""
+    running = [
+        {"url": "http://localhost:8888/", "token": "wrong-token"},
+        {"url": "http://127.0.0.1:8890/", "token": "right-token"},
+    ]
+    with patch(
+        "jupyter_server.serverapp.list_running_servers",
+        return_value=running,
+    ):
+        (
+            resolved_document_url,
+            resolved_document_token,
+            resolved_code_sandbox_url,
+            resolved_code_sandbox_token,
+        ) = resolve_url_and_token_variables(
+            jupyter_url="http://localhost:8890",
+            jupyter_token=None,
+            document_url=None,
+            document_token=None,
+            code_sandbox_url=None,
+            code_sandbox_token=None,
+            autodiscover=True,
+        )
+
+    assert resolved_document_url == "http://localhost:8890"
+    assert resolved_document_token == "right-token"
+    assert resolved_code_sandbox_url == "http://localhost:8890"
+    assert resolved_code_sandbox_token == "right-token"
+
+
 def test_connect_command_sends_mcp_token():
     """The Typer connect command remains compatible with protected routes."""
     reset_config()
