@@ -10,6 +10,7 @@ execution_count. The remote version is read from /lab/api/extensions, and a prob
 that cannot answer leaves the caller silent rather than reporting a healthy server.
 """
 
+from contextlib import asynccontextmanager
 from importlib.metadata import version
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -100,11 +101,26 @@ def _reset_config():
     reset_config()
 
 
+@asynccontextmanager
+async def _empty_notebook_connection(self):
+    """The preview's document connection, so no real websocket is attempted.
+
+    A failed preview is reported as a [WARNING] too, which would otherwise
+    stand in for the collaboration warning these tests look for.
+    """
+    yield SimpleNamespace(
+        as_dict=lambda: {"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+    )
+
+
 async def _use_notebook(server_client):
     set_config(
         document_url=SERVER_URL, code_sandbox_url=SERVER_URL, code_sandbox_token=SERVER_TOKEN
     )
-    with patch.object(sandbox_client, "create_jupyter_sandbox_client", return_value=FakeKernel()):
+    with (
+        patch.object(sandbox_client, "create_jupyter_sandbox_client", return_value=FakeKernel()),
+        patch.object(NotebookManager, "get_current_connection", _empty_notebook_connection),
+    ):
         return await UseNotebookTool().execute(
             mode=ServerMode.MCP_SERVER,
             sandbox_server_client=server_client,
