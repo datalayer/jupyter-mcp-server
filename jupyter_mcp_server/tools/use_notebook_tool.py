@@ -418,36 +418,164 @@ class UseNotebookTool(BaseTool):
                     return f"Notebook '{notebook_name}' is already used. Use different notebook_name to create a new notebook on {notebook_path}."
             else:
                 if notebook_manager.get_notebook_path(notebook_name) == notebook_path:
-                    if notebook_name == notebook_manager.get_current_notebook():
-                        # Answer the question the caller is really asking —
-                        # "what is this notebook running on?" — instead of
-                        # only refusing. Agents that were told nothing here
-                        # went on to detach and reconnect just to find out.
-                        bound = notebook_manager.get_code_sandbox_id(notebook_name)
-                        state = (
-                            f"It runs on execution backend '{bound}'."
-                            if bound
-                            else "No execution backend is attached yet; the first execution attaches one"
-                            " (the active sandbox, if one is selected with 'use_sandbox')."
-                        )
-                        ignored = ""
-                        if kernel_id:
-                            ignored = (
-                                f" The kernel_id '{kernel_id}' you passed was not applied — a"
-                                " connected notebook keeps its backend. To run on a specific"
-                                " sandbox, select it with 'use_sandbox' instead; re-attaching"
-                                " is not required."
+                    bound = notebook_manager.get_code_sandbox_id(notebook_name)
+                    wants_kernel_switch = (
+                        kernel_id is not None
+                        and not config.uses_sandbox_variant()
+                        and (is_new_kernel_request(kernel_id) or kernel_id != bound)
+                    )
+                    if not wants_kernel_switch:
+                        if notebook_name == notebook_manager.get_current_notebook():
+                            # Answer the question the caller is really asking —
+                            # "what is this notebook running on?" — instead of
+                            # only refusing. Agents that were told nothing here
+                            # went on to detach and reconnect just to find out.
+                            state = (
+                                f"It runs on execution backend '{bound}'."
+                                if bound
+                                else "No execution backend is attached yet; the first execution attaches one"
+                                " (the active sandbox, if one is selected with 'use_sandbox')."
                             )
-                        return (
-                            f"Notebook '{notebook_name}' is already connected — no need to"
-                            f" call use_notebook again. {state}{ignored}"
-                        )
+                            ignored = ""
+                            if kernel_id and config.uses_sandbox_variant():
+                                ignored = (
+                                    f" The kernel_id '{kernel_id}' you passed was not applied — a"
+                                    " connected notebook keeps its backend. To run on a specific"
+                                    " sandbox, select it with 'use_sandbox' instead; re-attaching"
+                                    " is not required."
+                                )
+                            return (
+                                f"Notebook '{notebook_name}' is already connected — no need to"
+                                f" call use_notebook again. {state}{ignored}"
+                            )
+                        else:
+                            # the only correct case.
+                            info_list.append(
+                                f"[INFO] Reactivating notebook '{notebook_name}' and deactivating '{notebook_manager.get_current_notebook()}'."
+                            )
+                            notebook_manager.set_current_notebook(notebook_name)
                     else:
-                        # the only correct case.
-                        info_list.append(
-                            f"[INFO] Reactivating notebook '{notebook_name}' and deactivating '{notebook_manager.get_current_notebook()}'."
-                        )
-                        notebook_manager.set_current_notebook(notebook_name)
+                        # Switch the connected notebook to the requested kernel (#329).
+                        request_new_kernel = is_new_kernel_request(kernel_id)
+                        target_kernel_id = None if request_new_kernel else kernel_id
+
+                        if mode == ServerMode.MCP_SERVER and sandbox_server_client is not None:
+                            from jupyter_mcp_server.utils import create_code_sandbox
+
+                            if target_kernel_id is not None:
+                                kernels = sandbox_server_client.kernels.list_kernels()
+                                kernel_exists = any(
+                                    kernel.id == target_kernel_id for kernel in kernels
+                                )
+                                if not kernel_exists:
+                                    return (
+                                        f"Kernel '{target_kernel_id}' not found in jupyter server, please "
+                                        "check whether the kernel already exists using 'list_kernels' tool."
+                                    )
+                                kernel = create_code_sandbox(
+                                    config,
+                                    logger,
+                                    path=notebook_path,
+                                    code_sandbox_id=target_kernel_id,
+                                )
+                                bound_kernel_id = str(getattr(kernel, "id", target_kernel_id))
+                                info_list.append(
+                                    f"[INFO] Switched notebook '{notebook_name}' to kernel '{bound_kernel_id}'."
+                                )
+                            else:
+                                kernel = create_code_sandbox(
+                                    config,
+                                    logger,
+                                    path=notebook_path,
+                                    code_sandbox_id=None,
+                                    ignore_active=True,
+                                )
+                                bound_kernel_id = str(getattr(kernel, "id", "new"))
+                                info_list.append(
+                                    f"[INFO] Switched notebook '{notebook_name}' to a new isolated kernel '{bound_kernel_id}'."
+                                )
+
+                            session_source = getattr(sandbox_server_client, "sessions", None)
+                            if session_source is not None:
+                                sessions = await _list_sessions(session_source)
+                                session_kernel_id = _session_kernel_id_for_path(
+                                    sessions, notebook_path
+                                )
+                                if session_kernel_id is None:
+                                    try:
+                                        created_session = await _create_mcp_session(
+                                            session_source, notebook_path, bound_kernel_id
+                                        )
+                                    except Exception as error:
+                                        info_list.append(
+                                            f"[WARNING] Kernel connected, but its Jupyter session "
+                                            f"could not be created: {error}"
+                                        )
+                                    else:
+                                        if created_session is not None:
+                                            info_list.append(
+                                                f"[INFO] Created Jupyter session '{created_session}' "
+                                                f"for notebook '{notebook_path}'."
+                                            )
+
+                            notebook_manager.set_code_sandbox(notebook_name, kernel)
+
+                        elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
+                            if target_kernel_id is not None:
+                                kernel_exists = False
+                                get_kernel = getattr(kernel_manager, "get_kernel", None)
+                                if callable(get_kernel):
+                                    kernel_exists = get_kernel(target_kernel_id) is not None
+                                if not kernel_exists and hasattr(
+                                    kernel_manager, "__contains__"
+                                ):
+                                    kernel_exists = target_kernel_id in kernel_manager
+                                if not kernel_exists:
+                                    return f"Kernel '{target_kernel_id}' not found in local kernel manager."
+                                kernel = {"id": target_kernel_id}
+                                bound_kernel_id = target_kernel_id
+                                info_list.append(
+                                    f"[INFO] Switched notebook '{notebook_name}' to kernel '{bound_kernel_id}'."
+                                )
+                            else:
+                                kernel = await self._start_kernel_local(
+                                    kernel_manager, path=notebook_path
+                                )
+                                bound_kernel_id = kernel["id"]
+                                info_list.append(
+                                    f"[INFO] Switched notebook '{notebook_name}' to a new isolated kernel '{bound_kernel_id}'."
+                                )
+
+                            notebook_manager.set_code_sandbox(notebook_name, kernel)
+
+                            if session_manager is not None:
+                                sessions = await _list_sessions(session_manager)
+                                session_kernel_id = _session_kernel_id_for_path(
+                                    sessions, notebook_path
+                                )
+                                if session_kernel_id is None:
+                                    try:
+                                        session_dict = await session_manager.create_session(
+                                            path=notebook_path,
+                                            kernel_id=bound_kernel_id,
+                                            type="notebook",
+                                            name=notebook_path,
+                                        )
+                                        info_list.append(
+                                            f"[INFO] Created Jupyter session "
+                                            f"'{session_dict.get('id')}' for notebook '{notebook_path}'."
+                                        )
+                                    except Exception as error:
+                                        info_list.append(
+                                            f"[WARNING] Kernel connected, but its Jupyter session "
+                                            f"could not be created: {error}"
+                                        )
+
+                        if notebook_name != notebook_manager.get_current_notebook():
+                            info_list.append(
+                                f"[INFO] Reactivating notebook '{notebook_name}' and deactivating '{notebook_manager.get_current_notebook()}'."
+                            )
+                            notebook_manager.set_current_notebook(notebook_name)
                 else:
                     return f"The path '{notebook_path}' is not the correct path for notebook '{notebook_name}'. Do you mean connect to '{notebook_manager.get_notebook_path(notebook_name)}'?"
         # add new notebook to notebook_manager
