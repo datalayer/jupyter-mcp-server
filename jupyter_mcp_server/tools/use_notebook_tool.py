@@ -825,7 +825,12 @@ class UseNotebookTool(BaseTool):
                 notebook.format_output(response_format="brief", start_index=0, limit=20)
             )
         except Exception as e:
-            logger.debug(f"Failed to get notebook summary: {e}")
+            # The notebook is active either way; the preview is a courtesy.
+            # But a failure here (e.g. the collaborative document did not
+            # sync) is the one every cell tool will hit next, so say so now
+            # instead of reporting a silent success.
+            logger.warning(f"Failed to get notebook summary: {e}")
+            info_list.append(f"\n[WARNING] Could not load notebook preview: {e}")
 
         # Check if we should open in JupyterLab UI (when JupyterLab mode is
         # enabled and the user opted in, since opening activates the tab)
