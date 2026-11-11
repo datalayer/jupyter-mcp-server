@@ -17,6 +17,7 @@ Execute a cell from the currently activated notebook with timeout and return it'
 | `timeout` | integer | no | `0` | Maximum seconds to wait for execution (0 = use config default) |
 | `stream` | boolean | no | `true` | Enable streaming progress (including time indicator) updates for long-running cells |
 | `progress_interval` | integer | no | `5` | Seconds between progress updates (MCP keepalive + optional stream log) |
+| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 | `cell_id` | string \| null | no | `null` | Address the cell by its notebook cell id instead of its index. An index is a position, and a position stops being true the moment anyone inserts a cell above it; an id does not. Every result says which id it acted on, so read a cell once and address it by id afterwards. Given both, the id wins. |
 
 ## Output
@@ -77,6 +78,7 @@ Execute a cell from the currently activated notebook with timeout and return it'
       "timeout": 0,
       "stream": true,
       "progress_interval": 5,
+      "notebook_name": null,
       "cell_id": null
     }
   }
@@ -84,7 +86,7 @@ Execute a cell from the currently activated notebook with timeout and return it'
 ```
 
 ```python
-result = await session.call_tool("execute_cell", arguments={"cell_index": None, "timeout": 0, "stream": True, "progress_interval": 5, "cell_id": None})
+result = await session.call_tool("execute_cell", arguments={"cell_index": None, "timeout": 0, "stream": True, "progress_interval": 5, "notebook_name": None, "cell_id": None})
 ```
 
 ## Source

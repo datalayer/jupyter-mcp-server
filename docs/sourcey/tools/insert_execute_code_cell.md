@@ -19,6 +19,7 @@ It is a shortcut tool for insert_cell and execute_cell tools, recommended to use
 | `timeout` | integer | no | `0` | Maximum seconds to wait for execution (0 = use config default) |
 | `stream` | boolean | no | `true` | Enable streaming progress (including time indicator) updates for long-running cells |
 | `progress_interval` | integer | no | `5` | Seconds between progress updates (MCP keepalive + optional stream log) |
+| `notebook_name` | string \| null | no | `null` | Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook. |
 
 ## Output
 
@@ -78,14 +79,15 @@ It is a shortcut tool for insert_cell and execute_cell tools, recommended to use
       "cell_source": "<cell_source>",
       "timeout": 0,
       "stream": true,
-      "progress_interval": 5
+      "progress_interval": 5,
+      "notebook_name": null
     }
   }
 }
 ```
 
 ```python
-result = await session.call_tool("insert_execute_code_cell", arguments={"cell_index": 0, "cell_source": "<cell_source>", "timeout": 0, "stream": True, "progress_interval": 5})
+result = await session.call_tool("insert_execute_code_cell", arguments={"cell_index": 0, "cell_source": "<cell_source>", "timeout": 0, "stream": True, "progress_interval": 5, "notebook_name": None})
 ```
 
 ## Source
