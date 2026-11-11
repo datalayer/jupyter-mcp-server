@@ -359,7 +359,15 @@ INSTRUCTIONS = (
     "**NEVER Directly create or modify the Notebook Source File Content**. A "
     "notebook open in JupyterLab or another agent's session is a live "
     "collaborative document: a write straight to the file is silently discarded "
-    "or silently overwrites unsaved edits."
+    "or silently overwrites unsaved edits.\n"
+    "\n"
+    "**MULTI-NOTEBOOK & MULTI-AGENT SAFETY**: `use_notebook` sets the server's "
+    "default active notebook globally. When working with multiple notebooks or "
+    "running concurrent subagents/sessions against a shared MCP server, pass "
+    "`notebook_name` explicitly on cell and execution tools (`read_cell`, "
+    "`insert_cell`, `edit_cell_source`, `overwrite_cell_source`, `execute_cell`, "
+    "`insert_execute_code_cell`, `delete_cell`, `move_cell`, `clear_cell_output`) "
+    "to avoid racing the shared active-notebook pointer."
 )
 
 mcp = MCPServerWithCORS(
@@ -559,18 +567,21 @@ async def __auto_enroll_document():
     )
 
 
-def __ensure_code_sandbox_alive() -> CodeSandboxClient:
+def __ensure_code_sandbox_alive(notebook_name: str | None = None) -> CodeSandboxClient:
     """Ensure kernel is running, restart if needed."""
+    target_notebook = notebook_name or notebook_manager.get_current_notebook() or "default"
 
     def __create_code_sandbox() -> CodeSandboxClient:
         """Create a new kernel instance using current configuration."""
         config = get_config()
-        return create_code_sandbox(
-            config, logger, path=notebook_manager.get_current_notebook_path()
+        path = (
+            notebook_manager.get_notebook_path(target_notebook)
+            if notebook_name
+            else notebook_manager.get_current_notebook_path()
         )
+        return create_code_sandbox(config, logger, path=path)
 
-    current_notebook = notebook_manager.get_current_notebook() or "default"
-    return ensure_code_sandbox_alive(notebook_manager, current_notebook, __create_code_sandbox)
+    return ensure_code_sandbox_alive(notebook_manager, target_notebook, __create_code_sandbox)
 
 
 def __make_execution_progress_callback(ctx: Context | None):
@@ -1197,6 +1208,12 @@ async def execute_cell(
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
     ] = 5,
     ctx: Context | None = None,
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
     cell_id: Annotated[
         str | None,
         Field(
@@ -1217,9 +1234,7 @@ async def execute_cell(
         mode=server_context.mode,
         contents_manager=server_context.contents_manager,
         notebook_manager=notebook_manager,
-        # `execute_cell` always acts on the currently activated notebook; it
-        # takes no `notebook_name`, so the resolver reads that same one.
-        notebook_name=None,
+        notebook_name=notebook_name,
     )
     config = get_config()
     # Use config default if timeout is 0, otherwise clamp to max
@@ -1241,6 +1256,7 @@ async def execute_cell(
             progress_interval=progress_interval,
             ensure_code_sandbox_alive_fn=__ensure_code_sandbox_alive,
             progress_callback=progress_callback,
+            notebook_name=notebook_name,
         ),
         max_retries=1,
     )
@@ -1274,6 +1290,12 @@ async def insert_execute_code_cell(
         int,
         Field(description="Seconds between progress updates (MCP keepalive + optional stream log)"),
     ] = 5,
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook."
+        ),
+    ] = None,
     ctx: Context | None = None,
 ) -> OutputsAnswer:
     """Insert a cell at specified index from the currently activated notebook and then execute it with timeout and return it's outputs
@@ -1294,6 +1316,7 @@ async def insert_execute_code_cell(
             cell_index=cell_index,
             cell_source=cell_source,
             cell_type="code",
+            notebook_name=notebook_name,
         )
     )
 
@@ -1319,6 +1342,7 @@ async def insert_execute_code_cell(
             progress_interval=progress_interval,
             ensure_code_sandbox_alive_fn=__ensure_code_sandbox_alive,
             progress_callback=progress_callback,
+            notebook_name=notebook_name,
         ),
         max_retries=1,
     )

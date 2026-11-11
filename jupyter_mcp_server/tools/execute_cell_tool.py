@@ -5,6 +5,7 @@
 """Unified execute cell tool with configurable streaming."""
 
 import asyncio
+import inspect
 import logging
 import time
 from pathlib import Path
@@ -26,6 +27,8 @@ from jupyter_mcp_server.utils import (
     execute_via_execution_stack_http,
     get_current_notebook_context,
     get_jupyter_ydoc,
+    resolve_notebook_connection,
+    resolve_notebook_path,
     safe_extract_outputs,
     settle_timed_out_execution,
     track_pending_execution,
@@ -89,9 +92,13 @@ class ExecuteCellTool(BaseTool):
             return True
 
     async def _start_and_bind_kernel(
-        self, kernel_manager, notebook_manager, notebook_path: str | None
+        self,
+        kernel_manager,
+        notebook_manager,
+        notebook_path: str | None,
+        notebook_name: str | None = None,
     ) -> str:
-        """Start a kernel and rebind it to the current notebook in local mode."""
+        """Start a kernel and rebind it to the target or current notebook in local mode."""
         kernel_id = await kernel_manager.start_kernel(path=notebook_path)
         await asyncio.sleep(1.0)
         logger.info(f"Kernel {kernel_id} started and initialized")
@@ -100,7 +107,7 @@ class ExecuteCellTool(BaseTool):
             kernel_info = {"id": kernel_id}
             # The context lookup resolves the kernel by notebook name, so a
             # path-keyed entry would leave the replaced binding in place.
-            name = notebook_manager.get_current_notebook() or notebook_path
+            name = notebook_name or notebook_manager.get_current_notebook() or notebook_path
             notebook_manager.add_notebook(
                 name=name,
                 # The parameter is `code_sandbox` since the rename; what is
@@ -237,6 +244,7 @@ class ExecuteCellTool(BaseTool):
         progress_interval: int = 5,
         ensure_code_sandbox_alive_fn=None,
         progress_callback=None,
+        notebook_name: str | None = None,
         **kwargs,
     ) -> list[str | ImageContent]:
         """Execute a cell with configurable timeout and optional streaming progress updates.
@@ -252,6 +260,7 @@ class ExecuteCellTool(BaseTool):
             progress_interval: Seconds between progress updates (MCP keepalive + stream log)
             ensure_code_sandbox_alive_fn: Function to ensure kernel is alive (MCP_SERVER)
             progress_callback: Optional async callback for MCP progress/keepalive
+            notebook_name: Optional explicit notebook identifier to target instead of current
 
         Returns:
             List of outputs from the executed cell
@@ -270,7 +279,10 @@ class ExecuteCellTool(BaseTool):
 
             # Preserve the root-relative API path for kernel creation, then resolve
             # a separate filesystem path for file and YDoc operations below.
-            notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
+            if notebook_name is None:
+                notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
+            else:
+                notebook_path, kernel_id = resolve_notebook_path(notebook_manager, notebook_name)
             notebook_api_path = notebook_path
 
             # Resolve to absolute path
@@ -283,7 +295,7 @@ class ExecuteCellTool(BaseTool):
             if kernel_id is None:
                 logger.info("No kernel_id available, starting new kernel for execute_cell")
                 kernel_id = await self._start_and_bind_kernel(
-                    kernel_manager, notebook_manager, notebook_api_path
+                    kernel_manager, notebook_manager, notebook_api_path, notebook_name=notebook_name
                 )
             elif not await self._kernel_exists(kernel_manager, kernel_id):
                 logger.info(
@@ -291,7 +303,7 @@ class ExecuteCellTool(BaseTool):
                     kernel_id,
                 )
                 kernel_id = await self._start_and_bind_kernel(
-                    kernel_manager, notebook_manager, notebook_api_path
+                    kernel_manager, notebook_manager, notebook_api_path, notebook_name=notebook_name
                 )
 
             logger.info(
@@ -353,7 +365,10 @@ class ExecuteCellTool(BaseTool):
                             kernel_id,
                         )
                         kernel_id = await self._start_and_bind_kernel(
-                            kernel_manager, notebook_manager, notebook_api_path
+                            kernel_manager,
+                            notebook_manager,
+                            notebook_api_path,
+                            notebook_name=notebook_name,
                         )
                         outputs = await execute_via_execution_stack(
                             serverapp=serverapp,
@@ -411,7 +426,10 @@ class ExecuteCellTool(BaseTool):
                             kernel_id,
                         )
                         kernel_id = await self._start_and_bind_kernel(
-                            kernel_manager, notebook_manager, notebook_api_path
+                            kernel_manager,
+                            notebook_manager,
+                            notebook_api_path,
+                            notebook_name=notebook_name,
                         )
                         raw_outputs = []
                         execution_count_out = []
@@ -440,12 +458,39 @@ class ExecuteCellTool(BaseTool):
                 return outputs
 
         elif mode == ServerMode.MCP_SERVER:
-            kernel = ensure_code_sandbox_alive_fn()
-            await wait_for_code_sandbox_idle(kernel, max_wait_seconds=30)
-            current_nb = notebook_manager.get_current_notebook() or "default"
-            kid = notebook_manager.get_code_sandbox_id(current_nb) or ""
+            if notebook_name is not None and (
+                notebook_manager is None or notebook_name not in notebook_manager
+            ):
+                raise ValueError(f"Notebook '{notebook_name}' is not connected.")
 
-            async with notebook_manager.get_current_connection() as notebook:
+            if (
+                notebook_name is not None
+                and callable(ensure_code_sandbox_alive_fn)
+                and len(inspect.signature(ensure_code_sandbox_alive_fn).parameters) > 0
+            ):
+                kernel = ensure_code_sandbox_alive_fn(notebook_name)
+            elif (
+                notebook_name is not None
+                and notebook_manager is not None
+                and hasattr(notebook_manager, "get_code_sandbox")
+                and notebook_manager.get_code_sandbox(notebook_name) is not None
+            ):
+                kernel = notebook_manager.get_code_sandbox(notebook_name)
+            else:
+                kernel = ensure_code_sandbox_alive_fn()
+            await wait_for_code_sandbox_idle(kernel, max_wait_seconds=30)
+            target_nb = (
+                notebook_name
+                or (notebook_manager.get_current_notebook() if notebook_manager else None)
+                or "default"
+            )
+            kid = (
+                notebook_manager.get_code_sandbox_id(target_nb)
+                if notebook_manager and hasattr(notebook_manager, "get_code_sandbox_id")
+                else ""
+            ) or ""
+
+            async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook:
                 num_cells = len(notebook)
                 if cell_index >= num_cells:
                     raise ValueError(

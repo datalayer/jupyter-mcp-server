@@ -16,6 +16,7 @@ explicit notebook_name instead of always following whichever notebook is
 """
 
 import contextlib
+from typing import Any
 
 import pytest
 
@@ -213,3 +214,78 @@ async def test_unknown_notebook_name_raises(two_notebooks):
             cell_source="x",
             notebook_name="does-not-exist",
         )
+
+
+@pytest.mark.asyncio
+async def test_execute_cell_targets_explicit_notebook(two_notebooks):
+    """execute_cell(notebook_name='B') must execute against notebook B and its kernel, not A (#446)."""
+    from types import SimpleNamespace
+    from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
+
+    executed_on: list[tuple[str, int, Any]] = []
+
+    for label in ("A", "B"):
+        nb = two_notebooks._notebooks[label]
+
+        def _make_exec(lbl, notebook_obj):
+            def _exec(idx, runner, timeout=None):
+                executed_on.append((lbl, idx, runner))
+                cell = notebook_obj[idx]
+                cell["outputs"] = [
+                    {"output_type": "stream", "name": "stdout", "text": f"ran_{lbl}\n"}
+                ]
+                notebook_obj[idx] = cell
+                return {"status": "ok", "execution_count": 1}
+
+            return _exec
+
+        nb.execute_cell = _make_exec(label, nb)
+
+    kernels = {
+        "A": SimpleNamespace(id="kernel-a"),
+        "B": SimpleNamespace(id="kernel-b"),
+    }
+    two_notebooks.get_code_sandbox = lambda name: kernels.get(name)
+    two_notebooks.get_code_sandbox_id = lambda name: kernels[name].id if name in kernels else None
+
+    result = await ExecuteCellTool().execute(
+        mode=ServerMode.MCP_SERVER,
+        notebook_manager=two_notebooks,
+        cell_index=0,
+        stream=False,
+        ensure_code_sandbox_alive_fn=lambda name=None: kernels[name or "A"],
+        notebook_name="B",
+    )
+
+    assert len(executed_on) == 1
+    assert executed_on[0][0] == "B"
+    assert executed_on[0][2] is kernels["B"]
+    assert "ran_B" in "\n".join(str(part) for part in result)
+
+
+@pytest.mark.asyncio
+async def test_execute_cell_unknown_notebook_name_raises(two_notebooks):
+    from jupyter_mcp_server.tools.execute_cell_tool import ExecuteCellTool
+
+    with pytest.raises(ValueError, match="not connected"):
+        await ExecuteCellTool().execute(
+            mode=ServerMode.MCP_SERVER,
+            notebook_manager=two_notebooks,
+            cell_index=0,
+            ensure_code_sandbox_alive_fn=lambda: None,
+            notebook_name="does-not-exist",
+        )
+
+
+def test_instructions_and_execution_schemas_include_notebook_name():
+    """INSTRUCTIONS and execution tool schemas expose notebook_name for multi-agent safety (#446)."""
+    import asyncio
+    from jupyter_mcp_server.server import INSTRUCTIONS, mcp
+
+    assert "ALWAYS MCP" in INSTRUCTIONS
+    assert "notebook_name" in INSTRUCTIONS
+    assert "execute_cell" in INSTRUCTIONS
+
+    tools = {tool.name: tool for tool in asyncio.run(mcp.list_tools())}
+    assert "notebook_name" in tools["execute_cell"].input_schema.get("properties", {})
+    assert "notebook_name" in tools["insert_execute_code_cell"].input_schema.get("properties", {})
