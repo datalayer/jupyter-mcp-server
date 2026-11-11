@@ -165,6 +165,44 @@ def resolve_notebook_connection(notebook_manager, notebook_name: str | None = No
     return notebook_manager.get_notebook_connection(notebook_name)
 
 
+def _normalize_local_url(url: str) -> str:
+    """Normalize trailing slashes and loopback host aliases for local server matching."""
+    cleaned = url.strip().rstrip("/")
+    return cleaned.replace("://127.0.0.1:", "://localhost:")
+
+
+def discover_local_jupyter_server(
+    target_url: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Discover a running local Jupyter Server URL and token via ``jupyter_server``.
+
+    Uses :func:`jupyter_server.serverapp.list_running_servers` (the same
+    runtime inspection behind ``jupyter server list``). When ``target_url`` is
+    given, only a running server matching that URL is returned; otherwise the
+    first running local server is returned.
+    """
+    try:
+        from jupyter_server.serverapp import list_running_servers
+
+        servers = list(list_running_servers())
+    except Exception:
+        return None, None
+
+    norm_target = _normalize_local_url(target_url) if target_url else None
+    for info in servers:
+        if not isinstance(info, dict):
+            continue
+        raw_url = (info.get("url") or "").strip().rstrip("/")
+        if not raw_url:
+            continue
+        if norm_target and _normalize_local_url(raw_url) != norm_target:
+            continue
+        token = info.get("token")
+        return raw_url, (str(token) if token else None)
+
+    return None, None
+
+
 def resolve_url_and_token_variables(
     jupyter_url,
     jupyter_token,
@@ -172,12 +210,17 @@ def resolve_url_and_token_variables(
     document_token,
     code_sandbox_url,
     code_sandbox_token,
+    autodiscover: bool = False,
 ) -> tuple[str | None, str | None, str, str | None]:
     """Resolve merged URL/token settings with per-field precedence.
 
     ``resolved_document_url`` may be ``None`` when neither ``document_url``
     nor ``jupyter_url`` is given; callers (and JupyterMCPConfig) fall back to
     the code sandbox URL in that case rather than hardcoding localhost.
+
+    When ``autodiscover`` is ``True`` and the URL or token was not explicitly
+    provided, inspects locally running Jupyter servers (equivalent to
+    ``jupyter server list``) to fill in the missing URL and/or token.
     """
 
     if document_url is not None:
@@ -196,6 +239,20 @@ def resolve_url_and_token_variables(
 
     resolved_document_token = document_token or jupyter_token
     resolved_code_sandbox_token = code_sandbox_token or jupyter_token
+
+    if autodiscover and (
+        (code_sandbox_url is None and jupyter_url is None)
+        or resolved_code_sandbox_token is None
+    ):
+        explicit_url = code_sandbox_url or jupyter_url
+        disc_url, disc_token = discover_local_jupyter_server(target_url=explicit_url)
+        if disc_url and explicit_url is None:
+            resolved_code_sandbox_url = disc_url
+        if disc_token:
+            if resolved_code_sandbox_token is None:
+                resolved_code_sandbox_token = disc_token
+            if resolved_document_token is None and document_url is None:
+                resolved_document_token = disc_token
 
     return (
         resolved_document_url,
