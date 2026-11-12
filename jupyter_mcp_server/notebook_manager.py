@@ -379,6 +379,25 @@ class NotebookManager:
             return self._notebooks[name]["code_sandbox"]
         return None
 
+    def set_code_sandbox(
+        self, name: str, code_sandbox: CodeSandboxClient | dict[str, Any] | None
+    ) -> bool:
+        """
+        Update the code sandbox bound to an already-managed notebook without
+        resetting its notebook_info or stopping the previous kernel on the server.
+
+        Args:
+            name: Notebook identifier
+            code_sandbox: New sandbox client (MCP_SERVER mode) or kernel metadata dict (JUPYTER_SERVER mode)
+
+        Returns:
+            True if updated, False if notebook is not managed
+        """
+        if name in self._notebooks:
+            self._notebooks[name]["code_sandbox"] = code_sandbox
+            return True
+        return False
+
     def get_code_sandbox_id(self, name: str) -> str | None:
         """
         Get the code sandbox ID for a specific notebook.
