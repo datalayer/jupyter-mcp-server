@@ -1019,6 +1019,19 @@ async def read_notebook(
     limit: Annotated[
         int, Field(description="Maximum number of items to return (0 means no limit)", ge=0)
     ] = 20,
+    search: Annotated[
+        str,
+        Field(
+            description=(
+                "Only return cells whose source contains this text (case-insensitive). "
+                "Empty string means no filter"
+            )
+        ),
+    ] = "",
+    cell_type: Annotated[
+        Literal["code", "markdown", "raw"] | None,
+        Field(description="Only return cells of this type. Omit to return cells of every type"),
+    ] = None,
 ) -> ToolAnswer:
     """Read a notebook and return index, source content, type, execution count of each cell.
 
@@ -1027,6 +1040,10 @@ async def read_notebook(
 
     It is recommended to use brief format with larger limit to get a overview of the notebook structure,
     then use detailed format with exact index and limit to get the detailed information of some specific cells.
+
+    Use search and cell_type to read only the cells you need instead of paging through the
+    whole notebook. Filtered results keep each cell's index in the notebook; start_index is
+    the cell to start scanning from and limit caps the number of matching cells returned.
     """
     return await safe_notebook_operation(
         lambda: ReadNotebookTool().execute(
@@ -1038,6 +1055,8 @@ async def read_notebook(
             response_format=response_format,
             start_index=start_index,
             limit=limit,
+            search=search,
+            cell_type=cell_type,
         )
     )
 

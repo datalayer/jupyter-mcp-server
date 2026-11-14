@@ -1491,7 +1491,7 @@
         "readOnlyHint": true,
         "title": "Read Notebook"
       },
-      "description": "Read a notebook and return index, source content, type, execution count of each cell.\n\nUsing brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.\nUsing detailed format to get detailed information of the notebook and it's useful for debugging and analysis.\n\nIt is recommended to use brief format with larger limit to get a overview of the notebook structure,\nthen use detailed format with exact index and limit to get the detailed information of some specific cells.\n",
+      "description": "Read a notebook and return index, source content, type, execution count of each cell.\n\nUsing brief format to get a quick overview of the notebook structure and it's useful for locating specific cells for operations like delete or insert.\nUsing detailed format to get detailed information of the notebook and it's useful for debugging and analysis.\n\nIt is recommended to use brief format with larger limit to get a overview of the notebook structure,\nthen use detailed format with exact index and limit to get the detailed information of some specific cells.\n\nUse search and cell_type to read only the cells you need instead of paging through the\nwhole notebook. Filtered results keep each cell's index in the notebook; start_index is\nthe cell to start scanning from and limit caps the number of matching cells returned.\n",
       "inputSchema": {
         "properties": {
           "notebook_name": {
@@ -1522,6 +1522,30 @@
             "minimum": 0,
             "title": "Limit",
             "type": "integer"
+          },
+          "search": {
+            "default": "",
+            "description": "Only return cells whose source contains this text (case-insensitive). Empty string means no filter",
+            "title": "Search",
+            "type": "string"
+          },
+          "cell_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "code",
+                  "markdown",
+                  "raw"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only return cells of this type. Omit to return cells of every type",
+            "title": "Cell Type"
           }
         },
         "required": [

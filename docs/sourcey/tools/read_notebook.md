@@ -13,6 +13,10 @@ Using detailed format to get detailed information of the notebook and it's usefu
 It is recommended to use brief format with larger limit to get a overview of the notebook structure,
 then use detailed format with exact index and limit to get the detailed information of some specific cells.
 
+Use search and cell_type to read only the cells you need instead of paging through the
+whole notebook. Filtered results keep each cell's index in the notebook; start_index is
+the cell to start scanning from and limit caps the number of matching cells returned.
+
 > read-only: **yes** · idempotent: **yes** · open-world: **no**
 
 ## Parameters
@@ -23,6 +27,8 @@ then use detailed format with exact index and limit to get the detailed informat
 | `response_format` | `brief` · `detailed` | no | `"brief"` | Response format: 'brief' will return first line and lines number, 'detailed' will return full cell source |
 | `start_index` | integer | no | `0` | Starting index for pagination (0-based) |
 | `limit` | integer | no | `20` | Maximum number of items to return (0 means no limit) |
+| `search` | string | no | `""` | Only return cells whose source contains this text (case-insensitive). Empty string means no filter |
+| `cell_type` | `code` · `markdown` · `raw` \| null | no | `null` | Only return cells of this type. Omit to return cells of every type |
 
 ## Output
 
@@ -63,14 +69,16 @@ then use detailed format with exact index and limit to get the detailed informat
       "notebook_name": "<notebook_name>",
       "response_format": "brief",
       "start_index": 0,
-      "limit": 20
+      "limit": 20,
+      "search": "",
+      "cell_type": null
     }
   }
 }
 ```
 
 ```python
-result = await session.call_tool("read_notebook", arguments={"notebook_name": "<notebook_name>", "response_format": "brief", "start_index": 0, "limit": 20})
+result = await session.call_tool("read_notebook", arguments={"notebook_name": "<notebook_name>", "response_format": "brief", "start_index": 0, "limit": 20, "search": "", "cell_type": None})
 ```
 
 ## Source

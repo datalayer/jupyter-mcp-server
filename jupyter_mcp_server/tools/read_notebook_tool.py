@@ -16,6 +16,25 @@ from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 from jupyter_mcp_server.utils import get_notebook_model
 
 
+def _describe_matches(
+    notebook: Notebook,
+    search: str | None,
+    cell_type: Literal["code", "markdown", "raw"] | None,
+) -> str:
+    """Say how many cells pass the filters.
+
+    Counted over the whole notebook, so the caller knows how many matches
+    there are beyond the page it was handed.
+    """
+    matching = sum(cell.matches(search, cell_type) for cell in notebook.cells)
+    filters = []
+    if search:
+        filters.append(f"search={search!r}")
+    if cell_type is not None:
+        filters.append(f"cell_type={cell_type!r}")
+    return f"Cells matching the filters ({', '.join(filters)}): {matching}."
+
+
 class ReadNotebookTool(BaseTool):
     """Tool to read a notebook and return index, source content, type, execution count of each cell."""
 
@@ -29,6 +48,8 @@ class ReadNotebookTool(BaseTool):
         response_format: Literal["brief", "detailed"] = "brief",
         start_index: int = 0,
         limit: int = 20,
+        search: str | None = None,
+        cell_type: Literal["code", "markdown", "raw"] | None = None,
         **kwargs,
     ) -> str:
         """Execute the read_notebook tool.
@@ -41,6 +62,8 @@ class ReadNotebookTool(BaseTool):
             response_format: Response format (brief or detailed)
             start_index: Starting index for pagination (0-based)
             limit: Maximum number of items to return (0 means no limit)
+            search: Only return cells whose source contains this text, ignoring case
+            cell_type: Only return cells of this type
             **kwargs: Additional parameters
 
         Returns:
@@ -86,10 +109,18 @@ class ReadNotebookTool(BaseTool):
         if start_index >= len(notebook) and not (start_index == 0 and len(notebook) == 0):
             return f"Start index {start_index} is out of range. Notebook has {len(notebook)} cells."
 
-        info_list = [f"Notebook {notebook_name} has {len(notebook)} cells.\n"]
+        header = f"Notebook {notebook_name} has {len(notebook)} cells."
+        if search or cell_type is not None:
+            header += " " + _describe_matches(notebook, search, cell_type)
+
+        info_list = [header + "\n"]
         info_list.append(
             notebook.format_output(
-                response_format=response_format, start_index=start_index, limit=limit
+                response_format=response_format,
+                start_index=start_index,
+                limit=limit,
+                search=search,
+                cell_type=cell_type,
             )
         )
 

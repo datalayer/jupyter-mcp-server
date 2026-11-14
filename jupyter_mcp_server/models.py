@@ -2,6 +2,7 @@
 #
 # BSD 3-Clause License
 
+from itertools import islice
 from typing import Annotated, Any, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
@@ -60,6 +61,24 @@ class Cell(BaseModel):
             first_line += f"...({len(source) - 1} lines hidden)"
         return first_line
 
+    def matches(
+        self,
+        search: str | None = None,
+        cell_type: Literal["code", "markdown", "raw"] | None = None,
+    ) -> bool:
+        """Whether the cell passes the `read_notebook` filters.
+
+        Args:
+            search: Text the cell source must contain, ignoring case. Empty or
+                None matches every cell.
+            cell_type: Type the cell must have. None matches every type.
+        """
+        if cell_type is not None and self.cell_type != cell_type:
+            return False
+        if search:
+            return search.casefold() in self.get_source("readable").casefold()
+        return True
+
 
 class Notebook(BaseModel):
     cells: Annotated[list[Cell], Field(default=[])]
@@ -80,6 +99,8 @@ class Notebook(BaseModel):
         response_format: Literal["brief", "detailed"] = "brief",
         start_index: int = 0,
         limit: int = 0,
+        search: str | None = None,
+        cell_type: Literal["code", "markdown", "raw"] | None = None,
     ):
         """
         Format notebook output based on response format and range parameters.
@@ -87,6 +108,8 @@ class Notebook(BaseModel):
             response_format: Format of the response ("brief" or "detailed")
             start_index: Starting index for cell range (default: 0)
             limit: Maximum number of cells to show (default: 0 means no limit)
+            search: Only show cells whose source contains this text, ignoring case
+            cell_type: Only show cells of this type
         Returns:
             Formatted output string
         """
@@ -95,10 +118,18 @@ class Notebook(BaseModel):
         if total_cells == 0:
             return "Notebook is empty"
 
-        # Calculate end index
-        end_index = total_cells if limit == 0 else min(start_index + limit, total_cells)
-        cells_to_show = self.cells[start_index:end_index]
+        # Walk the cells from start_index on, keeping their notebook index, so
+        # a filtered listing still shows positions the cell tools accept.
+        # limit caps the cells shown, not the cells scanned.
+        candidates = (
+            (index, cell)
+            for index, cell in enumerate(self.cells[start_index:], start=start_index)
+            if cell.matches(search, cell_type)
+        )
+        cells_to_show = list(islice(candidates, limit or None))
         if len(cells_to_show) == 0:
+            if search or cell_type is not None:
+                return "No matching cells in the specified range"
             return "No cells in the specified range"
 
         if response_format == "brief":
@@ -108,20 +139,17 @@ class Notebook(BaseModel):
             headers = ["Index", "Type", "Count", "First Line"]
             rows = []
 
-            for idx, cell in enumerate(cells_to_show):
-                absolute_idx = start_index + idx
-                cell_type = cell.cell_type
+            for absolute_idx, cell in cells_to_show:
                 execution_count = cell.execution_count if cell.execution_count else "N/A"
                 overview = cell.get_overview()
 
-                rows.append([absolute_idx, cell_type, execution_count, overview])
+                rows.append([absolute_idx, cell.cell_type, execution_count, overview])
 
             return format_TSV(headers, rows)
 
         elif response_format == "detailed":
             info_list = []
-            for idx, cell in enumerate(cells_to_show):
-                absolute_idx = start_index + idx
+            for absolute_idx, cell in cells_to_show:
                 info_list.append(
                     f"=====Cell {absolute_idx} | type: {cell.cell_type} | execution count: {cell.execution_count if cell.execution_count else 'N/A'}=====\n"
                 )
