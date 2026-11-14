@@ -27,6 +27,7 @@ from mcp.client.streamable_http import streamable_http_client
 JUPYTER_TOOLS = [
     # Multi-Notebook Management Tools
     "use_notebook",
+    "use_notebook_by_name",
     "list_notebooks",
     "restart_notebook",
     "unuse_notebook",
@@ -342,6 +343,13 @@ class MCPClient:
             arguments["kernel_id"] = kernel_id
 
         result = await self._session.call_tool("use_notebook", arguments=arguments)  # type: ignore
+        return self._extract_text_content(result)
+
+    @requires_session
+    async def use_notebook_by_name(self, notebook_name):
+        result = await self._session.call_tool(
+            "use_notebook_by_name", arguments={"notebook_name": notebook_name}
+        )  # type: ignore
         return self._extract_text_content(result)
 
     @requires_session

@@ -1,13 +1,13 @@
 ---
 title: "Overview"
-description: "MCP reference for Jupyter MCP Server: 22 tools and 1 prompt, generated from a live protocol snapshot of the server."
+description: "MCP reference for Jupyter MCP Server: 23 tools and 1 prompt, generated from a live protocol snapshot of the server."
 ---
 
 # Jupyter MCP Server — MCP reference
 
 [Jupyter MCP Server](https://github.com/datalayer/jupyter-mcp-server) is a [Model Context Protocol](https://modelcontextprotocol.io) server that lets AI agents operate Jupyter notebooks: managing notebooks and cells, executing code on live kernels, and provisioning code sandboxes.
 
-This reference documents the server's complete MCP surface — **22 tools** and **1 prompt** (protocol revision `2025-11-25`) — captured from a running server built from [this repository](https://github.com/datalayer/jupyter-mcp-server/tree/main). Each page shows the exact schema the server advertises plus a link to the decorator that registers it. The [MCP Reference tab](/mcp/reference/) renders the same snapshot as a single interactive page, and [Configuration](/mcp/configuration/) covers every runtime setting and both transports.
+This reference documents the server's complete MCP surface — **23 tools** and **1 prompt** (protocol revision `2025-11-25`) — captured from a running server built from [this repository](https://github.com/datalayer/jupyter-mcp-server/tree/main). Each page shows the exact schema the server advertises plus a link to the decorator that registers it. The [MCP Reference tab](/mcp/reference/) renders the same snapshot as a single interactive page, and [Configuration](/mcp/configuration/) covers every runtime setting and both transports.
 
 ## Connection & server
 
@@ -21,7 +21,8 @@ This reference documents the server's complete MCP surface — **22 tools** and 
 
 | Tool | Summary |
 | --- | --- |
-| [`use_notebook`](/mcp/tools/use-notebook/) | Use a notebook and activate it for following cell operations. |
+| [`use_notebook`](/mcp/tools/use-notebook/) | Connect to or create a notebook by path and activate it for following cell operations. |
+| [`use_notebook_by_name`](/mcp/tools/use-notebook-by-name/) | Switch the active notebook to an already-connected notebook by its registered name. |
 | [`list_notebooks`](/mcp/tools/list-notebooks/) | List all notebooks that have been used via use_notebook tool |
 | [`read_notebook`](/mcp/tools/read-notebook/) | Read a notebook and return index, source content, type, execution count of each cell. |
 | [`restart_notebook`](/mcp/tools/restart-notebook/) | Restart the kernel for a specific notebook. |

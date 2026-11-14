@@ -38,6 +38,7 @@ from jupyter_mcp_server.tools.read_cell_tool import ReadCellTool
 from jupyter_mcp_server.tools.read_notebook_tool import ReadNotebookTool
 from jupyter_mcp_server.tools.restart_notebook_tool import RestartNotebookTool
 from jupyter_mcp_server.tools.unuse_notebook_tool import UnuseNotebookTool
+from jupyter_mcp_server.tools.use_notebook_by_name_tool import UseNotebookByNameTool
 from jupyter_mcp_server.tools.use_notebook_tool import UseNotebookTool
 
 __all__ = [
@@ -66,5 +67,6 @@ __all__ = [
     "RestartNotebookTool",
     "ServerMode",
     "UnuseNotebookTool",
+    "UseNotebookByNameTool",
     "UseNotebookTool",
 ]

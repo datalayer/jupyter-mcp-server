@@ -398,6 +398,19 @@
             "title": "Progress Interval",
             "type": "integer"
           },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
+          },
           "cell_id": {
             "anyOf": [
               {
@@ -658,6 +671,19 @@
             "description": "Seconds between progress updates (MCP keepalive + optional stream log)",
             "title": "Progress Interval",
             "type": "integer"
+          },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target this specific connected notebook instead of the currently activated one. Use when multiple clients share this server, to avoid racing the shared 'current notebook' pointer. Omit to use the currently activated notebook.",
+            "title": "Notebook Name"
           }
         },
         "required": [
@@ -1669,18 +1695,26 @@
         "openWorldHint": false,
         "title": "Use Notebook"
       },
-      "description": "Use a notebook and activate it for following cell operations.\nAll cell operations will be performed on the currently activated notebook.\nActivate new notebook will deactivate the previously activated notebook.\nReactivate previously activated notebook using same notebook_name and notebook_path.\n\nKernel selection follows the notebook's existing context. Pass kernel_id to\nuse a kernel that is already running (or to switch an already-connected\nnotebook to a different kernel); use_notebook verifies it is alive and\ncreates a Jupyter session for the notebook when no session exists. Without\nkernel_id, a sandbox already selected with use_sandbox is reused. If none is\nselected but the notebook already has a live Jupyter session, use_notebook\ntriggers use_sandbox for that session's kernel and reports that in the\nreply. With neither, no kernel is created. Pass kernel_id=NEW to start an\nisolated kernel.\n",
+      "description": "Connect to or create a notebook by path and activate it for following cell operations.\nPass an optional notebook_name to register an alias you can later activate via\nuse_notebook_by_name or pass explicitly to cell tools; when omitted, notebook_name\ndefaults to notebook_path.\n\nKernel selection follows the notebook's existing context. Pass kernel_id to\nuse a kernel that is already running (or to switch an already-connected\nnotebook to a different kernel); use_notebook verifies it is alive and\ncreates a Jupyter session for the notebook when no session exists. Without\nkernel_id, a sandbox already selected with use_sandbox is reused. If none is\nselected but the notebook already has a live Jupyter session, use_notebook\ntriggers use_sandbox for that session's kernel and reports that in the\nreply. With neither, no kernel is created. Pass kernel_id=NEW to start an\nisolated kernel.\n",
       "inputSchema": {
         "properties": {
-          "notebook_name": {
-            "description": "Unique identifier for the notebook",
-            "title": "Notebook Name",
-            "type": "string"
-          },
           "notebook_path": {
             "description": "Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')",
             "title": "Notebook Path",
             "type": "string"
+          },
+          "notebook_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional unique identifier for the notebook. When omitted, defaults to the notebook path.",
+            "title": "Notebook Name"
           },
           "mode": {
             "default": "connect",
@@ -1707,13 +1741,57 @@
           }
         },
         "required": [
-          "notebook_name",
           "notebook_path"
         ],
         "type": "object",
         "title": "use_notebookArguments"
       },
       "name": "use_notebook",
+      "outputSchema": {
+        "properties": {
+          "kind": {
+            "description": "What this result is — 'cell.read', 'notebooks.list' and so on. Lets a client tell one answer from another without matching prose.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "result": {
+            "default": null,
+            "description": "The answer itself: a message, the rows of a listing, or the outputs of an execution in order.",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": true,
+        "description": "What every tool of this server answers with.\n\nDeclared so the shape is *advertised* rather than merely produced. A tool\nthat returns structure without saying what it will return leaves a client\nnothing to validate against and the generated reference nothing to show —\nthe call works and the contract is invisible, which is the worst of both.\n\nExtra fields are allowed on purpose. A tool that already answers with a\nmapping keeps its own keys (see :func:`_default_shape`), and those are the\ninteresting part of its answer; forbidding them would mean either\nflattening every tool into one shape or declaring nothing at all.",
+        "title": "ToolAnswer"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "title": "Use Notebook by Name"
+      },
+      "description": "Switch the active notebook to an already-connected notebook by its registered name.\nUse use_notebook first to connect a notebook by notebook_path (optionally giving it a\nnotebook_name), then call use_notebook_by_name to switch back to it without repeating\nthe path.\n",
+      "inputSchema": {
+        "properties": {
+          "notebook_name": {
+            "description": "Identifier of an already-connected notebook to activate (registered earlier via use_notebook).",
+            "title": "Notebook Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notebook_name"
+        ],
+        "type": "object",
+        "title": "use_notebook_by_nameArguments"
+      },
+      "name": "use_notebook_by_name",
       "outputSchema": {
         "properties": {
           "kind": {

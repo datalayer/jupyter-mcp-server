@@ -31,6 +31,7 @@ export default defineConfig({
             group: "Notebooks",
             pages: [
               "tools/use_notebook",
+              "tools/use_notebook_by_name",
               "tools/list_notebooks",
               "tools/read_notebook",
               "tools/restart_notebook",
