@@ -91,6 +91,7 @@ from jupyter_mcp_server.tools import (
     # Tool infrastructure
     ServerMode,
     UnuseNotebookTool,
+    UseNotebookByNameTool,
     UseNotebookTool,
 )
 from jupyter_mcp_server.utils import (
@@ -361,11 +362,12 @@ INSTRUCTIONS = (
     "collaborative document: a write straight to the file is silently discarded "
     "or silently overwrites unsaved edits.\n"
     "\n"
-    "**MULTI-NOTEBOOK & MULTI-AGENT SAFETY**: `use_notebook` sets the server's "
-    "default active notebook globally. When working with multiple notebooks or "
-    "running concurrent subagents/sessions against a shared MCP server, pass "
-    "`notebook_name` explicitly on cell and execution tools (`read_cell`, "
-    "`insert_cell`, `edit_cell_source`, `overwrite_cell_source`, `execute_cell`, "
+    "**MULTI-NOTEBOOK & MULTI-AGENT SAFETY**: `use_notebook` and "
+    "`use_notebook_by_name` set the server's default active notebook globally. "
+    "When working with multiple notebooks or running concurrent "
+    "subagents/sessions against a shared MCP server, pass `notebook_name` "
+    "explicitly on cell and execution tools (`read_cell`, `insert_cell`, "
+    "`edit_cell_source`, `overwrite_cell_source`, `execute_cell`, "
     "`insert_execute_code_cell`, `delete_cell`, `move_cell`, `clear_cell_output`) "
     "to avoid racing the shared active-notebook pointer."
 )
@@ -812,13 +814,18 @@ async def list_kernels() -> (
 @structured("notebook.use")
 @with_hooks("use_notebook")
 async def use_notebook(
-    notebook_name: Annotated[str, Field(description="Unique identifier for the notebook")],
     notebook_path: Annotated[
         str,
         Field(
             description="Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb')"
         ),
     ],
+    notebook_name: Annotated[
+        str | None,
+        Field(
+            description="Optional unique identifier for the notebook. When omitted, defaults to the notebook path."
+        ),
+    ] = None,
     mode: Annotated[
         Literal["connect", "create"],
         Field(
@@ -839,10 +846,10 @@ async def use_notebook(
         ),
     ] = None,
 ) -> ToolAnswer:
-    """Use a notebook and activate it for following cell operations.
-    All cell operations will be performed on the currently activated notebook.
-    Activate new notebook will deactivate the previously activated notebook.
-    Reactivate previously activated notebook using same notebook_name and notebook_path.
+    """Connect to or create a notebook by path and activate it for following cell operations.
+    Pass an optional notebook_name to register an alias you can later activate via
+    use_notebook_by_name or pass explicitly to cell tools; when omitted, notebook_name
+    defaults to notebook_path.
 
     Kernel selection follows the notebook's existing context. Pass kernel_id to
     use a kernel that is already running (or to switch an already-connected
@@ -876,6 +883,43 @@ async def use_notebook(
         )
     )
     return result
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Use Notebook by Name",
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+)
+@structured("notebook.use_by_name")
+@with_hooks("use_notebook_by_name")
+async def use_notebook_by_name(
+    notebook_name: Annotated[
+        str,
+        Field(
+            description="Identifier of an already-connected notebook to activate (registered earlier via use_notebook)."
+        ),
+    ],
+) -> ToolAnswer:
+    """Switch the active notebook to an already-connected notebook by its registered name.
+    Use use_notebook first to connect a notebook by notebook_path (optionally giving it a
+    notebook_name), then call use_notebook_by_name to switch back to it without repeating
+    the path.
+    """
+    config = get_config()
+    return await safe_notebook_operation(
+        lambda: UseNotebookByNameTool().execute(
+            mode=server_context.mode,
+            notebook_name=notebook_name,
+            contents_manager=server_context.contents_manager,
+            notebook_manager=notebook_manager,
+            code_sandbox_url=config.code_sandbox_url if config.code_sandbox_url != "local" else None,
+            code_sandbox_token=config.code_sandbox_token,
+            auth_headers=server_context.code_sandbox_auth_headers or None,
+        )
+    )
 
 
 @mcp.tool(

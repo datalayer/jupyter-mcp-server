@@ -38,6 +38,13 @@ from jupyter_mcp_server.utils import (
 logger = logging.getLogger(__name__)
 
 
+def _resolve_target_notebook_context(notebook_manager, notebook_name: str | None = None):
+    """Resolve (notebook_path, kernel_id) for an explicit target or the current notebook."""
+    if notebook_name is None:
+        return get_current_notebook_context(notebook_manager)
+    return resolve_notebook_path(notebook_manager, notebook_name)
+
+
 class ExecuteCellTool(BaseTool):
     """Execute a cell with configurable timeout and optional streaming progress updates"""
 
@@ -95,10 +102,10 @@ class ExecuteCellTool(BaseTool):
         self,
         kernel_manager,
         notebook_manager,
-        notebook_path: str | None,
         notebook_name: str | None = None,
     ) -> str:
         """Start a kernel and rebind it to the target or current notebook in local mode."""
+        notebook_path, _ = _resolve_target_notebook_context(notebook_manager, notebook_name)
         kernel_id = await kernel_manager.start_kernel(path=notebook_path)
         await asyncio.sleep(1.0)
         logger.info(f"Kernel {kernel_id} started and initialized")
@@ -115,7 +122,7 @@ class ExecuteCellTool(BaseTool):
                 # JUPYTER_SERVER mode executes on.
                 code_sandbox=kernel_info,
                 server_url="local",
-                path=notebook_manager.get_notebook_path(name) or notebook_path,
+                path=notebook_path,
             )
         return kernel_id
 
@@ -277,13 +284,11 @@ class ExecuteCellTool(BaseTool):
             if kernel_manager is None:
                 raise ValueError("kernel_manager is required for JUPYTER_SERVER mode")
 
-            # Preserve the root-relative API path for kernel creation, then resolve
-            # a separate filesystem path for file and YDoc operations below.
-            if notebook_name is None:
-                notebook_path, kernel_id = get_current_notebook_context(notebook_manager)
-            else:
-                notebook_path, kernel_id = resolve_notebook_path(notebook_manager, notebook_name)
-            notebook_api_path = notebook_path
+            # Resolve the notebook path (and any bound kernel_id), then convert
+            # a relative path to absolute for file and YDoc operations below.
+            notebook_path, kernel_id = _resolve_target_notebook_context(
+                notebook_manager, notebook_name
+            )
 
             # Resolve to absolute path
             if notebook_path and serverapp and not Path(notebook_path).is_absolute():
@@ -295,7 +300,7 @@ class ExecuteCellTool(BaseTool):
             if kernel_id is None:
                 logger.info("No kernel_id available, starting new kernel for execute_cell")
                 kernel_id = await self._start_and_bind_kernel(
-                    kernel_manager, notebook_manager, notebook_api_path, notebook_name=notebook_name
+                    kernel_manager, notebook_manager, notebook_name=notebook_name
                 )
             elif not await self._kernel_exists(kernel_manager, kernel_id):
                 logger.info(
@@ -303,7 +308,7 @@ class ExecuteCellTool(BaseTool):
                     kernel_id,
                 )
                 kernel_id = await self._start_and_bind_kernel(
-                    kernel_manager, notebook_manager, notebook_api_path, notebook_name=notebook_name
+                    kernel_manager, notebook_manager, notebook_name=notebook_name
                 )
 
             logger.info(
@@ -367,7 +372,6 @@ class ExecuteCellTool(BaseTool):
                         kernel_id = await self._start_and_bind_kernel(
                             kernel_manager,
                             notebook_manager,
-                            notebook_api_path,
                             notebook_name=notebook_name,
                         )
                         outputs = await execute_via_execution_stack(
@@ -428,7 +432,6 @@ class ExecuteCellTool(BaseTool):
                         kernel_id = await self._start_and_bind_kernel(
                             kernel_manager,
                             notebook_manager,
-                            notebook_api_path,
                             notebook_name=notebook_name,
                         )
                         raw_outputs = []

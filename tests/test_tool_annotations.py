@@ -125,7 +125,8 @@ class TestOnlyRunningCodeReachesTheOpenWorld:
         [
             "read_cell", "read_notebook", "list_notebooks", "list_files", "list_kernels",
             "insert_cell", "delete_cell", "move_cell", "overwrite_cell_source",
-            "edit_cell_source", "clear_cell_output", "use_notebook", "unuse_notebook",
+            "edit_cell_source", "clear_cell_output", "use_notebook", "use_notebook_by_name",
+            "unuse_notebook",
         ],
     )
     def test_everything_else_acts_on_one_known_server(self, tools, name):

@@ -31,7 +31,7 @@ const cfg = JSON.parse(await readFile(join(HERE, "config-fields.json"), "utf8"))
 
 const GROUPS = [
   ["Connection & server", ["connect_to_jupyter", "list_files", "list_kernels"]],
-  ["Notebooks", ["use_notebook", "list_notebooks", "read_notebook", "restart_notebook", "unuse_notebook"]],
+  ["Notebooks", ["use_notebook", "use_notebook_by_name", "list_notebooks", "read_notebook", "restart_notebook", "unuse_notebook"]],
   ["Cells", ["insert_cell", "read_cell", "edit_cell_source", "overwrite_cell_source", "move_cell", "delete_cell", "clear_cell_output"]],
   ["Execution", ["execute_cell", "insert_execute_code_cell", "execute_code"]],
   ["Sandboxes (extension)", ["launch_sandbox", "list_sandboxes", "use_sandbox", "terminate_sandbox"]],

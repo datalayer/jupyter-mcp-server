@@ -1,14 +1,14 @@
 ---
 title: "use_notebook"
-description: "Use a notebook and activate it for following cell operations."
+description: "Connect to or create a notebook by path and activate it for following cell operations."
 ---
 
 # use_notebook
 
-Use a notebook and activate it for following cell operations.
-All cell operations will be performed on the currently activated notebook.
-Activate new notebook will deactivate the previously activated notebook.
-Reactivate previously activated notebook using same notebook_name and notebook_path.
+Connect to or create a notebook by path and activate it for following cell operations.
+Pass an optional notebook_name to register an alias you can later activate via
+use_notebook_by_name or pass explicitly to cell tools; when omitted, notebook_name
+defaults to notebook_path.
 
 Kernel selection follows the notebook's existing context. Pass kernel_id to
 use a kernel that is already running (or to switch an already-connected
@@ -26,8 +26,8 @@ isolated kernel.
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `notebook_name` | string | yes | — | Unique identifier for the notebook |
 | `notebook_path` | string | yes | — | Path to the notebook file, relative to the Jupyter server root (e.g. 'notebook.ipynb') |
+| `notebook_name` | string \| null | no | `null` | Optional unique identifier for the notebook. When omitted, defaults to the notebook path. |
 | `mode` | `connect` · `create` | no | `"connect"` | Notebook operation mode: 'connect' to connect to existing and activate it, 'create' to create new and activate it |
 | `kernel_id` | string \| null | no | `null` | Existing kernel to use for this notebook. When provided, use_notebook verifies it is alive and creates a Jupyter session binding the notebook to it when no session exists (or switches an already-connected notebook to that kernel). When omitted, a sandbox already selected with use_sandbox is reused; otherwise, if the notebook has a live Jupyter session, use_notebook triggers use_sandbox for that session and says so in the reply. With neither, no kernel is created. Pass 'NEW' to start an isolated kernel. |
 
@@ -67,8 +67,8 @@ isolated kernel.
   "params": {
     "name": "use_notebook",
     "arguments": {
-      "notebook_name": "<notebook_name>",
       "notebook_path": "<notebook_path>",
+      "notebook_name": null,
       "mode": "connect",
       "kernel_id": null
     }
@@ -77,7 +77,7 @@ isolated kernel.
 ```
 
 ```python
-result = await session.call_tool("use_notebook", arguments={"notebook_name": "<notebook_name>", "notebook_path": "<notebook_path>", "mode": "connect", "kernel_id": None})
+result = await session.call_tool("use_notebook", arguments={"notebook_path": "<notebook_path>", "notebook_name": None, "mode": "connect", "kernel_id": None})
 ```
 
 ## Source

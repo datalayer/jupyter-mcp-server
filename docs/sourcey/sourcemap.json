@@ -109,6 +109,11 @@
   "file": "jupyter_mcp_server/server.py",
   "how": "@mcp.tool"
  },
+ "use_notebook_by_name": {
+  "kind": "tool",
+  "file": "jupyter_mcp_server/server.py",
+  "how": "@mcp.tool"
+ },
  "use_sandbox": {
   "kind": "tool",
   "file": "extensions/sandboxes/jupyter_mcp_sandboxes/extension.py",

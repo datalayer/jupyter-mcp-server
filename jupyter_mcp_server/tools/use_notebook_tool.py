@@ -296,8 +296,8 @@ class UseNotebookTool(BaseTool):
         session_manager: Any | None = None,
         notebook_manager: NotebookManager | None = None,
         # Tool-specific parameters
-        notebook_name: str = None,
-        notebook_path: str = None,
+        notebook_name: str | None = None,
+        notebook_path: str | None = None,
         use_mode: Literal["connect", "create"] = "connect",
         kernel_id: str | None = None,
         code_sandbox_url: str | None = None,
@@ -314,8 +314,8 @@ class UseNotebookTool(BaseTool):
             kernel_manager: Direct kernel manager for JUPYTER_SERVER mode
             session_manager: Session manager for creating kernel-notebook associations
             notebook_manager: Notebook manager instance
-            notebook_name: Unique identifier for the notebook
-            notebook_path: Path to the notebook file (optional, if not provided switches to existing notebook)
+            notebook_name: Optional unique identifier for the notebook (defaults to notebook_path)
+            notebook_path: Path to the notebook file
             use_mode: "connect" or "create"
             kernel_id: Optional specific kernel ID
             code_sandbox_url: Code sandbox URL for HTTP mode
@@ -325,6 +325,20 @@ class UseNotebookTool(BaseTool):
         Returns:
             Success message with notebook information
         """
+        if not notebook_path:
+            return (
+                "notebook_path is required for use_notebook. "
+                "Use 'use_notebook_by_name' to activate an already-connected notebook by name."
+            )
+
+        if not notebook_name:
+            if notebook_manager is not None:
+                for existing_name, _ in notebook_manager:
+                    if notebook_manager.get_notebook_path(existing_name) == notebook_path:
+                        notebook_name = existing_name
+                        break
+            if not notebook_name:
+                notebook_name = notebook_path
         # Check server connectivity (HTTP mode only).
         #
         # Only when a Jupyter server is actually what holds the documents.
@@ -921,108 +935,128 @@ class UseNotebookTool(BaseTool):
             kernel_name=notebook_name,
         )
 
-        # Return the quick overview of currently activated notebook
-        try:
-            if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
-                # Read notebook to get cell count and first 20 cells
-                model = await ensure_async(
-                    contents_manager.get(notebook_path, content=True, type="notebook")
-                )
-                if "content" in model:
-                    notebook = Notebook(**model["content"])
-                else:
-                    notebook = Notebook()
+        await append_notebook_preview_and_open_ui(
+            mode=mode,
+            info_list=info_list,
+            notebook_path=notebook_path,
+            contents_manager=contents_manager,
+            notebook_manager=notebook_manager,
+            code_sandbox_url=code_sandbox_url,
+            code_sandbox_token=code_sandbox_token,
+            auth_headers=auth_headers,
+        )
+        return "\n".join(info_list)
 
-            elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
-                # Use notebook manager to get cell info
-                nbclient_supports_headers = (
-                    "additional_headers" in inspect.signature(NbModelClient).parameters
-                )
-                if auth_headers and not code_sandbox_token and not nbclient_supports_headers:
-                    info_list.append(
-                        "\nNotebook preview skipped: current jupyter_nbmodel_client "
-                        "does not support websocket auth headers in password-only mode."
-                    )
-                    return "\n".join(info_list)
-                async with notebook_manager.get_current_connection() as notebook_content:
-                    notebook = Notebook(**notebook_content.as_dict())
 
+async def append_notebook_preview_and_open_ui(
+    mode: ServerMode,
+    info_list: list[str],
+    notebook_path: str | None,
+    contents_manager: Any | None = None,
+    notebook_manager: NotebookManager | None = None,
+    code_sandbox_url: str | None = None,
+    code_sandbox_token: str | None = None,
+    auth_headers: dict[str, str] | None = None,
+) -> None:
+    """Append a brief cell overview and optionally open the notebook in JupyterLab UI."""
+    try:
+        notebook: Notebook | None = None
+        if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None and notebook_path:
+            model = await ensure_async(
+                contents_manager.get(notebook_path, content=True, type="notebook")
+            )
+            if "content" in model:
+                notebook = Notebook(**model["content"])
+            else:
+                notebook = Notebook()
+
+        elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
+            nbclient_supports_headers = (
+                "additional_headers" in inspect.signature(NbModelClient).parameters
+            )
+            if auth_headers and not code_sandbox_token and not nbclient_supports_headers:
+                info_list.append(
+                    "\nNotebook preview skipped: current jupyter_nbmodel_client "
+                    "does not support websocket auth headers in password-only mode."
+                )
+                return
+            async with notebook_manager.get_current_connection() as notebook_content:
+                notebook = Notebook(**notebook_content.as_dict())
+
+        if notebook is not None:
             info_list.append(f"\nNotebook has {len(notebook)} cells.")
             info_list.append(f"Showing first {min(20, len(notebook))} cells:\n")
             info_list.append(
                 notebook.format_output(response_format="brief", start_index=0, limit=20)
             )
-        except Exception as e:
-            # The notebook is active either way; the preview is a courtesy.
-            # But a failure here (e.g. the collaborative document did not
-            # sync) is the one every cell tool will hit next, so say so now
-            # instead of reporting a silent success.
-            logger.warning(f"Failed to get notebook summary: {e}")
-            info_list.append(f"\n[WARNING] Could not load notebook preview: {e}")
+    except Exception as e:
+        # The notebook is active either way; the preview is a courtesy.
+        # But a failure here (e.g. the collaborative document did not
+        # sync) is the one every cell tool will hit next, so say so now
+        # instead of reporting a silent success.
+        logger.warning(f"Failed to get notebook summary: {e}")
+        info_list.append(f"\n[WARNING] Could not load notebook preview: {e}")
 
-        # Check if we should open in JupyterLab UI (when JupyterLab mode is
-        # enabled and the user opted in, since opening activates the tab)
-        try:
-            from jupyter_mcp_server.config import get_config
-            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+    if not notebook_path:
+        return
 
-            context = get_server_context()
+    # Check if we should open in JupyterLab UI (when JupyterLab mode is
+    # enabled and the user opted in, since opening activates the tab)
+    try:
+        from jupyter_mcp_server.config import get_config
+        from jupyter_mcp_server.jupyter_extension.context import get_server_context
 
-            if context.is_jupyterlab_mode() and get_config().open_notebook_in_ui:
-                logger.info(
-                    f"JupyterLab mode enabled, attempting to open notebook '{notebook_path}' in JupyterLab UI"
-                )
+        context = get_server_context()
 
-                # Determine base_url and token based on mode
-                base_url = None
-                token = None
+        if context.is_jupyterlab_mode() and get_config().open_notebook_in_ui:
+            logger.info(
+                f"JupyterLab mode enabled, attempting to open notebook '{notebook_path}' in JupyterLab UI"
+            )
 
-                if mode == ServerMode.JUPYTER_SERVER and context.serverapp is not None:
-                    # JUPYTER_SERVER mode: Use ServerApp connection details
-                    base_url = context.serverapp.connection_url
-                    token = context.serverapp.token
-                elif mode == ServerMode.MCP_SERVER:
-                    # In split setups, open the file in the document server's
-                    # JupyterLab, where the notebook is stored.
-                    config = get_config()
-                    if config.document_url and config.document_url != config.code_sandbox_url:
-                        base_url = config.document_url
-                        token = config.document_token
-                    elif code_sandbox_url:
-                        base_url = code_sandbox_url
-                        token = code_sandbox_token
+            base_url = None
+            token = None
 
-                if base_url and token:
-                    try:
-                        from jupyter_mcp_tools.client import MCPToolsClient
+            if mode == ServerMode.JUPYTER_SERVER and context.serverapp is not None:
+                base_url = context.serverapp.connection_url
+                token = context.serverapp.token
+            elif mode == ServerMode.MCP_SERVER:
+                config = get_config()
+                if config.document_url and config.document_url != config.code_sandbox_url:
+                    base_url = config.document_url
+                    token = config.document_token
+                elif code_sandbox_url:
+                    base_url = code_sandbox_url
+                    token = code_sandbox_token
 
-                        async with MCPToolsClient(base_url=base_url, token=token) as client:
-                            execution_result = await client.execute_tool(
-                                tool_id="docmanager_open",  # docmanager:open converted to underscore format
-                                parameters={"path": notebook_path},
+            if base_url and token:
+                try:
+                    from jupyter_mcp_tools.client import MCPToolsClient
+
+                    async with MCPToolsClient(base_url=base_url, token=token) as client:
+                        execution_result = await client.execute_tool(
+                            tool_id="docmanager_open",
+                            parameters={"path": notebook_path},
+                        )
+
+                        if execution_result.get("success"):
+                            logger.info(
+                                "Successfully opened notebook '%s' in JupyterLab UI",
+                                notebook_path,
+                            )
+                        else:
+                            logger.warning(
+                                f"Failed to open notebook in JupyterLab UI: {execution_result}"
                             )
 
-                            if execution_result.get("success"):
-                                logger.info(
-                                    "Successfully opened notebook '%s' in JupyterLab UI",
-                                    notebook_path,
-                                )
-                            else:
-                                logger.warning(
-                                    f"Failed to open notebook in JupyterLab UI: {execution_result}"
-                                )
-
-                    except ImportError:
-                        logger.warning(
-                            "jupyter_mcp_tools not available, skipping JupyterLab UI opening"
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to open notebook in JupyterLab UI: {e}")
-                else:
+                except ImportError:
                     logger.warning(
-                        "No valid base_url or token available for opening notebook in JupyterLab UI"
+                        "jupyter_mcp_tools not available, skipping JupyterLab UI opening"
                     )
-        except Exception as e:
-            logger.debug(f"Could not check JupyterLab mode: {e}")
-
-        return "\n".join(info_list)
+                except Exception as e:
+                    logger.warning(f"Failed to open notebook in JupyterLab UI: {e}")
+            else:
+                logger.warning(
+                    "No valid base_url or token available for opening notebook in JupyterLab UI"
+                )
+    except Exception as e:
+        logger.debug(f"Could not check JupyterLab mode: {e}")
