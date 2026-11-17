@@ -9,6 +9,10 @@ import logging
 
 import requests
 
+from jupyter_mcp_server.capabilities import (
+    JUPYTER_CONNECT,
+    enabled as capabilities_enabled,
+)
 from jupyter_mcp_server.config import set_config
 from jupyter_mcp_server.tools._base import BaseTool, ServerMode
 
@@ -77,7 +81,34 @@ class ConnectJupyterTool(BaseTool):
             f"Token: {'***' if jupyter_token else 'None'}"
         )
 
-        if document_provider == "jupyter" and jupyter_url != "local" and not _unset(jupyter_url):
+        if mode == ServerMode.JUPYTER_SERVER:
+            error_msg = (
+                "Failed to connect to Jupyter server: connect_to_jupyter is not "
+                "available in JUPYTER_SERVER mode. The previous connection is unchanged."
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        if not capabilities_enabled(JUPYTER_CONNECT):
+            error_msg = (
+                "Failed to connect to Jupyter server: the 'jupyter.connect' capability "
+                "is disabled by default. Enable it with '--capability jupyter.connect' "
+                "(or JUPYTER_MCP_CAPABILITIES=jupyter.connect), or use 'PUT /api/connect' "
+                "from the host. The previous connection is unchanged."
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        if _unset(jupyter_url) or jupyter_url == "local":
+            error_msg = (
+                f"Failed to connect to Jupyter server {jupyter_url}: "
+                "a valid HTTP(S) URL is required in MCP_SERVER mode. "
+                "The previous connection is unchanged."
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        if document_provider == "jupyter":
             try:
                 await asyncio.to_thread(_check_jupyter_server, jupyter_url, jupyter_token)
             except RuntimeError as error:

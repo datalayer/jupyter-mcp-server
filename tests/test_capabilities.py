@@ -28,6 +28,7 @@ from jupyter_mcp_server.capabilities import (
     CAPABILITIES_ENV,
     CAPABILITIES_EXTENSION,
     CAPABILITIES_RESOURCE,
+    JUPYTER_CONNECT,
     KERNEL_AUTO_RESTART,
     Capability,
     CapabilityRegistry,
@@ -52,6 +53,11 @@ class TestTheDefaults:
         should be told its kernel died, not handed a different one wearing
         the same name."""
         assert get_capabilities().enabled(KERNEL_AUTO_RESTART) is False
+
+    def test_dynamic_jupyter_connect_is_off(self):
+        """Switching which Jupyter server the process talks to is an operator
+        action unless explicitly enabled."""
+        assert get_capabilities().enabled(JUPYTER_CONNECT) is False
 
     def test_every_declared_capability_says_what_it_is(self):
         """A name alone tells an operator nothing about what turning it on
@@ -264,6 +270,7 @@ class TestAdvertising:
         block = get_capabilities().advertise()
         assert block["capabilities"] == []
         assert {entry["name"] for entry in block["declared"]} == {
+            JUPYTER_CONNECT,
             KERNEL_AUTO_RESTART,
         }
         assert all(entry["enabled"] is False for entry in block["declared"])

@@ -15,6 +15,11 @@ from types import SimpleNamespace
 import pytest
 import requests
 
+from jupyter_mcp_server.capabilities import (
+    JUPYTER_CONNECT,
+    get_capabilities,
+    reset_capabilities,
+)
 from jupyter_mcp_server.config import get_config, reset_config, set_config
 from jupyter_mcp_server.tools import ServerMode, connect_jupyter_tool
 from jupyter_mcp_server.tools.connect_jupyter_tool import ConnectJupyterTool
@@ -24,10 +29,13 @@ GOOD_URL = "http://localhost:8888"
 
 def setup_function():
     reset_config()
+    reset_capabilities()
+    get_capabilities().set(JUPYTER_CONNECT, True, source="test")
     set_config(code_sandbox_url=GOOD_URL, document_url=GOOD_URL, code_sandbox_token="good")
 
 
 def teardown_function():
+    reset_capabilities()
     reset_config()
 
 
@@ -127,3 +135,59 @@ async def test_the_check_does_not_block_a_server_on_the_same_event_loop(monkeypa
         server.close()
         await server.wait_closed()
     assert "Successfully connected" in result
+
+
+@pytest.mark.asyncio
+async def test_connect_is_refused_when_jupyter_connect_capability_is_off(monkeypatch):
+    reset_capabilities()
+    calls = _stub_get(
+        monkeypatch, raises=AssertionError("should not probe server when jupyter.connect is off")
+    )
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            r"'jupyter\.connect' capability is disabled by default.*"
+            r"previous connection is unchanged"
+        ),
+    ):
+        await _connect(jupyter_url="http://localhost:8889", jupyter_token="abc")
+    assert calls == []
+    assert get_config().code_sandbox_url == GOOD_URL
+    assert get_config().code_sandbox_token == "good"  # noqa: S105
+
+
+@pytest.mark.asyncio
+async def test_jupyter_server_mode_refuses_connect_and_keeps_the_old_connection(monkeypatch):
+    calls = _stub_get(
+        monkeypatch, raises=AssertionError("should not probe server in JUPYTER_SERVER mode")
+    )
+    with pytest.raises(
+        RuntimeError,
+        match=r"not available in JUPYTER_SERVER mode.*previous connection is unchanged",
+    ):
+        await ConnectJupyterTool().execute(
+            mode=ServerMode.JUPYTER_SERVER,
+            jupyter_url="http://localhost:8889",
+            jupyter_token="abc",
+        )
+    assert calls == []
+    assert get_config().code_sandbox_url == GOOD_URL
+    assert get_config().code_sandbox_token == "good"  # noqa: S105
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_url", ["local", "", "None", "null"])
+async def test_local_or_unset_url_in_mcp_server_mode_is_an_error_and_keeps_the_old_connection(
+    monkeypatch, bad_url
+):
+    calls = _stub_get(
+        monkeypatch, raises=AssertionError("should not probe server for local/unset URL")
+    )
+    with pytest.raises(
+        RuntimeError, match=r"valid HTTP\(S\) URL is required.*previous connection is unchanged"
+    ):
+        await _connect(jupyter_url=bad_url, jupyter_token=None)
+    assert calls == []
+    assert get_config().code_sandbox_url == GOOD_URL
+    assert get_config().code_sandbox_token == "good"  # noqa: S105
+

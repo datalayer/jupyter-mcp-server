@@ -111,13 +111,13 @@ already, because a published port is forwarded to the container's own interface 
 than to its loopback.
 
 :::tip Dynamic Connection
-The `--jupyter-url` and `--jupyter-token` parameters are optional thanks to the [`connect_to_jupyter`](pathname:///mcp/features/#operation-connect-to-jupyter-tool) tool. This tool allows you to connect to different Jupyter servers dynamically during your conversation without restarting the MCP server.
+The `--jupyter-url` and `--jupyter-token` parameters are optional when you enable the `jupyter.connect` [capability](/operations/capabilities) (`--capability jupyter.connect` or `JUPYTER_MCP_CAPABILITIES=jupyter.connect`), which unlocks the [`connect_to_jupyter`](pathname:///mcp/features/#operation-connect-to-jupyter-tool) tool. This tool allows you to connect to different Jupyter servers dynamically during your conversation without restarting the MCP server.
 
 Example usage: *"Connect to jupyter server http://localhost:8888 with token MY_TOKEN"*
 
 Before switching, the tool checks the server by requesting `/api/status` with the given token. If the server can't be reached or rejects the token, the call returns an error and the previous connection stays in place.
 
-⚠️ **Security Warning**: Using the `connect_to_jupyter` tool means providing the Jupyter token to the LLM, which is not secure in production environments.
+⚠️ **Security Warning**: The `jupyter.connect` capability is **off by default** because using the `connect_to_jupyter` tool means providing the Jupyter token to the LLM and mutating the server's active connection, which is not secure in shared or production environments.
 :::
 
 ### Using Docker

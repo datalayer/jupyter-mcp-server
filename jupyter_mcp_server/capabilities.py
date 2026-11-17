@@ -61,6 +61,12 @@ CAPABILITIES_ENV = "JUPYTER_MCP_CAPABILITIES"
 #: told its kernel died, not handed a different one wearing its name.
 KERNEL_AUTO_RESTART = "kernel.auto-restart"
 
+#: Allow the `connect_to_jupyter` tool to repoint the server at a different
+#: Jupyter URL and token at runtime. Off by default: switching which Jupyter
+#: server the process talks to mutates the process-wide configuration and is
+#: an operator action unless explicitly opted into.
+JUPYTER_CONNECT = "jupyter.connect"
+
 @dataclass(frozen=True)
 class Capability:
     """One thing this server can do, and whether it is doing it."""
@@ -89,6 +95,16 @@ class Capability:
 
 #: The capabilities the core server knows about, with their defaults.
 BUILT_IN: tuple[Capability, ...] = (
+    Capability(
+        name=JUPYTER_CONNECT,
+        description=(
+            "Allow the connect_to_jupyter tool to switch the Jupyter server "
+            "URL and token at runtime. Off by default, so a prompt or a "
+            "client on a shared server cannot repoint the process without "
+            "the operator opting in."
+        ),
+        enabled=False,
+    ),
     Capability(
         name=KERNEL_AUTO_RESTART,
         description=(

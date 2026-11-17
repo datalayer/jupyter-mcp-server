@@ -106,6 +106,28 @@ time is not a restart — there was no session to lose — and is never refused.
 And `restart_notebook` is a caller asking for exactly this, so it is never
 blocked by a switch about doing it behind somebody's back.
 
+### `jupyter.connect`
+
+**Off by default.**
+
+Off, a `connect_to_jupyter` tool call is refused before probing the target URL
+or updating the process-wide configuration:
+
+```
+Failed to connect to Jupyter server: the 'jupyter.connect' capability is
+disabled by default. Enable it with '--capability jupyter.connect' (or
+JUPYTER_MCP_CAPABILITIES=jupyter.connect), or use 'PUT /api/connect' from the
+host. The previous connection is unchanged.
+```
+
+On, `connect_to_jupyter` verifies `GET /api/status` on the target server and
+switches the active connection when the check succeeds.
+
+Operator-initiated connections at startup (`--jupyter-url` / `JUPYTER_URL`) and
+over the localhost management route (`jupyter-mcp-server connect` /
+`PUT /api/connect`) are not governed by this capability and continue to work
+when `jupyter.connect` is off.
+
 ## Declaring one from an extension
 
 An extension that genuinely adds an ability says so, rather than the core

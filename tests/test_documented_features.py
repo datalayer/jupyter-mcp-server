@@ -280,12 +280,14 @@ class TestTheCapabilitiesPage:
         """The page says off by default, and that is the whole point of the
         capability."""
         from jupyter_mcp_server.capabilities import (
+            JUPYTER_CONNECT,
             KERNEL_AUTO_RESTART,
             CapabilityRegistry,
         )
 
         assert "Off by default" in page
         assert CapabilityRegistry().enabled(KERNEL_AUTO_RESTART) is False
+        assert CapabilityRegistry().enabled(JUPYTER_CONNECT) is False
 
     def test_the_off_spellings_it_lists_are_accepted(self, page):
         from jupyter_mcp_server.capabilities import parse_setting
@@ -334,6 +336,26 @@ class TestTheCapabilitiesPage:
             asyncio.run(ensure_code_sandbox_alive(_Manager(), "nb", lambda: None))
         message = str(raised.value)
         for fragment in ("restart_notebook", "kernel.auto-restart"):
+            assert fragment in page, f"the page does not mention {fragment}"
+            assert fragment in message, f"the raised message does not mention {fragment}"
+
+    def test_the_connect_error_message_it_quotes_is_the_one_raised(self, page):
+        """The `jupyter.connect` section quotes the refusal message raised when
+        the capability is off."""
+        from jupyter_mcp_server.capabilities import reset_capabilities
+        from jupyter_mcp_server.tools import ServerMode
+        from jupyter_mcp_server.tools.connect_jupyter_tool import ConnectJupyterTool
+
+        reset_capabilities()
+        with pytest.raises(RuntimeError) as raised:
+            asyncio.run(
+                ConnectJupyterTool().execute(
+                    mode=ServerMode.MCP_SERVER,
+                    jupyter_url="http://localhost:8888",
+                )
+            )
+        message = str(raised.value)
+        for fragment in ("jupyter.connect", "--capability jupyter.connect", "PUT /api/connect"):
             assert fragment in page, f"the page does not mention {fragment}"
             assert fragment in message, f"the raised message does not mention {fragment}"
 
