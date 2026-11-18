@@ -87,3 +87,47 @@ async def test_an_unmatchable_pattern_reports_no_files(content_root):
         pattern="*.rs",
     )
     assert "No files matching pattern '*.rs'" in listing
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        ("[^a].py", ["^.py", "a.py"]),
+        ("[!].py", ["[!].py"]),
+        ("[]].py", ["].py"]),
+        ("[!a].py", ["].py", "^.py", "b.py"]),
+        ("[a-b].py", ["a.py", "b.py"]),
+    ],
+)
+async def test_bracket_patterns_follow_glob_semantics(tmp_path, pattern, expected):
+    for name in ["^.py", "a.py", "b.py", "].py", "[!].py"]:
+        (tmp_path / name).write_text("x = 1\n", encoding="utf-8")
+
+    assert await _matching(tmp_path, pattern) == expected
+
+
+@pytest.mark.asyncio
+async def test_reversed_range_matches_nothing_instead_of_skipping_filter(content_root):
+    listing = await ListFilesTool().execute(
+        mode=ServerMode.JUPYTER_SERVER,
+        contents_manager=LargeFileManager(root_dir=str(content_root)),
+        max_depth=1,
+        limit=0,
+        pattern="[z-a].py",
+    )
+
+    assert listing == "No files matching pattern '[z-a].py' found in path 'root'"
+
+
+@pytest.mark.asyncio
+async def test_negated_class_does_not_cross_directory_boundary(content_root):
+    listing = await ListFilesTool().execute(
+        mode=ServerMode.JUPYTER_SERVER,
+        contents_manager=LargeFileManager(root_dir=str(content_root)),
+        max_depth=1,
+        limit=0,
+        pattern="work[!x]helper.py",
+    )
+
+    assert "No files matching pattern" in listing

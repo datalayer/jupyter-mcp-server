@@ -4,6 +4,7 @@
 
 """List all files and directories tool."""
 
+import fnmatch
 import re
 from typing import Any
 
@@ -24,7 +25,7 @@ def format_size(size_bytes: int) -> str:
         return f"{size_bytes / (1024 * 1024):.1f}MB"
 
 
-_GLOB_TOKEN = re.compile(r"\*\*/|\*\*|[*?]|\[[^\]]*\]")
+_GLOB_TOKEN = re.compile(r"\*\*/|\*\*|[*?]|\[!?\]?[^\]]*\]")
 
 
 def compile_glob(pattern: str) -> re.Pattern:
@@ -47,8 +48,10 @@ def compile_glob(pattern: str) -> re.Pattern:
         elif text == "?":
             parts.append(r"[^/]")
         else:
-            body = text[1:-1]
-            parts.append("[" + ("^" + body[1:] if body.startswith("!") else body) + "]")
+            # fnmatch handles literal ']', '^', malformed classes and reversed ranges.
+            # Drop its end anchor so the rest of the path can still match.
+            translated = fnmatch.translate(text).removesuffix(r"\Z").removesuffix(r"\z")
+            parts.append(r"(?!/)" + translated)
         index = token.end()
     parts.append(re.escape(pattern[index:]))
     return re.compile("".join(parts) + r"\Z")
