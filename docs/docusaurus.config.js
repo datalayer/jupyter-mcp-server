@@ -22,6 +22,7 @@ module.exports = {
     },
   },
   markdown: {
+    format: 'detect',
     mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: 'warn',
