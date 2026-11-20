@@ -21,13 +21,14 @@ class ListKernelsTool(BaseTool):
         """List kernels using HTTP API (MCP_SERVER mode)."""
         try:
             # Get all kernels from the Jupyter server
-            kernels = sandbox_server_client.kernels.list_kernels()
+            kernels = sandbox_server_client.kernels.list_kernels() or []
 
-            if not kernels:
-                return []
-
-            # Get kernel specifications for additional details
+            # Get kernel specifications for additional details and unstarted specs
             kernels_specs = sandbox_server_client.kernelspecs.list_kernelspecs()
+            specs_map = getattr(kernels_specs, "kernelspecs", None) or {}
+
+            if not kernels and not specs_map:
+                return []
 
             # Create enhanced kernel information list
             output = []
@@ -67,11 +68,8 @@ class ListKernelsTool(BaseTool):
             # Enhance kernel info with specifications
             for kernel in output:
                 kernel_name = kernel["name"]
-                if (
-                    hasattr(kernels_specs, "kernelspecs")
-                    and kernel_name in kernels_specs.kernelspecs
-                ):
-                    kernel_spec = kernels_specs.kernelspecs[kernel_name]
+                if kernel_name in specs_map:
+                    kernel_spec = specs_map[kernel_name]
                     if hasattr(kernel_spec, "spec"):
                         if hasattr(kernel_spec.spec, "display_name"):
                             kernel["display_name"] = kernel_spec.spec.display_name
@@ -86,6 +84,43 @@ class ListKernelsTool(BaseTool):
                                     env_str[:100] + "..." if len(env_str) > 100 else env_str
                                 )
 
+            # Include installed kernel specs that do not have a running instance (#274)
+            running_names = {kernel["name"] for kernel in output}
+            for spec_name, kernel_spec in specs_map.items():
+                if spec_name in running_names:
+                    continue
+                spec_info = {
+                    "id": "none",
+                    "name": spec_name,
+                    "state": "available",
+                    "connections": "0",
+                    "last_activity": "none",
+                    "display_name": spec_name,
+                    "language": "unknown",
+                    "env": "unknown",
+                }
+                spec_obj = getattr(kernel_spec, "spec", None)
+                if spec_obj is not None:
+                    if getattr(spec_obj, "display_name", None):
+                        spec_info["display_name"] = spec_obj.display_name
+                    if getattr(spec_obj, "language", None):
+                        spec_info["language"] = spec_obj.language
+                    env_dict = getattr(spec_obj, "env", None)
+                    if env_dict:
+                        env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
+                        spec_info["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
+                elif isinstance(kernel_spec, dict):
+                    spec_dict = kernel_spec.get("spec", {})
+                    if spec_dict.get("display_name"):
+                        spec_info["display_name"] = spec_dict["display_name"]
+                    if spec_dict.get("language"):
+                        spec_info["language"] = spec_dict["language"]
+                    if spec_dict.get("env"):
+                        env_dict = spec_dict["env"]
+                        env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
+                        spec_info["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
+                output.append(spec_info)
+
             return output
 
         except Exception as e:
@@ -99,11 +134,11 @@ class ListKernelsTool(BaseTool):
             # Get all running kernels - list_kernels() returns dicts with kernel info
             kernel_infos = list(kernel_manager.list_kernels())
 
-            if not kernel_infos:
-                return []
-
             # Get kernel specifications
             kernel_specs = kernel_spec_manager.get_all_specs() if kernel_spec_manager else {}
+
+            if not kernel_infos and not kernel_specs:
+                return []
 
             # Create enhanced kernel information list
             output = []
@@ -146,6 +181,28 @@ class ListKernelsTool(BaseTool):
                         env_dict = spec["env"]
                         env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
                         kernel["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
+
+            # Include installed kernel specs that do not have a running instance (#274)
+            running_names = {kernel["name"] for kernel in output}
+            for spec_name, spec_entry in kernel_specs.items():
+                if spec_name in running_names:
+                    continue
+                spec = spec_entry.get("spec", {}) if isinstance(spec_entry, dict) else {}
+                spec_info = {
+                    "id": "none",
+                    "name": spec_name,
+                    "state": "available",
+                    "connections": "0",
+                    "last_activity": "none",
+                    "display_name": spec.get("display_name") or spec_name,
+                    "language": spec.get("language") or "unknown",
+                    "env": "unknown",
+                }
+                if spec.get("env"):
+                    env_dict = spec["env"]
+                    env_str = "; ".join([f"{k}={v}" for k, v in env_dict.items()])
+                    spec_info["env"] = env_str[:100] + "..." if len(env_str) > 100 else env_str
+                output.append(spec_info)
 
             return output
 
