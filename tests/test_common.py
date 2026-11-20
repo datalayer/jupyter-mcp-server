@@ -372,16 +372,28 @@ class MCPClient:
         return self._extract_text_content(result)
 
     @requires_session
-    async def read_notebook(self, notebook_name, response_format="brief", start_index=0, limit=20):
-        result = await self._session.call_tool(
-            "read_notebook",
-            arguments={
-                "notebook_name": notebook_name,
-                "response_format": response_format,
-                "start_index": start_index,
-                "limit": limit,
-            },
-        )  # type: ignore
+    async def read_notebook(
+        self,
+        notebook_name,
+        response_format="brief",
+        start_index=0,
+        limit=20,
+        search=None,
+        cell_type=None,
+    ):
+        arguments = {
+            "notebook_name": notebook_name,
+            "response_format": response_format,
+            "start_index": start_index,
+            "limit": limit,
+        }
+        # Only send the filters when given, so the call matches what a client
+        # that predates them would send.
+        if search is not None:
+            arguments["search"] = search
+        if cell_type is not None:
+            arguments["cell_type"] = cell_type
+        result = await self._session.call_tool("read_notebook", arguments=arguments)  # type: ignore
         return self._extract_text_content(result)
 
     @requires_session

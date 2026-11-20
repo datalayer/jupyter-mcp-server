@@ -57,7 +57,7 @@
     },
     {
       "name": "read_notebook",
-      "description": "Read notebook content with brief or detailed format"
+      "description": "Read notebook content with brief or detailed format, optionally filtered by text or cell type"
     },
     {
       "name": "read_cell",
