@@ -43,7 +43,21 @@ type PrimerMode = 'day' | 'night';
 const primerModeOf = (docusaurusMode: string | null | undefined): PrimerMode =>
   docusaurusMode === 'dark' ? 'night' : 'day';
 
-const INHERIT = { fontFamily: 'inherit', fontSize: 'inherit', lineHeight: 'inherit', color: 'inherit' };
+/*
+ * BaseStyles' div sits between #__docusaurus (a column flex box) and the
+ * navbar, .main-wrapper and footer: it grows in the root and is a column flex
+ * box itself, so .main-wrapper's flex: 1 still fills a short page and the
+ * footer stays at the bottom.
+ */
+const INHERIT = {
+  fontFamily: 'inherit',
+  fontSize: 'inherit',
+  lineHeight: 'inherit',
+  color: 'inherit',
+  display: 'flex',
+  flexDirection: 'column',
+  flex: '1 0 auto',
+} as const;
 
 export function PrimerRoot({ children }: { children: ReactNode }) {
   const { siteConfig } = useDocusaurusContext();
