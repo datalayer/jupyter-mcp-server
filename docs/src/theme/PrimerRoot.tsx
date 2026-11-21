@@ -16,14 +16,16 @@
  * server's included, starts from the site's `colorMode.defaultMode`.
  *
  * The same file in every Datalayer Docusaurus site; `src/theme/Root` wraps
- * the site in it. `BaseStyles` gives the Primer components their colour-mode
- * attributes and leaves the font, colour and line height to Docusaurus; the
- * primitives give them their CSS variables.
+ * the site in it. A plain element carries the colour-mode attributes Primer's
+ * components read (what `BaseStyles` would set), without `BaseStyles` itself:
+ * its global rules painted every link of the site Primer's blue, over
+ * Docusaurus' own colours (21 November 2026). The primitives give the
+ * components their CSS variables.
  */
 
 import React, { useEffect, useState, type ReactNode } from 'react';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
-import { BaseStyles, ThemeProvider } from '@primer/react';
+import { ThemeProvider } from '@primer/react';
 import { datalayerTheme } from '@datalayer/primer-addons/lib/theme/themes/datalayerTheme';
 
 import '@primer/primitives/dist/css/base/size/size.css';
@@ -44,10 +46,10 @@ const primerModeOf = (docusaurusMode: string | null | undefined): PrimerMode =>
   docusaurusMode === 'dark' ? 'night' : 'day';
 
 /*
- * BaseStyles' div sits between #__docusaurus (a column flex box) and the
- * navbar, .main-wrapper and footer: it grows in the root and is a column flex
- * box itself, so .main-wrapper's flex: 1 still fills a short page and the
- * footer stays at the bottom.
+ * The element sits between #__docusaurus (a column flex box) and the navbar,
+ * .main-wrapper and footer: it grows in the root and is a column flex box
+ * itself, so .main-wrapper's flex: 1 still fills a short page and the footer
+ * stays at the bottom. Font, colour and line height stay Docusaurus'.
  */
 const INHERIT = {
   fontFamily: 'inherit',
@@ -73,7 +75,15 @@ export function PrimerRoot({ children }: { children: ReactNode }) {
   }, []);
   return (
     <ThemeProvider theme={datalayerTheme} colorMode={colorMode}>
-      <BaseStyles style={INHERIT}>{children}</BaseStyles>
+      <div
+        data-portal-root
+        data-color-mode={colorMode === 'night' ? 'dark' : 'light'}
+        data-light-theme="light"
+        data-dark-theme="dark"
+        style={INHERIT}
+      >
+        {children}
+      </div>
     </ThemeProvider>
   );
 }
